@@ -31,12 +31,12 @@ def group [Multibase β] : Nat :=
 -- This is a little slow. We gain some in-kernel performance by
 -- requiring Multibase instances to hardcode a `digit` function, even though
 -- semantically it's derivable from `alpha`
-def digit' [Multibase β] (i : Nat): Char :=
+def digit' [Multibase β] (i : Nat) : Char :=
   if i >= (alpha β).length then zero β else String.get (alpha β) ⟨i⟩
 
 -- This is very slow because of the String.posOf call. We can't reduce
 -- encodings in-kernel unless we hardcode the `read` function in the instance
-def read' [Multibase β] (c: Char): Option Nat :=
+def read' [Multibase β] (c: Char) : Option Nat :=
  let x := String.posOf (alpha β) c
  if x == (alpha β).endPos then none else some x.byteIdx
 
@@ -46,10 +46,10 @@ def validate [Multibase β] (x: String): Bool := List.all x.data (validDigit β)
 -- The core encoding function operates over `Nat` (GMP numbers) which is
 -- supported in the Lean Kernel, thus allowing more complex static checking
 -- compared to ByteArray operations (which are currently unsupported).,
-def toStringCore [Multibase β]: Nat → Nat → String → String
-| 0, n, str => str
-| fuel+1, 0, str => str
-| fuel+1, n, str =>
+def toStringCore [Multibase β] : Nat → Nat → String → String
+| 0,        n, str => str
+| fuel + 1, 0, str => str
+| fuel + 1, n, str =>
   let dig := (digit β (n % (base β)))
   toStringCore fuel (n / (base β)) (String.append (String.singleton dig) str)
 
@@ -58,11 +58,11 @@ def toString [m: Multibase β] (x: List UInt8): String :=
   | 0 => ""
   | n => toStringCore β (n+1) n ""
 
-def padRight (input: String): Nat → String
+def padRight (input: String) : Nat → String
 | 0 => input
 | n+1 => padRight (String.push input '=') n
 
-def leadingZeroBitsCore: Nat → List UInt8 → Nat → Nat
+def leadingZeroBitsCore : Nat → List UInt8 → Nat → Nat
 | 0, bytes, n => n
 | fuel+1, [], n => n
 | fuel+1, 0::bs, n => leadingZeroBitsCore fuel bs (n + 8)
@@ -94,7 +94,7 @@ def encode [Multibase β] (x: List UInt8): String :=
     else str'                                  -- else, do nothing
   String.singleton (code β) ++ zeros ++ str'   -- return w/ base code & zeros
 
-def fromPad [Multibase β]: Nat → Nat → Nat → String → Option (Nat × Nat)
+def fromPad [Multibase β] : Nat → Nat → Nat → String → Option (Nat × Nat)
 | 0, pad, acc, input => Option.some (pad, acc)
 | fuel+1, pad, acc, "" => Option.some (pad, acc)
 | fuel+1, pad, acc, input =>
@@ -102,7 +102,7 @@ def fromPad [Multibase β]: Nat → Nat → Nat → String → Option (Nat × Na
   then fromPad fuel (pad+1) (acc * (base β)) (String.drop input 1)
   else Option.none
 
-def fromStringCore [Multibase β]: Nat → Nat → String → Option (Nat × Nat)
+def fromStringCore [Multibase β] : Nat → Nat → String → Option (Nat × Nat)
 | 0, acc, input => Option.some (0, acc)
 | fuel+1, acc, "" => Option.some (0, acc)
 | fuel+1, acc, input =>
@@ -112,24 +112,24 @@ def fromStringCore [Multibase β]: Nat → Nat → String → Option (Nat × Nat
   else Option.bind (read β input[0]) (fun d =>
     fromStringCore fuel (acc * (base β) + d) (String.drop input 1))
 
-def fromString [m: Multibase β]: String → Option (List UInt8)
+def fromString [m : Multibase β]: String → Option (List UInt8)
 | "" => some []
 | s  => (fun (x,y) => Nat.toByteListBE y) <$>
   (fromStringCore β (s.length) 0 s)
 
-def readCode [m: Multibase β]: String → Option String
+def readCode [m : Multibase β]: String → Option String
 | ⟨c::cs⟩ => if c == code β
   then some (String.mk cs)
   else none
 | _ => none
 
-def readZeros [m: Multibase β]: List Char → Nat
+def readZeros [m : Multibase β]: List Char → Nat
 | c::cs => if c == zero β
   then 1 + readZeros cs
   else 0
 | _ => 0
 
-def decode [Multibase β] (input: String): Option (List UInt8) :=
+def decode [Multibase β] (input : String): Option (List UInt8) :=
   Option.bind (readCode β input) $ fun x =>
   let len := x.length
   let zeroChars := readZeros β x.data

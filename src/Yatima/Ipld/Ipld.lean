@@ -47,13 +47,7 @@ instance : Repr Ipld where
 --
 --instance : ToString Ipld where
 --   toString := Ipld.toStringAux
-namespace Ipld
 
-def mkObject (o : List (String × Ipld)) : Ipld :=
-  object <| Id.run <| do
-    let mut kvPairs := RBNode.leaf
-    for (k, v) in o do
-      kvPairs := kvPairs.insert compare k v
-    kvPairs
-
-end Ipld
+def Ipld.mkObject (o : List (String × Ipld)) : Ipld :=
+  object $ o.foldl (init := RBNode.leaf)
+    fun acc (k, v) => acc.insert compare k v

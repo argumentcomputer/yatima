@@ -157,15 +157,15 @@ def read_u8: Deserializer UInt8 := next
 
 def read_u16: Deserializer UInt16 := do
   let bytes ← take 2
-  return bytes.fromByteArrayBE.toUInt16
+  return bytes.asBEtoNat.toUInt16
 
 def read_u32: Deserializer UInt32 := do
   let bytes ← take 4
-  return bytes.fromByteArrayBE.toUInt32
+  return bytes.asBEtoNat.toUInt32
 
 def read_u64: Deserializer UInt64 := do
   let bytes ← take 8
-  return bytes.fromByteArrayBE.toUInt64
+  return bytes.asBEtoNat.toUInt64
 
 def read_bytes (len: Nat) : Deserializer ByteArray := take len
 
