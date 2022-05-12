@@ -19,7 +19,7 @@ structure Case where
   bytes: ByteArray
 
 instance : ToString Case where
-  toString case := s!"{case.nat} <-> {case.bytes}"
+  toString case := s!"{case.nat} ↔ {case.bytes}"
 
 /-- Test that a given test-case passes -/
 def testCase (case : Case) : Bool := 

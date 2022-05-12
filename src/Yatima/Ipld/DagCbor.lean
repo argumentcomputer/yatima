@@ -1,17 +1,13 @@
 import Yatima.Ipld.Ipld
-import Yatima.Ipld.Cid
-import Yatima.Ipld.Utils
 import Yatima.Ipld.Multihash
 import Std.Data.RBTree
-import Init.Control.EState
-import Init.Data.ToString
 
 open Std (RBNode RBMap)
 
 def ser_null : ByteArray := ByteArray.mk #[0xf6]
 
-def ser_bool : Bool -> ByteArray
-| true => ByteArray.mk #[0xf5]
+def ser_bool : Bool → ByteArray
+| true  => ByteArray.mk #[0xf5]
 | false => ByteArray.mk #[0xf4]
 
 def ser_u8 (major : UInt8) (n : UInt8) : ByteArray :=
@@ -37,7 +33,6 @@ def ser_u32 (major : UInt8) (n : UInt32) : ByteArray :=
     let num := (n.toNat.toByteArrayBE)
     ByteArray.copySlice num 0 buf (buf.size - num.size) 4
 
-
 def ser_u64 (major: UInt8) (n : UInt64) : ByteArray :=
   if n <= 4294967295
   then ser_u32 major n.toUInt32
@@ -54,42 +49,33 @@ def ser_string (s: String) : ByteArray :=
 def ser_bytes (b: ByteArray) : ByteArray :=
   ByteArray.append (ser_u64 2 b.size.toUInt64) b
 
-def ser_link (l: Cid) : ByteArray := Id.run do
-  let mut out := ByteArray.mk #[]
-  out := out.append (ser_u64 6 42)
+def ser_link (l: Cid) : ByteArray :=
   let buf := Cid.toBytes l
-  out := out.append (ser_u64 2 (buf.size.toUInt64 + 1))
-  out := out.append (ByteArray.mk #[0])
-  out.append buf
+  (ser_u64 6 42) ++ ser_u64 2 (buf.size.toUInt64 + 1) ++ ⟨#[0]⟩ ++ buf
 
 def nodeToList (map : RBNode String (fun _ => Ipld)) : List (String × Ipld) := 
   map.revFold (fun as a b => (a,b)::as) []
 
 -- TODO: Add termination_by measure to show that serialize does terminate
 mutual
-partial def serialize : Ipld -> ByteArray
-  | Ipld.null => ser_null
-  | Ipld.bool b => ser_bool b
+partial def serialize : Ipld → ByteArray
+  | Ipld.null     => ser_null
+  | Ipld.bool   b => ser_bool b
   | Ipld.number n => ser_u64 0 n
   | Ipld.string s => ser_string s
-  | Ipld.bytes b => ser_bytes b
-  | Ipld.array a => ser_array a
+  | Ipld.bytes  b => ser_bytes b
+  | Ipld.array  a => ser_array a
   | Ipld.object o => ser_object o
   | Ipld.link cid => ser_link cid
 
-partial def ser_array (a: Array Ipld) : ByteArray := Id.run do
-  let mut self := ser_u64 4 a.size.toUInt64
-  for i in [:a.size] do
-    self := self.append (serialize a[i])
-  self
+partial def ser_array (as: Array Ipld) : ByteArray :=
+  as.foldl (init := ser_u64 4 as.size.toUInt64)
+    fun acc a => acc ++ serialize a
 
-partial def ser_object (o: RBNode String (fun _ => Ipld)) : ByteArray := Id.run do
+partial def ser_object (o: RBNode String (fun _ => Ipld)) : ByteArray :=
   let list := nodeToList o
-  let mut self := ser_u64 5 list.length.toUInt64
-  for (k, v) in list do
-    self := self.append (ser_string k)
-    self := self.append (serialize v)
-  self
+  list.foldl (init := ser_u64 5 list.length.toUInt64)
+    fun acc (k, v) => acc ++ ser_string k ++ serialize v
 end
 
 structure ByteCursor where
@@ -212,7 +198,7 @@ def read_link : Deserializer Cid := do
   | Option.none => throw DeserializeError.CidRead
   | Option.some x => return x
 
-def read_len : Nat -> Deserializer Nat
+def read_len : Nat → Deserializer Nat
 | 0x18 => UInt8.toNat <$> read_u8
 | 0x19 => UInt16.toNat <$> read_u16
 | 0x1a => UInt32.toNat <$> read_u32

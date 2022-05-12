@@ -27,7 +27,7 @@ def testCase (case : Case) : Bool :=
 
 instance : ToString Case where
   toString case :=
-    s!"{case.bytes} {if case.read then "<-" else "<->"} {case.string}"
+    s!"{case.bytes} {if case.read then "←" else "↔"} {case.string}"
 
 def findFailing (cases: List Case) : List Case :=
   List.filter (fun x => not (testCase x)) cases

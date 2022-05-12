@@ -36,7 +36,7 @@ instance : Repr Ipld where
   --| Ipld.array n, prec => Repr.addAppParen ("Ipld.array " ++ reprPrec n.data prec) prec
   | _, prec => Repr.addAppParen ("Ipld.todo") prec
 
---def Ipld.toStringAux : Ipld -> String
+--def Ipld.toStringAux : Ipld → String
 --| Ipld.null =>  "Ipld.null" 
 --| Ipld.bool b  =>  "Ipld.bool " ++ toString b 
 --| Ipld.number n  =>  "Ipld.number " ++ toString n 

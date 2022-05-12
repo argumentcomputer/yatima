@@ -13,7 +13,7 @@ structure Case where
   hash: Multihash
 
 instance : ToString Case where
-  toString case := s!"{Multibase.encode Multibase.Base16 case.input.data.data} -> {Multibase.encode Multibase.Base16 case.hash.toBytes.data.data}"
+  toString case := s!"{Multibase.encode Multibase.Base16 case.input.data.data} → {Multibase.encode Multibase.Base16 case.hash.toBytes.data.data}"
 
 /-- Test that a given test-case passes -/
 def testCase (case : Case) : Bool := 
@@ -30,9 +30,9 @@ instance monad : Monad Option where
   map      := Option.map
 
 def mkCase (input: String) (hash: String) : Option Case := do
-  let input <- input.toUTF8
-  let hash <- ByteArray.mk <$> Array.mk <$> Multibase.decode Multibase.Base16 hash
-  let hash <- Multihash.fromBytes hash
+  let input ← input.toUTF8
+  let hash  ← ByteArray.mk <$> Array.mk <$> Multibase.decode Multibase.Base16 hash
+  let hash  ← Multihash.fromBytes hash
   return Case.mk input hash
 
 def cases : List Case := List.catOptions
