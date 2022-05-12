@@ -1,10 +1,73 @@
+import Lean
+import Yatima.Ipld.Cid
+
+namespace Yatima
+
+/-- Reflects `Lean.Level` -/
 inductive Univ where
-| zero
-| succ  : Univ → Univ
-| max   : Univ → Univ → Univ
-| imax  : Univ → Univ → Univ
-| param : Nat  → Univ
-deriving BEq, Inhabited
+  | zero
+  | succ  : Univ → Univ
+  | max   : Univ → Univ → Univ
+  | imax  : Univ → Univ → Univ
+  | param : Nat   → Univ
+  deriving BEq, Inhabited
+
+inductive LitType where
+  | natTyp
+  | strTyp
+  deriving Inhabited, BEq
+
+mutual
+
+  inductive Expr
+  | var   : Nat → Expr
+  | sort  : Univ → Expr
+  | const : Const → List Univ → Expr
+  | app   : Expr → Expr → Expr
+  | lam   : Expr → Expr → Expr
+  | pi    : Expr → Expr → Expr
+  | letE  : Expr → Expr → Expr → Expr
+  | lit   : Lean.Literal → Expr
+  | lty   : LitType → Expr
+  | fix   : Expr → Expr
+  deriving Inhabited
+
+  inductive RecursorRule
+  -- ctor, n_fields, rhs
+  | mk : Cid → Nat → Expr → RecursorRule
+
+  inductive Const
+  -- cid, Univ, type
+  | axiomC : Cid → Nat → Expr → Const
+
+  -- Univ, value, type
+  | theoremC : Nat → Expr → Expr → Const
+
+  -- cid, Univ, value, type, is_unsafe
+  | opaque : Cid → Nat → Expr → Expr → Bool → Const
+
+  -- cid, Univ, value, type, safety
+  | defn : Cid → Nat → Expr → Expr → Lean.DefinitionSafety → Const
+
+  -- cid, Univ, type, ctor_idx, num_params, num_fields, is_unsafe
+  | ctor : Cid → Nat → Expr → Nat → Nat → Nat → Bool → Const
+
+  -- cid, Univ, type, num_params, num_indices, is_unit, is_rec, is_unsafe, is_reflexive, is_nested
+  | induct : Cid → Nat → Expr → Nat → Nat → Bool → Bool → Bool → Bool → Bool → Const
+
+  -- cid, Univ, type, num_params, num_indices, num_motives, num_minors, rules, k, is_unsafe
+  | recursor : Cid → Nat → Expr → Nat → Nat → Nat → Nat → List RecursorRule → Bool → Bool → Const
+
+  -- Univ, type, kind
+  | quotient : Nat → Expr → Lean.QuotKind → Const
+
+end
+
+instance : Inhabited RecursorRule where
+  default := RecursorRule.mk default default default
+
+instance : Inhabited Const where
+  default := Const.axiomC default default default
 
 namespace Univ
 
@@ -89,3 +152,5 @@ def isZero : Univ → Bool
   | imax  _ u => u.isZero
 
 end Univ
+
+end Yatima

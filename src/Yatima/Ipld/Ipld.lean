@@ -15,15 +15,15 @@ instance : BEq Cid where
   beq a b := a.version == b.version && a.codec == b.codec && a.hash == b.hash
 
 inductive Ipld where
-| null
-| bool (b : Bool)
-| number (n : UInt64)
-| string (s : String)
-| bytes (b : ByteArray)
-| array (elems : Array Ipld)
-| object (kvPairs : RBNode String (fun _ => Ipld))
-| link (cid: Cid)
-deriving BEq, Inhabited
+  | null
+  | bool (b : Bool)
+  | number (n : UInt64)
+  | string (s : String)
+  | bytes (b : ByteArray)
+  | array (elems : Array Ipld)
+  | object (kvPairs : RBNode String (fun _ => Ipld))
+  | link (cid: Cid)
+  deriving BEq, Inhabited
 
 instance : Repr Ipld where
   reprPrec
