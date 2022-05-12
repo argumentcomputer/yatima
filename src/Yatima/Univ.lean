@@ -78,7 +78,7 @@ def equalUniv (u u' : Univ) : Bool :=
 
 def equalUnivs : List Univ → List Univ → Bool
   | [], [] => true
-  | u::us, u'::us' => u.equalUniv u' && equalUnivs us us'
+  | u :: us, u' :: us' => u.equalUniv u' && equalUnivs us us'
   | _, _ => false
 
 def isZero : Univ → Bool

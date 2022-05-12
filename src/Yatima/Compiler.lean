@@ -11,6 +11,7 @@ structure Context where
   constMap : ConstMap := {}
 
 abbrev ConvM := ReaderT Context $ StateT YConstMap Id
+
 instance : Monad ConvM :=
   let i := inferInstanceAs (Monad ConvM)
   { pure := i.pure, bind := i.bind }

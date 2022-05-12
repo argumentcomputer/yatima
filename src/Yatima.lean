@@ -1,5 +1,5 @@
 import Lean
-import Yatima.LeanToYatima
+import Yatima.Compiler
 
 def main : List String → IO UInt32
   | ["build", f] => do
