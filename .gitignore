@@ -1,2 +1,4 @@
 /build
 /lean_packages
+/yatima-rs/target
+/result
