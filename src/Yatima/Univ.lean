@@ -1,73 +1,32 @@
-import Lean
 import Yatima.Ipld.Cid
+import Yatima.Env
+import Yatima.Name
 
 namespace Yatima
 
-/-- Reflects `Lean.Level` -/
 inductive Univ where
   | zero
   | succ  : Univ → Univ
   | max   : Univ → Univ → Univ
   | imax  : Univ → Univ → Univ
-  | param : Nat   → Univ
+  | param : Name → Nat → Univ
   deriving BEq, Inhabited
 
-inductive LitType where
-  | natTyp
-  | strTyp
-  deriving Inhabited, BEq
+inductive UnivAnon where
+  | zero
+  | succ  : UnivAnonCid → UnivAnon
+  | max   : UnivAnonCid → UnivAnonCid → UnivAnon
+  | imax  : UnivAnonCid → UnivAnonCid → UnivAnon
+  | param : Nat → UnivAnon
+  deriving BEq, Inhabited
 
-mutual
-
-  inductive Expr
-  | var   : Nat → Expr
-  | sort  : Univ → Expr
-  | const : Const → List Univ → Expr
-  | app   : Expr → Expr → Expr
-  | lam   : Expr → Expr → Expr
-  | pi    : Expr → Expr → Expr
-  | letE  : Expr → Expr → Expr → Expr
-  | lit   : Lean.Literal → Expr
-  | lty   : LitType → Expr
-  | fix   : Expr → Expr
-  deriving Inhabited
-
-  inductive RecursorRule
-  -- ctor, n_fields, rhs
-  | mk : Cid → Nat → Expr → RecursorRule
-
-  inductive Const
-  -- cid, Univ, type
-  | axiomC : Cid → Nat → Expr → Const
-
-  -- Univ, value, type
-  | theoremC : Nat → Expr → Expr → Const
-
-  -- cid, Univ, value, type, is_unsafe
-  | opaque : Cid → Nat → Expr → Expr → Bool → Const
-
-  -- cid, Univ, value, type, safety
-  | defn : Cid → Nat → Expr → Expr → Lean.DefinitionSafety → Const
-
-  -- cid, Univ, type, ctor_idx, num_params, num_fields, is_unsafe
-  | ctor : Cid → Nat → Expr → Nat → Nat → Nat → Bool → Const
-
-  -- cid, Univ, type, num_params, num_indices, is_unit, is_rec, is_unsafe, is_reflexive, is_nested
-  | induct : Cid → Nat → Expr → Nat → Nat → Bool → Bool → Bool → Bool → Bool → Const
-
-  -- cid, Univ, type, num_params, num_indices, num_motives, num_minors, rules, k, is_unsafe
-  | recursor : Cid → Nat → Expr → Nat → Nat → Nat → Nat → List RecursorRule → Bool → Bool → Const
-
-  -- Univ, type, kind
-  | quotient : Nat → Expr → Lean.QuotKind → Const
-
-end
-
-instance : Inhabited RecursorRule where
-  default := RecursorRule.mk default default default
-
-instance : Inhabited Const where
-  default := Const.axiomC default default default
+inductive UnivMeta where
+  | zero
+  | succ  : UnivMetaCid → UnivMeta
+  | max   : UnivMetaCid → UnivMetaCid → UnivMeta
+  | imax  : UnivMetaCid → UnivMetaCid → UnivMeta
+  | param : Name → UnivMeta
+  deriving BEq, Inhabited
 
 namespace Univ
 
@@ -76,7 +35,7 @@ def instantiate (u : Univ) (i : Nat) (subst : Univ) : Univ :=
   | succ  u   => succ (u.instantiate i subst)
   | max   a b => max  (a.instantiate i subst) (b.instantiate i subst)
   | imax  a b => imax (a.instantiate i subst) (b.instantiate i subst)
-  | param i'  => if i' < i then u else if i' > i then param (i' - 1) else subst
+  | param n i'  => if i' < i then u else if i' > i then param n (i' - 1) else subst
   | zero      => u
 
 def instantiateBulk (u : Univ) (substs : List Univ) : Univ :=
@@ -84,10 +43,10 @@ def instantiateBulk (u : Univ) (substs : List Univ) : Univ :=
   | succ  u   => succ (u.instantiateBulk substs)
   | max   a b => max  (a.instantiateBulk substs) (b.instantiateBulk substs)
   | imax  a b => imax (a.instantiateBulk substs) (b.instantiateBulk substs)
-  | param i   =>
+  | param n i   =>
     match substs.get? i with
     | some u => u
-    | none   => param (i - substs.length)
+    | none   => param n (i - substs.length)
   | zero => u
 
 def combining (a b : Univ) : Univ :=
@@ -113,19 +72,19 @@ partial def leqCore (a b : Univ) (diff : Int) : Bool :=
   if a == b && diff >= 0 then true
   else match a, b with
   | zero, zero => diff >= 0
-  | param x, param y => x == y && diff >= 0
-  | zero, param _ => diff >= 0
-  | param _, zero => false
+  | param _ x, param _ y => x == y && diff >= 0
+  | zero, param _ _ => diff >= 0
+  | param _ _, zero => false
   | succ a, _ => leqCore a b (diff - 1)
   | _, succ b => leqCore a b (diff + 1)
   | max a₁ a₂, b => leqCore a₁ b diff && leqCore a₂ b diff
   | a, max b₁ b₂ => leqCore a b₁ diff || leqCore a b₂ diff
-  | imax _ (param idx), _ =>
-    let succ := succ (param idx)
+  | imax _ (param n idx), _ =>
+    let succ := succ (param n idx)
     leqCore (a.instantiate idx zero) (b.instantiate idx zero) diff &&
       leqCore (a.instantiate idx succ) (b.instantiate idx succ) diff
-  | _, imax _ (param idx) =>
-    let succ' := succ (param idx)
+  | _, imax _ (param n idx) =>
+    let succ' := succ (param n idx)
     leqCore (a.instantiate idx zero) (b.instantiate idx zero) diff &&
       leqCore (a.instantiate idx succ') (b.instantiate idx succ') diff
   | imax a₁ (max a₂ a₃), _  => leqCore (max (imax a₁ a₂) (imax a₁ a₃)) b diff
@@ -146,7 +105,7 @@ def equalUnivs : List Univ → List Univ → Bool
 
 def isZero : Univ → Bool
   | zero      => true
-  | param _   => false
+  | param _ _ => false
   | succ  _   => false
   | max   u v => u.isZero && v.isZero
   | imax  _ u => u.isZero
@@ -154,3 +113,4 @@ def isZero : Univ → Bool
 end Univ
 
 end Yatima
+
