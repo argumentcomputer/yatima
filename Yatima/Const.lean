@@ -23,37 +23,37 @@ structure Theorem where
   name: Name
   lvls: List Name
   type: Expr
-  expr: Expr
+  value: Expr
 
 structure TheoremAnon where
   lvls: Nat
   type: ExprAnonCid
-  expr: ExprAnonCid
+  value: ExprAnonCid
 
 structure TheoremMeta where
   name: Name
   lvls: List Name
   type: ExprMetaCid
-  expr: ExprMetaCid
+  value: ExprMetaCid
 
 structure Opaque where
   name: Name
   lvls: List Name
   type: Expr
-  expr: Expr
+  value: Expr
   safe: Bool
 
 structure OpaqueAnon where
   lvls: Nat
   type: ExprAnonCid
-  expr: ExprAnonCid
+  value: ExprAnonCid
   safe: Bool
 
 structure OpaqueMeta where
   name: Name
   lvls: List Name
   type: ExprMetaCid
-  expr: ExprMetaCid
+  value: ExprMetaCid
 
 inductive DefSafety where
 | _safe
@@ -64,20 +64,20 @@ structure Definition where
   name: Name
   lvls: List Name
   type: Expr
-  expr: Expr
+  value: Expr
   safe: DefSafety
 
 structure DefinitionAnon where
   lvls: Nat
   type: ExprAnonCid
-  expr: ExprAnonCid
+  value: ExprAnonCid
   safe: DefSafety
 
 structure DefinitionMeta where
   name: Name
   lvls: List Name
   type: ExprMetaCid
-  expr: ExprMetaCid
+  value: ExprMetaCid
 
 structure Inductive where
   name: Name
@@ -202,33 +202,33 @@ structure QuotientMeta where
   type: ExprMetaCid
 
 inductive Const
-| _axiom : Axiom → Const
-| _theorem : Theorem → Const
-| _opaque : Opaque → Const
-| _definition : Definition → Const
-| _inductitve : Inductive → Const
-| _constructor : Constructor → Const
-| _recursor : Recursor → Const
-| _quotient : Quotient → Const
+| «axiom» : Axiom → Const
+| «theorem» : Theorem → Const
+| «inductive» : Inductive → Const
+| opaque : Opaque → Const
+| definition : Definition → Const
+| constructor : Constructor → Const
+| recursor : Recursor → Const
+| quotient : Quotient → Const
 
 inductive ConstAnon
-| _axiom : AxiomAnon → ConstAnon
-| _theorem : TheoremAnon → ConstAnon
-| _opaque : OpaqueAnon → ConstAnon
-| _definition : DefinitionAnon → ConstAnon
-| _inductitve : InductiveAnon → ConstAnon
-| _constructor : ConstructorAnon → ConstAnon
-| _recursor : RecursorAnon → ConstAnon
-| _quotient : QuotientAnon → ConstAnon
+| «axiom» : AxiomAnon → ConstAnon
+| «theorem» : TheoremAnon → ConstAnon
+| «inductive» : InductiveAnon → ConstAnon
+| opaque : OpaqueAnon → ConstAnon
+| definition : DefinitionAnon → ConstAnon
+| constructor : ConstructorAnon → ConstAnon
+| recursor : RecursorAnon → ConstAnon
+| quotient : QuotientAnon → ConstAnon
 
 inductive ConstMeta
-| _axiom : AxiomMeta → ConstMeta
-| _theorem : TheoremMeta → ConstMeta
-| _opaque : OpaqueMeta → ConstMeta
-| _definition : DefinitionMeta → ConstMeta
-| _inductitve : InductiveMeta → ConstMeta
-| _constructor : ConstructorMeta → ConstMeta
-| _recursor : RecursorMeta → ConstMeta
-| _quotient : QuotientMeta → ConstMeta
+| «axiom» : AxiomMeta → ConstMeta
+| «theorem» : TheoremMeta → ConstMeta
+| «inductive» : InductiveMeta → ConstMeta
+| opaque : OpaqueMeta → ConstMeta
+| definition : DefinitionMeta → ConstMeta
+| constructor : ConstructorMeta → ConstMeta
+| recursor : RecursorMeta → ConstMeta
+| quotient : QuotientMeta → ConstMeta
 
 end Yatima
