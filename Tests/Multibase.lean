@@ -82,11 +82,8 @@ end CaseInsensitivity
 namespace LeadingZero
 -- leading_zero.csv
 
--- def zero : List UInt8 := [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
-
-#eval "\x00yes mani !".toUTF8 -- -- [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
-#eval "\x00yes mani !".toUTF8.data.data -- [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
-def zero : List UInt8 := "\x00yes mani !".toUTF8.data.data
+def zero : List UInt8 := [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def zero' : List UInt8 := "\x00yes mani !".toUTF8.data.data -- fix
 
 def cases : List Case :=
   [ mkCase Multibase.Base2  zero            "00000000001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -117,11 +114,8 @@ end LeadingZero
 
 namespace TwoLeadingZeros
 
--- def zeros : List UInt8 := [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
-
-#eval "\x00\x00yes mani !".toUTF8 -- [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
-#eval "\x00\x00yes mani !".toUTF8.data.data -- [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
-def zeros : List UInt8 := "\x00\x00yes mani !".toUTF8.data.data
+def zeros : List UInt8 := [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def zeros' : List UInt8 := "\x00\x00yes mani !".toUTF8.data.data -- fix
 
 def cases : List Case := 
   [ mkCase Multibase.Base2 zeros              "0000000000000000001111001011001010111001100100000011011010110000101101110011010010010000000100001"
