@@ -29,7 +29,7 @@ def findFailing (cases: List Case) : List Case :=
 
 namespace Basic
 
-def basic : List UInt8 := [121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def basic : List UInt8 := "yes mani !".toUTF8.data.data
 
 def cases : List Case :=
   [ mkCase Multibase.Base2 basic "001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -60,7 +60,7 @@ end Basic
 
 namespace CaseInsensitivity
 
-def hello : List UInt8 := [104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]
+def hello : List UInt8 := "hello world".toUTF8.data.data
 
 def cases : List Case :=
  [ mkReadCase Multibase.Base16            hello "f68656c6c6f20776F726C64"
@@ -82,7 +82,11 @@ end CaseInsensitivity
 namespace LeadingZero
 -- leading_zero.csv
 
-def zero : List UInt8 := [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+-- def zero : List UInt8 := [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+
+#eval "\x00yes mani !".toUTF8 -- -- [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+#eval "\x00yes mani !".toUTF8.data.data -- [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def zero : List UInt8 := "\x00yes mani !".toUTF8.data.data
 
 def cases : List Case :=
   [ mkCase Multibase.Base2  zero            "00000000001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -113,7 +117,11 @@ end LeadingZero
 
 namespace TwoLeadingZeros
 
-def zeros : List UInt8 := [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+-- def zeros : List UInt8 := [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+
+#eval "\x00\x00yes mani !".toUTF8 -- [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+#eval "\x00\x00yes mani !".toUTF8.data.data -- [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def zeros : List UInt8 := "\x00\x00yes mani !".toUTF8.data.data
 
 def cases : List Case := 
   [ mkCase Multibase.Base2 zeros              "0000000000000000001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -146,13 +154,15 @@ namespace RFC4648
 -- RFC4648 Test Vectors: https://datatracker.ietf.org/doc/html/rfc4648#section-10
 -- test vector `i` is the first `i` letters of the string "foobar" as UTF8
 
-def rfc0 : List UInt8 := []
-def rfc1 : List UInt8 := [102]
-def rfc2 : List UInt8 := [102, 111]
-def rfc3 : List UInt8 := [102, 111, 111]
-def rfc4 : List UInt8 := [102, 111, 111, 98]
-def rfc5 : List UInt8 := [102, 111, 111, 98, 97]
-def rfc6 : List UInt8 := [102, 111, 111, 98, 97, 114]
+def foobar := "foobar".toUTF8.data.data
+
+def rfc0 : List UInt8 := foobar.take 0
+def rfc1 : List UInt8 := foobar.take 1
+def rfc2 : List UInt8 := foobar.take 2
+def rfc3 : List UInt8 := foobar.take 3
+def rfc4 : List UInt8 := foobar.take 4
+def rfc5 : List UInt8 := foobar.take 5
+def rfc6 : List UInt8 := foobar.take 6
 
 def cases : List Case :=
   [ mkCase Multibase.Base16 rfc0  "f"
