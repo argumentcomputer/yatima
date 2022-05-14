@@ -51,14 +51,14 @@ script tests do
         "-c", s!"./build/ir/{testCase}.c"]
       #[("LEAN_PATH", "build/lib")] then return 1
 
-    if ← runCmd s!"building {testCase}.o from {testCase}.c" "leanc"
+    if ← runCmd s!"Building {testCase}.o from {testCase}.c" "leanc"
       #["-c", "-o", s!"build/ir_test/{testCase}.o", s!"build/ir/{testCase}.c",
         "-O3", "-DNDEBUG"] then return 1
 
     let objFilePaths := (← getFilePaths ⟨"build/ir"⟩ "o").filter
       fun fp => fp != ⟨"build/ir/Main.o"⟩
 
-    if ← runCmd s!"linking objects to build the {testCase} binary" "leanc"
+    if ← runCmd s!"Linking objects to build the {testCase} binary" "leanc"
       (#["-o", s!"build/bin_test/{testCase}", s!"build/ir_test/{testCase}.o"]
         ++ ⟨objFilePaths.map toString⟩
         ++ #["-rdynamic"]) then return 1
