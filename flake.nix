@@ -41,10 +41,13 @@
         leanPkgs = lean.packages.${system};
         pkgs = nixpkgs.legacyPackages.${system};
         lib = utils.lib.${system};
-        inherit (lib) buildRustProject;
+        inherit (lib) buildRustProject getRust;
+        rustNightly = getRust { date = "2022-05-12"; sha256 = "sha256-ttn4r8k3yzreTgsMSJAg37uZWHuZBPUDsBhJDkASyWM="; };
         yatima-rs = buildRustProject {
-					src = ./yatima-rs;
-				};
+          rust = rustNightly;
+          src = ./yatima-rs;
+          copyLibs = true;
+        };
         project = leanPkgs.buildLeanPackage {
           debug = false;
           name = "Yatima";

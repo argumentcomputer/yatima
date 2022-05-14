@@ -8,66 +8,66 @@ import Yatima.Const
 
 import Lean
 
---namespace Lean.Yatima.Compiler
---
---abbrev ConstMap := Lean.SMap Lean.Name Yatima.Const
---
---structure Context where
---  env      : Lean.Environment
---  constMap : Lean.ConstMap := {}
---
---abbrev ConvM := ReaderT Context $ StateT ConstMap Id
---
---instance : Monad ConvM :=
---  let i := inferInstanceAs (Monad ConvM)
---  { pure := i.pure, bind := i.bind }
---
----- As it stands, it is using Keccak256. Should be parametrized on hash functions later
---def nameToCid (nam : Lean.Name) : Cid :=
---  -- Should we use `Name.hash` or our own encoding of names?
---  let digest := Keccak.keccak256 $ ByteArray.pushUInt64LE ByteArray.empty nam.hash
---  -- TODO: Correct the following 4 values
---  let size := 0
---  let code := 0
---  let version := 0
---  let codec := 0
---  let multihash := Multihash.mk size code digest
---  Cid.mk version codec multihash
---
---def leanExprToCid (e : Lean.Expr) : Cid := panic! "TODO"
---def inductiveToCid (induct : InductiveVal) : Cid := panic! "TODO"
---def combineCid (a : Cid) (b : Cid) : Cid := panic! "TODO"
---
---def inductiveIsUnitLike (ctors : List Lean.Name) : ConvM Bool :=
---  match ctors with
---  | [ctor] => do
---    match Lean.Environment.find? (← read).env ctor with
---    | some info =>
---      match info with
---      | Lean.ConstantInfo.ctorInfo cval => pure (cval.numFields != 0)
---      | _ => pure false
---    | none => pure false
---  | _ => pure false
---
---def toYatimaLevel (levelParams : List Lean.Name) (lvl : Lean.Level) : Yatima.Univ :=
---  match lvl with
---  | Lean.Level.zero _ => Yatima.Univ.zero
---  | Lean.Level.succ n _ => Yatima.Univ.succ (toYatimaLevel levelParams n)
---  | Lean.Level.max a b _ => Yatima.Univ.max (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
---  | Lean.Level.imax a b _ => Yatima.Univ.imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
---  | Lean.Level.param nam _ =>
---    match levelParams.indexOf nam with
---    | some n => Yatima.Univ.param n
---    | none   => panic! s!"'{nam}' not found in '{levelParams}'"
---  | Lean.Level.mvar _ _ => panic! "Unfilled level metavariable"
---
+namespace Lean.Yatima.Compiler
+
+abbrev ConstMap := Lean.SMap Lean.Name Yatima.Const
+
+structure Context where
+  env      : Lean.Environment
+  constMap : Lean.ConstMap := {}
+
+abbrev ConvM := ReaderT Context $ StateT ConstMap Id
+
+instance : Monad ConvM :=
+  let i := inferInstanceAs (Monad ConvM)
+  { pure := i.pure, bind := i.bind }
+
+-- As it stands, it is using Keccak256. Should be parametrized on hash functions later
+def nameToCid (nam : Lean.Name) : Cid :=
+  -- Should we use `Name.hash` or our own encoding of names?
+  let digest := Keccak.keccak256 $ ByteArray.pushUInt64LE ByteArray.empty nam.hash
+  -- TODO: Correct the following 4 values
+  let size := 0
+  let code := 0
+  let version := 0
+  let codec := 0
+  let multihash := Multihash.mk size code digest
+  Cid.mk version codec multihash
+
+def leanExprToCid (e : Lean.Expr) : Cid := panic! "TODO"
+def inductiveToCid (induct : InductiveVal) : Cid := panic! "TODO"
+def combineCid (a : Cid) (b : Cid) : Cid := panic! "TODO"
+
+def inductiveIsUnitLike (ctors : List Lean.Name) : ConvM Bool :=
+  match ctors with
+  | [ctor] => do
+    match Lean.Environment.find? (← read).env ctor with
+    | some info =>
+      match info with
+      | Lean.ConstantInfo.ctorInfo cval => pure (cval.numFields != 0)
+      | _ => pure false
+    | none => pure false
+  | _ => pure false
+
+def toYatimaLevel (levelParams : List Lean.Name) (lvl : Lean.Level) : Yatima.Univ :=
+  match lvl with
+  | Lean.Level.zero _ => Yatima.Univ.zero
+  | Lean.Level.succ n _ => Yatima.Univ.succ (toYatimaLevel levelParams n)
+  | Lean.Level.max a b _ => Yatima.Univ.max (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
+  | Lean.Level.imax a b _ => Yatima.Univ.imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
+  | Lean.Level.param nam _ =>
+    match levelParams.indexOf nam with
+    | some n => Yatima.Univ.param (Yatima.Name.mk nam.toString) n
+    | none   => panic! s!"'{nam}' not found in '{levelParams}'"
+  | Lean.Level.mvar _ _ => panic! "Unfilled level metavariable"
+
 --mutual
 --
 --  partial def toYatimaRecursorRule (rules : Lean.RecursorRule) :
---      ConvM Yatima.RecursorRule := do
+--      ConvM Yatima.RecRule := do
 --    let cid := default -- TODO
 --    let rhs ← toYatimaExpr rules.rhs []
---    return Yatima.RecursorRule.mk cid rules.nfields rhs
+--    return Yatima.RecRule.mk cid rules.nfields rhs
 --
 --  partial def toYatimaConstMap (nam : Lean.Name) : ConvM ConstMap := do
 --    let insertConst := fun nam const => do

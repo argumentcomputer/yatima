@@ -29,11 +29,11 @@
         "temci": "temci"
       },
       "locked": {
-        "lastModified": 1652386957,
-        "narHash": "sha256-AwSrt778U92p5fP4StXf3VdRDS8NVGQ6Dxh+Xuui1QI=",
+        "lastModified": 1652435744,
+        "narHash": "sha256-mZuk+J3s/B9V6mqCbSl5loyRTLmkwRntZf4FOGUueH4=",
         "owner": "leanprover",
         "repo": "lean4",
-        "rev": "5cd4bd3552605ee20322d04222360a8f4d260e9b",
+        "rev": "4934104eaf879d56cdfbf14c50eaca4cf7539371",
         "type": "github"
       },
       "original": {
