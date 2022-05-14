@@ -1,19 +1,9 @@
+import Yatima.YatimaSpec
 import Yatima.Ipld.Multihash
-
-open Multihash
-
-def ex1 : Multihash := { code := 0x11, size := 0x4, digest := { data := #[0b10110110, 0b11111000, 0b01011100, 0b10110101] }}
-
-#eval ex1
-#eval toBytes ex1
-#eval fromBytes (toBytes ex1)
 
 structure Case where
   input: ByteArray
   hash: Multihash
-
-instance : ToString Case where
-  toString case := s!"{Multibase.encode Multibase.Base16 case.input.data.data} → {Multibase.encode Multibase.Base16 case.hash.toBytes.data.data}"
 
 /-- Test that a given test-case passes -/
 def testCase (case : Case) : Bool := 
@@ -23,11 +13,6 @@ def testCase (case : Case) : Bool :=
 
 def findFailing (cases: List Case) : List Case :=
   List.filter (fun x => not (testCase x)) cases
-
-instance monad : Monad Option where
-  bind     := Option.bind
-  pure     := Option.some
-  map      := Option.map
 
 def mkCase (input: String) (hash: String) : Option Case := do
   let input ← input.toUTF8
@@ -44,4 +29,5 @@ def cases : List Case := List.catOptions
   , mkCase "4c44254356730838195a32cbb1b8be3bed4c6c05c0" "f14403dc43b479f5e9e008a5256ca442e66286995c39deb732a6fb4e2e791a3c4a6a6e5322e571e945a78748896edc67866ab00c767320f6956833857eab991a73a77"
   ]
 
-#eval findFailing cases
+test_suite
+  it "decodes multihashes" so findFailing cases should be empty
