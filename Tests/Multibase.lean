@@ -1,44 +1,5 @@
 import Yatima.YatimaSpec
-import Yatima.Ipld.Multihash
 import Yatima.Ipld.Multibase
-import Yatima.Ipld.DagCbor
-import Yatima.Ipld.UnsignedVarInt
-
-open Std (RBNode)
-
-namespace MH
-
-structure Case where
-  input: ByteArray
-  hash: Multihash
-
-/-- Test that a given test-case passes -/
-def testCase (case : Case) : Bool := 
-  let hash := Multihash.sha3_512 case.input
-  hash == case.hash &&
-  Multihash.fromBytes (Multihash.toBytes hash) == some hash
-
-def findFailing (cases: List Case) : List Case :=
-  List.filter (fun x => not (testCase x)) cases
-
-def mkCase (input: String) (hash: String) : Option Case := do
-  let input ← input.toUTF8
-  let hash  ← ByteArray.mk <$> Array.mk <$> Multibase.decode Multibase.Base16 hash
-  let hash  ← Multihash.fromBytes hash
-  return Case.mk input hash
-
-def cases : List Case := List.catOptions
-  [ mkCase "431fb5d4c9b735ba1a34d0df045118806ae2336f2c" "f14409a7a8207a57d03e9c524ae7fd39563bfe1a466a3a0323875eba8b034a1d59c3b7218103543f7777f17ef03dcaf44d12c74dfb83726e7425cf61225e9a54b3b3a"
-  , mkCase "2d6db2d7882fa8b7d56e74b8e24036deb475de8c94" "f1440968e697b2d5e92470002f9e59e13557f47b895dc9c79082a90e91515f025563773aec0f70219c87350c79707de67500866d7fe084c5316e12c6930949b28865d"
-  , mkCase "6c00022ba29d15926c4580332ded091e666f0ec5d9" "f144047f57e2056010afa03bc58141ba3754f41917518c81711236eaca3766e333b9a2a767a90363f7a179e776d85aa6610713709ee46531f9a454565f737c68bdc56"
-  , mkCase "1391551dc8f15110d256c493ed485bca8cfed07241" "f144089c62811bc2d3fec81631112ad9f03de23d065697f758b8df9e5d791474ab2f20ddac684c23b203b730be465a5d0f06b76e9dbc48590def7d58e96d93b4e0418"
-  , mkCase "557f47c855a5ca40daa3c0904a1e43647b4021ce0c" "f1440a7ab209784597d2e251860e2464c04c386c4887af778136414c80d7c643ccd3b2a0b61e31986a79ef8e4fdd41601fbe7c982c132df4bc77ecc2e27d3edd55f90"
-  , mkCase "4c44254356730838195a32cbb1b8be3bed4c6c05c0" "f14403dc43b479f5e9e008a5256ca442e66286995c39deb732a6fb4e2e791a3c4a6a6e5322e571e945a78748896edc67866ab00c767320f6956833857eab991a73a77"
-  ]
-
-end MH
-
-namespace MB
 
 structure Case where
   read: Bool
@@ -62,10 +23,6 @@ def testCase (case : Case) : Bool :=
   let enc : String := (@Multibase.encode case.β case.inst case.bytes);
   (if case.read then true else enc == case.string)
   && (@Multibase.decode case.β case.inst enc == some case.bytes)
-
-instance : ToString Case where
-  toString case :=
-    s!"{case.bytes} {if case.read then "←" else "↔"} {case.string}"
 
 def findFailing (cases: List Case) : List Case :=
   List.filter (fun x => not (testCase x)) cases
@@ -290,91 +247,12 @@ def cases : List Case :=
   , mkCase Multibase.Base64URLPad rfc5 "UZm9vYmE="
   , mkCase Multibase.Base64URLPad rfc6 "UZm9vYmFy"
   ]
+
 end RFC4648
-end MB
-
-namespace DC
-
-structure Case where
-  ipld: Ipld
-  bytes: ByteArray
-
-instance : BEq (Except DeserializeError Ipld) where
-  beq
-  | Except.ok x, Except.ok y => x == y
-  | Except.error x, Except.error y => x == y
-  | _, _ => false
-
-/-- Test that a given test-case passes -/
-def testCase (case : Case) : Bool := 
-  deserialize (serialize case.ipld) == Except.ok case.ipld &&
-  (serialize case.ipld) == case.bytes
-
-def findFailing (cases: List Case) : List Case :=
-  List.filter (fun x => not (testCase x)) cases
-
-def cases : List Case := 
-  [ Case.mk Ipld.null (ByteArray.mk #[246])
-  , Case.mk (Ipld.bool true) (ByteArray.mk #[245])
-  , Case.mk (Ipld.bool false) (ByteArray.mk #[244])
-  , Case.mk (Ipld.number 0) (ByteArray.mk #[0])
-  , Case.mk (Ipld.number 0x17) (ByteArray.mk #[23])
-  , Case.mk (Ipld.number 0x18) (ByteArray.mk #[24,24])
-  , Case.mk (Ipld.number 0xff) (ByteArray.mk #[24,255])
-  , Case.mk (Ipld.number 0x100) (ByteArray.mk #[25,1,0])
-  , Case.mk (Ipld.number 0xffff) (ByteArray.mk #[25,255,255])
-  , Case.mk (Ipld.number 0x10000) (ByteArray.mk #[26,0,1,0,0])
-  , Case.mk (Ipld.number 0xffffffff) (ByteArray.mk #[26,255,255,255,255])
-  , Case.mk (Ipld.number 0x100000000) (ByteArray.mk #[27, 0,0,0,1,0,0,0,0])
-  , Case.mk (Ipld.string "Hello") (ByteArray.mk #[0x65, 0x48, 0x65, 0x6c, 0x6c, 0x6f])
-  , Case.mk (Ipld.bytes "Hello".toUTF8) (ByteArray.mk #[0x45, 0x48, 0x65, 0x6c, 0x6c, 0x6f])
-  , Case.mk (Ipld.array #[Ipld.string "Hello"]) (ByteArray.mk #[0x81, 0x65, 0x48, 0x65, 0x6c, 0x6c, 0x6f])
-  , Case.mk (Ipld.object (RBNode.singleton "Hello" (Ipld.string "World")))
-    (ByteArray.mk #[0xa1, 0x65, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x65, 0x57, 0x6f, 0x72, 0x6c, 0x64])
-  ]
-
-end DC
-
-namespace UVI
-
-structure Case where
-  nat: Nat
-  bytes: ByteArray
-
-instance : ToString Case where
-  toString case := s!"{case.nat} ↔ {case.bytes}"
-
-/-- Test that a given test-case passes -/
-def testCase (case : Case) : Bool := 
-  match UnsignedVarInt.fromVarInt case.bytes with
-  | Option.none => false
-  | Option.some (n,_) =>
-    UnsignedVarInt.toVarInt case.nat == case.bytes &&
-    n == case.nat
-
-def findFailing (cases: List Case) : List Case :=
-  List.filter (fun x => not (testCase x)) cases
-
-def cases : List Case := 
-  [ Case.mk 1   { data := #[0b00000001] }
-  , Case.mk 127 { data := #[0b01111111] }
-  , Case.mk 128 { data := #[0b10000000, 0b00000001] }
-  , Case.mk 255 { data := #[0b11111111, 0b00000001] }
-  , Case.mk 300 { data := #[0b10101100, 0b00000010] }
-  , Case.mk 16384 { data := #[0b10000000, 0b10000000, 0b000000001] }
-  ]
-
-end UVI
 
 test_suite
-  it "" so MH.findFailing MH.cases should be empty
-
-  it "" so MB.findFailing MB.Basic.cases should be empty
-  it "" so MB.findFailing MB.CaseInsensitivity.cases should be empty
-  it "" so MB.findFailing MB.LeadingZero.cases should be empty
-  it "" so MB.findFailing MB.TwoLeadingZeros.cases should be empty
-  it "" so MB.findFailing MB.RFC4648.cases should be empty
-
-  it "" so DC.findFailing DC.cases should be empty
-
-  it "" so UVI.findFailing UVI.cases should be empty
+  it "todo" so findFailing Basic.cases should be empty
+  it "todo" so findFailing CaseInsensitivity.cases should be empty
+  it "todo" so findFailing LeadingZero.cases should be empty
+  it "todo" so findFailing TwoLeadingZeros.cases should be empty
+  it "todo" so findFailing RFC4648.cases should be empty
