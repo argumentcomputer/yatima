@@ -63,12 +63,14 @@ script tests do
         ++ ⟨objFilePaths.map toString⟩
         ++ #["-rdynamic"]) then return 1
   
-  IO.println "-- Running tests --"
+  if testCases.isEmpty then
+    IO.println "\nNo tests to run"
+    return 0
   
   let mut allPassed : Bool := true
 
   for testCase in testCases do
-    IO.println s!"Running tests for {testCase}"
+    IO.println s!"\nRunning tests for {testCase}"
     let out ← IO.Process.output {
       cmd := s!"build/bin_test/{testCase}"
     }

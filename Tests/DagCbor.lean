@@ -40,4 +40,4 @@ def cases : List Case :=
   ]
 
 test_suite
-  it "todo" so findFailing cases should be empty
+  it "serializes and deserializes IPLD types" so findFailing cases should be empty

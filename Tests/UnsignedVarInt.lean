@@ -29,4 +29,4 @@ def cases : List Case :=
   ]
 
 test_suite
-  it "todo" so findFailing cases should be empty
+  it "converts Nat ↔ UnsignedVarInt properly" so findFailing cases should be empty

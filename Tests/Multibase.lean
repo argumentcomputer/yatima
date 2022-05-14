@@ -251,8 +251,8 @@ def cases : List Case :=
 end RFC4648
 
 test_suite
-  it "todo" so findFailing Basic.cases should be empty
-  it "todo" so findFailing CaseInsensitivity.cases should be empty
-  it "todo" so findFailing LeadingZero.cases should be empty
-  it "todo" so findFailing TwoLeadingZeros.cases should be empty
-  it "todo" so findFailing RFC4648.cases should be empty
+  it "encodes \"yes mani !\"" so findFailing Basic.cases should be empty
+  it "encodes \"hello world\"" so findFailing CaseInsensitivity.cases should be empty
+  it "encodes \"\\x00yes mani !\"" so findFailing LeadingZero.cases should be empty
+  it "encodes \"\\x00\\x00yes mani !\"" so findFailing TwoLeadingZeros.cases should be empty
+  it "encodes vectors" so findFailing RFC4648.cases should be empty

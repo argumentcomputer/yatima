@@ -30,4 +30,4 @@ def cases : List Case := List.catOptions
   ]
 
 test_suite
-  it "todo" so findFailing cases should be empty
+  it "decodes multihashes" so findFailing cases should be empty
