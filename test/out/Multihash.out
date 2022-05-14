@@ -1,0 +1,4 @@
+{ code := 17, size := 4, digest := ByteArray #[182, 248, 92, 181] }
+ByteArray #[17, 4, 182, 248, 92, 181]
+some { code := 17, size := 4, digest := ByteArray #[182, 248, 92, 181] }
+[]
