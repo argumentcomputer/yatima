@@ -5,6 +5,10 @@ import Yatima.Expr
 import Yatima.Const
 import Yatima.Env
 
+-- forcing compilation:
+import Yatima.Ipld.DagCbor
+import Yatima.YatimaSpec
+
 def main : List String → IO UInt32
   | ["build", f] => do
     let input ← IO.FS.readFile f

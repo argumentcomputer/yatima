@@ -3,13 +3,94 @@ import Lake
 open Lake DSL System
 
 package Yatima {
-  srcDir  := "src"
-  binRoot := "Yatima"
-  binName := "yatima"
   supportInterpreter := true
+  binName := "yatima"
 }
 
-constant yatimaLibPath : String := toString $ defaultBuildDir / defaultLibDir
+partial def getFilePaths
+  (fp : FilePath) (ext : String) (acc : List FilePath := []) :
+    IO (List FilePath) := do
+  if ← fp.isDir then
+    let mut extra : List FilePath := []
+    for dirEntry in (← fp.readDir) do
+      for innerFp in ← getFilePaths dirEntry.path ext do
+        extra := extra.concat innerFp
+    return acc ++ extra
+  else
+    if (fp.extension.getD "") == ext then
+      return acc.concat fp
+    else
+      return acc
+
+script tests do
+  IO.println "building Yatima"
+  let out ← IO.Process.output {
+    cmd := "lake"
+    args := #["build"]
+  }
+  if out.exitCode != 0 then
+    IO.println out.stdout
+    IO.eprintln out.stderr
+    return 1
+  
+  IO.println "creating Test.c"
+  let out ← IO.Process.output {
+    cmd := "lean"
+    args := #["Test.lean", "-R", ".",
+      "-o", "build/lib/Test.olean",
+      "-i", "build/lib/Test.ilean",
+      "-c", "./build/ir/Test.c"]
+    env := #[("LEAN_PATH", "build/lib")]
+  }
+  if out.exitCode != 0 then
+    IO.println out.stdout
+    IO.eprintln out.stderr
+    return 1
+
+  IO.println "building Test.o from Test.c"
+  let out ← IO.Process.output {
+    cmd := "leanc"
+    args := #["-c", "-o", "build/ir/Test.o", "build/ir/Test.c",
+      "-O3", "-DNDEBUG"]
+  }
+  if out.exitCode != 0 then
+    IO.println out.stdout
+    IO.eprintln out.stderr
+    return 1
+
+  let objFilePaths := (← getFilePaths ⟨"build/ir"⟩ "o").filter
+    fun fp => fp != ⟨"build/ir/Main.o"⟩
+
+  IO.println "linking objects to build test binary"
+  let out ← IO.Process.output {
+    cmd := "leanc"
+    args := #["-o", "build/bin/test"]
+      ++ ⟨objFilePaths.map toString⟩
+      ++ #["-rdynamic"]
+  }
+  if out.exitCode != 0 then
+    IO.println out.stdout
+    IO.eprintln out.stderr
+    return 1
+  
+  IO.println "running test suite"
+  let out ← IO.Process.output {
+    cmd := "build/bin/test"
+  }
+  IO.print out.stdout
+  if out.exitCode != 0 then
+    IO.println out.stdout
+    IO.eprint out.stderr
+    return 1
+  else
+    IO.println "All tests passed!"
+  return 0
+
+#exit
+
+constant libPath : String := toString $ defaultBuildDir / defaultLibDir
+
+#eval yatimaLibPath
 
 inductive Result
   | success : String → Result

@@ -51,7 +51,7 @@
         project = leanPkgs.buildLeanPackage {
           debug = false;
           name = "Yatima";
-          src = ./src;
+          src = .;
         };
       in
       {
