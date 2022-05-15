@@ -1,12 +1,7 @@
 use crate::{
   name::Name,
   nat::Nat,
-  universe::Univ,
-};
-
-use serde::{
-  Deserialize,
-  Serialize,
+  typechecker::universe::*,
 };
 
 use alloc::{
@@ -16,21 +11,21 @@ use alloc::{
 pub type ExprPtr = u32;
 pub type ExprStore = Vec<Expr>;
 pub type ConstPtr = u32;
-pub type ConstStore = Vec<Expr>;
+pub type ConstStore = Vec<Const>;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {
   Nat(Nat),
   Str(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LitType {
   Nat,
   Str,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BinderInfo {
   Default,
   Implicit,
@@ -38,14 +33,14 @@ pub enum BinderInfo {
   InstImplict,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
 pub enum DefSafety {
   Unsafe,
   Safe,
   Partial,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
 pub enum QuotKind {
   Type,
   Ctor,
@@ -57,29 +52,27 @@ pub enum QuotKind {
 #[derive(Clone, Debug)]
 pub enum Const {
   /// axiom
-  Axiom { name: Name, lvl: Vec<Name>, typ: ExprPtr },
+  Axiom { name: Name, uvars: Nat, typ: ExprPtr },
   /// theorem
-  Theorem { name: Name, lvl: Vec<Name>, typ: ExprPtr, expr: ExprPtr },
+  Theorem { uvars: Nat, typ: ExprPtr, expr: ExprPtr },
   /// opaque
   Opaque {
     name: Name,
-    lvl: Vec<Name>,
+    uvars: Nat,
     typ: ExprPtr,
     expr: ExprPtr,
     safe: bool,
   },
   /// def
   Definition {
-    name: Name,
-    lvl: Vec<Name>,
+    uvars: Nat,
     typ: ExprPtr,
     expr: ExprPtr,
     safe: DefSafety,
   },
   /// inductive type
   Inductive {
-    name: Name,
-    lvl: Vec<Name>,
+    uvars: Nat,
     typ: ExprPtr,
     params: Nat,
     indices: Nat,
@@ -92,7 +85,7 @@ pub enum Const {
   /// inductive constructor
   Constructor {
     name: Name,
-    lvl: Vec<Name>,
+    uvars: Nat,
     ind: ConstPtr,
     typ: ExprPtr,
     idx: Nat,
@@ -102,7 +95,7 @@ pub enum Const {
   },
   /// inductive recursor
   Recursor {
-    lvl: Vec<Name>,
+    uvars: Nat,
     ind: ConstPtr,
     typ: ExprPtr,
     params: Nat,
@@ -121,23 +114,23 @@ pub enum Const {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Expr {
   /// Variables
-  Var(Name, Nat),
+  Var(Nat),
   /// Type Universes
   Sort(Univ),
   /// Global references to a Constant, with universe arguments
-  Const(Name, ConstPtr, Vec<Univ>),
+  Const(ConstPtr, Vec<Univ>),
   /// Function Application: (f x)
   App(ExprPtr, ExprPtr),
   /// Anonymous Function: λ (x : A) => x
-  Lam(Name, BinderInfo, ExprPtr, ExprPtr),
+  Lam(BinderInfo, ExprPtr, ExprPtr),
   /// Universal Quantification: Π (x : A) -> x
-  Pi(Name, BinderInfo, ExprPtr, ExprPtr),
+  Pi(BinderInfo, ExprPtr, ExprPtr),
   /// Local definition: let x : A = e in b
-  Let(Name, ExprPtr, ExprPtr, ExprPtr),
+  Let(ExprPtr, ExprPtr, ExprPtr),
   /// Literal: "foo", 1, 2, 3
   Lit(Literal),
   /// Literal Type: Nat, String
   Lty(LitType),
   /// Fixpoint recursion, μ x. x
-  Fix(Name, ExprPtr),
+  Fix(ExprPtr),
 }
