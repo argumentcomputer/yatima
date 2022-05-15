@@ -4,6 +4,7 @@ use crate::{
   typechecker::expression::*,
 };
 use im::Vector;
+use std::rc::Rc;
 
 // Expressions are things to be evaluated. Values are the result of evaluating (reducing, normalizing) expressions. However, in general, expressions
 // need to be given an environment to give values to their free variables. So, from now on, when we write "unevaluated expression", we mean an expression
@@ -11,13 +12,13 @@ use im::Vector;
 
 // Thunks are either values or unevaluated expressions. Whenever we "force" a thunk (i.e. evaluate it in case it is not yet a value), we should update
 // it to the result of the evaluation, so that we don't duplicate work evaluating it again
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Thunk {
   Res(Value),
   Sus(ExprPtr, Env),
 }
 
-pub type ThunkPtr = u32;
-pub type ThunkStore = Vec<Thunk>;
+pub type ThunkPtr = Rc<Thunk>;
 
 // The environment will bind free variables to different things, depending on the evaluation strategy.
 // 1) Strict evaluation: binds free variables to values

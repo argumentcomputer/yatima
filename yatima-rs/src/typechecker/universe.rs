@@ -1,9 +1,9 @@
 use crate::{
   nat::Nat,
 };
+use std::rc::Rc;
 
-pub type UnivPtr = u32;
-pub type UnivStore = Vec<Univ>;
+pub type UnivPtr = Rc<Univ>;
 
 /// Universe levels
 #[derive(Clone, Debug, PartialEq, Eq)]

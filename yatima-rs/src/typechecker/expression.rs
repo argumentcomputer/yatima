@@ -4,14 +4,11 @@ use crate::{
   typechecker::universe::*,
 };
 
-use alloc::{
-  string::String,
-};
+use alloc::string::String;
+use std::rc::Rc;
 
-pub type ExprPtr = u32;
-pub type ExprStore = Vec<Expr>;
-pub type ConstPtr = u32;
-pub type ConstStore = Vec<Const>;
+pub type ExprPtr = Rc<Expr>;
+pub type ConstPtr = Rc<Const>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {
@@ -33,14 +30,14 @@ pub enum BinderInfo {
   InstImplict,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DefSafety {
   Unsafe,
   Safe,
   Partial,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum QuotKind {
   Type,
   Ctor,
@@ -49,7 +46,7 @@ pub enum QuotKind {
 }
 
 /// Yatima Constants
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Const {
   /// axiom
   Axiom { name: Name, uvars: Nat, typ: ExprPtr },
