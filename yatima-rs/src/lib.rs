@@ -18,3 +18,4 @@ pub mod name;
 pub mod nat;
 // pub mod parse;
 pub mod universe;
+pub mod typechecker;
