@@ -5,7 +5,7 @@ use crate::{
 use std::rc::Rc;
 use std::cell::RefCell;
 
-pub fn freeze(u: UnExpr) -> ThunkPtr {
+pub fn freeze(u: Comp) -> ThunkPtr {
   Rc::new(RefCell::new(Thunk::Sus(u)))
 }
 
@@ -25,20 +25,20 @@ pub fn force(thunk: ThunkPtr) -> Value {
   }
 }
 
-pub fn eval(mut u: UnExpr) -> Value {
+pub fn eval(mut u: Comp) -> Value {
   match &*u.expr {
     Expr::Var(idx) => {
-      force(u.fvar[*idx as usize].clone())
+      force(u.e_env[*idx as usize].clone())
     },
     Expr::Sort(lvl) => Value::Sort(lvl.clone()),
     Expr::Const(..) => todo!(),
     Expr::App(fun, arg) => {
-      let arg = freeze(UnExpr { expr: arg.clone(), ..u.clone() });
-      let fun = eval(UnExpr { expr: fun.clone(), ..u });
+      let arg = freeze(Comp { expr: arg.clone(), ..u.clone() });
+      let fun = eval(Comp { expr: fun.clone(), ..u });
       match fun {
 	Value::Lam(_, body) => {
 	  let mut body = body.clone();
-	  body.fvar.push_front(arg);
+	  body.e_env.push_front(arg);
 	  eval(body)
 	},
 	Value::App(var@Neutral::FVar(..), args) => {
@@ -53,26 +53,26 @@ pub fn eval(mut u: UnExpr) -> Value {
       }
     },
     Expr::Lam(binfo, _, body) => {
-      let body = UnExpr { expr: body.clone(), ..u };
+      let body = Comp { expr: body.clone(), ..u };
       Value::Lam(*binfo, body)
     },
     Expr::Pi(binfo, dom, cod) => {
-      let dom = UnExpr { expr: dom.clone(), ..u.clone() };
-      let cod = UnExpr { expr: cod.clone(), ..u };
+      let dom = Comp { expr: dom.clone(), ..u.clone() };
+      let cod = Comp { expr: cod.clone(), ..u };
       Value::Pi(*binfo, freeze(dom), cod)
     },
     Expr::Let(_, expr, body) => {
-      let expr = UnExpr { expr: expr.clone(), ..u.clone() };
-      u.fvar.push_front(freeze(expr));
-      let body = UnExpr { expr: body.clone(), ..u };
+      let expr = Comp { expr: expr.clone(), ..u.clone() };
+      u.e_env.push_front(freeze(expr));
+      let body = Comp { expr: body.clone(), ..u };
       eval(body)
     },
     Expr::Lit(lit) => Value::Lit(lit.clone()),
     Expr::Lty(lty) => Value::Lty(*lty),
     Expr::Fix(body) => {
-      let mut unroll = UnExpr { expr: body.clone(), ..u.clone() };
+      let mut unroll = Comp { expr: body.clone(), ..u.clone() };
       let itself = freeze(u);
-      unroll.fvar.push_front(itself);
+      unroll.e_env.push_front(itself);
       eval(unroll)
     },
   }

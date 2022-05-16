@@ -9,7 +9,6 @@ use std::rc::Rc;
 
 pub type ExprPtr = Rc<Expr>;
 pub type ConstPtr = Rc<Const>;
-pub type EnvPtr = u32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {

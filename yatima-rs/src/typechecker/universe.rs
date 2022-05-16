@@ -1,9 +1,7 @@
-use crate::{
-  nat::Nat,
-};
 use std::rc::Rc;
 
 pub type UnivPtr = Rc<Univ>;
+pub type EnvPtr = u32;
 
 /// Universe levels
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -17,5 +15,5 @@ pub enum Univ {
   /// Sort (imax u v)
   IMax(UnivPtr, UnivPtr),
   /// Sort u
-  Param(Nat),
+  Var(EnvPtr),
 }
