@@ -1,5 +1,4 @@
 use crate::{
-  nat::Nat,
   typechecker::universe::*,
   typechecker::expression::*,
 };
@@ -12,15 +11,15 @@ use std::cell::RefCell;
 // plus an environment
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct UnExpr {
-  expr: ExprPtr,
+  pub expr: ExprPtr,
   // The environment will bind free variables to different things, depending on the evaluation strategy.
   // 1) Strict evaluation: binds free variables to values
   // 2) Non-strict evaluation: binds free variables to unevaluated expressions
   // 3) Lazy evaluation (i.e. non-strict without duplication of work): binds free variables to thunks
   // Here we chose lazy evaluation since it is more efficient for typechecking.
-  fvar: Vector<ThunkPtr>,
+  pub fvar: Vector<ThunkPtr>,
   // Since we also have universes with free parameters, we need to add an environment for universe params as well:
-  uvar: Vector<UnivPtr>,
+  pub uvar: Vector<UnivPtr>,
 }
 
 // Thunks are either values or unevaluated expressions. Whenever we "force" a thunk (i.e. evaluate it in case it is not yet a value), we should update
@@ -43,9 +42,9 @@ pub enum Value {
   /// Values can only be an application if its a stuck application. That is, if the head of the application is either a variable
   /// or a constant with not enough arguments to reduce (i.e. neutral terms)
   App(Neutral, Args),
-  /// Lambdas are yet to be reduced expressions with environments for their free variables apart from their argument variables
+  /// Lambdas are unevaluated expressions with environments for their free variables apart from their argument variables
   Lam(BinderInfo, UnExpr),
-  /// Pi types will have thunks for their domains and an expression/environment pair analogous to a lambda for their images
+  /// Pi types will have thunks for their domains and unevaluated expressions analogous to lambda bodies for their codomains
   Pi(BinderInfo, ThunkPtr, UnExpr),
   /// Literal: "foo", 1, 2, 3
   Lit(Literal),
@@ -55,6 +54,7 @@ pub enum Value {
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Neutral {
-  FVar(Nat, ThunkPtr),
+  // Free variables also carry around their types for efficiency
+  FVar(EnvPtr, ThunkPtr),
   Const(ConstPtr),
 }

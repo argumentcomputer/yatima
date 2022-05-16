@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 pub type ExprPtr = Rc<Expr>;
 pub type ConstPtr = Rc<Const>;
+pub type EnvPtr = u32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Literal {
@@ -16,13 +17,13 @@ pub enum Literal {
   Str(String),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LitType {
   Nat,
   Str,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinderInfo {
   Default,
   Implicit,
@@ -30,14 +31,14 @@ pub enum BinderInfo {
   InstImplict,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DefSafety {
   Unsafe,
   Safe,
   Partial,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum QuotKind {
   Type,
   Ctor,
@@ -111,7 +112,7 @@ pub enum Const {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Expr {
   /// Variables
-  Var(Nat),
+  Var(EnvPtr),
   /// Type Universes
   Sort(Univ),
   /// Global references to a Constant, with universe arguments
