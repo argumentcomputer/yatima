@@ -1,11 +1,12 @@
 use crate::{
+  typechecker::universe::*,
   typechecker::expression::*,
   typechecker::value::*,
 };
 use std::rc::Rc;
 use std::cell::RefCell;
 
-pub fn freeze(u: Comp) -> ThunkPtr {
+pub fn suspend(u: Comp) -> ThunkPtr {
   Rc::new(RefCell::new(Thunk::Sus(u)))
 }
 
@@ -28,12 +29,17 @@ pub fn force(thunk: ThunkPtr) -> Value {
 pub fn eval(mut u: Comp) -> Value {
   match &*u.expr {
     Expr::Var(idx) => {
-      force(u.e_env[*idx as usize].clone())
+      force(u.e_env[*idx].clone())
     },
-    Expr::Sort(lvl) => Value::Sort(lvl.clone()),
+    Expr::Sort(lvl) => {
+      // Value::Sort only takes fully reduced levels, so we instantiate all variables using the universe environment, then reduce it
+      let lvl = instantiate_univ_bulk(lvl, &u.u_env);
+      let lvl = reduce(&lvl);
+      Value::Sort(lvl)
+    },
     Expr::Const(..) => todo!(),
     Expr::App(fun, arg) => {
-      let arg = freeze(Comp { expr: arg.clone(), ..u.clone() });
+      let arg = suspend(Comp { expr: arg.clone(), ..u.clone() });
       let fun = eval(Comp { expr: fun.clone(), ..u });
       match fun {
 	Value::Lam(_, body) => {
@@ -59,11 +65,11 @@ pub fn eval(mut u: Comp) -> Value {
     Expr::Pi(binfo, dom, cod) => {
       let dom = Comp { expr: dom.clone(), ..u.clone() };
       let cod = Comp { expr: cod.clone(), ..u };
-      Value::Pi(*binfo, freeze(dom), cod)
+      Value::Pi(*binfo, suspend(dom), cod)
     },
     Expr::Let(_, expr, body) => {
       let expr = Comp { expr: expr.clone(), ..u.clone() };
-      u.e_env.push_front(freeze(expr));
+      u.e_env.push_front(suspend(expr));
       let body = Comp { expr: body.clone(), ..u };
       eval(body)
     },
@@ -71,7 +77,7 @@ pub fn eval(mut u: Comp) -> Value {
     Expr::Lty(lty) => Value::Lty(*lty),
     Expr::Fix(body) => {
       let mut unroll = Comp { expr: body.clone(), ..u.clone() };
-      let itself = freeze(u);
+      let itself = suspend(u);
       unroll.e_env.push_front(itself);
       eval(unroll)
     },

@@ -113,7 +113,7 @@ pub enum Expr {
   /// Variables
   Var(EnvPtr),
   /// Type Universes
-  Sort(Univ),
+  Sort(UnivPtr),
   /// Global references to a Constant, with universe arguments
   Const(ConstPtr, Vec<Univ>),
   /// Function Application: (f x)

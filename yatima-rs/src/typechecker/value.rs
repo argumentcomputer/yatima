@@ -39,7 +39,7 @@ pub type Args = Vector<ThunkPtr>;
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Value {
   /// Type universes. It is assumed `Univ` is reduced/simplified
-  Sort(Univ),
+  Sort(UnivPtr),
   /// Values can only be an application if its a stuck application. That is, if the head of the application is either a variable
   /// or a constant with not enough arguments to reduce (i.e. neutral terms)
   App(Neutral, Args),
