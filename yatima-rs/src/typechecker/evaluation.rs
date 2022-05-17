@@ -7,8 +7,8 @@ use im::Vector;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-pub fn suspend(u: Comp) -> ThunkPtr {
-  Rc::new(RefCell::new(Thunk::Sus(u)))
+pub fn suspend(expr: ExprPtr, env: Env) -> ThunkPtr {
+  Rc::new(RefCell::new(Thunk::Sus(expr, env)))
 }
 
 pub fn force(thunk: ThunkPtr) -> Value {
@@ -17,8 +17,8 @@ pub fn force(thunk: ThunkPtr) -> Value {
     Thunk::Res(val) => {
       val.clone()
     },
-    Thunk::Sus(u) => {
-      let val = eval(u.clone());
+    Thunk::Sus(expr, env) => {
+      let val = eval(expr.clone(), env.clone());
       drop(borrow);
       let mut mut_borrow = thunk.borrow_mut();
       *mut_borrow = Thunk::Res(val.clone());
@@ -27,94 +27,90 @@ pub fn force(thunk: ThunkPtr) -> Value {
   }
 }
 
-pub fn eval(mut u: Comp) -> Value {
-  match &*u.expr {
+pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
+  match &*expr {
     Expr::Var(idx) => {
-      force(u.e_env[*idx].clone())
+      force(env.exprs[*idx].clone())
     },
     Expr::Sort(lvl) => {
       // Value::Sort only takes fully reduced levels, so we instantiate all variables using the universe environment, then reduce it
-      let lvl = reduce(&instantiate_univ_bulk(lvl, &u.u_env));
+      let lvl = reduce(&instantiate_univ_bulk(lvl, &env.univs));
       Value::Sort(lvl)
     },
-    Expr::Const(cnst, univs) => {
-      let u_env = univs.iter().map(|lvl| {
-	reduce(&instantiate_univ_bulk(lvl, &u.u_env))
+    Expr::Const(cnst, cnst_univs) => {
+      let univs = cnst_univs.iter().map(|lvl| {
+	reduce(&instantiate_univ_bulk(lvl, &env.univs))
       }).collect();
-      eval_const(cnst, u_env)
+      eval_const(cnst, univs)
     },
     Expr::App(fun, arg) => {
-      let arg = suspend(Comp { expr: arg.clone(), ..u.clone() });
-      let fun = eval(Comp { expr: fun.clone(), ..u.clone() });
+      let arg = suspend(arg.clone(), env.clone());
+      let fun = eval(fun.clone(), env.clone());
       match fun {
-	Value::Lam(_, body) => {
-	  let mut body = body.clone();
-	  body.e_env.push_front(arg);
-	  eval(body)
+	Value::Lam(_, body, lam_env) => {
+	  let mut lam_env = lam_env.clone();
+	  lam_env.exprs.push_front(arg);
+	  eval(body.clone(), lam_env)
 	},
 	Value::App(var@Neutral::FVar(..), args) => {
 	  let mut args = args.clone();
 	  args.push_front(arg);
 	  Value::App(var, args)
 	},
-	Value::App(Neutral::Const(cnst, univs), args) => {
-	  let u_env = univs.iter().map(|lvl| {
-	    reduce(&instantiate_univ_bulk(lvl, &u.u_env))
+	Value::App(Neutral::Const(cnst, cnst_univs), args) => {
+	  let univs = cnst_univs.iter().map(|lvl| {
+	    reduce(&instantiate_univ_bulk(lvl, &env.univs))
 	  }).collect();
-	  apply_const(cnst, u_env, arg, args)
+	  apply_const(cnst, univs, arg, args)
 	},
 	_ => unreachable!(),
       }
     },
     Expr::Lam(binfo, _, body) => {
-      let body = Comp { expr: body.clone(), ..u };
-      Value::Lam(*binfo, body)
+      Value::Lam(*binfo, body.clone(), env)
     },
     Expr::Pi(binfo, dom, cod) => {
-      let dom = Comp { expr: dom.clone(), ..u.clone() };
-      let cod = Comp { expr: cod.clone(), ..u };
-      Value::Pi(*binfo, suspend(dom), cod)
+      let dom = suspend(dom.clone(), env.clone());
+      Value::Pi(*binfo, dom, cod.clone(), env)
     },
     Expr::Let(_, expr, body) => {
-      let expr = Comp { expr: expr.clone(), ..u.clone() };
-      u.e_env.push_front(suspend(expr));
-      let body = Comp { expr: body.clone(), ..u };
-      eval(body)
+      env.exprs.push_front(suspend(expr.clone(), env.clone()));
+      eval(body.clone(), env)
     },
     Expr::Lit(lit) => Value::Lit(lit.clone()),
     Expr::Lty(lty) => Value::Lty(*lty),
     Expr::Fix(body) => {
-      let mut unroll = Comp { expr: body.clone(), ..u.clone() };
-      let itself = suspend(u);
-      unroll.e_env.push_front(itself);
-      eval(unroll)
+      let body = body.clone();
+      let itself = suspend(expr, env.clone());
+      env.exprs.push_front(itself);
+      eval(body, env)
     },
   }
 }
 
-pub fn eval_const(cnst: &ConstPtr, u_env: Vector<UnivPtr>) -> Value {
+pub fn eval_const(cnst: &ConstPtr, univs: Vector<UnivPtr>) -> Value {
   match &**cnst {
     Const::Theorem { expr, ..} |
     Const::Definition { safe: DefSafety::Safe, expr, .. } => {
-      eval(Comp { expr: expr.clone(), e_env: Vector::new(), u_env })
+      eval(expr.clone(), Env { exprs: Vector::new(), univs })
     },
     Const::Definition { safe: DefSafety::Unsafe, .. } => {
       panic!("Cannot use unsafe definitions inside types")
     },
     _ => {
-      Value::App(Neutral::Const(cnst.clone(), u_env), Vector::new())
+      Value::App(Neutral::Const(cnst.clone(), univs), Vector::new())
     },
   }
 }
 
-pub fn apply_const(cnst: ConstPtr, u_env: Vector<UnivPtr>, arg: ThunkPtr, mut args: Vector<ThunkPtr>) -> Value {
+pub fn apply_const(cnst: ConstPtr, univs: Vector<UnivPtr>, arg: ThunkPtr, mut args: Vector<ThunkPtr>) -> Value {
   // Assumes a partial application of k to args, which means in particular, that it is in normal form
   match &*cnst {
     Const::Recursor { params, motives, minors, indices, rules, ..} => {
       let major_idx = params + motives + minors + indices;
       if args.len() != major_idx {
 	args.push_front(arg);
-	return Value::App(Neutral::Const(cnst, u_env), args)
+	return Value::App(Neutral::Const(cnst, univs), args)
       }
       match force(arg.clone()) {
 	Value::App(Neutral::Const(ctor, _), ctor_args) => {
@@ -129,9 +125,9 @@ pub fn apply_const(cnst: ConstPtr, u_env: Vector<UnivPtr>, arg: ThunkPtr, mut ar
 	      args.slice(indices ..);
               // The number of parameters in the constructor is not necessarily equal to the number of parameters in the recursor in nested
 	      // inductive types, but the rule knows how many arguments to take
-	      let mut e_env = ctor_args.take(rule.nfields);
-	      e_env.append(args);
-	      return eval(Comp { expr: rule.rhs.clone(), e_env, u_env })
+	      let mut exprs = ctor_args.take(rule.nfields);
+	      exprs.append(args);
+	      return eval(rule.rhs.clone(), Env { exprs, univs })
 	    }
 	    _ => ()
 	  }
@@ -145,5 +141,5 @@ pub fn apply_const(cnst: ConstPtr, u_env: Vector<UnivPtr>, arg: ThunkPtr, mut ar
     _ => ()
   }
   args.push_front(arg);
-  Value::App(Neutral::Const(cnst, u_env), args)
+  Value::App(Neutral::Const(cnst, univs), args)
 }
