@@ -10,7 +10,4 @@ def Name.ofLeanName : Lean.Name → Name
   | s@(Lean.Name.str ..) => .str s.toString
   | _                    => unreachable!
 
-instance : Coe Lean.Name Name where
-  coe := Name.ofLeanName
-
 end Yatima

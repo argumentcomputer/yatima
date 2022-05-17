@@ -10,28 +10,31 @@ import Lean
 
 namespace Lean.Yatima.Compiler
 
+instance : Coe Name Yatima.Name where
+  coe := Yatima.Name.ofLeanName
+
 instance : Inhabited Yatima.Const where
   default := Yatima.Const.axiom ⟨Yatima.Name.anon, [], default, default⟩
 
-instance : Coe Lean.DefinitionSafety Yatima.DefSafety where
+instance : Coe DefinitionSafety Yatima.DefSafety where
   coe := fun ds => match ds with
     | .safe      => .safe
     | .«unsafe»  => .«unsafe»
     | .«partial» => .«partial»
 
-instance : Coe Lean.QuotKind Yatima.QuotKind where
+instance : Coe QuotKind Yatima.QuotKind where
   coe := fun q => match q with
     | .type => .type
     | .ind  => .ind
     | .lift => .lift
     | .ctor => .ctor
 
-instance : Coe Lean.Literal Yatima.Literal where
+instance : Coe Literal Yatima.Literal where
   coe := fun l => match l with
     | .natVal n => .nat n
     | .strVal s => .str s
 
-abbrev ConstMap := Lean.SMap Lean.Name Yatima.Const
+abbrev ConstMap := SMap Name Yatima.Const
 
 structure Context where
   env      : Lean.Environment
@@ -44,7 +47,7 @@ instance : Monad ConvM :=
   { pure := i.pure, bind := i.bind }
 
 --todo As it stands, it is using Keccak256. Should be parametrized on hash functions later
-def nameToCid (nam : Lean.Name) : Cid :=
+def nameToCid (nam : Name) : Cid :=
   -- Should we use `Name.hash` or our own encoding of names?
   let digest  := Keccak.keccak256 $ ByteArray.pushUInt64LE ByteArray.empty nam.hash
   let size    := sorry
@@ -54,48 +57,47 @@ def nameToCid (nam : Lean.Name) : Cid :=
   let multihash := Multihash.mk size code digest
   Cid.mk version codec multihash
 
-def leanExprToCid (e : Lean.Expr) : Cid := panic! "TODO"
+def leanExprToCid (e : Expr) : Cid := panic! "TODO"
 def combineCid (a : Cid) (b : Cid) : Cid := panic! "TODO"
 
-def inductiveIsUnitLike (ctors : List Lean.Name) : ConvM Bool :=
+def inductiveIsUnitLike (ctors : List Name) : ConvM Bool :=
   match ctors with
   | [ctor] => do
-    match Lean.Environment.find? (← read).env ctor with
+    match Environment.find? (← read).env ctor with
     | some info =>
       match info with
-      | Lean.ConstantInfo.ctorInfo cval => pure (cval.numFields != 0)
+      | ConstantInfo.ctorInfo cval => pure (cval.numFields != 0)
       | _ => pure false
     | none => pure false
   | _ => pure false
 
-def toYatimaLevel (levelParams : List Lean.Name) (lvl : Lean.Level) : Yatima.Univ :=
-  match lvl with
-  | Lean.Level.zero _      => Yatima.Univ.zero
-  | Lean.Level.succ n _    => Yatima.Univ.succ (toYatimaLevel levelParams n)
-  | Lean.Level.max  a b _  => Yatima.Univ.max (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
-  | Lean.Level.imax a b _  => Yatima.Univ.imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
-  | Lean.Level.param nam _ =>
+def toYatimaLevel (levelParams : List Name) : Level → Yatima.Univ
+  | .zero _      => Yatima.Univ.zero
+  | .succ n _    => Yatima.Univ.succ (toYatimaLevel levelParams n)
+  | .max  a b _  => Yatima.Univ.max  (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
+  | .imax a b _  => Yatima.Univ.imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
+  | .param nam _ =>
     match levelParams.indexOf nam with
     | some n => Yatima.Univ.param nam n
     | none   => panic! s!"'{nam}' not found in '{levelParams}'"
-  | Lean.Level.mvar _ _ => panic! "Unfilled level metavariable"
+  | .mvar _ _ => panic! "Unfilled level metavariable"
 
 mutual
 
- partial def toYatimaRecursorRule (rules : Lean.RecursorRule) :
+ partial def toYatimaRecursorRule (rules : RecursorRule) :
      ConvM Yatima.RecRule := do
    let cid := sorry
    let rhs ← toYatimaExpr [] rules.rhs
    return Yatima.RecRule.mk cid rules.nfields rhs
 
- partial def toYatimaConstMap (nam : Lean.Name) : ConvM ConstMap := do
+ partial def toYatimaConstMap (nam : Name) : ConvM ConstMap := do
    let insertConst := fun nam const => do
      let _ ← toYatimaConst nam const
      pure default
-   Lean.SMap.forM (← read).constMap insertConst
+   SMap.forM (← read).constMap insertConst
    get
 
-  partial def toYatimaConst (nam : Lean.Name) (constInfo : Lean.ConstantInfo) :
+  partial def toYatimaConst (nam : Name) (constInfo : ConstantInfo) :
       ConvM Yatima.Const := do
     let YatimaMap ← get
     match YatimaMap.find?' nam with
@@ -177,12 +179,12 @@ mutual
           lvls := struct.levelParams.map Yatima.Name.ofLeanName
           type := ← toYatimaExpr struct.levelParams struct.type
           kind := struct.kind }
-      modifyGet fun YatimaMap => (const, Lean.SMap.insert' YatimaMap nam const)
+      modifyGet fun YatimaMap => (const, SMap.insert' YatimaMap nam const)
 
-  partial def toYatimaExpr (levelParams : List Lean.Name) : Lean.Expr → ConvM Yatima.Expr
-    | Lean.Expr.bvar idx _ => return Yatima.Expr.var .anon idx
-    | Lean.Expr.sort lvl _ => return Yatima.Expr.sort (toYatimaLevel levelParams lvl)
-    | Lean.Expr.const nam lvls _ => do
+  partial def toYatimaExpr (levelParams : List Name) : Expr → ConvM Yatima.Expr
+    | .bvar idx _ => return Yatima.Expr.var .anon idx
+    | .sort lvl _ => return Yatima.Expr.sort (toYatimaLevel levelParams lvl)
+    | .const nam lvls _ => do
       match (← read).constMap.find?' nam with
       | some const =>
         let const ← toYatimaConst nam const
@@ -190,29 +192,29 @@ mutual
           sorry
           (lvls.map $ toYatimaLevel levelParams)
       | none => panic! "Unknown constant"
-    | Lean.Expr.app fnc arg _ => do
+    | .app fnc arg _ => do
       let fnc ← toYatimaExpr levelParams fnc
       let arg ← toYatimaExpr levelParams arg
       return Yatima.Expr.app fnc arg
-    | Lean.Expr.lam nam bnd bod _ => do
+    | .lam nam bnd bod _ => do
       let bndInfo := bnd.binderInfo
       let bnd ← toYatimaExpr levelParams bnd
       let bod ← toYatimaExpr levelParams bod
       return Yatima.Expr.lam nam bndInfo bnd bod
-    | Lean.Expr.forallE nam dom img _ => do
+    | .forallE nam dom img _ => do
       let bndInfo := dom.binderInfo
       let dom ← toYatimaExpr levelParams dom
       let img ← toYatimaExpr levelParams img
       return Yatima.Expr.pi nam bndInfo dom img
-    | Lean.Expr.letE nam typ exp bod _ => do
+    | .letE nam typ exp bod _ => do
       let typ ← toYatimaExpr levelParams typ
       let exp ← toYatimaExpr levelParams exp
       let bod ← toYatimaExpr levelParams bod
       return Yatima.Expr.letE nam typ exp bod
-    | Lean.Expr.lit lit _ => return Yatima.Expr.lit lit
-    | Lean.Expr.mdata _ e _ => toYatimaExpr levelParams e
-    | Lean.Expr.proj .. => panic! "Projections TODO"
-    | Lean.Expr.fvar .. => panic! "Unbound variable"
-    | Lean.Expr.mvar .. => panic! "Unfilled metavariable"
+    | .lit lit _ => return Yatima.Expr.lit lit
+    | .mdata _ e _ => toYatimaExpr levelParams e
+    | .proj .. => panic! "Projections TODO"
+    | .fvar .. => panic! "Unbound variable"
+    | .mvar .. => panic! "Unfilled metavariable"
 
 end
