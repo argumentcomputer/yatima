@@ -56,6 +56,6 @@ pub enum Value {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Neutral {
   // Free variables also carry around their types for efficiency
-  FVar(EnvPtr, ThunkPtr),
-  Const(ConstPtr),
+  FVar(Index, ThunkPtr),
+  Const(ConstPtr, Vector<UnivPtr>),
 }

@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
 pub type UnivPtr = Rc<Univ>;
-pub type EnvPtr = usize;
+
+/// Indexes are used for environment lookups. They take place of de Bruijn indices or levels.
+pub type Index = usize;
 
 use im::Vector;
 
@@ -17,10 +19,10 @@ pub enum Univ {
   /// Sort (imax u v)
   IMax(UnivPtr, UnivPtr),
   /// Sort u
-  Var(EnvPtr),
+  Var(Index),
 }
 
-pub fn instantiate_univ(univ: &UnivPtr, idx: EnvPtr, subst: &UnivPtr) -> UnivPtr {
+pub fn instantiate_univ(univ: &UnivPtr, idx: Index, subst: &UnivPtr) -> UnivPtr {
   match &**univ {
     Univ::Zero => univ.clone(),
     Univ::Succ(a) => {

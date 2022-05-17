@@ -6,6 +6,7 @@ use crate::{
 
 use alloc::string::String;
 use std::rc::Rc;
+use std::collections::HashMap;
 
 pub type ExprPtr = Rc<Expr>;
 pub type ConstPtr = Rc<Const>;
@@ -45,7 +46,32 @@ pub enum QuotKind {
   Ind,
 }
 
-/// Yatima Constants
+/// Nameless expressions for typechecking. Such expressions must come from ExprAnon in such a way that it preserves CID <-> Pointer correspondence.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum Expr {
+  /// Variables
+  Var(Index),
+  /// Type Universes
+  Sort(UnivPtr),
+  /// Global references to a Constant, with universe arguments
+  Const(ConstPtr, Vec<UnivPtr>),
+  /// Function Application: (f x)
+  App(ExprPtr, ExprPtr),
+  /// Anonymous Function: λ (x : A) => x
+  Lam(BinderInfo, ExprPtr, ExprPtr),
+  /// Universal Quantification: Π (x : A) -> x
+  Pi(BinderInfo, ExprPtr, ExprPtr),
+  /// Local definition: let x : A = e in b
+  Let(ExprPtr, ExprPtr, ExprPtr),
+  /// Literal: "foo", 1, 2, 3
+  Lit(Literal),
+  /// Literal Type: Nat, String
+  Lty(LitType),
+  /// Fixpoint recursion, μ x. x
+  Fix(ExprPtr),
+}
+
+/// Constants for typechecking. They must also come from their anon representation, preserving CID <-> correspondence
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Const {
   /// axiom
@@ -95,11 +121,12 @@ pub enum Const {
     uvars: Nat,
     ind: ConstPtr,
     typ: ExprPtr,
-    params: Nat,
-    indices: Nat,
-    motives: Nat,
-    minors: Nat,
-    rules: Vec<(ConstPtr, Nat, Expr)>,
+    params: Index,
+    indices: Index,
+    motives: Index,
+    minors: Index,
+    /// Since pointers are in one-to-one correspondence with CIDs, we can use raw pointers as keys
+    rules: HashMap<*const Const, RecursorRule>,
     k: bool,
     safe: bool,
   },
@@ -107,27 +134,8 @@ pub enum Const {
   Quotient { kind: QuotKind },
 }
 
-/// Yatima Expressions
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub enum Expr {
-  /// Variables
-  Var(EnvPtr),
-  /// Type Universes
-  Sort(UnivPtr),
-  /// Global references to a Constant, with universe arguments
-  Const(ConstPtr, Vec<Univ>),
-  /// Function Application: (f x)
-  App(ExprPtr, ExprPtr),
-  /// Anonymous Function: λ (x : A) => x
-  Lam(BinderInfo, ExprPtr, ExprPtr),
-  /// Universal Quantification: Π (x : A) -> x
-  Pi(BinderInfo, ExprPtr, ExprPtr),
-  /// Local definition: let x : A = e in b
-  Let(ExprPtr, ExprPtr, ExprPtr),
-  /// Literal: "foo", 1, 2, 3
-  Lit(Literal),
-  /// Literal Type: Nat, String
-  Lty(LitType),
-  /// Fixpoint recursion, μ x. x
-  Fix(ExprPtr),
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecursorRule {
+  pub nfields: Index,
+  pub rhs: ExprPtr,
 }

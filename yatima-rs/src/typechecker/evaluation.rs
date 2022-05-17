@@ -3,6 +3,7 @@ use crate::{
   typechecker::expression::*,
   typechecker::value::*,
 };
+use im::Vector;
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -33,14 +34,18 @@ pub fn eval(mut u: Comp) -> Value {
     },
     Expr::Sort(lvl) => {
       // Value::Sort only takes fully reduced levels, so we instantiate all variables using the universe environment, then reduce it
-      let lvl = instantiate_univ_bulk(lvl, &u.u_env);
-      let lvl = reduce(&lvl);
+      let lvl = reduce(&instantiate_univ_bulk(lvl, &u.u_env));
       Value::Sort(lvl)
     },
-    Expr::Const(..) => todo!(),
+    Expr::Const(cnst, univs) => {
+      let u_env = univs.iter().map(|lvl| {
+	reduce(&instantiate_univ_bulk(lvl, &u.u_env))
+      }).collect();
+      eval_const(cnst, u_env)
+    },
     Expr::App(fun, arg) => {
       let arg = suspend(Comp { expr: arg.clone(), ..u.clone() });
-      let fun = eval(Comp { expr: fun.clone(), ..u });
+      let fun = eval(Comp { expr: fun.clone(), ..u.clone() });
       match fun {
 	Value::Lam(_, body) => {
 	  let mut body = body.clone();
@@ -49,11 +54,14 @@ pub fn eval(mut u: Comp) -> Value {
 	},
 	Value::App(var@Neutral::FVar(..), args) => {
 	  let mut args = args.clone();
-	  args.push_back(arg);
+	  args.push_front(arg);
 	  Value::App(var, args)
 	},
-	Value::App(Neutral::Const(..), ..) => {
-	  panic!()
+	Value::App(Neutral::Const(cnst, univs), args) => {
+	  let u_env = univs.iter().map(|lvl| {
+	    reduce(&instantiate_univ_bulk(lvl, &u.u_env))
+	  }).collect();
+	  apply_const(cnst, u_env, arg, args)
 	},
 	_ => unreachable!(),
       }
@@ -82,4 +90,60 @@ pub fn eval(mut u: Comp) -> Value {
       eval(unroll)
     },
   }
+}
+
+pub fn eval_const(cnst: &ConstPtr, u_env: Vector<UnivPtr>) -> Value {
+  match &**cnst {
+    Const::Theorem { expr, ..} |
+    Const::Definition { safe: DefSafety::Safe, expr, .. } => {
+      eval(Comp { expr: expr.clone(), e_env: Vector::new(), u_env })
+    },
+    Const::Definition { safe: DefSafety::Unsafe, .. } => {
+      panic!("Cannot use unsafe definitions inside types")
+    },
+    _ => {
+      Value::App(Neutral::Const(cnst.clone(), u_env), Vector::new())
+    },
+  }
+}
+
+pub fn apply_const(cnst: ConstPtr, u_env: Vector<UnivPtr>, arg: ThunkPtr, mut args: Vector<ThunkPtr>) -> Value {
+  // Assumes a partial application of k to args, which means in particular, that it is in normal form
+  match &*cnst {
+    Const::Recursor { params, motives, minors, indices, rules, ..} => {
+      let major_idx = params + motives + minors + indices;
+      if args.len() != major_idx {
+	args.push_front(arg);
+	return Value::App(Neutral::Const(cnst, u_env), args)
+      }
+      match force(arg.clone()) {
+	Value::App(Neutral::Const(ctor, _), ctor_args) => {
+	  match &*ctor {
+	    Const::Constructor {..} => {
+              // Since we assume expressions are previously type checked, we know that this constructor
+              // must have an associated recursion rule
+	      let rule = rules
+		.get(&Rc::as_ptr(&ctor))
+		.unwrap();
+	      // Indices are not needed used at all in recursion rules
+	      args.slice(indices ..);
+              // The number of parameters in the constructor is not necessarily equal to the number of parameters in the recursor in nested
+	      // inductive types, but the rule knows how many arguments to take
+	      let mut e_env = ctor_args.take(rule.nfields);
+	      e_env.append(args);
+	      return eval(Comp { expr: rule.rhs.clone(), e_env, u_env })
+	    }
+	    _ => ()
+	  }
+	},
+	_ => (),
+      }
+    }
+    Const::Quotient {..} => {
+      todo!()
+    }
+    _ => ()
+  }
+  args.push_front(arg);
+  Value::App(Neutral::Const(cnst, u_env), args)
 }
