@@ -9,11 +9,6 @@ structure Axiom where
   type: Expr
   safe: Bool
 
-structure AxiomAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  safe: Bool
-
 structure AxiomMeta where
   name: Name
   lvls: List Name
@@ -24,11 +19,6 @@ structure Theorem where
   lvls: List Name
   type: Expr
   value: Expr
-
-structure TheoremAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  value: ExprAnonCid
 
 structure TheoremMeta where
   name: Name
@@ -43,12 +33,6 @@ structure Opaque where
   value: Expr
   safe: Bool
 
-structure OpaqueAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  value: ExprAnonCid
-  safe: Bool
-
 structure OpaqueMeta where
   name: Name
   lvls: List Name
@@ -56,21 +40,15 @@ structure OpaqueMeta where
   value: ExprMetaCid
 
 inductive DefSafety where
-| _safe
-| _unsafe
-| _partial
+  | safe
+  | «unsafe»
+  | «partial»
 
 structure Definition where
   name: Name
   lvls: List Name
   type: Expr
   value: Expr
-  safe: DefSafety
-
-structure DefinitionAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  value: ExprAnonCid
   safe: DefSafety
 
 structure DefinitionMeta where
@@ -86,17 +64,6 @@ structure Inductive where
   params: Nat
   indices: Nat
   ctors: List Name
-  recr: Bool
-  safe: Bool
-  refl: Bool
-  nest: Bool
-
-structure InductiveAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  params: Nat
-  indices: Nat
-  ctors: Nat
   recr: Bool
   safe: Bool
   refl: Bool
@@ -118,15 +85,6 @@ structure Constructor where
   fields: Nat
   safe: Bool
 
-structure ConstructorAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  ind: ConstAnonCid
-  idx: Nat
-  params: Nat
-  fields: Nat
-  safe: Bool
-
 structure ConstructorMeta where
   name: Name
   lvls: List Name
@@ -137,6 +95,7 @@ structure RecRule where
   ctor : ConstCid
   fields: Nat
   rhs: Expr
+  deriving Inhabited
 
 structure RecRuleAnon where
   ctor : ConstAnonCid
@@ -160,18 +119,6 @@ structure Recursor where
   k: Bool
   safe: Bool
 
-structure RecursorAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  ind: ConstAnonCid
-  params: Nat
-  indices: Nat
-  motives: Nat
-  minors: Nat
-  rules : List RecRuleAnon
-  k: Bool
-  safe: Bool
-
 structure RecursorMeta where
   name: Name
   lvls: List Name
@@ -180,20 +127,12 @@ structure RecursorMeta where
   rules : List RecRuleMeta
 
 inductive QuotKind where
-| type
-| ctor
-| lift
-| ind
+  | type | ctor | lift | ind
 
 structure Quotient where
   name: Name
   lvls: List Name
   type: Expr
-  kind: QuotKind
-
-structure QuotientAnon where
-  lvls: Nat
-  type: ExprAnonCid
   kind: QuotKind
 
 structure QuotientMeta where
@@ -202,33 +141,23 @@ structure QuotientMeta where
   type: ExprMetaCid
 
 inductive Const
-| «axiom» : Axiom → Const
-| «theorem» : Theorem → Const
-| «inductive» : Inductive → Const
-| opaque : Opaque → Const
-| definition : Definition → Const
-| constructor : Constructor → Const
-| recursor : Recursor → Const
-| quotient : Quotient → Const
-
-inductive ConstAnon
-| «axiom» : AxiomAnon → ConstAnon
-| «theorem» : TheoremAnon → ConstAnon
-| «inductive» : InductiveAnon → ConstAnon
-| opaque : OpaqueAnon → ConstAnon
-| definition : DefinitionAnon → ConstAnon
-| constructor : ConstructorAnon → ConstAnon
-| recursor : RecursorAnon → ConstAnon
-| quotient : QuotientAnon → ConstAnon
+  | «axiom» : Axiom → Const
+  | «theorem» : Theorem → Const
+  | «inductive» : Inductive → Const
+  | opaque : Opaque → Const
+  | definition : Definition → Const
+  | constructor : Constructor → Const
+  | recursor : Recursor → Const
+  | quotient : Quotient → Const
 
 inductive ConstMeta
-| «axiom» : AxiomMeta → ConstMeta
-| «theorem» : TheoremMeta → ConstMeta
-| «inductive» : InductiveMeta → ConstMeta
-| opaque : OpaqueMeta → ConstMeta
-| definition : DefinitionMeta → ConstMeta
-| constructor : ConstructorMeta → ConstMeta
-| recursor : RecursorMeta → ConstMeta
-| quotient : QuotientMeta → ConstMeta
+  | «axiom» : AxiomMeta → ConstMeta
+  | «theorem» : TheoremMeta → ConstMeta
+  | «inductive» : InductiveMeta → ConstMeta
+  | opaque : OpaqueMeta → ConstMeta
+  | definition : DefinitionMeta → ConstMeta
+  | constructor : ConstructorMeta → ConstMeta
+  | recursor : RecursorMeta → ConstMeta
+  | quotient : QuotientMeta → ConstMeta
 
 end Yatima
