@@ -14,8 +14,8 @@ structure UnivAnonCid  where data : Cid deriving BEq, Ord
 structure UnivMetaCid  where data : Cid deriving BEq, Ord
 structure ExprAnonCid  where data : Cid deriving BEq, Ord
 structure ExprMetaCid  where data : Cid deriving BEq, Ord
-structure ConstAnonCid where data : Cid deriving BEq, Ord, Inhabited
-structure ConstMetaCid where data : Cid deriving BEq, Ord, Inhabited
+structure ConstAnonCid where data : Cid deriving BEq, Ord
+structure ConstMetaCid where data : Cid deriving BEq, Ord
 
 structure UnivCid where 
   anon : UnivAnonCid
@@ -30,7 +30,7 @@ deriving BEq, Ord
 structure ConstCid where
   anon : ConstAnonCid
   meta : ConstMetaCid
-deriving BEq, Ord, Inhabited
+deriving BEq, Ord
 
 structure EnvCid where data : Cid deriving BEq
 

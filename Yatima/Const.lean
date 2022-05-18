@@ -135,7 +135,6 @@ structure RecRule where
   ctor   : ConstCid
   fields : Nat
   rhs    : Expr
-  deriving Inhabited
 
 structure RecRuleAnon where
   ctor   : ConstAnonCid
