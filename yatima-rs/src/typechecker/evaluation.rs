@@ -33,13 +33,13 @@ pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
       force(env.exprs[*idx].clone())
     },
     Expr::Sort(lvl) => {
-      // Value::Sort only takes fully reduced levels, so we instantiate all variables using the universe environment, then reduce it
-      let lvl = reduce(&instantiate_univ_bulk(lvl, &env.univs));
+      // Value::Sort only takes fully reduced levels, so we instantiate all variables using the universe environment and reduce
+      let lvl = inst_bulk_reduce(lvl, &env.univs);
       Value::Sort(lvl)
     },
     Expr::Const(cnst, cnst_univs) => {
       let univs = cnst_univs.iter().map(|lvl| {
-	reduce(&instantiate_univ_bulk(lvl, &env.univs))
+	inst_bulk_reduce(lvl, &env.univs)
       }).collect();
       eval_const(cnst, univs)
     },
@@ -59,7 +59,7 @@ pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
 	},
 	Value::App(Neutral::Const(cnst, cnst_univs), args) => {
 	  let univs = cnst_univs.iter().map(|lvl| {
-	    reduce(&instantiate_univ_bulk(lvl, &env.univs))
+	    inst_bulk_reduce(lvl, &env.univs)
 	  }).collect();
 	  apply_const(cnst, univs, arg, args)
 	},
