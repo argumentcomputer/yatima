@@ -137,8 +137,8 @@ pub fn inst_bulk_reduce(univ: &UnivPtr, substs: &Vector<UnivPtr>) -> UnivPtr {
   }
 }
 
+// Assumes univ_a and univ_b are already reduced
 pub fn reduce_max(univ_a: &UnivPtr, univ_b: &UnivPtr) -> UnivPtr {
-  // Assumes univ_a and univ_b are already reduced
   match (&**univ_a, &**univ_b) {
     (Univ::Zero, _) => univ_b.clone(),
     (_, Univ::Zero) => univ_a.clone(),
@@ -146,5 +146,104 @@ pub fn reduce_max(univ_a: &UnivPtr, univ_b: &UnivPtr) -> UnivPtr {
       Rc::new(Univ::Succ(reduce_max(univ_a, univ_b)))
     },
     _ => Rc::new(Univ::Max(univ_a.clone(), univ_b.clone()))
+  }
+}
+
+pub enum Comp {
+  // Means we know `a` is equal `b`
+  Equal,
+  // Means `a` is not greater than `b`, but we can't know whether they are (happens in presence of free universe variables)
+  LessOr,
+  // Any other case, be it unknown or `a` is greater than `b`
+  Else,
+}
+
+// Assumes `a` and `b` are already reduced
+pub fn equal_univ(a: &UnivPtr, b: &UnivPtr) -> bool {
+  match comp_univ(&a, &b, 0) {
+    Comp::Equal => true,
+    _ => false
+  }
+}
+
+// Compares `a` with `a + diff`, whatever `a` is
+pub fn diff_comp(diff: i64) -> Comp {
+  if diff > 0 {
+    return Comp::LessOr
+  }
+  if diff < 0 {
+    return Comp::Else
+  }
+  return Comp::Equal
+}
+
+pub fn comp_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> Comp {
+  // Shortcut
+  if Rc::as_ptr(a) == Rc::as_ptr(b) {
+    return diff_comp(diff)
+  }
+  match (&**a, &**b) {
+    (Univ::Zero, Univ::Zero) => diff_comp(diff),
+    (Univ::Succ(a), _) => comp_univ(a, b, diff-1),
+    (_, Univ::Succ(b)) => comp_univ(a, b, diff+1),
+    (Univ::Zero, _) if diff >= 0 => Comp::LessOr,
+    (Univ::Zero, Univ::Var(_)) => Comp::Else, // note that `diff < 0` here
+    (_, Univ::Zero) => Comp::Else, // can be proven by induction
+    (Univ::Var(idx), Univ::Var(jdx)) => {
+      if idx != jdx {
+	return Comp::Else
+      }
+      diff_comp(diff)
+    },
+    (Univ::Max(c, d), _) => {
+      match comp_univ(c, b, diff) {
+	Comp::Else => Comp::Else,
+	Comp::Equal => {
+	  match comp_univ(d, b, diff) {
+	    Comp::Else => Comp::Else,
+	    _ => Comp::Equal
+	  }
+	}
+	Comp::LessOr => {
+	  match comp_univ(d, b, diff) {
+	    Comp::Else => Comp::Else,
+	    Comp::Equal => Comp::Equal,
+	    Comp::LessOr => Comp::LessOr
+	  }
+	}
+      }
+    },
+    (_, Univ::Max(c, d)) => {
+      match comp_univ(c, a, diff) {
+	Comp::Else => Comp::Else,
+	Comp::Equal => {
+	  match comp_univ(d, a, diff) {
+	    Comp::Else => Comp::Else,
+	    _ => Comp::Equal
+	  }
+	}
+	Comp::LessOr => {
+	  match comp_univ(d, a, diff) {
+	    Comp::Else => Comp::Else,
+	    Comp::Equal => Comp::Equal,
+	    Comp::LessOr => Comp::LessOr
+	  }
+	}
+      }
+    },
+    (Univ::IMax(..), _) => {
+      todo!()
+    },
+    (_, Univ::IMax(..)) => {
+      todo!()
+    },
+  }
+}
+
+// Faster equality for zero, assumes reduced `a`
+pub fn univ_is_zero(a: &UnivPtr) -> bool {
+  match &**a {
+    Univ::Zero => true,
+    _ => false, // all other cases are false since they are either `Succ` or a stuck computation
   }
 }
