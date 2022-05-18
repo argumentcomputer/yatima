@@ -16,36 +16,32 @@ instance : Coe Name Yatima.Name where
 instance : Inhabited Yatima.Const where
   default := Yatima.Const.axiom ⟨Yatima.Name.anon, [], default, default⟩
 
-instance : Coe DefinitionSafety Yatima.DefSafety where
-  coe := fun ds => match ds with
-    | .safe      => .safe
-    | .«unsafe»  => .«unsafe»
-    | .«partial» => .«partial»
+instance : Coe DefinitionSafety Yatima.DefSafety where coe
+  | .safe      => .safe
+  | .«unsafe»  => .«unsafe»
+  | .«partial» => .«partial»
 
-instance : Coe BinderInfo Yatima.BinderInfo where
-  coe := fun b => match b with
-    | .default        => .default
-    | .auxDecl        => .auxDecl
-    | .instImplicit   => .instImplicit
-    | .strictImplicit => .strictImplicit
-    | .implicit       => .implicit
+instance : Coe BinderInfo Yatima.BinderInfo where coe
+  | .default        => .default
+  | .auxDecl        => .auxDecl
+  | .instImplicit   => .instImplicit
+  | .strictImplicit => .strictImplicit
+  | .implicit       => .implicit
 
-instance : Coe QuotKind Yatima.QuotKind where
-  coe := fun q => match q with
-    | .type => .type
-    | .ind  => .ind
-    | .lift => .lift
-    | .ctor => .ctor
+instance : Coe QuotKind Yatima.QuotKind where coe
+  | .type => .type
+  | .ind  => .ind
+  | .lift => .lift
+  | .ctor => .ctor
 
-instance : Coe Literal Yatima.Literal where
-  coe := fun l => match l with
-    | .natVal n => .nat n
-    | .strVal s => .str s
+instance : Coe Literal Yatima.Literal where coe
+  | .natVal n => .nat n
+  | .strVal s => .str s
 
 abbrev ConstMap := SMap Name Yatima.Const
 
 structure Context where
-  env      : Lean.Environment
+  env      : Environment
   constMap : Lean.ConstMap := {}
 
 abbrev ConvM := ReaderT Context $ StateT ConstMap Id
@@ -65,8 +61,8 @@ def nameToCid (nam : Name) : Cid :=
   let multihash := Multihash.mk size code digest
   Cid.mk version codec multihash
 
-def leanExprToCid (e : Expr) : Cid := panic! "TODO"
-def combineCid (a : Cid) (b : Cid) : Cid := panic! "TODO"
+def leanExprToCid (e : Expr) : Cid := sorry
+def combineCid (a : Cid) (b : Cid) : Cid := sorry
 
 def inductiveIsUnitLike (ctors : List Name) : ConvM Bool :=
   match ctors with

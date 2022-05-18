@@ -3,7 +3,7 @@ namespace Yatima
 inductive Name
   | anon
   | str : String → Name
-  deriving Inhabited, BEq, Ord
+  deriving BEq, Ord, Inhabited
 
 def Name.ofLeanName : Lean.Name → Name
   | Lean.Name.anonymous  => .anon
