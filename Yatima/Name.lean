@@ -1,12 +1,9 @@
 namespace Yatima
 
-inductive Name
-  | str : String → Name
-  deriving BEq, Ord, Inhabited
+abbrev Name := String
 
 def Name.ofLeanName : Lean.Name → Name
-  | Lean.Name.anonymous  => .str ""
-  | s@(Lean.Name.str ..) => .str s.toString
-  | _                    => unreachable!
+  | s@(.str ..) => s.toString
+  | _           => ""
 
 end Yatima

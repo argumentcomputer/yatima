@@ -39,8 +39,8 @@ inductive ExprAnon
   | sort  : UnivAnonCid → ExprAnon
   | const : ConstAnonCid → List UnivAnonCid → ExprAnon
   | app   : ExprAnonCid → ExprAnonCid → ExprAnon
-  | lam   : BinderInfo → ExprAnonCid → ExprAnonCid → ExprAnon
-  | pi    : BinderInfo → ExprAnonCid → ExprAnonCid → ExprAnon
+  | lam   : ExprAnonCid → ExprAnonCid → ExprAnon
+  | pi    : ExprAnonCid → ExprAnonCid → ExprAnon
   | letE  : ExprAnonCid → ExprAnonCid → ExprAnonCid → ExprAnon
   | lit   : Literal → ExprAnon
   | lty   : LitType → ExprAnon
@@ -52,8 +52,8 @@ inductive ExprMeta
   | sort  : UnivMetaCid → ExprMeta
   | const : Name → ConstMetaCid → List UnivMetaCid → ExprMeta
   | app   : ExprMetaCid → ExprMetaCid → ExprMeta
-  | lam   : Name → ExprMetaCid → ExprMetaCid → ExprMeta
-  | pi    : Name → ExprMetaCid → ExprMetaCid → ExprMeta
+  | lam   : Name → BinderInfo → ExprMetaCid → ExprMetaCid → ExprMeta
+  | pi    : Name → BinderInfo → ExprMetaCid → ExprMetaCid → ExprMeta
   | letE  : ExprMetaCid → ExprMetaCid → ExprMetaCid → ExprMeta
   | lit   : ExprMeta
   | lty   : ExprMeta
