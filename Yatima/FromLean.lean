@@ -65,7 +65,8 @@ mutual
    let rhs ← toYatimaExpr constMap [] rules.rhs
    return Yatima.RecRule.mk sorry rules.nfields rhs
 
-  partial def toYatimaConst (constMap : ConstMap) : ConstantInfo → Except String Yatima.Const
+  partial def toYatimaConst (constMap : ConstMap) :
+      ConstantInfo → Except String Yatima.Const
     | .axiomInfo struct =>
       return Yatima.Const.axiom {
         name := struct.name
