@@ -24,6 +24,7 @@ serde_repr = "0.1.8"
 num-bigint = { version = "0.4.3", default-features = false, features = ["serde"] }
 nom = { version = "7.1.1", default-features = false, features = ["alloc"] }
 nom_locate = "4.0.0"
+num-traits = "0.2.15"
 im = "15.1.0"
 sized-chunks = "0.7.0"
 

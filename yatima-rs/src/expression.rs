@@ -1,4 +1,3 @@
-
 use crate::{
   environment::{
     ConstAnonCid,
@@ -31,6 +30,8 @@ use multihash::{
   Code,
   MultihashDigest,
 };
+
+use num_traits::One;
 
 use libipld::{
   cbor::DagCborCodec,
@@ -168,6 +169,50 @@ impl Expr {
     let cid = self.cid(env)?;
     env.insert_expr(cid, self)?;
     Ok(cid)
+  }
+
+  pub fn shift(self, inc: &Nat, dep: &Option<Nat>) -> Self {
+    match self {
+      Self::Var(nam, idx) => match dep {
+        // only increment free variables
+        Some(dep) if idx < *dep => Self::Var(nam, idx),
+        _ => Self::Var(nam, idx + inc),
+      },
+      Self::Lam(nam, bind, typ, bod) => {
+        Self::Lam(
+          nam,
+          bind,
+          Box::new((*typ).shift(inc, dep)),
+          // must increment depth because we are within the scope of the new binder `nam`
+          Box::new((*bod).shift(inc, &dep.as_ref().map(|x| x + Nat::one())))
+        )
+      }
+      Self::App(fun, arg) => {
+        Self::App(Box::new(fun.shift(inc, dep)), Box::new(arg.shift(inc, dep)))
+      }
+      Self::Pi(nam, bind, dom, rng) => {
+        Self::Pi(
+          nam,
+          bind,
+          Box::new(dom.shift(inc, dep)), Box::new(rng.shift(inc, &dep.as_ref().map(|x| x + Nat::one()))),
+        )
+      }
+      Self::Let(nam, typ, exp, bod) => {
+        Self::Let(
+          nam,
+          Box::new(typ.shift(inc, dep)),
+          Box::new(exp.shift(inc, dep)),
+          Box::new(bod.shift(inc, &dep.as_ref().map(|x| x + Nat::one()))),
+        )
+      }
+      Self::Fix(nam, x) => {
+        Self::Fix(
+          nam,
+          Box::new(x.shift(inc, dep))
+        )
+      }
+      x => x,
+    }
   }
 }
 
