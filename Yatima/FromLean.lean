@@ -10,13 +10,13 @@ import Lean
 
 namespace Lean.Yatima.Compiler
 
+instance : Inhabited Yatima.Const where
+  default := Yatima.Const.axiom ⟨default, default, default, default⟩
+
 instance : Coe Name Yatima.Name where
   coe := Yatima.Name.ofLeanName
 
-instance : Inhabited Yatima.Const where
-  default := Yatima.Const.axiom ⟨Yatima.Name.anon, [], default, default⟩
-
-instance : Coe DefinitionSafety Yatima.DefSafety where coe
+instance : Coe DefinitionSafety Yatima.DefinitionSafety where coe
   | .safe      => .safe
   | .«unsafe»  => .«unsafe»
   | .«partial» => .«partial»
@@ -76,12 +76,12 @@ def inductiveIsUnitLike (ctors : List Name) : ConvM Bool :=
   | _ => pure false
 
 def toYatimaLevel (levelParams : List Name) : Level → Yatima.Univ
-  | .zero _      => Yatima.Univ.zero
-  | .succ n _    => Yatima.Univ.succ (toYatimaLevel levelParams n)
-  | .max  a b _  => Yatima.Univ.max  (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
-  | .imax a b _  => Yatima.Univ.imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
+  | .zero _      => .zero
+  | .succ n _    => .succ (toYatimaLevel levelParams n)
+  | .max  a b _  => .max  (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
+  | .imax a b _  => .imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
   | .param nam _ => match levelParams.indexOf nam with
-    | some n => Yatima.Univ.param nam n
+    | some n => .param nam n
     | none   => panic! s!"'{nam}' not found in '{levelParams}'"
   | .mvar _ _ => panic! "Unfilled level metavariable"
 
@@ -132,11 +132,11 @@ mutual
       | .defnInfo struct => do
         let cid := combineCid (nameToCid struct.name) (leanExprToCid struct.type)
         pure $ Yatima.Const.definition {
-          name  := struct.name
-          lvls  := struct.levelParams.map Yatima.Name.ofLeanName
-          type  := ← toYatimaExpr struct.levelParams struct.type
-          value := ← toYatimaExpr struct.levelParams struct.value
-          safe  := struct.safety }
+          name   := struct.name
+          lvls   := struct.levelParams.map Yatima.Name.ofLeanName
+          type   := ← toYatimaExpr struct.levelParams struct.type
+          value  := ← toYatimaExpr struct.levelParams struct.value
+          safety := struct.safety }
       | .ctorInfo struct => do
         let cid := combineCid (nameToCid struct.name) (leanExprToCid struct.type)
         pure $ Yatima.Const.constructor {
@@ -185,7 +185,7 @@ mutual
       modifyGet fun YatimaMap => (const, SMap.insert' YatimaMap nam const)
 
   partial def toYatimaExpr (levelParams : List Name) : Expr → ConvM Yatima.Expr
-    | .bvar idx _ => return Yatima.Expr.var .anon idx
+    | .bvar idx _ => return Yatima.Expr.var (.str "") idx
     | .sort lvl _ => return Yatima.Expr.sort $ toYatimaLevel levelParams lvl
     | .const nam lvls _ => do
       match (← read).constMap.find?' nam with

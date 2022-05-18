@@ -9,6 +9,11 @@ structure Axiom where
   type : Expr
   safe : Bool
 
+structure AxiomAnon where
+  lvls : Nat
+  type : ExprAnonCid
+  safe : Bool
+
 structure AxiomMeta where
   name : Name
   lvls : List Name
@@ -19,6 +24,11 @@ structure Theorem where
   lvls  : List Name
   type  : Expr
   value : Expr
+
+structure TheoremAnon where
+  lvls  : Nat
+  type  : ExprAnonCid
+  value : ExprAnonCid
 
 structure TheoremMeta where
   name  : Name
@@ -33,21 +43,33 @@ structure Opaque where
   value : Expr
   safe  : Bool
 
+structure OpaqueAnon where
+  lvls  : Nat
+  type  : ExprAnonCid
+  value : ExprAnonCid
+  safe  : Bool
+
 structure OpaqueMeta where
   name  : Name
   lvls  : List Name
   type  : ExprMetaCid
   value : ExprMetaCid
 
-inductive DefSafety where
+inductive DefinitionSafety where
   | safe | «unsafe» | «partial»
 
 structure Definition where
-  name  : Name
-  lvls  : List Name
-  type  : Expr
-  value : Expr
-  safe  : DefSafety
+  name   : Name
+  lvls   : List Name
+  type   : Expr
+  value  : Expr
+  safety : DefinitionSafety
+
+structure DefinitionAnon where
+  lvls   : Nat
+  type   : ExprAnonCid
+  value  : ExprAnonCid
+  safety : DefinitionSafety
 
 structure DefinitionMeta where
   name  : Name
@@ -67,6 +89,17 @@ structure Inductive where
   refl    : Bool
   nest    : Bool
 
+structure InductiveAnon where
+  lvls    : Nat
+  type    : ExprAnonCid
+  params  : Nat
+  indices : Nat
+  ctors   : Nat
+  recr    : Bool
+  safe    : Bool
+  refl    : Bool
+  nest    : Bool
+
 structure InductiveMeta where
   name  : Name
   lvls  : List Name
@@ -78,6 +111,15 @@ structure Constructor where
   lvls   : List Name
   type   : Expr
   ind    : ConstCid
+  idx    : Nat
+  params : Nat
+  fields : Nat
+  safe   : Bool
+
+structure ConstructorAnon where
+  lvls   : Nat
+  type   : ExprAnonCid
+  ind    : ConstAnonCid
   idx    : Nat
   params : Nat
   fields : Nat
@@ -117,6 +159,18 @@ structure Recursor where
   k       : Bool
   safe    : Bool
 
+structure RecursorAnon where
+  lvls    : Nat
+  type    : ExprAnonCid
+  ind     : ConstAnonCid
+  params  : Nat
+  indices : Nat
+  motives : Nat
+  minors  : Nat
+  rules   : List RecRuleAnon
+  k       : Bool
+  safe    : Bool
+
 structure RecursorMeta where
   name  : Name
   lvls  : List Name
@@ -133,6 +187,11 @@ structure Quotient where
   type : Expr
   kind : QuotKind
 
+structure QuotientAnon where
+  lvls : Nat
+  type : ExprAnonCid
+  kind : QuotKind
+
 structure QuotientMeta where
   name : Name
   lvls : List Name
@@ -147,6 +206,16 @@ inductive Const
   | constructor : Constructor → Const
   | recursor    : Recursor → Const
   | quotient    : Quotient → Const
+
+inductive ConstAnon
+| «axiom»     : AxiomAnon → ConstAnon
+| «theorem»   : TheoremAnon → ConstAnon
+| «inductive» : InductiveAnon → ConstAnon
+| opaque      : OpaqueAnon → ConstAnon
+| definition  : DefinitionAnon → ConstAnon
+| constructor : ConstructorAnon → ConstAnon
+| recursor    : RecursorAnon → ConstAnon
+| quotient    : QuotientAnon → ConstAnon
 
 inductive ConstMeta
   | «axiom»     : AxiomMeta → ConstMeta
