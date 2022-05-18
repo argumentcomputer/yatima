@@ -34,6 +34,19 @@ inductive Expr
   | fix   : Name → Expr → Expr
   deriving BEq, Inhabited
 
+inductive ExprAnon
+  | var   : Nat → ExprAnon
+  | sort  : UnivAnonCid → ExprAnon
+  | const : ConstAnonCid → List UnivAnonCid → ExprAnon
+  | app   : ExprAnonCid → ExprAnonCid → ExprAnon
+  | lam   : BinderInfo → ExprAnonCid → ExprAnonCid → ExprAnon
+  | pi    : BinderInfo → ExprAnonCid → ExprAnonCid → ExprAnon
+  | letE  : ExprAnonCid → ExprAnonCid → ExprAnonCid → ExprAnon
+  | lit   : Literal → ExprAnon
+  | lty   : LitType → ExprAnon
+  | fix   : ExprAnonCid → ExprAnon
+  deriving BEq, Inhabited
+
 inductive ExprMeta
   | var   : Name → ExprMeta
   | sort  : UnivMetaCid → ExprMeta
