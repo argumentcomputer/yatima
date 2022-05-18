@@ -22,7 +22,7 @@ instance : Coe DefinitionSafety Yatima.DefSafety where
     | .«unsafe»  => .«unsafe»
     | .«partial» => .«partial»
 
-instance : Coe BinderInfo Yatima.Bind where
+instance : Coe BinderInfo Yatima.BinderInfo where
   coe := fun b => match b with
     | .default        => .default
     | .auxDecl        => .auxDecl

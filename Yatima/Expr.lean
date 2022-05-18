@@ -3,14 +3,6 @@ import Yatima.Univ
 
 namespace Yatima
 
-inductive Bind
-  | default
-  | implicit
-  | strictImplicit
-  | instImplicit
-  | auxDecl
-  deriving BEq, Inhabited
-
 inductive LitType
   | nat : LitType
   | str : LitType
@@ -21,13 +13,21 @@ inductive Literal
   | str : String → Literal
   deriving BEq, Inhabited
 
+inductive BinderInfo
+  | default
+  | implicit
+  | strictImplicit
+  | instImplicit
+  | auxDecl
+  deriving BEq, Inhabited
+
 inductive Expr
   | var   : Name → Nat → Expr
   | sort  : Univ → Expr
   | const : Name → ConstCid → List Univ → Expr
   | app   : Expr → Expr → Expr
-  | lam   : Name → Bind → Expr → Expr → Expr
-  | pi    : Name → Bind → Expr → Expr → Expr
+  | lam   : Name → BinderInfo → Expr → Expr → Expr
+  | pi    : Name → BinderInfo → Expr → Expr → Expr
   | letE  : Name → Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
   | lty   : LitType → Expr
