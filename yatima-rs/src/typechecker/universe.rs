@@ -142,7 +142,9 @@ pub fn reduce_max(univ_a: &UnivPtr, univ_b: &UnivPtr) -> UnivPtr {
   match (&**univ_a, &**univ_b) {
     (Univ::Zero, _) => univ_b.clone(),
     (_, Univ::Zero) => univ_a.clone(),
-    (Univ::Succ(univ_a), Univ::Succ(univ_b)) => reduce_max(univ_a, univ_b),
+    (Univ::Succ(univ_a), Univ::Succ(univ_b)) => {
+      Rc::new(Univ::Succ(reduce_max(univ_a, univ_b)))
+    },
     _ => Rc::new(Univ::Max(univ_a.clone(), univ_b.clone()))
   }
 }
