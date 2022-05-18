@@ -1,4 +1,3 @@
-import Lean
 import Yatima.Env
 import Yatima.Univ
 
@@ -11,14 +10,6 @@ inductive Bind
   | instImplicit
   | auxDecl
   deriving BEq, Inhabited
-
-instance : Coe Lean.BinderInfo Bind where
-  coe := fun b => match b with
-    | .default => .default
-    | .auxDecl => .auxDecl
-    | .instImplicit => .instImplicit
-    | .strictImplicit => .strictImplicit
-    | .implicit => .implicit
 
 inductive LitType
   | nat : LitType

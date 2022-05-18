@@ -22,6 +22,14 @@ instance : Coe DefinitionSafety Yatima.DefSafety where
     | .«unsafe»  => .«unsafe»
     | .«partial» => .«partial»
 
+instance : Coe BinderInfo Yatima.Bind where
+  coe := fun b => match b with
+    | .default        => .default
+    | .auxDecl        => .auxDecl
+    | .instImplicit   => .instImplicit
+    | .strictImplicit => .strictImplicit
+    | .implicit       => .implicit
+
 instance : Coe QuotKind Yatima.QuotKind where
   coe := fun q => match q with
     | .type => .type
@@ -76,8 +84,7 @@ def toYatimaLevel (levelParams : List Name) : Level → Yatima.Univ
   | .succ n _    => Yatima.Univ.succ (toYatimaLevel levelParams n)
   | .max  a b _  => Yatima.Univ.max  (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
   | .imax a b _  => Yatima.Univ.imax (toYatimaLevel levelParams a) (toYatimaLevel levelParams b)
-  | .param nam _ =>
-    match levelParams.indexOf nam with
+  | .param nam _ => match levelParams.indexOf nam with
     | some n => Yatima.Univ.param nam n
     | none   => panic! s!"'{nam}' not found in '{levelParams}'"
   | .mvar _ _ => panic! "Unfilled level metavariable"
@@ -183,7 +190,7 @@ mutual
 
   partial def toYatimaExpr (levelParams : List Name) : Expr → ConvM Yatima.Expr
     | .bvar idx _ => return Yatima.Expr.var .anon idx
-    | .sort lvl _ => return Yatima.Expr.sort (toYatimaLevel levelParams lvl)
+    | .sort lvl _ => return Yatima.Expr.sort $ toYatimaLevel levelParams lvl
     | .const nam lvls _ => do
       match (← read).constMap.find?' nam with
       | some const =>
