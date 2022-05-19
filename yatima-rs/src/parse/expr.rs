@@ -7,6 +7,7 @@ use im::{
   Vector,
 };
 use libipld::Cid;
+use num_traits::Zero;
 
 use crate::{
   environment::{
@@ -281,7 +282,7 @@ pub fn parse_binder(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
-) -> impl Fn(Span) -> IResult<Span, (BinderInfo, Name, Expr), ParseError<Span>>
+) -> impl Fn(Span) -> IResult<Span, Vec<(BinderInfo, Name, Expr)>, ParseError<Span>>
 {
   move |i: Span| {
     let (i, bind) = alt((
@@ -291,8 +292,7 @@ pub fn parse_binder(
       value(BinderInfo::InstImplict, tag("[")),
     ))(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, nam) = parse_name(i)?;
-    let (i, _) = parse_space(i)?;
+    let (i, ns) = many1(terminated(parse_name, parse_space))(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
     let (i, typ) =
@@ -306,7 +306,11 @@ pub fn parse_binder(
       BinderInfo::InstImplict => "]",
     };
     let (i, _) = tag(close)(i)?;
-    Ok((i, (bind, nam, typ)))
+    let mut res = Vec::new();
+    for (i, n) in ns.iter().enumerate() {
+      res.push((bind.clone(), n.to_owned(), typ.clone().shift(&Nat::from(i), &Some(Nat::zero()))))
+    }
+    Ok((i, res))
   }
 }
 
@@ -334,9 +338,11 @@ pub fn parse_binders0(
       )(i)
       {
         Err(e) => return Err(e),
-        Ok((i2, (b, n, t))) => {
-          bind_ctx.push_front(n.to_owned());
-          res.push((b, n, t));
+        Ok((i2, bs)) => {
+          for (b, n, t) in bs {
+            bind_ctx.push_front(n.to_owned());
+            res.push((b, n, t));
+          }
           i = i2;
         }
       }
@@ -361,9 +367,11 @@ pub fn parse_binders1(
     )(i)
     {
       Err(e) => return Err(e),
-      Ok((i2, (b, n, t))) => {
-        bind_ctx.push_front(n.to_owned());
-        res.push((b, n, t));
+      Ok((i2, bs)) => {
+        for (b, n, t) in bs {
+          bind_ctx.push_front(n.to_owned());
+          res.push((b, n, t));
+        }
         i = i2;
       }
     }

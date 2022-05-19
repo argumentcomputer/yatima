@@ -31,7 +31,7 @@ use multihash::{
   MultihashDigest,
 };
 
-use num_traits::One;
+use num_traits::{One, Zero};
 
 use libipld::{
   cbor::DagCborCodec,
@@ -172,6 +172,9 @@ impl Expr {
   }
 
   pub fn shift(self, inc: &Nat, dep: &Option<Nat>) -> Self {
+    if *inc == Nat::zero() {
+        return self.clone()
+    }
     match self {
       Self::Var(nam, idx) => match dep {
         // only increment free variables
