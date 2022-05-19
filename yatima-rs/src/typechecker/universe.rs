@@ -157,124 +157,37 @@ pub fn reduce_max(univ_a: &UnivPtr, univ_b: &UnivPtr) -> UnivPtr {
 /// Equality
 // We say that two universe levels `a` and `b` are (semantically) equal, if they are equal as numbers for all possible substitution of
 // free variables to numbers. Although writing an algorithm that follows this exact scheme is impossible, it is possible to write one
-// that is equivalent to such semantical equality. We are gonna need, for efficiency, a comparison datatype
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Comp {
-  // Means we can be sure `a` is equal `b`
-  Equal,
-  // Means we can be sure `a` is not greater than `b`, but we can't be sure whether they're equal
-  LessEq,
-  // Means we can be sure `a` is not less than `b`, but we can't be sure whether they're equal
-  MoreEq,
-  // Any other case
-  Else,
-}
+// that is equivalent to such semantical equality.
 
 // The equality algorithm. Assumes `a` and `b` are already reduced
 pub fn equal_univ(a: &UnivPtr, b: &UnivPtr) -> bool {
-  match comp_univ(&a, &b, 0) {
-    Comp::Equal => true,
-    _ => false
-  }
+  leq_univ(a, b, 0) && leq_univ(b, a, 0)
 }
 
-// Compares `a` with `a + diff`, whatever `a` is
-pub fn diff_comp(diff: i64) -> Comp {
-  if diff > 0 {
-    return Comp::LessEq
-  }
-  if diff < 0 {
-    return Comp::MoreEq
-  }
-  return Comp::Equal
-}
-
-// Decides what relationship `a` has to `b + diff`, for reduced levels `a` and `b`
-pub fn comp_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> Comp {
+// Comparison algorithm `a <= b + diff`. Assumes `a` and `b` are already reduced
+pub fn leq_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> bool {
   // Shortcut
   if Rc::as_ptr(a) == Rc::as_ptr(b) {
-    return diff_comp(diff)
+    return diff >= 0
   }
   match (&**a, &**b) {
     // Zero, Succ, and Var cases
-    (Univ::Zero, Univ::Zero) => {
-      diff_comp(diff)
-    },
-    (Univ::Succ(a), _) => {
-      comp_univ(a, b, diff-1)
-    },
-    (_, Univ::Succ(b)) => {
-      comp_univ(a, b, diff+1)
-    },
-    (Univ::Zero, _) if diff >= 0 => {
-      Comp::LessEq
-    },
-    (_, Univ::Zero) if diff <= 0 => {
-      Comp::MoreEq
-    }
-    (Univ::Var(_), Univ::Zero) => {
-      // Note that `diff > 0` here
-      Comp::Else
-    },
-    (Univ::Zero, Univ::Var(_)) => {
-      // Note that `diff < 0` here
-      Comp::Else
-    },
-    (Univ::Var(idx), Univ::Var(jdx)) => {
-      if idx != jdx {
-	// Different variables have no relation
-	return Comp::Else
-      }
-      diff_comp(diff)
-    },
+    (Univ::Zero, Univ::Zero) => diff >= 0,
+    (Univ::Zero, _) if diff >= 0 => true,
+    (_, Univ::Zero) if diff < 0 => false,
+    (Univ::Var(_), Univ::Zero) => false,
+    (Univ::Zero, Univ::Var(_)) => false,
+    (Univ::Var(idx), Univ::Var(jdx)) => idx == jdx && diff >= 0,
+    (Univ::Succ(a), _) => leq_univ(a, b, diff-1),
+    (_, Univ::Succ(b)) => leq_univ(a, b, diff+1),
 
     // Max cases
-    (Univ::Max(c, d), _) => {
-      // Here we compare c to b, and if necessary, d to b, to decide what relationship max(c, d) has to b
-      match comp_univ(c, b, diff) {
-	Comp::MoreEq => Comp::MoreEq,
-	Comp::Else => {
-	  match comp_univ(d, b, diff) {
-	    Comp::MoreEq => Comp::MoreEq,
-	    Comp::Equal => Comp::MoreEq,
-	    _ => Comp::Else,
-	  }
-	},
-	Comp::Equal => {
-	  match comp_univ(d, b, diff) {
-	    Comp::MoreEq => Comp::MoreEq,
-	    Comp::Else => Comp::MoreEq,
-	    _ => Comp::Equal
-	  }
-	}
-	Comp::LessEq => {
-	  comp_univ(d, b, diff)
-	}
-      }
-    },
-    (_, Univ::Max(c, d)) => {
-      // Dually, we compare a to c, and if necessary, a to d, to decide what relationship a has to max(c, d)
-      match comp_univ(a, c, diff) {
-	Comp::LessEq => Comp::LessEq,
-	Comp::Else => {
-	  match comp_univ(a, d, diff) {
-	    Comp::LessEq => Comp::LessEq,
-	    Comp::Equal => Comp::LessEq,
-	    _ => Comp::Else,
-	  }
-	},
-	Comp::Equal => {
-	  match comp_univ(a, d, diff) {
-	    Comp::LessEq => Comp::LessEq,
-	    Comp::Else => Comp::LessEq,
-	    _ => Comp::Equal
-	  }
-	}
-	Comp::MoreEq => {
-	  comp_univ(a, d, diff)
-	}
-      }
-    },
+    (Univ::Max(c, d), _) =>
+      leq_univ(c, b, diff)
+      && leq_univ(d, b, diff),
+    (_, Univ::Max(c, d)) =>
+      leq_univ(a, c, diff)
+      || leq_univ(a, d, diff),
 
     // IMax cases
     (Univ::IMax(c, d), _) => {
@@ -291,19 +204,14 @@ pub fn comp_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> Comp {
 	  // The first substitution, where we know `a` becomes Zero
 	  let zero = Rc::new(Univ::Zero);
 	  let subst_b1 = inst_reduce(b, *idx, &zero);
-	  let comp1 = comp_univ(&zero, &subst_b1, diff);
-	  // The second substitution
-	  let succ = Rc::new(Univ::Succ(d.clone()));
-	  let subst_a2 = inst_reduce(a, *idx, &succ);
-	  let subst_b2 = inst_reduce(b, *idx, &succ);
-	  let comp2 = comp_univ(&subst_a2, &subst_b2, diff);
-	  match (comp1, comp2) {
-	    (Comp::Equal, _) => comp2,
-	    (_, Comp::Equal) => comp1,
-	    (Comp::MoreEq, Comp::MoreEq) => Comp::MoreEq,
-	    (Comp::LessEq, Comp::LessEq) => Comp::LessEq,
-	    _ => Comp::Else,
+	  if leq_univ(&zero, &subst_b1, diff) {
+	    // The second substitution
+	    let succ = Rc::new(Univ::Succ(d.clone()));
+	    let subst_a2 = inst_reduce(a, *idx, &succ);
+	    let subst_b2 = inst_reduce(b, *idx, &succ);
+	    return leq_univ(&subst_a2, &subst_b2, diff);
 	  }
+	  false
 	}
 	Univ::Max(e,f) => {
 	  // Here we use the relationship
@@ -311,8 +219,7 @@ pub fn comp_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> Comp {
 	  let new_a = Rc::new(Univ::Max(
 	    Rc::new(Univ::IMax(c.clone(),e.clone())),
 	    Rc::new(Univ::IMax(c.clone(),f.clone()))));
-	  let new_a = reduce(&new_a);
-	  comp_univ(&new_a, b, diff)
+	  leq_univ(&reduce(&new_a), b, diff)
 	}
 	Univ::IMax(e,f) => {
 	  // Here we use the relationship
@@ -320,53 +227,36 @@ pub fn comp_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> Comp {
 	  let new_a = Rc::new(Univ::Max(
 	    Rc::new(Univ::IMax(c.clone(),e.clone())),
 	    Rc::new(Univ::IMax(e.clone(),f.clone()))));
-	  let new_a = reduce(&new_a);
-	  comp_univ(&new_a, b, diff)
+	  leq_univ(&reduce(&new_a), b, diff)
 	}
 	_ => unreachable!()
       }
     },
     (_, Univ::IMax(c, d)) => {
-      // Dually, b = IMax(c,d) has only three possibilities
+      // Analogous to previous case
       match &**d {
 	Univ::Var(idx) => {
-	  // In the case for Var(idx), we need to compare two substitutions:
-	  // -- idx <- Zero
-	  // -- idx <- Succ(Var(idx))
-	  // The first substitution, where we know `b` becomes Zero
 	  let zero = Rc::new(Univ::Zero);
-	  let subst_a1 = inst_reduce(a, *idx, &zero);
-	  let comp1 = comp_univ(&subst_a1, &zero, diff);
-	  // The second substitution
-	  let succ = Rc::new(Univ::Succ(d.clone()));
-	  let subst_a2 = inst_reduce(a, *idx, &succ);
-	  let subst_b2 = inst_reduce(b, *idx, &succ);
-	  let comp2 = comp_univ(&subst_a2, &subst_b2, diff);
-	  match (comp1, comp2) {
-	    (Comp::Equal, _) => comp2,
-	    (_, Comp::Equal) => comp1,
-	    (Comp::MoreEq, Comp::MoreEq) => Comp::MoreEq,
-	    (Comp::LessEq, Comp::LessEq) => Comp::LessEq,
-	    _ => Comp::Else,
+	  let subst_a1 = inst_reduce(b, *idx, &zero);
+	  if leq_univ(&subst_a1, &zero, diff) {
+	    let succ = Rc::new(Univ::Succ(d.clone()));
+	    let subst_a2 = inst_reduce(a, *idx, &succ);
+	    let subst_b2 = inst_reduce(b, *idx, &succ);
+	    return leq_univ(&subst_a2, &subst_b2, diff);
 	  }
+	  false
 	}
 	Univ::Max(e,f) => {
-	  // Here we use the relationship
-	  // IMax(c, Max(e,f)) = Max(IMax(c,e), IMax(c,f))
 	  let new_b = Rc::new(Univ::Max(
 	    Rc::new(Univ::IMax(c.clone(),e.clone())),
 	    Rc::new(Univ::IMax(c.clone(),f.clone()))));
-	  let new_b = reduce(&new_b);
-	  comp_univ(a, &new_b, diff)
+	  leq_univ(a, &reduce(&new_b), diff)
 	}
 	Univ::IMax(e,f) => {
-	  // Here we use the relationship
-	  // IMax(c, IMax(e,f)) = Max(IMax(c,e), IMax(e,f))
 	  let new_b = Rc::new(Univ::Max(
 	    Rc::new(Univ::IMax(c.clone(),e.clone())),
 	    Rc::new(Univ::IMax(e.clone(),f.clone()))));
-	  let new_b = reduce(&new_b);
-	  comp_univ(a, &new_b, diff)
+	  leq_univ(a, &reduce(&new_b), diff)
 	}
 	_ => unreachable!()
       }
