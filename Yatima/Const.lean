@@ -6,7 +6,7 @@ namespace Yatima
 structure Axiom where
   name : Name
   lvls : List Name
-  type : Expr
+  type : ExprCid
   safe : Bool
 
 structure AxiomAnon where
@@ -22,8 +22,8 @@ structure AxiomMeta where
 structure Theorem where
   name  : Name
   lvls  : List Name
-  type  : Expr
-  value : Expr
+  type  : ExprCid
+  value : ExprCid
 
 structure TheoremAnon where
   lvls  : Nat
@@ -39,8 +39,8 @@ structure TheoremMeta where
 structure Opaque where
   name  : Name
   lvls  : List Name
-  type  : Expr
-  value : Expr
+  type  : ExprCid
+  value : ExprCid
   safe  : Bool
 
 structure OpaqueAnon where
@@ -61,8 +61,8 @@ inductive DefinitionSafety where
 structure Definition where
   name   : Name
   lvls   : List Name
-  type   : Expr
-  value  : Expr
+  type   : ExprCid
+  value  : ExprCid
   safety : DefinitionSafety
 
 structure DefinitionAnon where
@@ -80,7 +80,7 @@ structure DefinitionMeta where
 structure Inductive where
   name    : Name
   lvls    : List Name
-  type    : Expr
+  type    : ExprCid
   params  : Nat
   indices : Nat
   ctors   : List Name
@@ -109,7 +109,7 @@ structure InductiveMeta where
 structure Constructor where
   name   : Name
   lvls   : List Name
-  type   : Expr
+  type   : ExprCid
   ind    : ConstCid
   idx    : Nat
   params : Nat
@@ -131,30 +131,30 @@ structure ConstructorMeta where
   type : ExprMetaCid
   ind  : ConstMetaCid
 
-structure RecRule where
+structure RecursorRule where
   ctor   : ConstCid
   fields : Nat
-  rhs    : Expr
+  rhs    : ExprCid
 
-structure RecRuleAnon where
+structure RecursorRuleAnon where
   ctor   : ConstAnonCid
   fields : Nat
   rhs    : ExprAnonCid
 
-structure RecRuleMeta where
+structure RecursorRuleMeta where
   ctor : ConstMetaCid
   rhs  : ExprMetaCid
 
 structure Recursor where
   name    : Name
   lvls    : List Name
-  type    : Expr
+  type    : ExprCid
   ind     : ConstCid
   params  : Nat
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List RecRule
+  rules   : List RecursorRule
   k       : Bool
   safe    : Bool
 
@@ -166,7 +166,7 @@ structure RecursorAnon where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List RecRuleAnon
+  rules   : List RecursorRuleAnon
   k       : Bool
   safe    : Bool
 
@@ -175,7 +175,7 @@ structure RecursorMeta where
   lvls  : List Name
   type  : ExprMetaCid
   ind   : ConstMetaCid
-  rules : List RecRuleMeta
+  rules : List RecursorRuleMeta
 
 inductive QuotKind where
   | type | ctor | lift | ind
@@ -183,7 +183,7 @@ inductive QuotKind where
 structure Quotient where
   name : Name
   lvls : List Name
-  type : Expr
+  type : ExprCid
   kind : QuotKind
 
 structure QuotientAnon where

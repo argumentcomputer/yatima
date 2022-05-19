@@ -1,5 +1,4 @@
-import Yatima.Ipld.Cid
-import Yatima.Env
+import Yatima.Cid
 import Yatima.Name
 
 namespace Yatima

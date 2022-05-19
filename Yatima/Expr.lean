@@ -1,4 +1,3 @@
-import Yatima.Env
 import Yatima.Univ
 
 namespace Yatima
