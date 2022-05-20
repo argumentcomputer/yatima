@@ -11,6 +11,11 @@ namespace Yatima.Compiler.FromLean
 instance : Coe Lean.Name Name where
   coe := Name.ofLeanName
 
+instance : Coe Lean.DefinitionSafety DefinitionSafety where coe
+  | .safe      => .safe
+  | .«unsafe»  => .«unsafe»
+  | .«partial» => .«partial»
+
 abbrev EnvM := ReaderT Lean.ConstMap $ EStateM String Env
 
 def toYatimaLevel (lvls : List Lean.Name) : Lean.Level → EnvM Univ
@@ -39,40 +44,63 @@ mutual
 
   partial def toYatimaConst : Lean.ConstantInfo → EnvM Const
     | .axiomInfo struct => do
+      let env ← get
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid := type.toCid
-      let env ← get
       set { env with exprs := env.exprs.insert typeCid type }
-      return Yatima.Const.axiom {
+      return .axiom {
+        name := struct.name
+        lvls := struct.levelParams.map Name.ofLeanName
+        type := typeCid
+        safe := not struct.isUnsafe }
+    | .thmInfo struct => do
+      let env ← get
+      let type  ← toYatimaExpr struct.levelParams struct.type
+      let typeCid  := type.toCid
+      set { env with exprs := env.exprs.insert typeCid type }
+      let value ← toYatimaExpr struct.levelParams struct.value
+      let valueCid := value.toCid
+      set { env with exprs := env.exprs.insert valueCid value }
+      return .theorem {
+        name  := struct.name
+        lvls  := struct.levelParams.map Name.ofLeanName
+        type  := typeCid
+        value := valueCid }
+    | .opaqueInfo struct => do
+      let env ← get
+      let type  ← toYatimaExpr struct.levelParams struct.type
+      let typeCid  := type.toCid
+      set { env with exprs := env.exprs.insert typeCid type }
+      let value ← toYatimaExpr struct.levelParams struct.value
+      let valueCid := value.toCid
+      return .opaque {
+        name  := struct.name
+        lvls  := struct.levelParams.map Yatima.Name.ofLeanName
+        type  := typeCid
+        value := valueCid
+        safe  := not struct.isUnsafe }
+    | .defnInfo struct => do
+      let env ← get
+      let type  ← toYatimaExpr struct.levelParams struct.type
+      let typeCid  := type.toCid
+      set { env with exprs := env.exprs.insert typeCid type }
+      let value ← toYatimaExpr struct.levelParams struct.value
+      let valueCid := value.toCid
+      return .definition {
+        name   := struct.name
+        lvls   := struct.levelParams.map Yatima.Name.ofLeanName
+        type   := typeCid
+        value  := valueCid
+        safety := struct.safety }
+    | .ctorInfo struct => do
+      let env ← get
+      let type ← toYatimaExpr struct.levelParams struct.type
+      let typeCid := type.toCid
+      set { env with exprs := env.exprs.insert typeCid type }
+      return .constructor {
         name := struct.name
         lvls := struct.levelParams.map Yatima.Name.ofLeanName
         type := typeCid
-        safe := not struct.isUnsafe }
-    | .thmInfo struct =>
-      return Yatima.Const.theorem {
-        name  := struct.name
-        lvls  := struct.levelParams.map Yatima.Name.ofLeanName
-        type  := ← toYatimaExpr constMap struct.levelParams struct.type
-        value := ← toYatimaExpr constMap struct.levelParams struct.value }
-    | .opaqueInfo struct =>
-      return Yatima.Const.opaque {
-        name  := struct.name
-        lvls  := struct.levelParams.map Yatima.Name.ofLeanName
-        type  := ← toYatimaExpr constMap struct.levelParams struct.type
-        value := ← toYatimaExpr constMap struct.levelParams struct.value
-        safe  := not struct.isUnsafe }
-    | .defnInfo struct =>
-      return Yatima.Const.definition {
-        name   := struct.name
-        lvls   := struct.levelParams.map Yatima.Name.ofLeanName
-        type   := ← toYatimaExpr constMap struct.levelParams struct.type
-        value  := ← toYatimaExpr constMap struct.levelParams struct.value
-        safety := struct.safety }
-    | .ctorInfo struct =>
-      return Yatima.Const.constructor {
-        name := struct.name
-        lvls := struct.levelParams.map Yatima.Name.ofLeanName
-        type := ← toYatimaExpr constMap struct.levelParams struct.type
         ind  := sorry
         idx  := struct.cidx
         params := struct.numParams
