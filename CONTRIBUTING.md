@@ -15,5 +15,7 @@ is needed and other people should freely comment on as needed
 5. This is not mandatory, but very helpful: open an early PR (can be a draft)
 and link the issue you're working on. This will help everyone understand why
 some branches exist
-6. Make sure your branch gets deleted after being merged into `main` so we can
+6. We use "squash and merge" when merging a branch into `main` to keep the
+commit history cleaner and more atomic
+7. Make sure your branch gets deleted after being merged into `main` so we can
 avoid having stale branches causing noise when we search for branches
