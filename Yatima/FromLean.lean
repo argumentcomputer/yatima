@@ -2,10 +2,6 @@ import Yatima.Env
 
 import Lean
 
-def Yatima.Univ.toCid  : Univ  → UnivCid  := sorry
-def Yatima.Expr.toCid  : Expr  → ExprCid  := sorry
-def Yatima.Const.toCid : Const → ConstCid := sorry
-
 namespace Yatima.Compiler.FromLean
 
 instance : Coe Lean.Name Name where
@@ -35,11 +31,29 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 abbrev EnvM := ReaderT Lean.ConstMap $ EStateM String Env
 
-def toYatimaLevel (lvls : List Lean.Name) : Lean.Level → EnvM Univ
+def EnvM.run (constMap : Lean.ConstMap) (state : Env) (m : EnvM α) :
+    Except String Env :=
+  match EStateM.run (ReaderT.run m constMap) state with
+  | .ok _ env  => .ok env
+  | .error e _ => .error e
+
+end Yatima.Compiler.FromLean
+
+open Yatima.Compiler.FromLean
+
+def Yatima.Univ.toCid (u : Univ) : EnvM UnivCid := sorry
+
+def Yatima.Expr.toCid (e : Expr) : EnvM ExprCid := sorry
+
+def Yatima.Const.toCid (c : Const) : EnvM ConstCid := sorry
+
+namespace Yatima.Compiler.FromLean
+
+def toyatimaUniv (lvls : List Lean.Name) : Lean.Level → EnvM Univ
   | .zero _      => return .zero
-  | .succ n _    => return .succ (← toYatimaLevel lvls n)
-  | .max  a b _  => return .max  (← toYatimaLevel lvls a) (← toYatimaLevel lvls b)
-  | .imax a b _  => return .imax (← toYatimaLevel lvls a) (← toYatimaLevel lvls b)
+  | .succ n _    => return .succ (← toyatimaUniv lvls n)
+  | .max  a b _  => return .max  (← toyatimaUniv lvls a) (← toyatimaUniv lvls b)
+  | .imax a b _  => return .imax (← toyatimaUniv lvls a) (← toyatimaUniv lvls b)
   | .param nam _ => match lvls.indexOf nam with
     | some n => return .param nam n
     | none   => throw s!"'{nam}' not found in '{lvls}'"
@@ -51,8 +65,8 @@ mutual
     (ctorCid : ConstCid) (rules : Lean.RecursorRule) :
       EnvM RecursorRule := do
     let rhs ← toYatimaExpr [] rules.rhs
-    let rhsCid := rhs.toCid
     let env ← get
+    let rhsCid ← rhs.toCid
     set { env with exprs := env.exprs.insert rhsCid rhs }
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
@@ -60,11 +74,16 @@ mutual
       Lean.Expr → EnvM Expr
     | .bvar idx _ => return .var "" idx
     | .sort lvl _ =>
-      return .sort (← toYatimaLevel levelParams lvl)
+      return .sort (← toyatimaUniv levelParams lvl) --todo: add univ to env
     | .const nam lvls _ => do
       match (← read).find?' nam with
-      | some const => return .const nam (← lvls.mapM $ toYatimaLevel levelParams)
-      | none => throw "Unknown constant"
+      | some leanConst =>
+        let env ← get
+        let const ← toYatimaConst leanConst
+        let constId ← const.toCid
+        set { env with consts := env.consts.insert constId const }
+        return .const nam constId (← lvls.mapM $ toyatimaUniv levelParams)  --todo: add level to env
+      | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => do
       let fnc ← toYatimaExpr levelParams fnc
       let arg ← toYatimaExpr levelParams arg
@@ -94,7 +113,7 @@ mutual
     | .axiomInfo struct => do
       let env ← get
       let type ← toYatimaExpr struct.levelParams struct.type
-      let typeCid := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
       return .axiom {
         name := struct.name
@@ -104,10 +123,10 @@ mutual
     | .thmInfo struct => do
       let env ← get
       let type  ← toYatimaExpr struct.levelParams struct.type
-      let typeCid  := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
       let value ← toYatimaExpr struct.levelParams struct.value
-      let valueCid := value.toCid
+      let valueCid ← value.toCid
       set { env with exprs := env.exprs.insert valueCid value }
       return .theorem {
         name  := struct.name
@@ -117,10 +136,10 @@ mutual
     | .opaqueInfo struct => do
       let env ← get
       let type  ← toYatimaExpr struct.levelParams struct.type
-      let typeCid  := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
       let value ← toYatimaExpr struct.levelParams struct.value
-      let valueCid := value.toCid
+      let valueCid ← value.toCid
       return .opaque {
         name  := struct.name
         lvls  := struct.levelParams.map .ofLeanName
@@ -129,11 +148,11 @@ mutual
         safe  := not struct.isUnsafe }
     | .defnInfo struct => do
       let env ← get
-      let type  ← toYatimaExpr struct.levelParams struct.type
-      let typeCid  := type.toCid
+      let type ← toYatimaExpr struct.levelParams struct.type
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
       let value ← toYatimaExpr struct.levelParams struct.value
-      let valueCid := value.toCid
+      let valueCid ← value.toCid
       return .definition {
         name   := struct.name
         lvls   := struct.levelParams.map .ofLeanName
@@ -143,22 +162,28 @@ mutual
     | .ctorInfo struct => do
       let env ← get
       let type ← toYatimaExpr struct.levelParams struct.type
-      let typeCid := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
-      let ctorCid : ConstCid := sorry
-      return .constructor {
-        name := struct.name
-        lvls := struct.levelParams.map .ofLeanName
-        type := typeCid
-        ind  := ctorCid
-        idx  := struct.cidx
-        params := struct.numParams
-        fields := struct.numFields
-        safe := not struct.isUnsafe }
+      match (← read).find? struct.induct with
+      | some leanConst =>
+        let env ← get
+        let const ← toYatimaConst leanConst
+        let constId ← const.toCid
+        set { env with consts := env.consts.insert constId const }
+        return .constructor {
+          name := struct.name
+          lvls := struct.levelParams.map .ofLeanName
+          type := typeCid
+          ind  := constId
+          idx  := struct.cidx
+          params := struct.numParams
+          fields := struct.numFields
+          safe := not struct.isUnsafe }
+      | none => throw s!"Unknown constant '{struct.induct}'"
     | .inductInfo struct => do
       let env ← get
       let type ← toYatimaExpr struct.levelParams struct.type
-      let typeCid := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
       return .inductive {
         name := struct.name
@@ -174,25 +199,32 @@ mutual
     | .recInfo struct => do
       let env ← get
       let type ← toYatimaExpr struct.levelParams struct.type
-      let typeCid := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
-      let ctorCid : ConstCid := sorry
-      return .recursor {
-        name := struct.name
-        lvls := struct.levelParams.map .ofLeanName
-        type := typeCid
-        params := struct.numParams
-        ind := ctorCid
-        motives := struct.numMotives
-        indices := struct.numIndices
-        minors := struct.numMinors
-        rules := ← struct.rules.mapM $ toYatimaRecursorRule ctorCid
-        k := struct.k
-        safe := not struct.isUnsafe }
+      let inductName := struct.getInduct
+      match (← read).find? inductName with
+      | some leanConst =>
+        let env ← get
+        let const ← toYatimaConst leanConst
+        let constId ← const.toCid
+        set { env with consts := env.consts.insert constId const }
+        return .recursor {
+          name := struct.name
+          lvls := struct.levelParams.map .ofLeanName
+          type := typeCid
+          params := struct.numParams
+          ind := constId
+          motives := struct.numMotives
+          indices := struct.numIndices
+          minors := struct.numMinors
+          rules := ← struct.rules.mapM $ toYatimaRecursorRule constId
+          k := struct.k
+          safe := not struct.isUnsafe }
+      | none => throw s!"Unknown constant '{inductName}'"
     | .quotInfo struct => do
       let env ← get
       let type ← toYatimaExpr struct.levelParams struct.type
-      let typeCid := type.toCid
+      let typeCid ← type.toCid
       set { env with exprs := env.exprs.insert typeCid type }
       return .quotient {
         name := struct.name
@@ -202,14 +234,15 @@ mutual
 
 end
 
-def EnvM.run (constMap : Lean.ConstMap) (state : Env) (m : EnvM α) :
-    Except String (α × Env) :=
-  match EStateM.run (ReaderT.run m constMap) state with
-  | .ok v env  => .ok (v, env)
-  | .error e _ => .error e
-
+def buildEnv (constMap : Lean.ConstMap) : EnvM Env := do
+  constMap.forM fun _ leanConst => do
+    let yatimaConst ← toYatimaConst leanConst
+    let constCid ← yatimaConst.toCid
+    let env ← get
+    set { env with consts := env.consts.insert constCid yatimaConst }
+  get
 
 def extractEnv (constMap : Lean.ConstMap) : Except String Env :=
-  sorry
+  EnvM.run constMap default (buildEnv constMap)
 
 end Yatima.Compiler.FromLean
