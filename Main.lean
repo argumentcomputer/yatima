@@ -10,9 +10,7 @@ import Yatima.FromLean
 import Yatima.Ipld.DagCbor
 import Yatima.YatimaSpec
 
-import Std
-
-open Yatima
+open Yatima.Compiler.FromLean
 
 def main : List String → IO UInt32
   | ["build", f] => do
@@ -20,25 +18,12 @@ def main : List String → IO UInt32
     Lean.initSearchPath $ ← Lean.findSysroot
     let (env, ok) ← Lean.Elab.runFrontend input .empty f `main
     if ok then
-      let mut yatimaConsts : Std.HashMap Name Const := default
-      for (nam, c) in env.constants.toList do
-        match Lean.Yatima.Compiler.toYatimaConst env.constants c with
-          | .ok    c => yatimaConsts := yatimaConsts.insert nam c
-          | .error s => IO.eprintln s; return 1
-      let env : Env := {
-        univs := sorry
-        exprs := sorry
-        consts := sorry
-
-        univ_anon := sorry
-        expr_anon := sorry
-        const_anon := sorry
-
-        univ_meta := sorry
-        expr_meta := sorry
-        const_meta := sorry
-      }
-      return 0
+      match extractEnv env.constants with
+      | .ok env => --todo
+        return 0
+      | .error e =>
+        IO.println e
+        return 1
     else
       IO.eprintln s!"Lean frontend failed on file {f}"
       return 1

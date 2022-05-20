@@ -23,7 +23,7 @@ inductive BinderInfo
 inductive Expr
   | var   : Name → Nat → Expr
   | sort  : Univ → Expr
-  | const : Name → ConstCid → List Univ → Expr
+  | const : Name → List Univ → Expr
   | app   : Expr → Expr → Expr
   | lam   : Name → BinderInfo → Expr → Expr → Expr
   | pi    : Name → BinderInfo → Expr → Expr → Expr
@@ -36,7 +36,7 @@ inductive Expr
 inductive ExprAnon
   | var   : Nat → ExprAnon
   | sort  : UnivAnonCid → ExprAnon
-  | const : ConstAnonCid → List UnivAnonCid → ExprAnon
+  | const : List UnivAnonCid → ExprAnon
   | app   : ExprAnonCid → ExprAnonCid → ExprAnon
   | lam   : ExprAnonCid → ExprAnonCid → ExprAnon
   | pi    : ExprAnonCid → ExprAnonCid → ExprAnon
@@ -49,7 +49,7 @@ inductive ExprAnon
 inductive ExprMeta
   | var   : Name → ExprMeta
   | sort  : UnivMetaCid → ExprMeta
-  | const : Name → ConstMetaCid → List UnivMetaCid → ExprMeta
+  | const : Name → List UnivMetaCid → ExprMeta
   | app   : ExprMetaCid → ExprMetaCid → ExprMeta
   | lam   : Name → BinderInfo → ExprMetaCid → ExprMetaCid → ExprMeta
   | pi    : Name → BinderInfo → ExprMetaCid → ExprMetaCid → ExprMeta

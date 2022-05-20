@@ -17,4 +17,7 @@ structure Env where
   expr_meta  : RBMap ExprMetaCid  ExprMeta  Ord.compare
   const_meta : RBMap ConstMetaCid ConstMeta Ord.compare
 
+instance : Inhabited Env where
+  default := sorry
+
 end Yatima
