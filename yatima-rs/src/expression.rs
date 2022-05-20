@@ -211,7 +211,7 @@ impl Expr {
       Self::Fix(nam, x) => {
         Self::Fix(
           nam,
-          Box::new(x.shift(inc, dep))
+          Box::new(x.shift(inc, &dep.as_ref().map(|x| x + Nat::one())))
         )
       }
       x => x,
