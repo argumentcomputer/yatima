@@ -16,5 +16,5 @@ pub mod environment;
 pub mod expression;
 pub mod name;
 pub mod nat;
-// pub mod parse;
+pub mod parse;
 pub mod universe;
