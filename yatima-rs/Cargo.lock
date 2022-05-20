@@ -954,6 +954,7 @@ dependencies = [
  "nom",
  "nom_locate",
  "num-bigint",
+ "num-traits",
  "quickcheck",
  "quickcheck_macros",
  "rand",

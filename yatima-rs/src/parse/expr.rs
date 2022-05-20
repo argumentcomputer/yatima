@@ -7,6 +7,7 @@ use im::{
   Vector,
 };
 use libipld::Cid;
+use num_traits::Zero;
 
 use crate::{
   environment::{
@@ -281,7 +282,7 @@ pub fn parse_binder(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
-) -> impl Fn(Span) -> IResult<Span, (BinderInfo, Name, Expr), ParseError<Span>>
+) -> impl Fn(Span) -> IResult<Span, Vec<(BinderInfo, Name, Expr)>, ParseError<Span>>
 {
   move |i: Span| {
     let (i, bind) = alt((
@@ -291,8 +292,7 @@ pub fn parse_binder(
       value(BinderInfo::InstImplict, tag("[")),
     ))(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, nam) = parse_name(i)?;
-    let (i, _) = parse_space(i)?;
+    let (i, ns) = many1(terminated(parse_name, parse_space))(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
     let (i, typ) =
@@ -306,7 +306,11 @@ pub fn parse_binder(
       BinderInfo::InstImplict => "]",
     };
     let (i, _) = tag(close)(i)?;
-    Ok((i, (bind, nam, typ)))
+    let mut res = Vec::new();
+    for (i, n) in ns.iter().enumerate() {
+      res.push((bind.clone(), n.to_owned(), typ.clone().shift(&Nat::from(i), &Some(Nat::zero()))))
+    }
+    Ok((i, res))
   }
 }
 
@@ -334,9 +338,11 @@ pub fn parse_binders0(
       )(i)
       {
         Err(e) => return Err(e),
-        Ok((i2, (b, n, t))) => {
-          bind_ctx.push_front(n.to_owned());
-          res.push((b, n, t));
+        Ok((i2, bs)) => {
+          for (b, n, t) in bs {
+            bind_ctx.push_front(n.to_owned());
+            res.push((b, n, t));
+          }
           i = i2;
         }
       }
@@ -361,9 +367,11 @@ pub fn parse_binders1(
     )(i)
     {
       Err(e) => return Err(e),
-      Ok((i2, (b, n, t))) => {
-        bind_ctx.push_front(n.to_owned());
-        res.push((b, n, t));
+      Ok((i2, bs)) => {
+        for (b, n, t) in bs {
+          bind_ctx.push_front(n.to_owned());
+          res.push((b, n, t));
+        }
         i = i2;
       }
     }
@@ -439,7 +447,7 @@ pub fn parse_expr_pi(
     let trm = bs
       .into_iter()
       .rev()
-      .fold(bod, |acc, (b, n, t)| Expr::Lam(n, b, Box::new(t), Box::new(acc)));
+      .fold(bod, |acc, (b, n, t)| Expr::Pi(n, b, Box::new(t), Box::new(acc)));
     Ok((upto, trm))
   }
 }
@@ -710,6 +718,123 @@ pub mod tests {
         Box::new(Expr::Var("z".into(), 2u64.into()))
       )
     );
+  }
+
+  #[test]
+  fn test_parse_binder() {
+    fn test<'a>(
+      ctx: Vec<&str>,
+      i: &'a str,
+    ) -> IResult<Span<'a>, Vec<(BinderInfo, Name, Expr)>, ParseError<Span<'a>>> {
+      let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
+      parse_binder(
+        Vector::new(),
+        ctx.into(),
+        OrdMap::new()
+      )(Span::new(i))
+    }
+    let res = test(vec![], "(a b c: Sort 0)");
+    assert!(res.is_ok());
+    let res = res.unwrap().1;
+    assert_eq!(res, vec![
+      (BinderInfo::Default, Name::from("a"), Expr::Sort(Univ::Zero)),
+      (BinderInfo::Default, Name::from("b"), Expr::Sort(Univ::Zero)),
+      (BinderInfo::Default, Name::from("c"), Expr::Sort(Univ::Zero))
+    ]);
+    let res = test(vec!["A"], "(a b c: A)");
+    assert!(res.is_ok());
+    let res = res.unwrap().1;
+    assert_eq!(res, vec![
+      (BinderInfo::Default, Name::from("a"), Expr::Var(Name::from("A"), Nat::from(0 as usize))),
+      (BinderInfo::Default, Name::from("b"), Expr::Var(Name::from("A"), Nat::from(1 as usize))),
+      (BinderInfo::Default, Name::from("c"), Expr::Var(Name::from("A"), Nat::from(2 as usize))),
+    ]);
+    let res = test(vec!["A"], "(a : ∀ (x: A) -> A)");
+    assert!(res.is_ok());
+    let res = res.unwrap().1;
+    assert_eq!(res, vec![(
+      BinderInfo::Default,
+      Name::from("a"),
+      Expr::Pi(
+        Name::from("x"),
+        BinderInfo::Default,
+        Box::new(Expr::Var(Name::from("A"), Nat::from(0 as usize))),
+        Box::new(Expr::Var(Name::from("A"), Nat::from(1 as usize)))
+      )
+    ),]);
+
+    fn test_binders<'a>(
+      ctx: Vec<&str>,
+      i: &'a str,
+    ) -> IResult<Span<'a>, Vec<(BinderInfo, Name, Expr)>, ParseError<Span<'a>>> {
+      let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
+      parse_binders0(
+        Vector::new(),
+        ctx.into(),
+        OrdMap::new(),
+        vec![':']
+      )(Span::new(i))
+    }
+    let res1 = test(vec!["A"], "(a : ∀ (x: A) -> A)");
+    let res2 = test_binders(vec!["A"], "(a : ∀ (x: A) -> A):");
+    assert!(res1.is_ok() && res2.is_ok());
+    let (res1, res2) = (res1.unwrap().1, res2.unwrap().1);
+    assert_eq!(res1, res2);
+    let res1 = test(vec!["A"], "(a b c: ∀ (x: A) -> A)");
+    let res2 = test_binders(
+      vec!["A"],
+      "(a : ∀ (x: A) -> A)
+       (b : ∀ (x: A) -> A)
+       (c : ∀ (x: A) -> A)
+    :",
+    );
+    assert!(res1.is_ok() && res2.is_ok());
+    let (res1, res2) = (res1.unwrap().1, res2.unwrap().1);
+    assert_eq!(res1, res2);
+    let res1 =
+      test(vec!["A"], "(a b c d e f g: ∀ (x y z w: A) -> A)");
+    let res2 = test_binders(
+      vec!["A"],
+      "(a: ∀ (x y z w: A) -> A)
+       (b: ∀ (x y z w: A) -> A)
+       (c: ∀ (x y z w: A) -> A)
+       (d: ∀ (x y z w: A) -> A)
+       (e: ∀ (x y z w: A) -> A)
+       (f: ∀ (x y z w: A) -> A)
+       (g: ∀ (x y z w: A) -> A)
+    :",
+    );
+    assert!(res1.is_ok() && res2.is_ok());
+    let (res1, res2) = (res1.unwrap().1, res2.unwrap().1);
+    assert_eq!(res1, res2);
+
+    let res = test_binders(Vec::new(), "(A: Sort 0) (a b c: A):");
+    assert!(res.is_ok());
+    assert_eq!(
+      res.unwrap().1, vec![
+          (BinderInfo::Default, Name::from("A"), Expr::Sort(Univ::Zero)),
+          (BinderInfo::Default, Name::from("a"), Expr::Var(Name::from("A"), Nat::from(0 as usize))),
+          (BinderInfo::Default, Name::from("b"), Expr::Var(Name::from("A"), Nat::from(1 as usize))),
+          (BinderInfo::Default, Name::from("c"), Expr::Var(Name::from("A"), Nat::from(2 as usize))),
+        ]
+    );
+
+    let res = test_binders(Vec::new(), "(A: Sort 0) (a b c: Unknown):");
+    assert!(res.is_err());
+    match res.unwrap_err() {
+      Err::Error(_err) => {
+//TODO(rish) check the error:
+//        assert_eq!(
+//          err.errors, vec![ParseErrorKind::UndefinedReference(
+//              Name::from("Unknown"),
+//              Vector::from(vec![Name::from("A")])
+//            ), Nom(Tag)]
+//        )
+      }
+      _ => {
+        assert!(false)
+      }
+    }
   }
 
   #[test]
