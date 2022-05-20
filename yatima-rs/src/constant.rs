@@ -1,4 +1,3 @@
-
 use crate::{
   environment::{
     ConstAnonCid,
@@ -7,6 +6,7 @@ use crate::{
     Env,
     EnvError,
     ExprAnonCid,
+    ExprCid,
     ExprMetaCid,
   },
   expression::Expr,
@@ -50,44 +50,38 @@ pub enum QuotKind {
 #[derive(Clone, Debug)]
 pub enum Const {
   /// axiom
-  Axiom { name: Name, lvl: Vec<Name>, typ: Box<Expr> },
+  Axiom { name: Name, lvl: Vec<Name>, typ: ExprCid, safe: bool },
   /// theorem
-  Theorem { name: Name, lvl: Vec<Name>, typ: Box<Expr>, expr: Box<Expr> },
+  Theorem { name: Name, lvl: Vec<Name>, typ: ExprCid, expr: ExprCid },
   /// opaque
-  Opaque {
-    name: Name,
-    lvl: Vec<Name>,
-    typ: Box<Expr>,
-    expr: Box<Expr>,
-    safe: bool,
-  },
+  Opaque { name: Name, lvl: Vec<Name>, typ: ExprCid, expr: ExprCid, safe: bool },
   /// def
   Definition {
     name: Name,
     lvl: Vec<Name>,
-    typ: Box<Expr>,
-    expr: Box<Expr>,
+    typ: ExprCid,
+    expr: ExprCid,
     safe: DefSafety,
   },
   /// inductive type
   Inductive {
     name: Name,
     lvl: Vec<Name>,
-    typ: Box<Expr>,
+    typ: ExprCid,
     params: Nat,
     indices: Nat,
-    unit: bool,
-    rec: bool,
+    ctors: Vec<(Name, ExprCid)>,
+    recr: bool,
     safe: bool,
     refl: bool,
-    nested: bool,
+    nest: bool,
   },
   /// inductive constructor
   Constructor {
     name: Name,
     lvl: Vec<Name>,
     ind: ConstCid,
-    typ: Box<Expr>,
+    typ: ExprCid,
     idx: Nat,
     param: Nat,
     field: Nat,
@@ -97,12 +91,12 @@ pub enum Const {
   Recursor {
     lvl: Vec<Name>,
     ind: ConstCid,
-    typ: Box<Expr>,
+    typ: ExprCid,
     params: Nat,
     indices: Nat,
     motives: Nat,
     minors: Nat,
-    rules: Vec<(ConstCid, Nat, Expr)>,
+    rules: Vec<(ConstCid, Nat, ExprCid)>,
     k: bool,
     safe: bool,
   },
@@ -113,65 +107,37 @@ pub enum Const {
 impl Const {
   pub fn cid(&self, env: &mut Env) -> Result<ConstCid, EnvError> {
     match self {
-      Const::Axiom { name, lvl, typ } => {
-        let typ_cid = typ.clone().store(env)?;
+      Const::Axiom { name, lvl, typ, safe } => {
         let anon =
-          ConstAnon::Axiom(lvl.len().into(), typ_cid.anon).store(env)?;
-        let meta = ConstMeta::Axiom(name.clone(), lvl.clone(), typ_cid.meta)
-          .store(env)?;
+          ConstAnon::Axiom(lvl.len().into(), typ.anon, *safe).store(env)?;
+        let meta =
+          ConstMeta::Axiom(name.clone(), lvl.clone(), typ.meta).store(env)?;
         Ok(ConstCid { anon, meta })
       }
       Const::Theorem { name, lvl, typ, expr } => {
-        let typ_cid = typ.clone().store(env)?;
-        let expr_cid = expr.clone().store(env)?;
-        let anon =
-          ConstAnon::Theorem(lvl.len().into(), typ_cid.anon, expr_cid.anon)
+        let anon = ConstAnon::Theorem(lvl.len().into(), typ.anon, expr.anon)
+          .store(env)?;
+        let meta =
+          ConstMeta::Theorem(name.clone(), lvl.clone(), typ.meta, expr.meta)
             .store(env)?;
-        let meta = ConstMeta::Theorem(
-          name.clone(),
-          lvl.clone(),
-          typ_cid.meta,
-          expr_cid.meta,
-        )
-        .store(env)?;
         Ok(ConstCid { anon, meta })
       }
       Const::Opaque { name, lvl, typ, expr, safe } => {
-        let typ_cid = typ.clone().store(env)?;
-        let expr_cid = expr.clone().store(env)?;
-        let anon = ConstAnon::Opaque(
-          lvl.len().into(),
-          typ_cid.anon,
-          expr_cid.anon,
-          *safe,
-        )
-        .store(env)?;
-        let meta = ConstMeta::Opaque(
-          name.clone(),
-          lvl.clone(),
-          typ_cid.meta,
-          expr_cid.meta,
-        )
-        .store(env)?;
+        let anon =
+          ConstAnon::Opaque(lvl.len().into(), typ.anon, expr.anon, *safe)
+            .store(env)?;
+        let meta =
+          ConstMeta::Opaque(name.clone(), lvl.clone(), typ.meta, expr.meta)
+            .store(env)?;
         Ok(ConstCid { anon, meta })
       }
       Const::Definition { name, lvl, typ, expr, safe } => {
-        let typ_cid = typ.clone().store(env)?;
-        let expr_cid = expr.clone().store(env)?;
-        let anon = ConstAnon::Definition(
-          lvl.len().into(),
-          typ_cid.anon,
-          expr_cid.anon,
-          *safe,
-        )
-        .store(env)?;
-        let meta = ConstMeta::Definition(
-          name.clone(),
-          lvl.clone(),
-          typ_cid.meta,
-          expr_cid.meta,
-        )
-        .store(env)?;
+        let anon =
+          ConstAnon::Definition(lvl.len().into(), typ.anon, expr.anon, *safe)
+            .store(env)?;
+        let meta =
+          ConstMeta::Definition(name.clone(), lvl.clone(), typ.meta, expr.meta)
+            .store(env)?;
         Ok(ConstCid { anon, meta })
       }
       Const::Inductive {
@@ -180,49 +146,46 @@ impl Const {
         typ,
         params,
         indices,
-        unit,
-        rec,
+        ctors,
+        recr,
         safe,
         refl,
-        nested,
+        nest,
       } => {
-        let typ_cid = typ.clone().store(env)?;
+        let ctors_meta = ctors.iter().map(|(n, x)| x.meta.clone()).collect();
+        let ctors_anon =
+          ctors.iter().map(|(n, x)| (n.clone(), x.anon.clone())).collect();
         let anon = ConstAnon::Inductive(
           lvl.len().into(),
-          typ_cid.anon,
+          typ.anon,
           params.clone(),
           indices.clone(),
-          *unit,
-          *rec,
+          ctors_anon,
+          *recr,
           *safe,
           *refl,
-          *nested,
+          *nest,
         )
         .store(env)?;
         let meta =
-          ConstMeta::Inductive(name.clone(), lvl.clone(), typ_cid.meta)
+          ConstMeta::Inductive(name.clone(), lvl.clone(), typ.meta, ctors_meta)
             .store(env)?;
         Ok(ConstCid { anon, meta })
       }
       Const::Constructor { name, lvl, ind, typ, idx, param, field, safe } => {
-        let typ_cid = typ.clone().store(env)?;
         let anon = ConstAnon::Constructor(
           lvl.len().into(),
           ind.anon,
-          typ_cid.anon,
+          typ.anon,
           idx.clone(),
           param.clone(),
           field.clone(),
           *safe,
         )
         .store(env)?;
-        let meta = ConstMeta::Constructor(
-          name.clone(),
-          lvl.clone(),
-          ind.meta,
-          typ_cid.meta,
-        )
-        .store(env)?;
+        let meta =
+          ConstMeta::Constructor(name.clone(), lvl.clone(), ind.meta, typ.meta)
+            .store(env)?;
         Ok(ConstCid { anon, meta })
       }
       Const::Recursor {
@@ -237,18 +200,16 @@ impl Const {
         k,
         safe,
       } => {
-        let typ_cid = typ.clone().store(env)?;
         let mut rules_anon: Vec<(ConstAnonCid, Nat, ExprAnonCid)> = Vec::new();
         let mut rules_meta: Vec<(ConstMetaCid, ExprMetaCid)> = Vec::new();
         for (ctor_cid, fields, rhs) in rules {
-          let expr_cid = rhs.clone().store(env)?;
-          rules_anon.push((ctor_cid.anon, fields.clone(), expr_cid.anon));
-          rules_meta.push((ctor_cid.meta, expr_cid.meta));
+          rules_anon.push((ctor_cid.anon, fields.clone(), rhs.anon));
+          rules_meta.push((ctor_cid.meta, rhs.meta));
         }
         let anon = ConstAnon::Recursor(
           lvl.len().into(),
           ind.anon,
-          typ_cid.anon,
+          typ.anon,
           params.clone(),
           indices.clone(),
           motives.clone(),
@@ -259,7 +220,7 @@ impl Const {
         )
         .store(env)?;
         let meta =
-          ConstMeta::Recursor(lvl.clone(), ind.meta, typ_cid.meta, rules_meta)
+          ConstMeta::Recursor(lvl.clone(), ind.meta, typ.meta, rules_meta)
             .store(env)?;
         Ok(ConstCid { anon, meta })
       }
@@ -293,7 +254,7 @@ pub enum ConstMeta {
   Theorem(Name, Vec<Name>, ExprMetaCid, ExprMetaCid),
   Opaque(Name, Vec<Name>, ExprMetaCid, ExprMetaCid),
   Definition(Name, Vec<Name>, ExprMetaCid, ExprMetaCid),
-  Inductive(Name, Vec<Name>, ExprMetaCid),
+  Inductive(Name, Vec<Name>, ExprMetaCid, Vec<ExprMetaCid>),
   Constructor(Name, Vec<Name>, ConstMetaCid, ExprMetaCid),
   Recursor(
     Vec<Name>,
@@ -337,11 +298,21 @@ impl ConstMeta {
 /// ConstAnon::Quotient => [7, <kind>]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ConstAnon {
-  Axiom(Nat, ExprAnonCid),
+  Axiom(Nat, ExprAnonCid, bool),
   Theorem(Nat, ExprAnonCid, ExprAnonCid),
   Opaque(Nat, ExprAnonCid, ExprAnonCid, bool),
   Definition(Nat, ExprAnonCid, ExprAnonCid, DefSafety),
-  Inductive(Nat, ExprAnonCid, Nat, Nat, bool, bool, bool, bool, bool),
+  Inductive(
+    Nat,
+    ExprAnonCid,
+    Nat,
+    Nat,
+    Vec<(Name, ExprAnonCid)>,
+    bool,
+    bool,
+    bool,
+    bool,
+  ),
   Constructor(Nat, ConstAnonCid, ExprAnonCid, Nat, Nat, Nat, bool),
   Recursor(
     Nat,
