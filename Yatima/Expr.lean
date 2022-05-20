@@ -59,4 +59,28 @@ namespace Yatima
   | fix   : Name → ExprMetaCid → ExprMeta
   deriving BEq, Inhabited
 
+namespace Expr
+
+def shift (inc : Nat) (dep : Option Nat) : Expr → Expr
+  | var name idx                => match dep with
+    | some dep => if idx < dep then var name idx else var name <| idx + inc
+    | none     => var name <| idx + inc
+  | sort lvl                    => sort lvl
+  | const name cid lvls         => const name cid lvls
+  | app func input              => app (func.shift inc dep) (input.shift inc dep)
+  | lam name bind type body     => lam name bind (type.shift inc dep) (body.shift inc dep)
+  | pi name bind type body      => pi name bind (type.shift inc dep) (body.shift inc dep)
+  | letE name expr1 expr2 expr3 =>  letE name (expr1.shift inc dep) (expr2.shift inc dep) (expr3.shift    inc dep)
+  | lit litr                    => lit litr
+  | lty litType                 => lty litType
+  | fix name expr               => fix name <| expr.shift inc dep
+
+end Expr
+
 end Yatima
+
+namespace tests
+
+
+end tests
+
