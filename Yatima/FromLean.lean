@@ -112,20 +112,25 @@ mutual
   | .zero _      => return .zero
   | .succ n _    => do
     let univ ← toYatimaUniv lvls n
-    addUniv (← univToCid univ) univ
-    return .succ univ
+    let univCid ← univToCid univ
+    addUniv univCid univ
+    return .succ univCid
   | .max  a b _  => do
     let univA ← toYatimaUniv lvls a
-    addUniv (← univToCid univA) univA
+    let univACid ← univToCid univA
+    addUniv univACid univA
     let univB ← toYatimaUniv lvls b
-    addUniv (← univToCid univB) univB
-    return .max univA univB
+    let univBCid ← univToCid univB
+    addUniv univBCid univB
+    return .max univACid univBCid
   | .imax a b _  => do
     let univA ← toYatimaUniv lvls a
-    addUniv (← univToCid univA) univA
+    let univACid ← univToCid univA
+    addUniv univACid univA
     let univB ← toYatimaUniv lvls b
-    addUniv (← univToCid univB) univB
-    return .imax univA univB
+    let univBCid ← univToCid univB
+    addUniv univBCid univB
+    return .imax univACid univBCid
   | .param nam _ => match lvls.indexOf nam with
     | some n => return .param nam n
     | none   => throw s!"'{nam}' not found in '{lvls}'"
