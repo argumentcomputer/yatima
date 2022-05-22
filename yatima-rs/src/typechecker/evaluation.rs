@@ -11,7 +11,7 @@ pub fn suspend(expr: ExprPtr, env: Env) -> ThunkPtr {
   Rc::new(RefCell::new(Thunk::Sus(expr, env)))
 }
 
-pub fn force(thunk: ThunkPtr) -> Value {
+pub fn force(thunk: &ThunkPtr) -> Value {
   let borrow = thunk.borrow();
   match &*borrow {
     Thunk::Res(val) => {
@@ -30,7 +30,7 @@ pub fn force(thunk: ThunkPtr) -> Value {
 pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
   match &*expr {
     Expr::Var(idx) => {
-      force(env.exprs[*idx].clone())
+      force(&env.exprs[*idx])
     },
     Expr::Sort(lvl) => {
       // Value::Sort only takes fully reduced levels, so we instantiate all variables using the universe environment and reduce
@@ -112,7 +112,7 @@ pub fn apply_const(cnst: ConstPtr, univs: Vector<UnivPtr>, arg: ThunkPtr, mut ar
 	args.push_front(arg);
 	return Value::App(Neutral::Const(cnst, univs), args)
       }
-      match force(arg.clone()) {
+      match force(&arg) {
 	Value::App(Neutral::Const(ctor, _), ctor_args) => {
 	  match &*ctor {
 	    Const::Constructor {..} => {
