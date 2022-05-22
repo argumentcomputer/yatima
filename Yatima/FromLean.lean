@@ -37,73 +37,55 @@ def EnvM.run (constMap : Lean.ConstMap) (state : Env) (m : EnvM α) :
   | .ok _ env  => .ok env
   | .error e _ => .error e
 
-def addUniv (univCid : UnivCid) (univ : Univ) : EnvM PUnit := do
-  let env ← get
-  set { env with univs := env.univs.insert univCid univ }
+inductive YatimaTuple
+  | univ       : UnivCid      → Univ      → YatimaTuple
+  | univ_anon  : UnivAnonCid  → UnivAnon  → YatimaTuple
+  | univ_meta  : UnivMetaCid  → UnivMeta  → YatimaTuple
+  | expr       : ExprCid      → Expr      → YatimaTuple
+  | expr_anon  : ExprAnonCid  → ExprAnon  → YatimaTuple
+  | expr_meta  : ExprMetaCid  → ExprMeta  → YatimaTuple
+  | const      : ConstCid     → Const     → YatimaTuple
+  | const_anon : ConstAnonCid → ConstAnon → YatimaTuple
+  | const_meta : ConstMetaCid → ConstMeta → YatimaTuple
 
-def addUnivAnon (univAnonCid : UnivAnonCid) (univAnon : UnivAnon) :
-    EnvM PUnit := do
+def addToEnv (y : YatimaTuple) : EnvM PUnit := do
   let env ← get
-  set { env with univ_anon := env.univ_anon.insert univAnonCid univAnon }
-
-def addUnivMeta (univMetaCid : UnivMetaCid) (univMeta : UnivMeta) :
-    EnvM PUnit := do
-  let env ← get
-  set { env with univ_meta := env.univ_meta.insert univMetaCid univMeta }
-
-def addExpr (exprCid : ExprCid) (e : Expr) : EnvM PUnit := do
-  let env ← get
-  set { env with exprs := env.exprs.insert exprCid e }
-
-def addExprAnon (exprAnonCid : ExprAnonCid) (exprAnon : ExprAnon) :
-    EnvM PUnit := do
-  let env ← get
-  set { env with expr_anon := env.expr_anon.insert exprAnonCid exprAnon }
-
-def addExprMeta (exprMetaCid : ExprMetaCid) (exprMeta : ExprMeta) :
-    EnvM PUnit := do
-  let env ← get
-  set { env with expr_meta := env.expr_meta.insert exprMetaCid exprMeta }
-
-def addConst (constCid : ConstCid) (const : Const) : EnvM PUnit := do
-  let env ← get
-  set { env with consts := env.consts.insert constCid const }
-
-def addConstAnon (constAnonCid : ConstAnonCid) (constAnon : ConstAnon) :
-    EnvM PUnit := do
-  let env ← get
-  set { env with const_anon := env.const_anon.insert constAnonCid constAnon }
-
-def addConstMeta (constMetaCid : ConstMetaCid) (constMeta : ConstMeta) :
-    EnvM PUnit := do
-  let env ← get
-  set { env with const_meta := env.const_meta.insert constMetaCid constMeta }
+  match y with
+  | .univ       cid obj => set { env with univs      := env.univs.insert cid obj }
+  | .univ_anon  cid obj => set { env with univ_anon  := env.univ_anon.insert cid obj }
+  | .univ_meta  cid obj => set { env with univ_meta  := env.univ_meta.insert cid obj }
+  | .expr       cid obj => set { env with exprs      := env.exprs.insert cid obj }
+  | .expr_anon  cid obj => set { env with expr_anon  := env.expr_anon.insert cid obj }
+  | .expr_meta  cid obj => set { env with expr_meta  := env.expr_meta.insert cid obj }
+  | .const      cid obj => set { env with consts     := env.consts.insert cid obj }
+  | .const_anon cid obj => set { env with const_anon := env.const_anon.insert cid obj }
+  | .const_meta cid obj => set { env with const_meta := env.const_meta.insert cid obj }
 
 def univToCid (u : Univ) : EnvM UnivCid := do
-  let univAnon : UnivAnon := sorry
   let univAnonCid : UnivAnonCid := sorry
-  addUnivAnon univAnonCid univAnon
-  let univMeta : UnivMeta := sorry
+  let univAnon : UnivAnon := sorry
+  addToEnv $ .univ_anon univAnonCid univAnon
   let univMetaCid : UnivMetaCid := sorry
-  addUnivMeta univMetaCid univMeta
+  let univMeta : UnivMeta := sorry
+  addToEnv $ .univ_meta univMetaCid univMeta
   return ⟨univAnonCid, univMetaCid⟩
 
 def exprToCid (e : Expr) : EnvM ExprCid := do
-  let exprAnon : ExprAnon := sorry
   let exprAnonCid : ExprAnonCid := sorry
-  addExprAnon exprAnonCid exprAnon
-  let exprMeta : ExprMeta := sorry
+  let exprAnon : ExprAnon := sorry
+  addToEnv $ .expr_anon exprAnonCid exprAnon
   let exprMetaCid : ExprMetaCid := sorry
-  addExprMeta exprMetaCid exprMeta
+  let exprMeta : ExprMeta := sorry
+  addToEnv $ .expr_meta exprMetaCid exprMeta
   return ⟨exprAnonCid, exprMetaCid⟩
 
 def constToCid (c : Const) : EnvM ConstCid := do
-  let constAnon : ConstAnon := sorry
   let constAnonCid : ConstAnonCid := sorry
-  addConstAnon constAnonCid constAnon
-  let constMeta : ConstMeta := sorry
+  let constAnon : ConstAnon := sorry
+  addToEnv $ .const_anon constAnonCid constAnon
   let constMetaCid : ConstMetaCid := sorry
-  addConstMeta constMetaCid constMeta
+  let constMeta : ConstMeta := sorry
+  addToEnv $ .const_meta constMetaCid constMeta
   return ⟨constAnonCid, constMetaCid⟩
 
 mutual
@@ -113,23 +95,23 @@ mutual
   | .succ n _    => do
     let univ ← toYatimaUniv lvls n
     let univCid ← univToCid univ
-    addUniv univCid univ
+    addToEnv $ .univ univCid univ
     return .succ univCid
   | .max  a b _  => do
     let univA ← toYatimaUniv lvls a
     let univACid ← univToCid univA
-    addUniv univACid univA
+    addToEnv $ .univ univACid univA
     let univB ← toYatimaUniv lvls b
     let univBCid ← univToCid univB
-    addUniv univBCid univB
+    addToEnv $ .univ univBCid univB
     return .max univACid univBCid
   | .imax a b _  => do
     let univA ← toYatimaUniv lvls a
     let univACid ← univToCid univA
-    addUniv univACid univA
+    addToEnv $ .univ univACid univA
     let univB ← toYatimaUniv lvls b
     let univBCid ← univToCid univB
-    addUniv univBCid univB
+    addToEnv $ .univ univBCid univB
     return .imax univACid univBCid
   | .param nam _ => match lvls.indexOf nam with
     | some n => return .param nam n
@@ -141,7 +123,7 @@ mutual
       EnvM RecursorRule := do
     let rhs ← toYatimaExpr [] rules.rhs
     let rhsCid ← exprToCid rhs
-    addExpr rhsCid rhs
+    addToEnv $ .expr rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
   partial def toYatimaExpr (levelParams : List Lean.Name) :
@@ -149,46 +131,46 @@ mutual
     | .bvar idx _ => return .var "" idx
     | .sort lvl _ => do
       let univ ← toYatimaUniv levelParams lvl
-      addUniv (← univToCid univ) univ
+      addToEnv $ .univ (← univToCid univ) univ
       return .sort (← toYatimaUniv levelParams lvl)
     | .const nam lvls _ => do
       match (← read).find?' nam with
       | some leanConst =>
         let const ← toYatimaConst leanConst
         let constId ← constToCid const
-        addConst constId const
+        addToEnv $ .const constId const
         let univs ← lvls.mapM $ toYatimaUniv levelParams
         for univ in univs do
-          addUniv (← univToCid univ) univ
+          addToEnv $ .univ (← univToCid univ) univ
         return .const nam constId univs
       | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => do
       let fnc ← toYatimaExpr levelParams fnc
-      addExpr (← exprToCid fnc) fnc
+      addToEnv $ .expr (← exprToCid fnc) fnc
       let arg ← toYatimaExpr levelParams arg
-      addExpr (← exprToCid arg) arg
+      addToEnv $ .expr (← exprToCid arg) arg
       return .app fnc arg
     | .lam nam bnd bod _ => do
       let bndInfo := bnd.binderInfo
       let bnd ← toYatimaExpr levelParams bnd
-      addExpr (← exprToCid bnd) bnd
+      addToEnv $ .expr (← exprToCid bnd) bnd
       let bod ← toYatimaExpr levelParams bod
-      addExpr (← exprToCid bod) bod
+      addToEnv $ .expr (← exprToCid bod) bod
       return .lam nam bndInfo bnd bod
     | .forallE nam dom img _ => do
       let bndInfo := dom.binderInfo
       let dom ← toYatimaExpr levelParams dom
-      addExpr (← exprToCid dom) dom
+      addToEnv $ .expr (← exprToCid dom) dom
       let img ← toYatimaExpr levelParams img
-      addExpr (← exprToCid img) img
+      addToEnv $ .expr (← exprToCid img) img
       return .pi nam bndInfo dom img
     | .letE nam typ exp bod _ => do
       let typ ← toYatimaExpr levelParams typ
-      addExpr (← exprToCid typ) typ
+      addToEnv $ .expr (← exprToCid typ) typ
       let exp ← toYatimaExpr levelParams exp
-      addExpr (← exprToCid exp) exp
+      addToEnv $ .expr (← exprToCid exp) exp
       let bod ← toYatimaExpr levelParams bod
-      addExpr (← exprToCid bod) bod
+      addToEnv $ .expr (← exprToCid bod) bod
       return .letE nam typ exp bod
     | .lit lit _ => return Yatima.Expr.lit lit
     | .mdata _ e _ => toYatimaExpr levelParams e
@@ -200,7 +182,7 @@ mutual
     | .axiomInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       return .axiom {
         name := struct.name
         lvls := struct.levelParams.map .ofLeanName
@@ -209,10 +191,10 @@ mutual
     | .thmInfo struct => do
       let type  ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       let value ← toYatimaExpr struct.levelParams struct.value
       let valueCid ← exprToCid value
-      addExpr valueCid value
+      addToEnv $ .expr valueCid value
       return .theorem {
         name  := struct.name
         lvls  := struct.levelParams.map .ofLeanName
@@ -221,10 +203,10 @@ mutual
     | .opaqueInfo struct => do
       let type  ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       let value ← toYatimaExpr struct.levelParams struct.value
       let valueCid ← exprToCid value
-      addExpr valueCid value
+      addToEnv $ .expr valueCid value
       return .opaque {
         name  := struct.name
         lvls  := struct.levelParams.map .ofLeanName
@@ -234,10 +216,10 @@ mutual
     | .defnInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       let value ← toYatimaExpr struct.levelParams struct.value
       let valueCid ← exprToCid value
-      addExpr valueCid value
+      addToEnv $ .expr valueCid value
       return .definition {
         name   := struct.name
         lvls   := struct.levelParams.map .ofLeanName
@@ -247,12 +229,12 @@ mutual
     | .ctorInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       match (← read).find? struct.induct with
       | some leanConst =>
         let const ← toYatimaConst leanConst
         let constId ← constToCid const
-        addConst constId const
+        addToEnv $ .const constId const
         return .constructor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
@@ -266,7 +248,7 @@ mutual
     | .inductInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       return .inductive {
         name := struct.name
         lvls := struct.levelParams.map .ofLeanName
@@ -281,13 +263,13 @@ mutual
     | .recInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       let inductName := struct.getInduct
       match (← read).find? inductName with
       | some leanConst =>
         let const ← toYatimaConst leanConst
         let constId ← constToCid const
-        addConst constId const
+        addToEnv $ .const constId const
         return .recursor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
@@ -304,7 +286,7 @@ mutual
     | .quotInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
-      addExpr typeCid type
+      addToEnv $ .expr typeCid type
       return .quotient {
         name := struct.name
         lvls := struct.levelParams.map .ofLeanName
@@ -317,7 +299,7 @@ def buildEnv (constMap : Lean.ConstMap) : EnvM Env := do
   constMap.forM fun _ leanConst => do
     let yatimaConst ← toYatimaConst leanConst
     let constCid ← constToCid yatimaConst
-    addConst constCid yatimaConst
+    addToEnv $ .const constCid yatimaConst
   get
 
 def extractEnv (constMap : Lean.ConstMap) : Except String Env :=
