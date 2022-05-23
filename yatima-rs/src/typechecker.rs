@@ -3,3 +3,4 @@ pub mod expression;
 pub mod value;
 pub mod evaluation;
 pub mod equality;
+pub mod check;

@@ -5,13 +5,16 @@ use crate::{
 };
 use im::Vector;
 use std::rc::Rc;
-use std::cell::RefCell;
 
-pub fn extend_with_val(env: &Env, val: Value) -> Env {
-  let mut ext_env = env.clone();
-  let thunk = Rc::new(RefCell::new(Thunk::Res(val)));
-  ext_env.exprs.push_back(thunk);
-  ext_env
+#[inline]
+pub fn extend_with_thunk(mut env: Env, thunk: ThunkPtr) -> Env {
+  env.exprs.push_back(thunk);
+  env
+}
+
+#[inline]
+pub fn new_var(idx: Index) -> Value {
+  Value::App(Neutral::FVar(idx), Vector::new())
 }
 
 // Equality conversion algorithm between two *well-typed* values with the same type
@@ -39,18 +42,18 @@ pub fn equal(a: &Value, b: &Value, dep: Index) -> bool {
       if a_inf != b_inf {
 	return false
       }
-      let new_var = Value::App(Neutral::FVar(dep), Vector::new());
-      let a = Rc::new(eval(a_bod.clone(), extend_with_val(a_env, new_var.clone())));
-      let b = Rc::new(eval(b_bod.clone(), extend_with_val(b_env, new_var)));
+      let new_var = result(new_var(dep));
+      let a = Rc::new(eval(a_bod.clone(), extend_with_thunk(a_env.clone(), new_var.clone())));
+      let b = Rc::new(eval(b_bod.clone(), extend_with_thunk(b_env.clone(), new_var)));
       equal(&a, &b, dep+1)
     }
     (Value::Pi(a_inf, a_dom, a_img, a_env), Value::Pi(b_inf, b_dom, b_img, b_env)) => {
       if a_inf != b_inf || !equal(&force(a_dom), &force(b_dom), dep) {
 	return false
       }
-      let new_var = Value::App(Neutral::FVar(dep), Vector::new());
-      let a = Rc::new(eval(a_img.clone(), extend_with_val(a_env, new_var.clone())));
-      let b = Rc::new(eval(b_img.clone(), extend_with_val(b_env, new_var)));
+      let new_var = result(new_var(dep));
+      let a = Rc::new(eval(a_img.clone(), extend_with_thunk(a_env.clone(), new_var.clone())));
+      let b = Rc::new(eval(b_img.clone(), extend_with_thunk(b_env.clone(), new_var)));
       equal(&a, &b, dep+1)
     },
     (Value::Lit(a_lit), Value::Lit(b_lit)) => a_lit == b_lit,
@@ -59,6 +62,7 @@ pub fn equal(a: &Value, b: &Value, dep: Index) -> bool {
   }
 }
 
+#[inline]
 pub fn equal_args(a_args: &Vector<ThunkPtr>, b_args: &Vector<ThunkPtr>, dep: Index) -> bool {
   if a_args != b_args {
     return false

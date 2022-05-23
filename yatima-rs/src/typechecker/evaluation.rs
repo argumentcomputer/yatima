@@ -7,10 +7,17 @@ use im::Vector;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+#[inline]
+pub fn result(val: Value) -> ThunkPtr {
+  Rc::new(RefCell::new(Thunk::Res(val)))
+}
+
+#[inline]
 pub fn suspend(expr: ExprPtr, env: Env) -> ThunkPtr {
   Rc::new(RefCell::new(Thunk::Sus(expr, env)))
 }
 
+#[inline]
 pub fn force(thunk: &ThunkPtr) -> Value {
   let borrow = thunk.borrow();
   match &*borrow {
@@ -88,6 +95,7 @@ pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
   }
 }
 
+#[inline]
 pub fn eval_const(cnst: &ConstPtr, univs: Vector<UnivPtr>) -> Value {
   match &**cnst {
     Const::Theorem { expr, ..} |
@@ -103,6 +111,7 @@ pub fn eval_const(cnst: &ConstPtr, univs: Vector<UnivPtr>) -> Value {
   }
 }
 
+#[inline]
 pub fn apply_const(cnst: ConstPtr, univs: Vector<UnivPtr>, arg: ThunkPtr, mut args: Vector<ThunkPtr>) -> Value {
   // Assumes a partial application of k to args, which means in particular, that it is in normal form
   match &*cnst {

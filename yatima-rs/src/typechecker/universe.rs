@@ -160,6 +160,7 @@ pub fn reduce_max(univ_a: &UnivPtr, univ_b: &UnivPtr) -> UnivPtr {
 // that is equivalent to such semantical equality.
 
 // The equality algorithm. Assumes `a` and `b` are already reduced
+#[inline]
 pub fn equal_univ(a: &UnivPtr, b: &UnivPtr) -> bool {
   leq_univ(a, b, 0) && leq_univ(b, a, 0)
 }
@@ -265,6 +266,7 @@ pub fn leq_univ(a: &UnivPtr, b: &UnivPtr, diff: i64) -> bool {
 }
 
 // Faster equality for zero, assumes reduced `a`
+#[inline]
 pub fn univ_is_zero(a: &UnivPtr) -> bool {
   match &**a {
     Univ::Zero => true,
