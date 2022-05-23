@@ -31,14 +31,14 @@ use libipld::{
   codec::Codec,
 };
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum DefSafety {
   Unsafe,
   Safe,
   Partial,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum QuotKind {
   Type,
   Ctor,
@@ -47,7 +47,7 @@ pub enum QuotKind {
 }
 
 /// Yatima Constants
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Const {
   /// axiom
   Axiom { name: Name, lvl: Vec<Name>, typ: ExprCid, safe: bool },
@@ -234,7 +234,7 @@ impl Const {
 
   pub fn store(self, env: &mut Env) -> Result<ConstCid, EnvError> {
     let cid = self.cid(env)?;
-    env.insert_const(cid, self)?;
+    env.insert_const_cache(cid, self);
     Ok(cid)
   }
 }
@@ -248,7 +248,7 @@ impl Const {
 /// ConstMeta::Constructor  => [5, <name>, [<name>*], <const>, <type>]
 /// ConstMeta::Recursor => [6, [<name>*], <const>, <type>, [<rules>*]]
 /// ConstMeta::Quotient => [7]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ConstMeta {
   Axiom(Name, Vec<Name>, ExprMetaCid),
   Theorem(Name, Vec<Name>, ExprMetaCid, ExprMetaCid),
@@ -275,7 +275,7 @@ impl ConstMeta {
 
   pub fn store(self, env: &mut Env) -> Result<ConstMetaCid, EnvError> {
     let cid = self.cid()?;
-    env.insert_const_meta(cid, self)?;
+    env.insert_const_meta(cid, self);
     Ok(cid)
   }
 }
@@ -296,7 +296,7 @@ impl ConstMeta {
 ///   , <motives>, <minors>, [<rules>*], <k>, <safe>
 ///   ]
 /// ConstAnon::Quotient => [7, <kind>]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ConstAnon {
   Axiom(Nat, ExprAnonCid, bool),
   Theorem(Nat, ExprAnonCid, ExprAnonCid),
@@ -339,7 +339,7 @@ impl ConstAnon {
 
   pub fn store(self, env: &mut Env) -> Result<ConstAnonCid, EnvError> {
     let cid = self.cid()?;
-    env.insert_const_anon(cid, self)?;
+    env.insert_const_anon(cid, self);
     Ok(cid)
   }
 }

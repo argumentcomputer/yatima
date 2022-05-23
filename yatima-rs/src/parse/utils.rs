@@ -8,8 +8,17 @@ use crate::parse::{
 };
 
 use crate::{
+  environment::{
+    ConstCid,
+    Env,
+  },
   name::Name,
   nat::Nat,
+};
+
+use im::{
+  OrdMap,
+  Vector,
 };
 
 use nom::{
@@ -34,7 +43,16 @@ use nom::{
   IResult,
 };
 
-use alloc::string::String;
+use alloc::{
+  rc::Rc,
+  string::String,
+};
+use core::cell::RefCell;
+
+pub type UnivCtx = Vector<Name>;
+pub type BindCtx = Vector<Name>;
+pub type GlobalCtx = OrdMap<Name, ConstCid>;
+pub type EnvCtx = Rc<RefCell<Env>>;
 
 /// Returns a list of reserved Yatima symbols
 pub fn reserved_symbols() -> Vec<String> {

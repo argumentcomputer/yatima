@@ -127,103 +127,88 @@ pub struct ConstCid {
   pub meta: ConstMetaCid,
 }
 
-pub struct Env {
-  pub univs: BTreeMap<UnivCid, Univ>,
-  pub exprs: BTreeMap<ExprCid, Expr>,
-  pub consts: BTreeMap<ConstCid, Const>,
+/// The canonical form of an environment This is what
+/// gets serialized/deserialized/hashed to form EnvCids.
+#[derive(
+  Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
+pub struct EnvSet {
+  pub env: BTreeSet<ConstCid>,
+}
 
-  pub univ_meta: BTreeMap<UnivMetaCid, UnivMeta>,
-  pub expr_meta: BTreeMap<ExprMetaCid, ExprMeta>,
+/// A Yatima Environment, which includes the full Merkle tree of all the various
+/// CIDs, and also caches the Const/Expr/Univ trees to avoid frequent Anon/Meta
+/// merges
+#[derive(Clone, Debug, PartialEq)]
+pub struct Env {
+  /// The keys of the const_cache form the EnvSet
+  pub const_cache: BTreeMap<ConstCid, Const>,
+  pub expr_cache: BTreeMap<ExprCid, Expr>,
+  pub univ_cache: BTreeMap<UnivCid, Univ>,
+
   pub const_meta: BTreeMap<ConstMetaCid, ConstMeta>,
+  pub expr_meta: BTreeMap<ExprMetaCid, ExprMeta>,
+  pub univ_meta: BTreeMap<UnivMetaCid, UnivMeta>,
 
   pub univ_anon: BTreeMap<UnivAnonCid, UnivAnon>,
   pub expr_anon: BTreeMap<ExprAnonCid, ExprAnon>,
   pub const_anon: BTreeMap<ConstAnonCid, ConstAnon>,
 }
 
+#[derive(Debug)]
 pub enum EnvError {
   IpldError(SerdeError),
   CborError(libipld::error::Error),
-  UnivMetaInsert,
-  UnivAnonInsert,
-  UnivInsert,
-  ExprMetaInsert,
-  ExprAnonInsert,
-  ExprInsert,
-  ConstMetaInsert,
-  ConstAnonInsert,
-  ConstInsert,
 }
 
 impl Env {
-  pub fn insert_univ_anon(
-    &mut self,
-    k: UnivAnonCid,
-    v: UnivAnon,
-  ) -> Result<UnivAnon, EnvError> {
-    self.univ_anon.insert(k, v).ok_or(EnvError::UnivAnonInsert)
+  pub fn new() -> Self {
+    Env {
+      const_cache: BTreeMap::new(),
+      expr_cache: BTreeMap::new(),
+      univ_cache: BTreeMap::new(),
+      const_meta: BTreeMap::new(),
+      expr_meta: BTreeMap::new(),
+      univ_meta: BTreeMap::new(),
+      const_anon: BTreeMap::new(),
+      expr_anon: BTreeMap::new(),
+      univ_anon: BTreeMap::new(),
+    }
   }
 
-  pub fn insert_univ_meta(
-    &mut self,
-    k: UnivMetaCid,
-    v: UnivMeta,
-  ) -> Result<UnivMeta, EnvError> {
-    self.univ_meta.insert(k, v).ok_or(EnvError::UnivMetaInsert)
+  pub fn insert_univ_anon(&mut self, k: UnivAnonCid, v: UnivAnon) {
+    self.univ_anon.insert(k, v);
   }
 
-  pub fn insert_univ(&mut self, k: UnivCid, v: Univ) -> Result<Univ, EnvError> {
-    self.univs.insert(k, v).ok_or(EnvError::UnivInsert)
+  pub fn insert_univ_meta(&mut self, k: UnivMetaCid, v: UnivMeta) {
+    self.univ_meta.insert(k, v);
   }
 
-  pub fn insert_expr_anon(
-    &mut self,
-    k: ExprAnonCid,
-    v: ExprAnon,
-  ) -> Result<ExprAnon, EnvError> {
-    self.expr_anon.insert(k, v).ok_or(EnvError::ExprAnonInsert)
+  pub fn insert_univ_cache(&mut self, k: UnivCid, v: Univ) {
+    self.univ_cache.insert(k, v);
   }
 
-  pub fn insert_expr_meta(
-    &mut self,
-    k: ExprMetaCid,
-    v: ExprMeta,
-  ) -> Result<ExprMeta, EnvError> {
-    self.expr_meta.insert(k, v).ok_or(EnvError::ExprMetaInsert)
+  pub fn insert_expr_anon(&mut self, k: ExprAnonCid, v: ExprAnon) {
+    self.expr_anon.insert(k, v);
   }
 
-  pub fn insert_expr(&mut self, k: ExprCid, v: Expr) -> Result<Expr, EnvError> {
-    self.exprs.insert(k, v).ok_or(EnvError::ExprInsert)
+  pub fn insert_expr_meta(&mut self, k: ExprMetaCid, v: ExprMeta) {
+    self.expr_meta.insert(k, v);
   }
 
-  pub fn insert_const_anon(
-    &mut self,
-    k: ConstAnonCid,
-    v: ConstAnon,
-  ) -> Result<ConstAnon, EnvError> {
-    self.const_anon.insert(k, v).ok_or(EnvError::ConstAnonInsert)
+  pub fn insert_expr_cache(&mut self, k: ExprCid, v: Expr) {
+    self.expr_cache.insert(k, v);
   }
 
-  pub fn insert_const_meta(
-    &mut self,
-    k: ConstMetaCid,
-    v: ConstMeta,
-  ) -> Result<ConstMeta, EnvError> {
-    self.const_meta.insert(k, v).ok_or(EnvError::ConstMetaInsert)
+  pub fn insert_const_anon(&mut self, k: ConstAnonCid, v: ConstAnon) {
+    self.const_anon.insert(k, v);
   }
 
-  pub fn insert_const(
-    &mut self,
-    k: ConstCid,
-    v: Const,
-  ) -> Result<Const, EnvError> {
-    self.consts.insert(k, v).ok_or(EnvError::ConstInsert)
+  pub fn insert_const_meta(&mut self, k: ConstMetaCid, v: ConstMeta) {
+    self.const_meta.insert(k, v);
   }
-}
 
-#[derive(
-  Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
-)]
-pub struct EnvSet {
-  pub consts: BTreeSet<ConstCid>,
+  pub fn insert_const_cache(&mut self, k: ConstCid, v: Const) {
+    self.const_cache.insert(k, v);
+  }
 }

@@ -1,3 +1,5 @@
+use core::ops::DerefMut;
+
 use alloc::string::{
   String,
   ToString,
@@ -34,16 +36,17 @@ use crate::{
     },
     span::Span,
     string::parse_string,
-    univ::{
-      parse_univ,
-      UnivCtx,
-    },
+    univ::parse_univ,
     utils::{
       parse_builtin_symbol_end,
       parse_name,
       parse_nat,
       parse_space,
       parse_u8,
+      BindCtx,
+      EnvCtx,
+      GlobalCtx,
+      UnivCtx,
     },
   },
   universe::Univ,
@@ -83,9 +86,6 @@ use nom::{
   Err,
   IResult,
 };
-
-pub type BindCtx = Vector<Name>;
-pub type GlobalCtx = OrdMap<Name, ConstCid>;
 
 pub fn parse_expr_var(
   bind_ctx: BindCtx,
@@ -146,17 +146,32 @@ pub fn parse_expr_const(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
     let (i, nam) = parse_name(from)?;
     let (i, cid) = opt(preceded(tag(":"), parse_const_cid))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, args) = parse_univ_args(univ_ctx.clone())(i)?;
+    let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+      Err::Error(ParseError::new(
+        i,
+        ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+      ))
+    })?;
+    let env = env.deref_mut();
+    let mut arg_cids = Vec::new();
+    for arg in args {
+      let cid = arg.store(env).map_err(|e| {
+        Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+      })?;
+      arg_cids.push(cid);
+    }
     if let Some(cid) = cid {
-      Ok((i, Expr::Const(nam, cid, args)))
+      Ok((i, Expr::Const(nam, cid, arg_cids)))
     }
     else if let Some(cid) = global_ctx.get(&nam) {
-      Ok((i, Expr::Const(nam, *cid, args)))
+      Ok((i, Expr::Const(nam, *cid, arg_cids)))
     }
     else {
       Err(Err::Error(ParseError::new(
@@ -213,12 +228,22 @@ pub fn parse_expr_lit() -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>
 
 pub fn parse_expr_sort(
   univ_ctx: UnivCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
     let (i, _) = tag("Sort")(from)?;
     let (i, _) = parse_space(i)?;
     let (i, u) = parse_univ(univ_ctx.clone())(i)?;
-    Ok((i, Expr::Sort(u)))
+    let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+      Err::Error(ParseError::new(
+        i,
+        ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+      ))
+    })?;
+    let cid = u.store(env.deref_mut()).map_err(|e| {
+      Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+    })?;
+    Ok((i, Expr::Sort(cid)))
   }
 }
 
@@ -248,11 +273,16 @@ pub fn parse_expr_apps(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
     let (i2, _) = parse_space(from)?;
-    let (i2, fun) =
-      parse_expr(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone())(i2)?;
+    let (i2, fun) = parse_expr(
+      univ_ctx.clone(),
+      bind_ctx.clone(),
+      global_ctx.clone(),
+      env_ctx.clone(),
+    )(i2)?;
     let mut i = i2;
     let mut args = Vec::new();
     loop {
@@ -265,10 +295,12 @@ pub fn parse_expr_apps(
           return Ok((i2, trm));
         }
         _ => {
-          let (i2, arg) =
-            parse_expr(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone())(
-              i2,
-            )?;
+          let (i2, arg) = parse_expr(
+            univ_ctx.clone(),
+            bind_ctx.clone(),
+            global_ctx.clone(),
+            env_ctx.clone(),
+          )(i2)?;
           args.push(arg);
           i = i2
         }
@@ -282,6 +314,7 @@ pub fn parse_binder(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Vec<(BinderInfo, Name, Expr)>, ParseError<Span>>
 {
   move |i: Span| {
@@ -295,10 +328,12 @@ pub fn parse_binder(
     let (i, ns) = many1(terminated(parse_name, parse_space))(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, typ) =
-      parse_expr_apps(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone())(
-        i,
-      )?;
+    let (i, typ) = parse_expr_apps(
+      univ_ctx.clone(),
+      bind_ctx.clone(),
+      global_ctx.clone(),
+      env_ctx.clone(),
+    )(i)?;
     let close = match bind {
       BinderInfo::Default => ")",
       BinderInfo::StrictImplict => "}}",
@@ -308,7 +343,11 @@ pub fn parse_binder(
     let (i, _) = tag(close)(i)?;
     let mut res = Vec::new();
     for (i, n) in ns.iter().enumerate() {
-      res.push((bind.clone(), n.to_owned(), typ.clone().shift(&Nat::from(i), &Some(Nat::zero()))))
+      res.push((
+        bind.clone(),
+        n.to_owned(),
+        typ.clone().shift(&Nat::from(i), &Some(Nat::zero())),
+      ))
     }
     Ok((i, res))
   }
@@ -319,6 +358,7 @@ pub fn parse_binders0(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
   terminator: Vec<char>,
 ) -> impl FnMut(Span) -> IResult<Span, Vec<(BinderInfo, Name, Expr)>, ParseError<Span>>
 {
@@ -334,7 +374,12 @@ pub fn parse_binders0(
       }
       match preceded(
         parse_space,
-        parse_binder(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone()),
+        parse_binder(
+          univ_ctx.clone(),
+          bind_ctx.clone(),
+          global_ctx.clone(),
+          env_ctx.clone(),
+        ),
       )(i)
       {
         Err(e) => return Err(e),
@@ -354,6 +399,7 @@ pub fn parse_binders1(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
   terminator: Vec<char>,
 ) -> impl FnMut(Span) -> IResult<Span, Vec<(BinderInfo, Name, Expr)>, ParseError<Span>>
 {
@@ -363,7 +409,12 @@ pub fn parse_binders1(
 
     match preceded(
       parse_space,
-      parse_binder(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone()),
+      parse_binder(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
     )(i)
     {
       Err(e) => return Err(e),
@@ -379,6 +430,7 @@ pub fn parse_binders1(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
       terminator.clone(),
     )(i)?;
     res.append(&mut res2);
@@ -390,6 +442,7 @@ pub fn parse_expr_lam(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
     let (i, _) = alt((tag("λ"), tag("lambda")))(from)?;
@@ -398,6 +451,7 @@ pub fn parse_expr_lam(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
       vec!['='],
     )(i)?;
     let (i, _) = tag("=>")(i)?;
@@ -410,6 +464,7 @@ pub fn parse_expr_lam(
       univ_ctx.clone(),
       body_bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
     )(i)?;
     let trm = bs
       .into_iter()
@@ -423,6 +478,7 @@ pub fn parse_expr_pi(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
     let (i, _) = alt((tag("∀"), tag("forall")))(from)?;
@@ -431,6 +487,7 @@ pub fn parse_expr_pi(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
       vec!['-'],
     )(i)?;
     let (i, _) = tag("->")(i)?;
@@ -443,6 +500,7 @@ pub fn parse_expr_pi(
       univ_ctx.clone(),
       body_bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
     )(i)?;
     let trm = bs
       .into_iter()
@@ -460,12 +518,14 @@ pub fn parse_bound_expression(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, (Expr, Expr), ParseError<Span>> {
   move |from: Span| {
     let (i, bs) = parse_binders0(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
       vec![':'],
     )(from)?;
     let (i, _) = tag(":")(i)?;
@@ -478,6 +538,7 @@ pub fn parse_bound_expression(
       univ_ctx.clone(),
       type_bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
     )(i)?;
     let mut term_bind_ctx = bind_ctx.clone();
     for (_, n, _) in bs.iter() {
@@ -490,6 +551,7 @@ pub fn parse_bound_expression(
       univ_ctx.clone(),
       type_bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
     )(i)?;
     let trm = bs.iter().rev().fold(trm, |acc, (b, n, t)| {
       Expr::Lam(n.clone(), b.clone(), Box::new(t.clone()), Box::new(acc))
@@ -503,10 +565,11 @@ pub fn parse_bound_expression(
 }
 
 /// Parses a local function definition
-pub fn parse_let(
+pub fn parse_expr_let(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
     let (i, _) = tag("let")(from)?;
@@ -517,6 +580,7 @@ pub fn parse_let(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
     )(i)?;
     let (i, _) = alt((tag(";"), tag("in")))(i)?;
     let (i, _) = parse_space(i)?;
@@ -526,6 +590,7 @@ pub fn parse_let(
       univ_ctx.clone(),
       body_bind_ctx.clone(),
       global_ctx.clone(),
+      env_ctx.clone(),
     )(i)?;
     Ok((upto, Expr::Let(nam, Box::new(typ), Box::new(exp), Box::new(bod))))
   }
@@ -536,20 +601,41 @@ pub fn parse_expr(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |i: Span| {
     alt((
       delimited(
         tag("("),
-        parse_expr_apps(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone()),
+        parse_expr_apps(
+          univ_ctx.clone(),
+          bind_ctx.clone(),
+          global_ctx.clone(),
+          env_ctx.clone(),
+        ),
         tag(")"),
       ),
-      parse_expr_lam(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone()),
-      parse_expr_pi(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone()),
+      parse_expr_lam(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_expr_pi(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
       parse_expr_lit(),
       parse_expr_lty(),
-      parse_expr_sort(univ_ctx.clone()),
-      parse_expr_const(univ_ctx.clone(), bind_ctx.clone(), global_ctx.clone()),
+      parse_expr_sort(univ_ctx.clone(), env_ctx.clone()),
+      parse_expr_const(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
       parse_expr_var(bind_ctx.clone()),
     ))(i)
   }
@@ -557,6 +643,11 @@ pub fn parse_expr(
 
 #[cfg(test)]
 pub mod tests {
+  use alloc::rc::Rc;
+  use core::cell::RefCell;
+
+  use crate::environment::Env;
+
   use crate::constant::ConstAnon;
   use multihash::{
     Code,
@@ -567,66 +658,84 @@ pub mod tests {
 
   #[test]
   fn test_parse_lit() {
-    fn test(i: &str) -> IResult<Span, Expr, ParseError<Span>> {
-      parse_expr(Vector::new(), Vector::new(), OrdMap::new())(Span::new(i))
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
+    fn test(env_ctx: EnvCtx, i: &str) -> IResult<Span, Expr, ParseError<Span>> {
+      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
     }
-    let res = test("1");
+    let res = test(env_ctx.clone(), "1");
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1, Expr::Lit(Literal::Nat(1u64.into())));
-    let res = test("\"foo\"");
+    let res = test(env_ctx.clone(), "\"foo\"");
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1, Expr::Lit(Literal::Str("foo".into())));
   }
 
   #[test]
   fn test_parse_var() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
     fn test<'a>(
+      env_ctx: EnvCtx,
       ctx: Vec<&str>,
       i: &'a str,
     ) -> IResult<Span<'a>, Expr, ParseError<Span<'a>>> {
       let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
-      parse_expr(Vector::new(), ctx.into(), OrdMap::new())(Span::new(i))
+      parse_expr(Vector::new(), ctx.into(), OrdMap::new(), env_ctx)(Span::new(
+        i,
+      ))
     }
-    let res = test(vec!["x", "y", "z"], "x");
+    let res = test(env_ctx.clone(), vec!["x", "y", "z"], "x");
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1, Expr::Var("x".into(), 0u64.into()));
-    let res = test(vec!["x", "y", "z"], "y");
+    let res = test(env_ctx.clone(), vec!["x", "y", "z"], "y");
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1, Expr::Var("y".into(), 1u64.into()));
-    let res = test(vec!["x", "y", "z"], "a");
+    let res = test(env_ctx.clone(), vec!["x", "y", "z"], "a");
     assert!(res.is_err());
-    let res = test(vec!["x", "y", "z", "x"], "x");
+    let res = test(env_ctx.clone(), vec!["x", "y", "z", "x"], "x");
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1, Expr::Var("x".into(), 0u64.into()))
   }
 
   #[test]
   fn test_parse_sort() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
     fn test<'a>(
+      env_ctx: EnvCtx,
       ctx: Vec<&str>,
       i: &'a str,
     ) -> IResult<Span<'a>, Expr, ParseError<Span<'a>>> {
       let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
-      parse_expr(ctx.into(), Vector::new(), OrdMap::new())(Span::new(i))
+      parse_expr(ctx.into(), Vector::new(), OrdMap::new(), env_ctx)(Span::new(
+        i,
+      ))
     }
-    let res = test(vec!["u", "v", "w"], "Sort u");
+    let res = test(env_ctx.clone(), vec!["u", "v", "w"], "Sort u");
     println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Sort(Univ::Param("u".into(), 0u64.into()))
+      Expr::Sort(
+        Univ::Param("u".into(), 0u64.into()).cid(&mut Env::new()).unwrap()
+      )
     );
-    let res = test(vec!["u", "v", "w"], "Sort w");
+    let res = test(env_ctx.clone(), vec!["u", "v", "w"], "Sort w");
     println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Sort(Univ::Param("w".into(), 2u64.into()))
+      Expr::Sort(
+        Univ::Param("w".into(), 2u64.into()).cid(&mut Env::new()).unwrap()
+      )
     );
-    let res = test(vec!["u", "v", "w"], "Sort 0");
+    let res = test(env_ctx.clone(), vec!["u", "v", "w"], "Sort 0");
     println!("{:?}", res);
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Expr::Sort(Univ::Zero));
+    assert_eq!(
+      res.unwrap().1,
+      Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap())
+    );
   }
 
   fn dummy_const_cid() -> ConstCid {
@@ -641,7 +750,9 @@ pub mod tests {
 
   #[test]
   fn test_parse_const() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
     fn test<'a>(
+      env_ctx: EnvCtx,
       univ_ctx: Vec<&str>,
       bind_ctx: Vec<&str>,
       i: &'a str,
@@ -650,32 +761,34 @@ pub mod tests {
         univ_ctx.into_iter().map(|x| x.into()).collect();
       let bind_ctx: Vec<Name> =
         bind_ctx.into_iter().map(|x| x.into()).collect();
-      parse_expr(univ_ctx.into(), bind_ctx.into(), dummy_global_ctx())(
+      parse_expr(univ_ctx.into(), bind_ctx.into(), dummy_global_ctx(), env_ctx)(
         Span::new(i),
       )
     }
-    let res = test(vec![], vec![], "foo {}");
+    let res = test(env_ctx.clone(), vec![], vec![], "foo {}");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![])
     );
-    let res = test(vec![], vec!["foo"], "foo {}");
+    let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo {}");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![])
     );
-    let res = test(vec!["u", "v"], vec![], "foo {u v}");
+    let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo {u v}");
+    println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![
-        Univ::Param("u".into(), 0u64.into()),
-        Univ::Param("v".into(), 1u64.into())
+        Univ::Param("u".into(), 0u64.into()).cid(&mut Env::new()).unwrap(),
+        Univ::Param("v".into(), 1u64.into()).cid(&mut Env::new()).unwrap()
       ])
     );
     let res = test(
+      env_ctx.clone(),
       vec![],
       vec![],
       "foo:bagbyb6egbqlcaxkti2psb7xu7dvlkk4iarhn42ohpjvgrjqhfbqj7rfgl72tdz6q.\
@@ -690,14 +803,18 @@ pub mod tests {
   }
   #[test]
   fn test_parse_apps() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
     fn test<'a>(
+      env_ctx: EnvCtx,
       ctx: Vec<&str>,
       i: &'a str,
     ) -> IResult<Span<'a>, Expr, ParseError<Span<'a>>> {
       let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
-      parse_expr_apps(Vector::new(), ctx.into(), OrdMap::new())(Span::new(i))
+      parse_expr_apps(Vector::new(), ctx.into(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
     }
-    let res = test(vec!["x", "y"], "x y");
+    let res = test(env_ctx.clone(), vec!["x", "y"], "x y");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
@@ -706,7 +823,7 @@ pub mod tests {
         Box::new(Expr::Var("y".into(), 1u64.into()))
       )
     );
-    let res = test(vec!["x", "y", "z"], "x y z");
+    let res = test(env_ctx.clone(), vec!["x", "y", "z"], "x y z");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
@@ -722,34 +839,59 @@ pub mod tests {
 
   #[test]
   fn test_parse_binder() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
     fn test<'a>(
+      env_ctx: EnvCtx,
       ctx: Vec<&str>,
       i: &'a str,
-    ) -> IResult<Span<'a>, Vec<(BinderInfo, Name, Expr)>, ParseError<Span<'a>>> {
+    ) -> IResult<Span<'a>, Vec<(BinderInfo, Name, Expr)>, ParseError<Span<'a>>>
+    {
       let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
-      parse_binder(
-        Vector::new(),
-        ctx.into(),
-        OrdMap::new()
-      )(Span::new(i))
+      parse_binder(Vector::new(), ctx.into(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
     }
-    let res = test(vec![], "(a b c: Sort 0)");
+    let res = test(env_ctx.clone(), vec![], "(a b c: Sort 0)");
     assert!(res.is_ok());
     let res = res.unwrap().1;
     assert_eq!(res, vec![
-      (BinderInfo::Default, Name::from("a"), Expr::Sort(Univ::Zero)),
-      (BinderInfo::Default, Name::from("b"), Expr::Sort(Univ::Zero)),
-      (BinderInfo::Default, Name::from("c"), Expr::Sort(Univ::Zero))
+      (
+        BinderInfo::Default,
+        Name::from("a"),
+        Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap())
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("b"),
+        Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap())
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("c"),
+        Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap())
+      )
     ]);
-    let res = test(vec!["A"], "(a b c: A)");
+    let res = test(env_ctx.clone(), vec!["A"], "(a b c: A)");
     assert!(res.is_ok());
     let res = res.unwrap().1;
     assert_eq!(res, vec![
-      (BinderInfo::Default, Name::from("a"), Expr::Var(Name::from("A"), Nat::from(0 as usize))),
-      (BinderInfo::Default, Name::from("b"), Expr::Var(Name::from("A"), Nat::from(1 as usize))),
-      (BinderInfo::Default, Name::from("c"), Expr::Var(Name::from("A"), Nat::from(2 as usize))),
+      (
+        BinderInfo::Default,
+        Name::from("a"),
+        Expr::Var(Name::from("A"), Nat::from(0 as usize))
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("b"),
+        Expr::Var(Name::from("A"), Nat::from(1 as usize))
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("c"),
+        Expr::Var(Name::from("A"), Nat::from(2 as usize))
+      ),
     ]);
-    let res = test(vec!["A"], "(a : ∀ (x: A) -> A)");
+    let res = test(env_ctx.clone(), vec!["A"], "(a : ∀ (x: A) -> A)");
     assert!(res.is_ok());
     let res = res.unwrap().1;
     assert_eq!(res, vec![(
@@ -764,24 +906,24 @@ pub mod tests {
     ),]);
 
     fn test_binders<'a>(
+      env_ctx: EnvCtx,
       ctx: Vec<&str>,
       i: &'a str,
-    ) -> IResult<Span<'a>, Vec<(BinderInfo, Name, Expr)>, ParseError<Span<'a>>> {
+    ) -> IResult<Span<'a>, Vec<(BinderInfo, Name, Expr)>, ParseError<Span<'a>>>
+    {
       let ctx: Vec<Name> = ctx.into_iter().map(|x| x.into()).collect();
-      parse_binders0(
-        Vector::new(),
-        ctx.into(),
-        OrdMap::new(),
-        vec![':']
-      )(Span::new(i))
+      parse_binders0(Vector::new(), ctx.into(), OrdMap::new(), env_ctx, vec![
+        ':',
+      ])(Span::new(i))
     }
-    let res1 = test(vec!["A"], "(a : ∀ (x: A) -> A)");
-    let res2 = test_binders(vec!["A"], "(a : ∀ (x: A) -> A):");
+    let res1 = test(env_ctx.clone(), vec!["A"], "(a : ∀ (x: A) -> A)");
+    let res2 = test_binders(env_ctx.clone(), vec!["A"], "(a : ∀ (x: A) -> A):");
     assert!(res1.is_ok() && res2.is_ok());
     let (res1, res2) = (res1.unwrap().1, res2.unwrap().1);
     assert_eq!(res1, res2);
-    let res1 = test(vec!["A"], "(a b c: ∀ (x: A) -> A)");
+    let res1 = test(env_ctx.clone(), vec!["A"], "(a b c: ∀ (x: A) -> A)");
     let res2 = test_binders(
+      env_ctx.clone(),
       vec!["A"],
       "(a : ∀ (x: A) -> A)
        (b : ∀ (x: A) -> A)
@@ -792,8 +934,9 @@ pub mod tests {
     let (res1, res2) = (res1.unwrap().1, res2.unwrap().1);
     assert_eq!(res1, res2);
     let res1 =
-      test(vec!["A"], "(a b c d e f g: ∀ (x y z w: A) -> A)");
+      test(env_ctx.clone(), vec!["A"], "(a b c d e f g: ∀ (x y z w: A) -> A)");
     let res2 = test_binders(
+      env_ctx.clone(),
       vec!["A"],
       "(a: ∀ (x y z w: A) -> A)
        (b: ∀ (x y z w: A) -> A)
@@ -808,28 +951,47 @@ pub mod tests {
     let (res1, res2) = (res1.unwrap().1, res2.unwrap().1);
     assert_eq!(res1, res2);
 
-    let res = test_binders(Vec::new(), "(A: Sort 0) (a b c: A):");
+    let res =
+      test_binders(env_ctx.clone(), Vec::new(), "(A: Sort 0) (a b c: A):");
     assert!(res.is_ok());
-    assert_eq!(
-      res.unwrap().1, vec![
-          (BinderInfo::Default, Name::from("A"), Expr::Sort(Univ::Zero)),
-          (BinderInfo::Default, Name::from("a"), Expr::Var(Name::from("A"), Nat::from(0 as usize))),
-          (BinderInfo::Default, Name::from("b"), Expr::Var(Name::from("A"), Nat::from(1 as usize))),
-          (BinderInfo::Default, Name::from("c"), Expr::Var(Name::from("A"), Nat::from(2 as usize))),
-        ]
-    );
+    assert_eq!(res.unwrap().1, vec![
+      (
+        BinderInfo::Default,
+        Name::from("A"),
+        Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap())
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("a"),
+        Expr::Var(Name::from("A"), Nat::from(0 as usize))
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("b"),
+        Expr::Var(Name::from("A"), Nat::from(1 as usize))
+      ),
+      (
+        BinderInfo::Default,
+        Name::from("c"),
+        Expr::Var(Name::from("A"), Nat::from(2 as usize))
+      ),
+    ]);
 
-    let res = test_binders(Vec::new(), "(A: Sort 0) (a b c: Unknown):");
+    let res = test_binders(
+      env_ctx.clone(),
+      Vec::new(),
+      "(A: Sort 0) (a b c: Unknown):",
+    );
     assert!(res.is_err());
     match res.unwrap_err() {
       Err::Error(_err) => {
-//TODO(rish) check the error:
-//        assert_eq!(
-//          err.errors, vec![ParseErrorKind::UndefinedReference(
-//              Name::from("Unknown"),
-//              Vector::from(vec![Name::from("A")])
-//            ), Nom(Tag)]
-//        )
+        // TODO(rish) check the error:
+        //        assert_eq!(
+        //          err.errors, vec![ParseErrorKind::UndefinedReference(
+        //              Name::from("Unknown"),
+        //              Vector::from(vec![Name::from("A")])
+        //            ), Nom(Tag)]
+        //        )
       }
       _ => {
         assert!(false)
@@ -839,25 +1001,34 @@ pub mod tests {
 
   #[test]
   fn test_parse_pi() {
-    fn test(i: &str) -> IResult<Span, Expr, ParseError<Span>> {
-      parse_expr(Vector::new(), Vector::new(), OrdMap::new())(Span::new(i))
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
+    fn test(env_ctx: EnvCtx, i: &str) -> IResult<Span, Expr, ParseError<Span>> {
+      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
     }
-    let res = test("∀ (a: Sort 0) -> Sort 0");
+    let res = test(env_ctx.clone(), "∀ (a: Sort 0) -> Sort 0");
     assert!(res.is_ok());
-    let res = test("∀ (A: Sort 0) (x : A) -> A");
+    let res = test(env_ctx.clone(), "∀ (A: Sort 0) (x : A) -> A");
     println!("{:?}", res);
     assert!(res.is_ok());
   }
   #[test]
   fn test_parse_lam() {
-    fn test(i: &str) -> IResult<Span, Expr, ParseError<Span>> {
-      parse_expr(Vector::new(), Vector::new(), OrdMap::new())(Span::new(i))
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
+    fn test(env_ctx: EnvCtx, i: &str) -> IResult<Span, Expr, ParseError<Span>> {
+      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
     }
-    let res = test("λ (a: Sort 0) => Sort 0");
+    let res = test(env_ctx.clone(), "λ (a: Sort 0) => Sort 0");
     assert!(res.is_ok());
-    let res = test("λ (A: Sort 0) (x : A) => A");
+    let res = test(env_ctx.clone(), "λ (A: Sort 0) (x : A) => A");
     assert!(res.is_ok());
-    let res = test("λ [X: Sort 0] {X: Sort 0} (A: Sort 0) (x : A) => A");
+    let res = test(
+      env_ctx.clone(),
+      "λ [X: Sort 0] {X: Sort 0} (A: Sort 0) (x : A) => A",
+    );
     println!("{:?}", res);
     assert!(res.is_ok());
   }
