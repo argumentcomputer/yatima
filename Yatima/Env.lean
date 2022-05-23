@@ -5,9 +5,9 @@ namespace Yatima
 
 open Std (RBMap) in
 structure Env where
-  univs  : RBMap UnivCid  Univ  Ord.compare
-  exprs  : RBMap ExprCid  Expr  Ord.compare
-  consts : RBMap ConstCid Const Ord.compare
+  univ_cache  : RBMap UnivCid  Univ  Ord.compare
+  expr_cache  : RBMap ExprCid  Expr  Ord.compare
+  const_cache : RBMap ConstCid Const Ord.compare
 
   univ_anon  : RBMap UnivAnonCid  UnivAnon  Ord.compare
   expr_anon  : RBMap ExprAnonCid  ExprAnon  Ord.compare
