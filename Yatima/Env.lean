@@ -18,6 +18,10 @@ structure Env where
   const_meta : RBMap ConstMetaCid ConstMeta Ord.compare
 
 instance : Inhabited Env where
-  default := sorry
+  default := ⟨
+    .empty, .empty, .empty,
+    .empty, .empty, .empty,
+    .empty, .empty, .empty
+  ⟩
 
 end Yatima
