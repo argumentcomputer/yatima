@@ -175,8 +175,8 @@ mutual
     | .lit lit _ => return Yatima.Expr.lit lit
     | .mdata _ e _ => toYatimaExpr levelParams e
     | .proj .. => sorry
-    | .fvar .. => sorry
-    | .mvar .. => sorry
+    | .fvar .. => throw "Free variable found"
+    | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaConst : Lean.ConstantInfo → EnvM Const
     | .axiomInfo struct => do
@@ -249,13 +249,21 @@ mutual
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
+      let ctors : List (Name × ExprCid) ← struct.ctors.mapM
+        fun nam => do match (← read).find?' nam with
+          | some leanConst =>
+            let type ← toYatimaExpr struct.levelParams leanConst.type
+            let typeCid ← exprToCid type
+            addToEnv $ .expr_cache typeCid type
+            return (nam, typeCid)
+          | none => throw s!"Unknown constant '{nam}'"
       return .inductive {
         name := struct.name
         lvls := struct.levelParams.map .ofLeanName
         type := typeCid
         params := struct.numParams
         indices := struct.numIndices
-        ctors := struct.ctors.map .ofLeanName
+        ctors := ctors
         recr := struct.isRec
         refl := struct.isReflexive
         nest := struct.isNested

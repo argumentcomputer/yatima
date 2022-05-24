@@ -83,7 +83,7 @@ structure Inductive where
   type    : ExprCid
   params  : Nat
   indices : Nat
-  ctors   : List Name
+  ctors   : List (Name × ExprCid)
   recr    : Bool
   safe    : Bool
   refl    : Bool
@@ -94,7 +94,7 @@ structure InductiveAnon where
   type    : ExprAnonCid
   params  : Nat
   indices : Nat
-  ctors   : Nat
+  ctors   : List (Name × ExprAnonCid)
   recr    : Bool
   safe    : Bool
   refl    : Bool
@@ -104,7 +104,7 @@ structure InductiveMeta where
   name  : Name
   lvls  : List Name
   type  : ExprMetaCid
-  ctors : List Name
+  ctors : List ExprMetaCid
 
 structure Constructor where
   name   : Name
