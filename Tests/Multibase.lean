@@ -1,6 +1,5 @@
+import Yatima.YatimaSpec
 import Yatima.Ipld.Multibase
-
-open Multibase
 
 structure Case where
   read: Bool
@@ -25,17 +24,12 @@ def testCase (case : Case) : Bool :=
   (if case.read then true else enc == case.string)
   && (@Multibase.decode case.β case.inst enc == some case.bytes)
 
-instance : ToString Case where
-  toString case :=
-    s!"{case.bytes} {if case.read then "←" else "↔"} {case.string}"
-
 def findFailing (cases: List Case) : List Case :=
   List.filter (fun x => not (testCase x)) cases
 
 namespace Basic
 
-#eval "yes mani !".toUTF8
-def basic : List UInt8 := [121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def basic : List UInt8 := "yes mani !".toUTF8.data.data
 
 def cases : List Case :=
   [ mkCase Multibase.Base2 basic "001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -62,14 +56,11 @@ def cases : List Case :=
   , mkCase Multibase.Base64URLPad basic      "UeWVzIG1hbmkgIQ=="
   ]
 
-#eval findFailing cases
-
 end Basic
 
 namespace CaseInsensitivity
 
-#eval "hello world".toUTF8
-def hello : List UInt8 := [104, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]
+def hello : List UInt8 := "hello world".toUTF8.data.data
 
 def cases : List Case :=
  [ mkReadCase Multibase.Base16            hello "f68656c6c6f20776F726C64"
@@ -86,14 +77,12 @@ def cases : List Case :=
  , mkReadCase Multibase.Base36Upper       hello "KfUVrSIVVnFRbJWAJo"
  ]
 
-#eval findFailing cases
-
 end CaseInsensitivity
 
 namespace LeadingZero
 -- leading_zero.csv
-#eval "\x00yes mani !".toUTF8
-def zero : List UInt8 := [0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+
+def zero : List UInt8 := "\x00yes mani !".toUTF8.data.data
 
 def cases : List Case :=
   [ mkCase Multibase.Base2  zero            "00000000001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -120,14 +109,11 @@ def cases : List Case :=
   , mkCase Multibase.Base64URLPad zero      "UAHllcyBtYW5pICE="
   ]
 
-#eval findFailing cases
-
 end LeadingZero
 
 namespace TwoLeadingZeros
 
-#eval "\x00\x00yes mani !".toUTF8
-def zeros : List UInt8 := [0, 0, 121, 101, 115, 32, 109, 97, 110, 105, 32, 33]
+def zeros : List UInt8 := "\x00\x00yes mani !".toUTF8.data.data
 
 def cases : List Case := 
   [ mkCase Multibase.Base2 zeros              "0000000000000000001111001011001010111001100100000011011010110000101101110011010010010000000100001"
@@ -154,21 +140,21 @@ def cases : List Case :=
   , mkCase Multibase.Base64URLPad zeros       "UAAB5ZXMgbWFuaSAh"
   ]
 
-#eval findFailing cases
-
 end TwoLeadingZeros
 
 namespace RFC4648
 -- RFC4648 Test Vectors: https://datatracker.ietf.org/doc/html/rfc4648#section-10
 -- test vector `i` is the first `i` letters of the string "foobar" as UTF8
-#eval "foobar".toUTF8
-def rfc0 : List UInt8 := []
-def rfc1 : List UInt8 := [102]
-def rfc2 : List UInt8 := [102, 111]
-def rfc3 : List UInt8 := [102, 111, 111]
-def rfc4 : List UInt8 := [102, 111, 111, 98]
-def rfc5 : List UInt8 := [102, 111, 111, 98, 97]
-def rfc6 : List UInt8 := [102, 111, 111, 98, 97, 114]
+
+def foobar := "foobar".toUTF8.data.data
+
+def rfc0 : List UInt8 := foobar.take 0
+def rfc1 : List UInt8 := foobar.take 1
+def rfc2 : List UInt8 := foobar.take 2
+def rfc3 : List UInt8 := foobar.take 3
+def rfc4 : List UInt8 := foobar.take 4
+def rfc5 : List UInt8 := foobar.take 5
+def rfc6 : List UInt8 := foobar.take 6
 
 def cases : List Case :=
   [ mkCase Multibase.Base16 rfc0  "f"
@@ -264,6 +250,11 @@ def cases : List Case :=
   , mkCase Multibase.Base64URLPad rfc6 "UZm9vYmFy"
   ]
 
-#eval findFailing cases
-
 end RFC4648
+
+test_suite
+  it "encodes \"yes mani !\"" so findFailing Basic.cases should be empty
+  it "encodes \"hello world\"" so findFailing CaseInsensitivity.cases should be empty
+  it "encodes \"\\x00yes mani !\"" so findFailing LeadingZero.cases should be empty
+  it "encodes \"\\x00\\x00yes mani !\"" so findFailing TwoLeadingZeros.cases should be empty
+  it "encodes vectors" so findFailing RFC4648.cases should be empty

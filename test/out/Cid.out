@@ -1,3 +1,0 @@
-{ version := 1, codec := 17, hash := { code := 17, size := 4, digest := ByteArray #[182, 248, 92, 181] } }
-ByteArray #[1, 17, 17, 4, 182, 248, 92, 181]
-some { version := 1, codec := 17, hash := { code := 17, size := 4, digest := ByteArray #[182, 248, 92, 181] } }

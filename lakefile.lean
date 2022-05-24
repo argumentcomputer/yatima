@@ -3,65 +3,82 @@ import Lake
 open Lake DSL System
 
 package Yatima {
-  srcDir  := "src"
-  binRoot := "Yatima"
-  binName := "yatima"
   supportInterpreter := true
+  binName := "yatima"
 }
 
-constant yatimaLibPath : String := toString $ defaultBuildDir / defaultLibDir
-
-inductive Result
-  | success : String → Result
-  | failure : String → Result
-
-def runTest (testFilePath : FilePath) : IO Result := do
-  let testProcessOutput ← IO.Process.output {
-    cmd := "lean"
-    args := #[testFilePath.toString]
-    env := #[("LEAN_PATH", yatimaLibPath)]
-  }
-  if testProcessOutput.exitCode == 0 then
-    return .success testProcessOutput.stdout
-  else
-    return .failure testProcessOutput.stderr
-
-partial def getLeanFilePaths (fp : FilePath) (acc : List FilePath := []) :
+partial def getFilePaths
+  (fp : FilePath) (ext : String) (acc : List FilePath := []) :
     IO (List FilePath) := do
   if ← fp.isDir then
     let mut extra : List FilePath := []
     for dirEntry in (← fp.readDir) do
-      for innerFp in ← getLeanFilePaths dirEntry.path do
+      for innerFp in ← getFilePaths dirEntry.path ext do
         extra := extra.concat innerFp
     return acc ++ extra
   else
-    if (fp.extension.getD "") == "lean" then
+    if (fp.extension.getD "") == ext then
       return acc.concat fp
     else
       return acc
 
-def inToOut (path : FilePath) : FilePath :=
-  ⟨path.toString.replace "/in/" "/out/" |>.replace ".lean" ".out"⟩
+def runCmd (descr cmd : String)
+  (args : Array String := #[]) (env: Array (String × Option String) := #[]) :
+    IO Bool := do
+  IO.println descr
+  let out ← IO.Process.output { cmd := cmd, args := args, env := env }
+  if out.exitCode != 0 then
+    IO.println  out.stdout
+    IO.eprintln out.stderr
+    return true
+  return false
 
 script tests do
-  let testIns ← getLeanFilePaths ⟨"test/in"⟩
-  for testIn in testIns do
-    let testOut := inToOut testIn
-    if ← testOut.pathExists then
-      match ← runTest testIn with
-      | .success testResultContent =>
-        let testExpectedContent ← IO.FS.readFile testOut
-        if testExpectedContent == testResultContent then
-          IO.println s!"✓ {testIn}"
-        else
-          IO.eprintln $ s!"Test failed for {testIn}\n" ++
-            s!"· Expected:\n{testExpectedContent}\n" ++
-            s!"· Result:\n{testResultContent}"
-          return (1 : UInt32)
-      | .failure s =>
-        IO.eprintln s!"Failed to run {testIn} with the error:\n{s}"
-        return 1
-    else
-      IO.eprintln s!"Failed to find {testOut}"
-      return 1
-  return 0
+  if ← runCmd "Creating test build directories" "mkdir"
+    #["-p", "build/ir_test", "build/bin_test"] then return 1
+
+  if ← runCmd "Building Yatima" "lake" #["build"] then return 1
+
+  let mut testCases : List String := []
+
+  for testFilePath in ← getFilePaths ⟨"Tests"⟩ "lean" do
+    let testCase := testFilePath.fileStem.get!
+    testCases := testCases.concat testCase
+    if ← runCmd s!"Creating {testCase}.c" "lean"
+      #[s!"Tests/{testCase}.lean", "-R", ".",
+        "-o", s!"build/lib/{testCase}.olean",
+        "-i", s!"build/lib/{testCase}.ilean",
+        "-c", s!"./build/ir/{testCase}.c"]
+      #[("LEAN_PATH", "build/lib")] then return 1
+
+    if ← runCmd s!"Building {testCase}.o from {testCase}.c" "leanc"
+      #["-c", "-o", s!"build/ir_test/{testCase}.o", s!"build/ir/{testCase}.c",
+        "-O3", "-DNDEBUG"] then return 1
+
+    let objFilePaths := (← getFilePaths ⟨"build/ir"⟩ "o").filter
+      fun fp => fp != ⟨"build/ir/Main.o"⟩
+
+    if ← runCmd s!"Linking objects to build the {testCase} binary" "leanc"
+      (#["-o", s!"build/bin_test/{testCase}", s!"build/ir_test/{testCase}.o"]
+        ++ ⟨objFilePaths.map toString⟩
+        ++ #["-rdynamic"]) then return 1
+  
+  if testCases.isEmpty then
+    IO.println "\nNo tests to run"
+    return 0
+  
+  let mut allPassed : Bool := true
+
+  for testCase in testCases do
+    IO.println s!"\nRunning tests for {testCase}"
+    let out ← IO.Process.output {
+      cmd := s!"build/bin_test/{testCase}"
+    }
+    IO.print out.stdout
+    if out.exitCode != 0 then
+      IO.eprint out.stderr
+      allPassed := false
+  if allPassed then
+    IO.println "\nAll tests passed!"
+    return 0
+  return 1
