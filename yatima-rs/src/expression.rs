@@ -14,7 +14,6 @@ use crate::{
   },
   name::Name,
   nat::Nat,
-  universe::Univ,
 };
 use serde::{
   Deserialize,

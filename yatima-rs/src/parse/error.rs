@@ -1,5 +1,4 @@
 use crate::{
-  environment::EnvError,
   expression::{
     LitType,
     Literal,

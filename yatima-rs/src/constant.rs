@@ -9,7 +9,6 @@ use crate::{
     ExprCid,
     ExprMetaCid,
   },
-  expression::Expr,
   name::Name,
   nat::Nat,
 };

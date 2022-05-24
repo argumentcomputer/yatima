@@ -6,14 +6,19 @@ use crate::parse::{
   },
   span::Span,
 };
+use core::ops::DerefMut;
 
 use crate::{
   environment::{
     ConstCid,
     Env,
+    ExprCid,
+    UnivCid,
   },
+  expression::Expr,
   name::Name,
   nat::Nat,
+  universe::Univ,
 };
 
 use im::{
@@ -282,4 +287,38 @@ pub fn parse_builtin_symbol_end()
       peek(value((), tag(","))),
     ))(from)
   }
+}
+
+pub fn store_univ(
+  env_ctx: EnvCtx,
+  univ: Univ,
+  i: Span,
+) -> IResult<Span, UnivCid, ParseError<Span>> {
+  let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+    Err::Error(ParseError::new(
+      i,
+      ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+    ))
+  })?;
+  let univ = univ.store(env.deref_mut()).map_err(|e| {
+    Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+  })?;
+  Ok((i, univ))
+}
+
+pub fn store_expr(
+  env_ctx: EnvCtx,
+  expr: Expr,
+  i: Span,
+) -> IResult<Span, ExprCid, ParseError<Span>> {
+  let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+    Err::Error(ParseError::new(
+      i,
+      ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+    ))
+  })?;
+  let expr = expr.store(env.deref_mut()).map_err(|e| {
+    Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+  })?;
+  Ok((i, expr))
 }

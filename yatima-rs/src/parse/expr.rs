@@ -1,13 +1,5 @@
 use core::ops::DerefMut;
 
-use alloc::string::{
-  String,
-  ToString,
-};
-use im::{
-  OrdMap,
-  Vector,
-};
 use libipld::Cid;
 use num_traits::Zero;
 
@@ -43,6 +35,7 @@ use crate::{
       parse_nat,
       parse_space,
       parse_u8,
+      store_univ,
       BindCtx,
       EnvCtx,
       GlobalCtx,
@@ -153,18 +146,9 @@ pub fn parse_expr_const(
     let (i, cid) = opt(preceded(tag(":"), parse_const_cid))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, args) = parse_univ_args(univ_ctx.clone())(i)?;
-    let mut env = env_ctx.try_borrow_mut().map_err(|e| {
-      Err::Error(ParseError::new(
-        i,
-        ParseErrorKind::EnvBorrowMut(format!("{}", e)),
-      ))
-    })?;
-    let env = env.deref_mut();
     let mut arg_cids = Vec::new();
     for arg in args {
-      let cid = arg.store(env).map_err(|e| {
-        Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
-      })?;
+      let (_, cid) = store_univ(env_ctx.clone(), arg, i)?;
       arg_cids.push(cid);
     }
     if let Some(cid) = cid {
@@ -234,15 +218,7 @@ pub fn parse_expr_sort(
     let (i, _) = tag("Sort")(from)?;
     let (i, _) = parse_space(i)?;
     let (i, u) = parse_univ(univ_ctx.clone())(i)?;
-    let mut env = env_ctx.try_borrow_mut().map_err(|e| {
-      Err::Error(ParseError::new(
-        i,
-        ParseErrorKind::EnvBorrowMut(format!("{}", e)),
-      ))
-    })?;
-    let cid = u.store(env.deref_mut()).map_err(|e| {
-      Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
-    })?;
+    let (i, cid) = store_univ(env_ctx.clone(), u, i)?;
     Ok((i, Expr::Sort(cid)))
   }
 }
@@ -254,6 +230,10 @@ pub fn parse_app_end(i: Span) -> IResult<Span, (), ParseError<Span>> {
     peek(tag("inductive")),
     peek(tag("axiom")),
     peek(tag("theorem")),
+    peek(tag("opaque")),
+    peek(tag("unsafe")),
+    peek(tag("partial")),
+    peek(tag("where")),
     peek(tag(":=")),
     peek(tag("->")),
     peek(tag("in")),
@@ -510,7 +490,71 @@ pub fn parse_expr_pi(
   }
 }
 
-/// The input `(A: Type) (x: A) : A = x` returns:
+/// Parses an implixit fixpoint. This syntax is not exposed to the user in order
+/// to avoid the creation of degenerate terms, such as `μ x . x`, which have no
+/// semantic meaning. It is instead only used in `let rec` expression or
+/// `def rec` constants
+pub fn parse_rec_expr(
+  univ_ctx: UnivCtx,
+  bind_ctx: BindCtx,
+  global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
+  name: Option<Name>,
+) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
+  move |i: Span| {
+    if let Some(name) = &name {
+      let mut bind_ctx = bind_ctx.clone();
+      bind_ctx.push_front(name.clone());
+      let (i, expr) = parse_expr(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      )(i)?;
+      Ok((i, Expr::Fix(name.clone(), Box::new(expr))))
+    }
+    else {
+      parse_expr(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      )(i)
+    }
+  }
+}
+
+pub fn parse_rec_expr_apps(
+  univ_ctx: UnivCtx,
+  bind_ctx: BindCtx,
+  global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
+  name: Option<Name>,
+) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
+  move |i: Span| {
+    if let Some(name) = &name {
+      let mut bind_ctx = bind_ctx.clone();
+      bind_ctx.push_front(name.clone());
+      let (i, expr) = parse_expr_apps(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      )(i)?;
+      Ok((i, Expr::Fix(name.clone(), Box::new(expr))))
+    }
+    else {
+      parse_expr_apps(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      )(i)
+    }
+  }
+}
+
+/// The input `(A: Type) (x: A) : A := x` returns:
 ///   - type: `∀ (A: Type) (x: A) -> A`
 ///   - term: `λ A x => x`
 /// This is useful for parsing lets and defs
@@ -519,6 +563,7 @@ pub fn parse_bound_expression(
   bind_ctx: BindCtx,
   global_ctx: GlobalCtx,
   env_ctx: EnvCtx,
+  rec: Option<Name>,
 ) -> impl Fn(Span) -> IResult<Span, (Expr, Expr), ParseError<Span>> {
   move |from: Span| {
     let (i, bs) = parse_binders0(
@@ -534,11 +579,12 @@ pub fn parse_bound_expression(
     for (_, n, _) in bs.iter() {
       type_bind_ctx.push_front(n.clone());
     }
-    let (i, typ) = parse_expr_apps(
+    let (i, typ) = parse_rec_expr_apps(
       univ_ctx.clone(),
       type_bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
+      rec.clone(),
     )(i)?;
     let mut term_bind_ctx = bind_ctx.clone();
     for (_, n, _) in bs.iter() {
@@ -574,13 +620,17 @@ pub fn parse_expr_let(
   move |from: Span| {
     let (i, _) = tag("let")(from)?;
     let (i, _) = parse_space(i)?;
+    let (i, rec) = opt(tag("rec"))(i)?;
+    let (i, _) = parse_space(i)?;
     let (i, nam) = parse_name(i)?;
+    let rec = rec.map(|_| nam.clone());
     let (i, _) = parse_space(i)?;
     let (i, (typ, exp)) = parse_bound_expression(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
+      rec,
     )(i)?;
     let (i, _) = alt((tag(";"), tag("in")))(i)?;
     let (i, _) = parse_space(i)?;
@@ -645,6 +695,10 @@ pub fn parse_expr(
 pub mod tests {
   use alloc::rc::Rc;
   use core::cell::RefCell;
+  use im::{
+    OrdMap,
+    Vector,
+  };
 
   use crate::environment::Env;
 
