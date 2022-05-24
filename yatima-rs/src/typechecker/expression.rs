@@ -5,8 +5,10 @@ use crate::{
 };
 
 use alloc::string::String;
-use std::rc::Rc;
-use std::collections::HashMap;
+use std::{
+  collections::HashMap,
+  rc::Rc,
+};
 
 pub type ExprPtr = Rc<Expr>;
 pub type ConstPtr = Rc<Const>;
@@ -46,7 +48,8 @@ pub enum QuotKind {
   Ind,
 }
 
-/// Nameless expressions for typechecking. Such expressions must come from ExprAnon in such a way that it preserves CID <-> Pointer correspondence.
+/// Nameless expressions for typechecking. Such expressions must come from
+/// ExprAnon in such a way that it preserves CID <-> Pointer correspondence.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Expr {
   /// Variables
@@ -71,7 +74,8 @@ pub enum Expr {
   Fix(ExprPtr),
 }
 
-/// Constants for typechecking. They must also come from their anon representation, preserving CID <-> correspondence
+/// Constants for typechecking. They must also come from their anon
+/// representation, preserving CID <-> correspondence
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Const {
   /// axiom
@@ -79,20 +83,9 @@ pub enum Const {
   /// theorem
   Theorem { uvars: Nat, typ: ExprPtr, expr: ExprPtr },
   /// opaque
-  Opaque {
-    name: Name,
-    uvars: Nat,
-    typ: ExprPtr,
-    expr: ExprPtr,
-    safe: bool,
-  },
+  Opaque { name: Name, uvars: Nat, typ: ExprPtr, expr: ExprPtr, safe: bool },
   /// def
-  Definition {
-    uvars: Nat,
-    typ: ExprPtr,
-    expr: ExprPtr,
-    safe: DefSafety,
-  },
+  Definition { uvars: Nat, typ: ExprPtr, expr: ExprPtr, safe: DefSafety },
   /// inductive type
   Inductive {
     uvars: Nat,
@@ -125,7 +118,8 @@ pub enum Const {
     indices: Index,
     motives: Index,
     minors: Index,
-    /// Since pointers are in one-to-one correspondence with CIDs, we can use raw pointers as keys
+    /// Since pointers are in one-to-one correspondence with CIDs, we can use
+    /// raw pointers as keys
     rules: HashMap<*const Const, RecursorRule>,
     k: bool,
     safe: bool,
