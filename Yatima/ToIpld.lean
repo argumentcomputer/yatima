@@ -107,9 +107,9 @@ instance : Coe OpaqueMeta (Array Ipld) where coe
   | .mk n l t v => #[n, l, t, v]
 
 def definitionSafetyToIpld : DefinitionSafety -> Ipld
-  | .safe      => .number 0
-  | .«unsafe»  => .number 1
-  | .«partial» => .number 2
+  | .safe    => .number 0
+  | .unsafe  => .number 1
+  | .partial => .number 2
 
 instance : Coe DefinitionAnon (Array Ipld) where coe
   | .mk l t v s => #[l, t, v, definitionSafetyToIpld s]
@@ -143,10 +143,10 @@ instance : Coe RecursorMeta (Array Ipld) where coe
   | .mk n l t i r => #[n, l, t, i, r]
 
 def quotKindToIpld : QuotKind -> Ipld
-  | .type      => .number 0
-  | .ctor      => .number 1
-  | .lift      => .number 3
-  | .ind       => .number 4
+  | .type => .number 0
+  | .ctor => .number 1
+  | .lift => .number 3
+  | .ind  => .number 4
 
 instance : Coe QuotientAnon (Array Ipld) where coe
   | .mk l t k => #[l, t, quotKindToIpld k]
@@ -155,24 +155,24 @@ instance : Coe QuotientMeta (Array Ipld) where coe
   | .mk n l t => #[n, l, t]
 
 def constAnonToIpld : ConstAnon → Ipld
-  | .«axiom» a     => .array (↑#[.number CONSTANON, .number 0] ++ a)
-  | .«theorem» t   => .array (↑#[.number CONSTANON, .number 1] ++ t)
-  | .«inductive» i => .array (↑#[.number CONSTANON, .number 2] ++ i)
-  | .opaque o      => .array (↑#[.number CONSTANON, .number 3] ++ o)
-  | .definition d  => .array (↑#[.number CONSTANON, .number 4] ++ d)
-  | .constructor c => .array (↑#[.number CONSTANON, .number 5] ++ c)
-  | .recursor r    => .array (↑#[.number CONSTANON, .number 6] ++ r)
-  | .quotient q    => .array (↑#[.number CONSTANON, .number 7] ++ q)
+  | .axiom a       => .array $ (#[.number CONSTANON, .number 0]).append a
+  | .theorem t     => .array $ (#[.number CONSTANON, .number 1]).append t
+  | .inductive i   => .array $ (#[.number CONSTANON, .number 2]).append i
+  | .opaque o      => .array $ (#[.number CONSTANON, .number 3]).append o
+  | .definition d  => .array $ (#[.number CONSTANON, .number 4]).append d
+  | .constructor c => .array $ (#[.number CONSTANON, .number 5]).append c
+  | .recursor r    => .array $ (#[.number CONSTANON, .number 6]).append r
+  | .quotient q    => .array $ (#[.number CONSTANON, .number 7]).append q
 
 def constMetaToIpld : ConstMeta → Ipld
-  | .«axiom» a     => .array (↑#[.number CONSTMETA, .number 0] ++ a)
-  | .«theorem» t   => .array (↑#[.number CONSTMETA, .number 1] ++ t)
-  | .«inductive» i => .array (↑#[.number CONSTMETA, .number 2] ++ i)
-  | .opaque o      => .array (↑#[.number CONSTMETA, .number 3] ++ o)
-  | .definition d  => .array (↑#[.number CONSTMETA, .number 4] ++ d)
-  | .constructor c => .array (↑#[.number CONSTMETA, .number 5] ++ c)
-  | .recursor r    => .array (↑#[.number CONSTMETA, .number 6] ++ r)
-  | .quotient q    => .array (↑#[.number CONSTMETA, .number 7] ++ q)
+  | .axiom a       => .array $ (#[.number CONSTMETA, .number 0]).append a
+  | .theorem t     => .array $ (#[.number CONSTMETA, .number 1]).append t
+  | .inductive i   => .array $ (#[.number CONSTMETA, .number 2]).append i
+  | .opaque o      => .array $ (#[.number CONSTMETA, .number 3]).append o
+  | .definition d  => .array $ (#[.number CONSTMETA, .number 4]).append d
+  | .constructor c => .array $ (#[.number CONSTMETA, .number 5]).append c
+  | .recursor r    => .array $ (#[.number CONSTMETA, .number 6]).append r
+  | .quotient q    => .array $ (#[.number CONSTMETA, .number 7]).append q
 
 def univAnonToCid (univAnon : UnivAnon) : Except String UnivAnonCid :=
   match ipldToCid $ univAnonToIpld univAnon with
