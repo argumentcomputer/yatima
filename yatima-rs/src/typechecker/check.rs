@@ -1,3 +1,7 @@
+use crate::expression::{
+    Literal,
+    LitType,
+  };
 use crate::typechecker::{
   equality::*,
   evaluation::*,

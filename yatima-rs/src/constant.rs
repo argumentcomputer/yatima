@@ -30,7 +30,7 @@ use libipld::{
   codec::Codec,
 };
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DefSafety {
   Unsafe,
   Safe,

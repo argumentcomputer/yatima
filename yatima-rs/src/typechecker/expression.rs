@@ -1,11 +1,18 @@
 use crate::{
   name::Name,
-  constant::QuotKind,
+  constant::{
+    DefSafety,
+    QuotKind
+  },
+  expression::{
+    BinderInfo,
+    Literal,
+    LitType,
+  },
   nat::Nat,
   typechecker::universe::*,
 };
 
-use alloc::string::String;
 use std::{
   collections::HashMap,
   rc::Rc,
@@ -13,33 +20,6 @@ use std::{
 
 pub type ExprPtr = Rc<Expr>;
 pub type ConstPtr = Rc<Const>;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Literal {
-  Nat(Nat),
-  Str(String),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LitType {
-  Nat,
-  Str,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BinderInfo {
-  Default,
-  Implicit,
-  StrictImplict,
-  InstImplict,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DefSafety {
-  Unsafe,
-  Safe,
-  Partial,
-}
 
 /// Nameless expressions for typechecking. Such expressions must come from
 /// ExprAnon in such a way that it preserves CID <-> Pointer correspondence.

@@ -1,3 +1,4 @@
+use crate::constant::DefSafety;
 use crate::typechecker::{
   expression::*,
   universe::*,

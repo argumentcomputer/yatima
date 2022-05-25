@@ -1,3 +1,8 @@
+use crate::expression::{
+    BinderInfo,
+    Literal,
+    LitType,
+  };
 use crate::typechecker::{
   expression::*,
   universe::*,
