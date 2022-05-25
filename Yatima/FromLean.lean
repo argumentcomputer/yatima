@@ -20,9 +20,9 @@ instance : Coe Lean.Literal Literal where coe
   | .strVal s => .str s
 
 instance : Coe Lean.DefinitionSafety DefinitionSafety where coe
-  | .safe      => .safe
-  | .«unsafe»  => .«unsafe»
-  | .«partial» => .«partial»
+  | .safe    => .safe
+  | .unsafe  => .unsafe
+  | .partial => .partial
 
 instance : Coe Lean.QuotKind QuotKind where coe
   | .type => .type
@@ -146,8 +146,9 @@ mutual
     | .bvar idx _ => return .var "" idx
     | .sort lvl _ => do
       let univ ← toYatimaUniv levelParams lvl
-      addToEnv $ .univ_cache (← univToCid univ) univ
-      return .sort (← toYatimaUniv levelParams lvl)
+      let univCid ← univToCid univ
+      addToEnv $ .univ_cache univCid univ
+      return .sort univCid
     | .const nam lvls _ => do
       match (← read).find?' nam with
       | some leanConst =>
@@ -155,39 +156,49 @@ mutual
         let constId ← constToCid const
         addToEnv $ .const_cache constId const
         let univs ← lvls.mapM $ toYatimaUniv levelParams
-        for univ in univs do
-          addToEnv $ .univ_cache (← univToCid univ) univ
-        return .const nam constId univs
+        let univsCids ← univs.mapM univToCid
+        (univsCids.zip univs).forM fun (univCid, univ) =>
+          addToEnv $ .univ_cache univCid univ
+        return .const nam constId univsCids
       | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => do
       let fnc ← toYatimaExpr levelParams fnc
-      addToEnv $ .expr_cache (← exprToCid fnc) fnc
+      let fncCid ← exprToCid fnc
+      addToEnv $ .expr_cache fncCid fnc
       let arg ← toYatimaExpr levelParams arg
-      addToEnv $ .expr_cache (← exprToCid arg) arg
-      return .app fnc arg
+      let argCid ← exprToCid arg
+      addToEnv $ .expr_cache argCid arg
+      return .app fncCid argCid
     | .lam nam bnd bod _ => do
       let bndInfo := bnd.binderInfo
       let bnd ← toYatimaExpr levelParams bnd
-      addToEnv $ .expr_cache (← exprToCid bnd) bnd
+      let bndCid ← exprToCid bnd
+      addToEnv $ .expr_cache bndCid bnd
       let bod ← toYatimaExpr levelParams bod
-      addToEnv $ .expr_cache (← exprToCid bod) bod
-      return .lam nam bndInfo bnd bod
+      let bodCid ← exprToCid bod
+      addToEnv $ .expr_cache bodCid bod
+      return .lam nam bndInfo bndCid bodCid
     | .forallE nam dom img _ => do
       let bndInfo := dom.binderInfo
       let dom ← toYatimaExpr levelParams dom
-      addToEnv $ .expr_cache (← exprToCid dom) dom
+      let domCid ← exprToCid dom
+      addToEnv $ .expr_cache domCid dom
       let img ← toYatimaExpr levelParams img
-      addToEnv $ .expr_cache (← exprToCid img) img
-      return .pi nam bndInfo dom img
+      let imgCid ← exprToCid img
+      addToEnv $ .expr_cache imgCid img
+      return .pi nam bndInfo domCid imgCid
     | .letE nam typ exp bod _ => do
       let typ ← toYatimaExpr levelParams typ
-      addToEnv $ .expr_cache (← exprToCid typ) typ
+      let typCid ← exprToCid typ
+      addToEnv $ .expr_cache typCid typ
       let exp ← toYatimaExpr levelParams exp
-      addToEnv $ .expr_cache (← exprToCid exp) exp
+      let expCid ← exprToCid exp
+      addToEnv $ .expr_cache expCid exp
       let bod ← toYatimaExpr levelParams bod
-      addToEnv $ .expr_cache (← exprToCid bod) bod
-      return .letE nam typ exp bod
-    | .lit lit _ => return Yatima.Expr.lit lit
+      let bodCid ← exprToCid bod
+      addToEnv $ .expr_cache bodCid bod
+      return .letE nam typCid expCid bodCid
+    | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr levelParams e
     | .proj .. => sorry
     | .fvar .. => throw "Free variable found"

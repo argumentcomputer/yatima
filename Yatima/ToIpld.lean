@@ -81,8 +81,8 @@ def exprMetaToIpld : ExprMeta → Ipld
   | .lam i n t b  => .array #[.number EXPRMETA, .number 4, i, n, t, b]
   | .pi i n t b   => .array #[.number EXPRMETA, .number 5, i, n, t, b]
   | .letE n t v   => .array #[.number EXPRMETA, .number 6, n, t, v]
-  | .lit          => .array #[.number EXPRMETA, .number 7]
-  | .lty          => .array #[.number EXPRMETA, .number 8]
+  | .lit l        => .array #[.number EXPRMETA, .number 7, l]
+  | .lty l        => .array #[.number EXPRMETA, .number 8, l]
   | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]
 
 def constAnonToIpld : ConstAnon → Ipld
