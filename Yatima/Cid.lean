@@ -29,7 +29,7 @@ def QUOTIENTMETA     : UInt64 := 0xC0DE0024
 def DEFINITIONSAFETY : UInt64 := 0xC0DE0025
 def QUOTKIND         : UInt64 := 0xC0DE0026
 
-def ENV: UInt64 := 0xC0DE0007
+def ENV: UInt64 := 0xC0DE0027
 
 structure UnivAnonCid  where data : Cid deriving BEq, Ord
 structure UnivMetaCid  where data : Cid deriving BEq, Ord
