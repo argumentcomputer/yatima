@@ -16,6 +16,9 @@ def ipldToCid (ipld : Ipld) : Except String Cid :=
 instance : Coe Nat Ipld where
   coe x := .bytes x.toByteArrayBE
 
+instance : Coe Bool Ipld where
+  coe x := .bool x
+
 instance : Coe Name Ipld where
   coe x := .string x
 
@@ -26,11 +29,11 @@ instance : Coe ExprMetaCid  Ipld where coe u := .link u.data
 instance : Coe ConstAnonCid Ipld where coe u := .link u.data
 instance : Coe ConstMetaCid Ipld where coe u := .link u.data
 
-instance : Coe (List UnivAnonCid) Ipld where
-  coe l := .array ⟨l.map (.link ·.data)⟩
+instance (α : Type) [Coe α Ipld] : Coe (List α) Ipld where
+  coe l := .array ⟨List.map (fun (x : α) => x) l⟩
 
-instance : Coe (List UnivMetaCid) Ipld where
-  coe l := .array ⟨l.map (.link ·.data)⟩
+instance (α β : Type) [Coe α Ipld] [Coe β Ipld] : Coe (α × β) Ipld where
+  coe x := .array #[x.1, x.2]
 
 instance : Coe BinderInfo Ipld where coe
   | .default        => .number 0
@@ -85,11 +88,94 @@ def exprMetaToIpld : ExprMeta → Ipld
   | .lty l        => .array #[.number EXPRMETA, .number 8, l]
   | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]
 
+def axiomAnonToIpld : AxiomAnon → Ipld
+  | .mk l t s  => .array #[.number AXIOMANON, .number 0, l, t, s]
+
+def axiomMetaToIpld : AxiomMeta → Ipld
+  | .mk n l t => .array #[.number AXIOMMETA, .number 0, n, l, t]
+
+def theoremAnonToIpld : TheoremAnon → Ipld
+  | .mk l t v => .array #[.number THEOREMANON, .number 0, l, t, v]
+
+def theoremMetaToIpld : TheoremMeta -> Ipld
+  | .mk n l t v => .array #[.number THEOREMMETA, .number 0, n, l, t, v]
+
+def opaqueAnonToIpld : OpaqueAnon -> Ipld
+  | .mk l t v s => .array #[.number OPAQUEANON, .number 0, l, t, v, s]
+
+def opaqueMetaToIpld : OpaqueMeta -> Ipld
+  | .mk n l t v => .array #[.number OPAQUEMETA, .number 0, n, l, t, v]
+
+def definitionSafetyToIpld : DefinitionSafety -> Ipld
+  | .safe      => .array #[.number DEFINITIONSAFETY, .number 0]
+  | .«unsafe»  => .array #[.number DEFINITIONSAFETY, .number 1]
+  | .«partial» => .array #[.number DEFINITIONSAFETY, .number 2]
+
+def definitionAnonToIpld : DefinitionAnon -> Ipld
+  | .mk l t v s => .array #[.number DEFINITIONANON, .number 0, l, t, v, definitionSafetyToIpld s]
+
+def definitionMetaToIpld : DefinitionMeta -> Ipld
+  | .mk n l t v => .array #[.number DEFINITIONMETA, .number 0, n, l, t, v]
+
+def inductiveAnonToIpld : InductiveAnon -> Ipld
+  | .mk l t p i c r s rf n => .array #[.number INDUCTIVEANON, .number 0, l, t, p, i, c, r, s, rf, n]
+
+def inductiveMetaToIpld : InductiveMeta -> Ipld
+  | .mk n l t c => .array #[.number INDUCTIVEMETA, .number 0, n, l, t, c]
+
+def constructorAnonToIpld : ConstructorAnon -> Ipld
+  | .mk l t i idx p f s => .array #[.number CONSTRUCTORANON, .number 0, l, t, i, idx, p, f, s]
+
+def constructorMetaToIpld : ConstructorMeta -> Ipld
+  | .mk n l t i => .array #[.number CONSTRUCTORMETA, .number 0, n, l, t, i]
+
+def recursorRuleAnonToIpld : RecursorRuleAnon -> Ipld
+  | .mk c f r => .array #[.number RECURSORRULEANON, .number 0, c, f, r]
+
+instance : Coe RecursorRuleAnon Ipld where coe r := recursorRuleAnonToIpld r
+
+def recursorRuleMetaToIpld : RecursorRuleMeta -> Ipld
+  | .mk c r => .array #[.number RECURSORRULEMETA, .number 0, c, r]
+
+instance : Coe RecursorRuleMeta Ipld where coe r := recursorRuleMetaToIpld r
+
+def recursorAnonToIpld : RecursorAnon -> Ipld
+  | .mk l t i p is m mi r k s => .array #[.number RECURSORANON, .number 0, l, t, i, p, is, m, mi, r, k, s]
+
+def recursorMetaToIpld : RecursorMeta -> Ipld
+  | .mk n l t i r => .array #[.number RECURSORMETA, .number 0, n, l, t, i, r]
+
+def quotKindToIpld : QuotKind -> Ipld
+  | .type      => .array #[.number QUOTKIND, .number 0]
+  | .ctor      => .array #[.number QUOTKIND, .number 1]
+  | .lift      => .array #[.number QUOTKIND, .number 3]
+  | .ind       => .array #[.number QUOTKIND, .number 4]
+
+def quotientAnonToIpld : QuotientAnon -> Ipld
+  | .mk l t k => .array #[.number QUOTIENTANON, .number 0, l, t, quotKindToIpld k]
+
+def quotientMetaToIpld : QuotientMeta -> Ipld
+  | .mk n l t => .array #[.number QUOTIENTMETA, .number 0, n, l, t]
+
 def constAnonToIpld : ConstAnon → Ipld
-  | _ => sorry
+  | .«axiom» a     => .array #[.number CONSTANON, .number 0, axiomAnonToIpld a]
+  | .«theorem» t   => .array #[.number CONSTANON, .number 1, theoremAnonToIpld t]
+  | .«inductive» i => .array #[.number CONSTANON, .number 2, inductiveAnonToIpld i]
+  | .opaque o      => .array #[.number CONSTANON, .number 3, opaqueAnonToIpld o]
+  | .definition d  => .array #[.number CONSTANON, .number 4, definitionAnonToIpld d]
+  | .constructor c => .array #[.number CONSTANON, .number 5, constructorAnonToIpld c]
+  | .recursor r    => .array #[.number CONSTANON, .number 6, recursorAnonToIpld r]
+  | .quotient q    => .array #[.number CONSTANON, .number 7, quotientAnonToIpld q]
 
 def constMetaToIpld : ConstMeta → Ipld
-  | _ => sorry
+  | .«axiom» a     => .array #[.number CONSTMETA, .number 0, axiomMetaToIpld a]
+  | .«theorem» t   => .array #[.number CONSTMETA, .number 1, theoremMetaToIpld t]
+  | .«inductive» i => .array #[.number CONSTMETA, .number 2, inductiveMetaToIpld i]
+  | .opaque o      => .array #[.number CONSTMETA, .number 3, opaqueMetaToIpld o]
+  | .definition d  => .array #[.number CONSTMETA, .number 4, definitionMetaToIpld d]
+  | .constructor c => .array #[.number CONSTMETA, .number 5, constructorMetaToIpld c]
+  | .recursor r    => .array #[.number CONSTMETA, .number 6, recursorMetaToIpld r]
+  | .quotient q    => .array #[.number CONSTMETA, .number 7, quotientMetaToIpld q]
 
 def univAnonToCid (univAnon : UnivAnon) : Except String UnivAnonCid :=
   match ipldToCid $ univAnonToIpld univAnon with
