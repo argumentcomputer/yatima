@@ -62,19 +62,19 @@ def univMetaToIpld : UnivMeta → Ipld
   | .param n  => .array #[.number UNIVMETA, .number 4, n]
 
 def exprAnonToIpld : ExprAnon → Ipld
-  | .var nam    => .array #[.number EXPRMETA, .number 0, nam]
-  | .sort u     => .array #[.number EXPRMETA, .number 1, u]
-  | .const c ls => .array #[.number EXPRMETA, .number 2, c, ls]
-  | .app f a    => .array #[.number EXPRMETA, .number 3, f, a]
-  | .lam t b    => .array #[.number EXPRMETA, .number 4, t, b]
-  | .pi t b     => .array #[.number EXPRMETA, .number 5, t, b]
-  | .letE n t v => .array #[.number EXPRMETA, .number 6, n, t, v]
-  | .lit l      => .array #[.number EXPRMETA, .number 7, l]
-  | .lty l      => .array #[.number EXPRMETA, .number 8, l]
-  | .fix b      => .array #[.number EXPRMETA, .number 9, b]
+  | .var n      => .array #[.number EXPRANON, .number 0, n]
+  | .sort u     => .array #[.number EXPRANON, .number 1, u]
+  | .const c ls => .array #[.number EXPRANON, .number 2, c, ls]
+  | .app f a    => .array #[.number EXPRANON, .number 3, f, a]
+  | .lam t b    => .array #[.number EXPRANON, .number 4, t, b]
+  | .pi t b     => .array #[.number EXPRANON, .number 5, t, b]
+  | .letE n t v => .array #[.number EXPRANON, .number 6, n, t, v]
+  | .lit l      => .array #[.number EXPRANON, .number 7, l]
+  | .lty l      => .array #[.number EXPRANON, .number 8, l]
+  | .fix b      => .array #[.number EXPRANON, .number 9, b]
 
 def exprMetaToIpld : ExprMeta → Ipld
-  | .var nam      => .array #[.number EXPRMETA, .number 0, nam]
+  | .var n        => .array #[.number EXPRMETA, .number 0, n]
   | .sort u       => .array #[.number EXPRMETA, .number 1, u]
   | .const n c ls => .array #[.number EXPRMETA, .number 2, n, c, ls]
   | .app f a      => .array #[.number EXPRMETA, .number 3, f, a]
@@ -84,6 +84,12 @@ def exprMetaToIpld : ExprMeta → Ipld
   | .lit          => .array #[.number EXPRMETA, .number 7]
   | .lty          => .array #[.number EXPRMETA, .number 8]
   | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]
+
+def constAnonToIpld : ConstAnon → Ipld
+  | _ => sorry
+
+def constMetaToIpld : ConstMeta → Ipld
+  | _ => sorry
 
 def univAnonToCid (univAnon : UnivAnon) : Except String UnivAnonCid :=
   match ipldToCid $ univAnonToIpld univAnon with
@@ -105,7 +111,14 @@ def exprMetaToCid (exprMeta : ExprMeta) : Except String ExprMetaCid :=
   | .ok    cid => return ⟨cid⟩
   | .error msg => throw msg
 
-def constAnonToCid (constAnon : ConstAnon) : Except String ConstAnonCid := sorry
-def constMetaToCid (constMeta : ConstMeta) : Except String ConstMetaCid := sorry
+def constAnonToCid (constAnon : ConstAnon) : Except String ConstAnonCid :=
+  match ipldToCid $ constAnonToIpld constAnon with
+  | .ok    cid => return ⟨cid⟩
+  | .error msg => throw msg
+
+def constMetaToCid (constMeta : ConstMeta) : Except String ConstMetaCid :=
+  match ipldToCid $ constMetaToIpld constMeta with
+  | .ok    cid => return ⟨cid⟩
+  | .error msg => throw msg
 
 end Yatima.ToIpld
