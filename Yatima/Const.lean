@@ -227,9 +227,28 @@ inductive ConstMeta
   | quotient    : QuotientMeta → ConstMeta
 
 def Const.toAnon : Const → ConstAnon
-  | _ => sorry
+  | .axiom a => .axiom ⟨a.lvls.length, a.type.anon, a.safe⟩
+  | .theorem t => .theorem ⟨t.lvls.length, t.type.anon, t.value.anon⟩
+  | .inductive i => .inductive ⟨i.lvls.length, i.type.anon, i.params, i.indices,
+    i.ctors.map fun (n, e) => (n, e.anon), i.recr, i.safe, i.refl, i.nest⟩
+  | .opaque o => .opaque ⟨o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
+  | .definition d => .definition ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
+  | .constructor c => .constructor ⟨c.lvls.length, c.type.anon, c.ind.anon,
+    c.idx, c.params, c.fields, c.safe⟩
+  | .recursor r => .recursor ⟨r.lvls.length, r.type.anon, r.ind.anon, r.params,
+    r.indices, r.motives, r.minors,
+    r.rules.map fun rl => ⟨rl.ctor.anon, rl.fields, rl.rhs.anon⟩, r.k, r.safe⟩
+  | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
 
 def Const.toMeta : Const → ConstMeta
-  | _ => sorry
+  | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
+  | .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
+  | .inductive i => .inductive ⟨i.name, i.lvls, i.type.meta, i.ctors.map (·.2.meta)⟩
+  | .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta⟩
+  | .definition d => .definition ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
+  | .constructor c => .constructor ⟨c.name, c.lvls, c.type.meta, c.ind.meta⟩
+  | .recursor r => .recursor ⟨r.name, r.lvls, r.type.meta, r.ind.meta,
+    r.rules.map fun rl => ⟨rl.ctor.meta, rl.rhs.meta⟩⟩
+  | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
 
 end Yatima
