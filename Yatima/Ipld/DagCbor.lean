@@ -2,6 +2,8 @@ import Yatima.Ipld.Ipld
 import Yatima.Ipld.Multihash
 import Std.Data.RBTree
 
+namespace Yatima.DagCbor
+
 open Std (RBNode RBMap)
 
 def ser_null : ByteArray := ByteArray.mk #[0xf6]
@@ -274,3 +276,5 @@ partial def deserialize (x: ByteArray) : Except DeserializeError Ipld :=
   match EStateM.run deserialize_ipld (ByteCursor.mk x 0) with
   | EStateM.Result.ok x _ => Except.ok x
   | EStateM.Result.error e _ => Except.error e
+
+end Yatima.DagCbor

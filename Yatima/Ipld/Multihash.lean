@@ -11,7 +11,7 @@ structure Multihash where
   digest : ByteArray
   deriving BEq, Inhabited, Repr
 
-namespace Multihash
+namespace Yatima.Multihash
 
 def toBytes (self : Multihash) : ByteArray :=
   (UnsignedVarInt.toVarInt self.code) ++ (UnsignedVarInt.toVarInt self.size) ++ self.digest
@@ -30,9 +30,9 @@ def fromBytes (bytes : ByteArray) : Option Multihash :=
   else some { code, size, digest }
 
 def sha3_256 (x: ByteArray) : Multihash :=
-  {code := 0x16, size := 32, digest := Keccak.sha3_256 x }
+  { code := 0x16, size := 32, digest := Keccak.sha3_256 x }
 
 def sha3_512 (x: ByteArray) : Multihash :=
-  {code := 0x14, size := 64, digest := Keccak.sha3_512 x }
+  { code := 0x14, size := 64, digest := Keccak.sha3_512 x }
 
-end Multihash
+end Yatima.Multihash

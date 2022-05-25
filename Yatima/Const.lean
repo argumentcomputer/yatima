@@ -207,14 +207,14 @@ inductive Const
   | quotient    : Quotient → Const
 
 inductive ConstAnon
-| «axiom»     : AxiomAnon → ConstAnon
-| «theorem»   : TheoremAnon → ConstAnon
-| «inductive» : InductiveAnon → ConstAnon
-| opaque      : OpaqueAnon → ConstAnon
-| definition  : DefinitionAnon → ConstAnon
-| constructor : ConstructorAnon → ConstAnon
-| recursor    : RecursorAnon → ConstAnon
-| quotient    : QuotientAnon → ConstAnon
+  | «axiom»     : AxiomAnon → ConstAnon
+  | «theorem»   : TheoremAnon → ConstAnon
+  | «inductive» : InductiveAnon → ConstAnon
+  | opaque      : OpaqueAnon → ConstAnon
+  | definition  : DefinitionAnon → ConstAnon
+  | constructor : ConstructorAnon → ConstAnon
+  | recursor    : RecursorAnon → ConstAnon
+  | quotient    : QuotientAnon → ConstAnon
 
 inductive ConstMeta
   | «axiom»     : AxiomMeta → ConstMeta
@@ -225,5 +225,11 @@ inductive ConstMeta
   | constructor : ConstructorMeta → ConstMeta
   | recursor    : RecursorMeta → ConstMeta
   | quotient    : QuotientMeta → ConstMeta
+
+def Const.toAnon : Const → ConstAnon
+  | _ => sorry
+
+def Const.toMeta : Const → ConstMeta
+  | _ => sorry
 
 end Yatima

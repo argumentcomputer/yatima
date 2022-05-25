@@ -1,4 +1,5 @@
 import Yatima.Env
+import Yatima.ToIpld
 
 import Lean
 
@@ -61,30 +62,44 @@ def addToEnv (y : YatimaTuple) : EnvM PUnit := do
   | .const_anon  cid obj => set { env with const_anon  := env.const_anon.insert cid obj }
   | .const_meta  cid obj => set { env with const_meta  := env.const_meta.insert cid obj }
 
+open ToIpld
+
 def univToCid (u : Univ) : EnvM UnivCid := do
-  let univAnonCid : UnivAnonCid := sorry
-  let univAnon : UnivAnon := sorry
+  let univAnon : UnivAnon := u.toAnon
+  let univAnonCid : UnivAnonCid ← match univAnonToCid univAnon with
+    | .ok    cid => pure cid
+    | .error msg => throw msg
   addToEnv $ .univ_anon univAnonCid univAnon
-  let univMetaCid : UnivMetaCid := sorry
-  let univMeta : UnivMeta := sorry
+  let univMeta : UnivMeta := u.toMeta
+  let univMetaCid : UnivMetaCid ← match univMetaToCid univMeta with
+    | .ok    cid => pure cid
+    | .error msg => throw msg
   addToEnv $ .univ_meta univMetaCid univMeta
   return ⟨univAnonCid, univMetaCid⟩
 
 def exprToCid (e : Expr) : EnvM ExprCid := do
-  let exprAnonCid : ExprAnonCid := sorry
-  let exprAnon : ExprAnon := sorry
+  let exprAnon : ExprAnon := e.toAnon
+  let exprAnonCid : ExprAnonCid ← match exprAnonToCid exprAnon with
+    | .ok    cid => pure cid
+    | .error msg => throw msg
   addToEnv $ .expr_anon exprAnonCid exprAnon
-  let exprMetaCid : ExprMetaCid := sorry
-  let exprMeta : ExprMeta := sorry
+  let exprMeta : ExprMeta := e.toMeta
+  let exprMetaCid : ExprMetaCid ← match exprMetaToCid exprMeta with
+    | .ok    cid => pure cid
+    | .error msg => throw msg
   addToEnv $ .expr_meta exprMetaCid exprMeta
   return ⟨exprAnonCid, exprMetaCid⟩
 
 def constToCid (c : Const) : EnvM ConstCid := do
-  let constAnonCid : ConstAnonCid := sorry
-  let constAnon : ConstAnon := sorry
+  let constAnon : ConstAnon := c.toAnon
+  let constAnonCid : ConstAnonCid ← match constAnonToCid constAnon with
+    | .ok    cid => pure cid
+    | .error msg => throw msg
   addToEnv $ .const_anon constAnonCid constAnon
-  let constMetaCid : ConstMetaCid := sorry
-  let constMeta : ConstMeta := sorry
+  let constMeta : ConstMeta := c.toMeta
+  let constMetaCid : ConstMetaCid ← match constMetaToCid constMeta with
+    | .ok    cid => pure cid
+    | .error msg => throw msg
   addToEnv $ .const_meta constMetaCid constMeta
   return ⟨constAnonCid, constMetaCid⟩
 

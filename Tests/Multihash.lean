@@ -1,15 +1,17 @@
 import Yatima.YatimaSpec
 import Yatima.Ipld.Multihash
 
+open Yatima.Multihash
+
 structure Case where
   input: ByteArray
   hash: Multihash
 
 /-- Test that a given test-case passes -/
 def testCase (case : Case) : Bool := 
-  let hash := Multihash.sha3_512 case.input
+  let hash := sha3_512 case.input
   hash == case.hash &&
-  Multihash.fromBytes (Multihash.toBytes hash) == some hash
+  fromBytes (toBytes hash) == some hash
 
 def findFailing (cases: List Case) : List Case :=
   List.filter (fun x => not (testCase x)) cases
@@ -17,7 +19,7 @@ def findFailing (cases: List Case) : List Case :=
 def mkCase (input: String) (hash: String) : Option Case := do
   let input ← input.toUTF8
   let hash  ← ByteArray.mk <$> Array.mk <$> Multibase.decode Multibase.Base16 hash
-  let hash  ← Multihash.fromBytes hash
+  let hash  ← fromBytes hash
   return Case.mk input hash
 
 def cases : List Case := List.catOptions

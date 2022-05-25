@@ -6,7 +6,7 @@ structure Cid where
   hash: Multihash
   deriving BEq, Inhabited, Repr
 
-namespace Cid
+namespace Yatima.Cid
 
 def toBytes (self : Cid) : ByteArray :=
   (UnsignedVarInt.toVarInt self.version)
@@ -26,6 +26,6 @@ def fromBytes (bytes : ByteArray) : Option Cid :=
   some { version, codec, hash }
 
 instance : Ord Cid where
-  compare x y := compare x.toBytes y.toBytes
+  compare x y := compare (toBytes x) (toBytes y)
 
-end Cid
+end Yatima.Cid

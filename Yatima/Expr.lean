@@ -59,4 +59,10 @@ inductive ExprMeta
   | fix   : Name → ExprMetaCid → ExprMeta
   deriving BEq, Inhabited
 
+def Expr.toAnon : Expr → ExprAnon
+  | _ => sorry
+
+def Expr.toMeta : Expr → ExprMeta
+  | _ => sorry
+
 end Yatima

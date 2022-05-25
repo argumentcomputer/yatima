@@ -1,6 +1,8 @@
 import Yatima.YatimaSpec
 import Yatima.Ipld.DagCbor
 
+open Yatima.DagCbor
+
 structure Case where
   ipld: Ipld
   bytes: ByteArray

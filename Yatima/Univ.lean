@@ -27,6 +27,20 @@ inductive UnivMeta where
   | param : Name → UnivMeta
   deriving BEq, Inhabited
 
+def Univ.toAnon : Univ → UnivAnon
+  | .zero      => .zero
+  | .succ u    => .succ u.anon
+  | .max a b   => .max a.anon b.anon
+  | .imax a b  => .imax a.anon b.anon
+  | .param _ i => .param i
+
+def Univ.toMeta : Univ → UnivMeta
+  | .zero      => .zero
+  | .succ u    => .succ u.meta
+  | .max a b   => .max a.meta b.meta
+  | .imax a b  => .imax a.meta b.meta
+  | .param n _ => .param n
+
 -- namespace Univ
 
 -- def instantiate (u : Univ) (i : Nat) (subst : Univ) : Univ :=
