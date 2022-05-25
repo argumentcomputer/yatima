@@ -1,5 +1,6 @@
 use crate::{
   name::Name,
+  constant::QuotKind,
   nat::Nat,
   typechecker::universe::*,
 };
@@ -38,14 +39,6 @@ pub enum DefSafety {
   Unsafe,
   Safe,
   Partial,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum QuotKind {
-  Type,
-  Ctor,
-  Lift,
-  Ind,
 }
 
 /// Nameless expressions for typechecking. Such expressions must come from

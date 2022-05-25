@@ -37,7 +37,7 @@ pub enum DefSafety {
   Partial,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum QuotKind {
   Type,
   Ctor,
