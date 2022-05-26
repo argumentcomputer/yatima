@@ -108,22 +108,22 @@ def exprMetaToIpld : ExprMeta → Ipld
 def constAnonToIpld : ConstAnon → Ipld
   | .axiom ⟨l, t, s⟩         => .array #[.number CONSTANON, .number 0, l, t, s]
   | .theorem ⟨l, t, v⟩       => .array #[.number CONSTANON, .number 1, l, t, v]
+  | .inductive ⟨l, t, p, i, c, r, s, rf, n⟩ => .array #[.number CONSTANON, .number 2, l, t, p, i, c, r, s, rf, n]
   | .opaque ⟨l, t, v, s⟩     => .array #[.number CONSTANON, .number 3, l, t, v, s]
   | .definition ⟨l, t, v, s⟩ => .array #[.number CONSTANON, .number 4, l, t, v, s]
-  | .quotient ⟨l, t, k⟩      => .array #[.number CONSTANON, .number 7, l, t, k]
-  | .inductive ⟨l, t, p, i, c, r, s, rf, n⟩    => .array #[.number CONSTANON, .number 2, l, t, p, i, c, r, s, rf, n]
-  | .constructor ⟨l, t, i, idx, p, f, s⟩       => .array #[.number CONSTANON, .number 5, l, t, i, idx, p, f, s]
+  | .constructor ⟨l, t, i, idx, p, f, s⟩ => .array #[.number CONSTANON, .number 5, l, t, i, idx, p, f, s]
   | .recursor ⟨l, t, i, p, is, m, mi, r, k, s⟩ => .array #[.number CONSTANON, .number 6, l, t, i, p, is, m, mi, r, k, s]
+  | .quotient ⟨l, t, k⟩      => .array #[.number CONSTANON, .number 7, l, t, k]
 
 def constMetaToIpld : ConstMeta → Ipld
   | .axiom ⟨n, l, t⟩          => .array #[.number CONSTMETA, .number 0, n, l, t]
   | .theorem ⟨n, l, t, v⟩     => .array #[.number CONSTMETA, .number 1, n, l, t, v]
+  | .inductive ⟨n, l, t, c⟩   => .array #[.number CONSTMETA, .number 2, n, l, t, c]
   | .opaque ⟨n, l, t, v⟩      => .array #[.number CONSTMETA, .number 3, n, l, t, v]
   | .definition ⟨n, l, t, v⟩  => .array #[.number CONSTMETA, .number 4, n, l, t, v]
-  | .quotient ⟨n, l, t⟩       => .array #[.number CONSTMETA, .number 7, n, l, t]
-  | .inductive ⟨n, l, t, c⟩   => .array #[.number CONSTMETA, .number 2, n, l, t, c]
   | .constructor ⟨n, l, t, i⟩ => .array #[.number CONSTMETA, .number 5, n, l, t, i]
   | .recursor ⟨n, l, t, i, r⟩ => .array #[.number CONSTMETA, .number 6, n, l, t, i, r]
+  | .quotient ⟨n, l, t⟩       => .array #[.number CONSTMETA, .number 7, n, l, t]
 
 def univAnonToCid (univAnon : UnivAnon) : Except String UnivAnonCid :=
   match ipldToCid $ univAnonToIpld univAnon with
