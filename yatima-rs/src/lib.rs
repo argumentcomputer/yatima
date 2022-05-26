@@ -17,4 +17,5 @@ pub mod expression;
 pub mod name;
 pub mod nat;
 pub mod parse;
+pub mod typechecker;
 pub mod universe;
