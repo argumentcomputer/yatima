@@ -22,7 +22,7 @@ pub fn expr_from_anon(expr_cid: &ExprAnonCid, cid_env: &Env, conv_env: &mut Conv
   }
   let expr = match cid_env.expr_anon.get(expr_cid).unwrap() {
     ExprAnon::Var(idx) => {
-      let idx: usize = TryFrom::try_from(idx).unwrap();
+      let idx = TryFrom::try_from(idx).unwrap();
       Rc::new(Expr::Var(idx))
     }
     ExprAnon::Sort(univ_cid) => {
@@ -95,10 +95,24 @@ pub fn univ_from_anon(univ_cid: &UnivAnonCid, cid_env: &Env, conv_env: &mut Conv
   }
   let univ = match cid_env.univ_anon.get(univ_cid).unwrap() {
     UnivAnon::Zero => Rc::new(Univ::Zero),
-    UnivAnon::Succ(..) => todo!(),
-    UnivAnon::Max(..) => todo!(),
-    UnivAnon::IMax(..) => todo!(),
-    UnivAnon::Param(..) => todo!(),
+    UnivAnon::Succ(lvl_cid) => {
+      let lvl = univ_from_anon(lvl_cid, cid_env, conv_env);
+      Rc::new(Univ::Succ(lvl))
+    },
+    UnivAnon::Max(l_lvl_cid, r_lvl_cid) => {
+      let l_lvl = univ_from_anon(l_lvl_cid, cid_env, conv_env);
+      let r_lvl = univ_from_anon(r_lvl_cid, cid_env, conv_env);
+      Rc::new(Univ::Max(l_lvl, r_lvl))
+    },
+    UnivAnon::IMax(l_lvl_cid, r_lvl_cid) => {
+      let l_lvl = univ_from_anon(l_lvl_cid, cid_env, conv_env);
+      let r_lvl = univ_from_anon(r_lvl_cid, cid_env, conv_env);
+      Rc::new(Univ::IMax(l_lvl, r_lvl))
+    },
+    UnivAnon::Param(idx) => {
+      let idx = TryFrom::try_from(idx).unwrap();
+      Rc::new(Univ::Var(idx))
+    },
   };
   conv_env.univs.insert(*univ_cid, univ.clone());
   univ
