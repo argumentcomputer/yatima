@@ -95,14 +95,35 @@ mutual
         .app fncCid.anon argCid.anon,
         .app fncCid.meta argCid.meta
       )
-    | .lam nam bi typ val => do
+    | .lam nam bnd typ bod => do
       let typCid ← exprToCid typ
-      let valCid ← exprToCid val
+      let bodCid ← exprToCid bod
       return (
-        .lam typCid.anon valCid.anon,
-        .lam nam bi typCid.meta valCid.meta
+        .lam typCid.anon bodCid.anon,
+        .lam nam bnd typCid.meta bodCid.meta
       )
-    | _ => sorry
+    | .pi nam bnd dom img => do 
+      let domCid ← exprToCid dom
+      let imgCid ← exprToCid img
+      return (
+        .pi domCid.anon imgCid.anon,
+        .pi nam bnd domCid.meta imgCid.meta
+      )
+    | .letE nam typ exp bod => do
+      let typCid ← exprToCid typ
+      let expCid ← exprToCid exp
+      let bodCid ← exprToCid bod
+      return (
+        .letE typCid.anon expCid.anon bodCid.anon, 
+        .letE typCid.meta expCid.meta bodCid.meta
+      )
+    | .lit lit => do 
+      return (.lit lit, .lit)
+    | .lty lty => do
+      return (.lty lty, .lty)
+    | .fix nam exp => do
+      let expCid ← exprToCid exp
+      return (.fix expCid.anon, .fix nam expCid.meta)
 
   def exprToCid (e : Expr) : EnvM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
@@ -117,8 +138,6 @@ mutual
     return ⟨exprAnonCid, exprMetaCid⟩
 
 end
-
-#exit
 
 def constToCid (c : Const) : EnvM ConstCid := do
   let constAnon : ConstAnon := c.toAnon
