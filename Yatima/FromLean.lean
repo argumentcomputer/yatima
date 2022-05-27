@@ -84,31 +84,19 @@ mutual
     | .var nam n => return (.var n, .var nam)
     | .sort u    => return (.sort u.anon, .sort u.meta)
     | .const nam c ls =>
-      return (
-        .const c.anon $ ls.map (·.anon),
-        .const nam c.meta $ ls.map (·.meta)
-      )
+      return (.const c.anon $ ls.map (·.anon), .const nam c.meta $ ls.map (·.meta))
     | .app fnc arg => do
       let fncCid ← exprToCid fnc
       let argCid ← exprToCid arg
-      return (
-        .app fncCid.anon argCid.anon,
-        .app fncCid.meta argCid.meta
-      )
+      return (.app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta)
     | .lam nam bnd typ bod => do
       let typCid ← exprToCid typ
       let bodCid ← exprToCid bod
-      return (
-        .lam typCid.anon bodCid.anon,
-        .lam nam bnd typCid.meta bodCid.meta
-      )
+      return (.lam typCid.anon bodCid.anon, .lam nam bnd typCid.meta bodCid.meta)
     | .pi nam bnd dom img => do 
       let domCid ← exprToCid dom
       let imgCid ← exprToCid img
-      return (
-        .pi domCid.anon imgCid.anon,
-        .pi nam bnd domCid.meta imgCid.meta
-      )
+      return (.pi domCid.anon imgCid.anon, .pi nam bnd domCid.meta imgCid.meta)
     | .letE nam typ exp bod => do
       let typCid ← exprToCid typ
       let expCid ← exprToCid exp
@@ -117,16 +105,11 @@ mutual
         .letE typCid.anon expCid.anon bodCid.anon, 
         .letE typCid.meta expCid.meta bodCid.meta
       )
-    | .lit lit => do 
-      return (.lit lit, .lit)
-    | .lty lty => do
-      return (.lty lty, .lty)
+    | .lit lit => return (.lit lit, .lit)
+    | .lty lty => return (.lty lty, .lty)
     | .fix nam exp => do
       let expCid ← exprToCid exp
-      return (
-        .fix expCid.anon, 
-        .fix nam expCid.meta
-      )
+      return (.fix expCid.anon, .fix nam expCid.meta)
 
   def exprToCid (e : Expr) : EnvM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
