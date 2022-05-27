@@ -1,4 +1,3 @@
-
 use crate::{
   environment::{
     ConstAnonCid,
@@ -10,11 +9,11 @@ use crate::{
     ExprCid,
     ExprMetaCid,
     UnivAnonCid,
+    UnivCid,
     UnivMetaCid,
   },
   name::Name,
   nat::Nat,
-  universe::Univ,
 };
 use serde::{
   Deserialize,
@@ -30,6 +29,11 @@ use libipld::serde::to_ipld;
 use multihash::{
   Code,
   MultihashDigest,
+};
+
+use num_traits::{
+  One,
+  Zero,
 };
 
 use libipld::{
@@ -63,9 +67,9 @@ pub enum Expr {
   /// Variables
   Var(Name, Nat),
   /// Type Universes
-  Sort(Univ),
+  Sort(UnivCid),
   /// Global references to a Constant, with universe arguments
-  Const(Name, ConstCid, Vec<Univ>),
+  Const(Name, ConstCid, Vec<UnivCid>),
   /// Function Application: (f x)
   App(Box<Expr>, Box<Expr>),
   /// Anonymous Function: λ (x : A) => x
@@ -90,17 +94,15 @@ impl Expr {
         let meta = ExprMeta::Var(name.clone()).store(env)?;
         Ok(ExprCid { anon, meta })
       }
-      Expr::Sort(univ) => {
-        let univ_cid = univ.clone().store(env)?;
+      Expr::Sort(univ_cid) => {
         let anon = ExprAnon::Sort(univ_cid.anon).store(env)?;
         let meta = ExprMeta::Sort(univ_cid.meta).store(env)?;
         Ok(ExprCid { anon, meta })
       }
-      Expr::Const(name, const_cid, univs) => {
+      Expr::Const(name, const_cid, univ_cids) => {
         let mut univ_anons = Vec::new();
         let mut univ_metas = Vec::new();
-        for u in univs {
-          let cid = u.clone().store(env)?;
+        for cid in univ_cids {
           univ_anons.push(cid.anon);
           univ_metas.push(cid.meta);
         }
@@ -166,8 +168,51 @@ impl Expr {
 
   pub fn store(self, env: &mut Env) -> Result<ExprCid, EnvError> {
     let cid = self.cid(env)?;
-    env.insert_expr(cid, self)?;
+    env.insert_expr_cache(cid, self);
     Ok(cid)
+  }
+
+  pub fn shift(self, inc: &Nat, dep: &Option<Nat>) -> Self {
+    if *inc == Nat::zero() {
+      return self.clone();
+    }
+    match self {
+      Self::Var(nam, idx) => match dep {
+        // only increment free variables
+        Some(dep) if idx < *dep => Self::Var(nam, idx),
+        _ => Self::Var(nam, idx + inc),
+      },
+      Self::Lam(nam, bind, typ, bod) => {
+        Self::Lam(
+          nam,
+          bind,
+          Box::new((*typ).shift(inc, dep)),
+          // must increment depth because we are within the scope of the new
+          // binder `nam`
+          Box::new((*bod).shift(inc, &dep.as_ref().map(|x| x + Nat::one()))),
+        )
+      }
+      Self::App(fun, arg) => {
+        Self::App(Box::new(fun.shift(inc, dep)), Box::new(arg.shift(inc, dep)))
+      }
+      Self::Pi(nam, bind, dom, rng) => Self::Pi(
+        nam,
+        bind,
+        Box::new(dom.shift(inc, dep)),
+        Box::new(rng.shift(inc, &dep.as_ref().map(|x| x + Nat::one()))),
+      ),
+      Self::Let(nam, typ, exp, bod) => Self::Let(
+        nam,
+        Box::new(typ.shift(inc, dep)),
+        Box::new(exp.shift(inc, dep)),
+        Box::new(bod.shift(inc, &dep.as_ref().map(|x| x + Nat::one()))),
+      ),
+      Self::Fix(nam, x) => Self::Fix(
+        nam,
+        Box::new(x.shift(inc, &dep.as_ref().map(|x| x + Nat::one()))),
+      ),
+      x => x,
+    }
   }
 }
 
@@ -182,7 +227,7 @@ impl Expr {
 /// ExprMeta::Lit => [7]
 /// ExprMeta::Lty => [8]
 /// ExprMeta::Fix => [9, <name>, <body>]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ExprMeta {
   Var(Name),
   Sort(UnivMetaCid),
@@ -206,7 +251,7 @@ impl ExprMeta {
 
   pub fn store(self, env: &mut Env) -> Result<ExprMetaCid, EnvError> {
     let cid = self.cid()?;
-    env.insert_expr_meta(cid, self)?;
+    env.insert_expr_meta(cid, self);
     Ok(cid)
   }
 }
@@ -222,7 +267,7 @@ impl ExprMeta {
 /// ExprAnon::Lit => [7, <lit>]
 /// ExprAnon::Lty => [8, <lty>]
 /// ExprAnon::Fix => [9, <body>]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ExprAnon {
   Var(Nat),
   Sort(UnivAnonCid),
@@ -246,7 +291,7 @@ impl ExprAnon {
 
   pub fn store(self, env: &mut Env) -> Result<ExprAnonCid, EnvError> {
     let cid = self.cid()?;
-    env.insert_expr_anon(cid, self)?;
+    env.insert_expr_anon(cid, self);
     Ok(cid)
   }
 }

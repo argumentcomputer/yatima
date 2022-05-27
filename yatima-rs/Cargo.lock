@@ -945,6 +945,7 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 name = "yatima-lang"
 version = "0.1.0"
 dependencies = [
+ "base-x",
  "cid",
  "im",
  "lurk-ipld",
@@ -953,6 +954,7 @@ dependencies = [
  "nom",
  "nom_locate",
  "num-bigint",
+ "num-traits",
  "quickcheck",
  "quickcheck_macros",
  "rand",

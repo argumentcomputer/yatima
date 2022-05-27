@@ -80,7 +80,7 @@ impl Univ {
 
   pub fn store(self, env: &mut Env) -> Result<UnivCid, EnvError> {
     let cid = self.cid(env)?;
-    env.insert_univ(cid, self)?;
+    env.insert_univ_cache(cid, self);
     Ok(cid)
   }
 }
@@ -91,7 +91,7 @@ impl Univ {
 /// UnivMeta::Max => [2, <lhs_cid>, <rhs_cid>]
 /// UnivMeta::IMax => [3, <lhs_cid>, <rhs_cid>]
 /// UnivMeta::Param => [4, <name>]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum UnivMeta {
   Zero,
   Succ(UnivMetaCid),
@@ -110,7 +110,7 @@ impl UnivMeta {
 
   pub fn store(self, env: &mut Env) -> Result<UnivMetaCid, EnvError> {
     let cid = self.cid()?;
-    env.insert_univ_meta(cid, self)?;
+    env.insert_univ_meta(cid, self);
     Ok(cid)
   }
 }
@@ -121,7 +121,7 @@ impl UnivMeta {
 /// UnivAnon::Max => [2, <lhs_cid>, <rhs_cid>]
 /// UnivAnon::IMax => [3, <lhs_cid>, <rhs_cid>]
 /// UnivAnon::Param => [4, <idx>]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum UnivAnon {
   Zero,
   Succ(UnivAnonCid),
@@ -140,7 +140,7 @@ impl UnivAnon {
 
   pub fn store(self, env: &mut Env) -> Result<UnivAnonCid, EnvError> {
     let cid = self.cid()?;
-    env.insert_univ_anon(cid, self)?;
+    env.insert_univ_anon(cid, self);
     Ok(cid)
   }
 }
