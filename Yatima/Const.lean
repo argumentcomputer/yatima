@@ -6,7 +6,7 @@ namespace Yatima
 structure Axiom where
   name: Name
   lvls: List Name
-  type: Expr
+  type: ExprCid
   safe: Bool
 
 structure AxiomAnon where
@@ -22,8 +22,8 @@ structure AxiomMeta where
 structure Theorem where
   name: Name
   lvls: List Name
-  type: Expr
-  value: Expr
+  type: ExprCid
+  value: ExprCid
 
 structure TheoremAnon where
   lvls: Nat
@@ -39,8 +39,8 @@ structure TheoremMeta where
 structure Opaque where
   name: Name
   lvls: List Name
-  type: Expr
-  value: Expr
+  type: ExprCid
+  value: ExprCid
   safe: Bool
 
 structure OpaqueAnon where
@@ -63,8 +63,8 @@ inductive DefSafety where
 structure Definition where
   name: Name
   lvls: List Name
-  type: Expr
-  value: Expr
+  type: ExprCid
+  value: ExprCid
   safe: DefSafety
 
 structure DefinitionAnon where
@@ -82,10 +82,10 @@ structure DefinitionMeta where
 structure Inductive where
   name: Name
   lvls: List Name
-  type: Expr
+  type: ExprCid
   params: Nat
   indices: Nat
-  ctors: List Name
+  ctors: List (Name × ExprCid)
   recr: Bool
   safe: Bool
   refl: Bool
@@ -96,7 +96,7 @@ structure InductiveAnon where
   type: ExprAnonCid
   params: Nat
   indices: Nat
-  ctors: Nat
+  ctors: List (Name × ExprAnonCid)
   recr: Bool
   safe: Bool
   refl: Bool
@@ -106,7 +106,7 @@ structure InductiveMeta where
   name: Name
   lvls: List Name
   type: ExprMetaCid
-  ctors: List Name
+  ctors: List ExprMetaCid
 
 structure Constructor where
   name: Name
