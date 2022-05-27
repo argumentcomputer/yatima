@@ -77,18 +77,48 @@ def univToCid (u : Univ) : EnvM UnivCid := do
   addToEnv $ .univ_meta univMetaCid univMeta
   return ⟨univAnonCid, univMetaCid⟩
 
-def exprToCid (e : Expr) : EnvM ExprCid := do
-  let exprAnon : ExprAnon := e.toAnon
-  let exprAnonCid : ExprAnonCid ← match exprAnonToCid exprAnon with
-    | .ok    cid => pure cid
-    | .error msg => throw msg
-  addToEnv $ .expr_anon exprAnonCid exprAnon
-  let exprMeta : ExprMeta := e.toMeta
-  let exprMetaCid : ExprMetaCid ← match exprMetaToCid exprMeta with
-    | .ok    cid => pure cid
-    | .error msg => throw msg
-  addToEnv $ .expr_meta exprMetaCid exprMeta
-  return ⟨exprAnonCid, exprMetaCid⟩
+mutual
+
+  def separateExpr (e : Expr) : EnvM (ExprAnon × ExprMeta) :=
+    match e with
+    | .var nam n => return (.var n, .var nam)
+    | .sort u    => return (.sort u.anon, .sort u.meta)
+    | .const nam c ls =>
+      return (
+        .const c.anon $ ls.map (·.anon),
+        .const nam c.meta $ ls.map (·.meta)
+      )
+    | .app fnc arg => do
+      let fncCid ← exprToCid fnc
+      let argCid ← exprToCid arg
+      return (
+        .app fncCid.anon argCid.anon,
+        .app fncCid.meta argCid.meta
+      )
+    | .lam nam bi typ val => do
+      let typCid ← exprToCid typ
+      let valCid ← exprToCid val
+      return (
+        .lam typCid.anon valCid.anon,
+        .lam nam bi typCid.meta valCid.meta
+      )
+    | _ => sorry
+
+  def exprToCid (e : Expr) : EnvM ExprCid := do
+    let (exprAnon, exprMeta) ← separateExpr e
+    let exprAnonCid : ExprAnonCid ← match exprAnonToCid exprAnon with
+      | .ok    cid => pure cid
+      | .error msg => throw msg
+    addToEnv $ .expr_anon exprAnonCid exprAnon
+    let exprMetaCid : ExprMetaCid ← match exprMetaToCid exprMeta with
+      | .ok    cid => pure cid
+      | .error msg => throw msg
+    addToEnv $ .expr_meta exprMetaCid exprMeta
+    return ⟨exprAnonCid, exprMetaCid⟩
+
+end
+
+#exit
 
 def constToCid (c : Const) : EnvM ConstCid := do
   let constAnon : ConstAnon := c.toAnon
@@ -163,41 +193,23 @@ mutual
       | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => do
       let fnc ← toYatimaExpr levelParams fnc
-      let fncCid ← exprToCid fnc
-      addToEnv $ .expr_cache fncCid fnc
       let arg ← toYatimaExpr levelParams arg
-      let argCid ← exprToCid arg
-      addToEnv $ .expr_cache argCid arg
-      return .app fncCid argCid
+      return .app fnc arg
     | .lam nam bnd bod _ => do
       let bndInfo := bnd.binderInfo
       let bnd ← toYatimaExpr levelParams bnd
-      let bndCid ← exprToCid bnd
-      addToEnv $ .expr_cache bndCid bnd
       let bod ← toYatimaExpr levelParams bod
-      let bodCid ← exprToCid bod
-      addToEnv $ .expr_cache bodCid bod
-      return .lam nam bndInfo bndCid bodCid
+      return .lam nam bndInfo bnd bod
     | .forallE nam dom img _ => do
       let bndInfo := dom.binderInfo
       let dom ← toYatimaExpr levelParams dom
-      let domCid ← exprToCid dom
-      addToEnv $ .expr_cache domCid dom
       let img ← toYatimaExpr levelParams img
-      let imgCid ← exprToCid img
-      addToEnv $ .expr_cache imgCid img
-      return .pi nam bndInfo domCid imgCid
+      return .pi nam bndInfo dom img
     | .letE nam typ exp bod _ => do
       let typ ← toYatimaExpr levelParams typ
-      let typCid ← exprToCid typ
-      addToEnv $ .expr_cache typCid typ
       let exp ← toYatimaExpr levelParams exp
-      let expCid ← exprToCid exp
-      addToEnv $ .expr_cache expCid exp
       let bod ← toYatimaExpr levelParams bod
-      let bodCid ← exprToCid bod
-      addToEnv $ .expr_cache bodCid bod
-      return .letE nam typCid expCid bodCid
+      return .letE nam typ exp bod
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr levelParams e
     | .proj .. => sorry
