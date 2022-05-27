@@ -63,7 +63,13 @@ pub enum Const {
     expr: ExprCid
   },
   /// opaque
-  Opaque { name: Name, lvl: Vec<Name>, typ: ExprCid, expr: ExprCid, safe: bool },
+  Opaque {
+    name: Name,
+    lvl: Vec<Name>,
+    typ: ExprCid,
+    expr: ExprCid,
+    safe: bool
+  },
   /// def
   Definition {
     name: Name,
@@ -91,7 +97,6 @@ pub enum Const {
     lvl: Vec<Name>,
     ind: ConstCid,
     typ: ExprCid,
-    idx: Nat,
     param: Nat,
     field: Nat,
     safe: bool,
@@ -210,18 +215,17 @@ impl Const {
           }.store(env)?;
         Ok(ConstCid { anon, meta })
       }
-      Const::Constructor { name, lvl, ind, typ, idx, param, field, safe } => {
+      Const::Constructor { name, lvl, ind, typ, param, field, safe } => {
         let anon = ConstAnon::Constructor{
+          name: name.clone(),
           lvl: lvl.len().into(),
           ind: ind.anon,
           typ: typ.anon,
-          idx: idx.clone(),
           param: param.clone(),
           field: field.clone(),
           safe: *safe,
         }.store(env)?;
         let meta = ConstMeta::Constructor{
-          name: name.clone(),
           lvl: lvl.clone(),
           ind: ind.meta,
           typ: typ.meta,
@@ -323,7 +327,6 @@ pub enum ConstMeta {
     ctors: Vec<ExprMetaCid>,
   },
   Constructor {
-    name: Name,
     lvl: Vec<Name>,
     ind: ConstMetaCid,
     typ: ExprMetaCid,
@@ -404,11 +407,10 @@ pub enum ConstAnon {
     nest: bool,
   },
   Constructor {
-    // index: Nat,
+    name: Name,
     lvl: Nat,
     ind: ConstAnonCid,
     typ: ExprAnonCid,
-    idx: Nat,
     param: Nat,
     field: Nat,
     safe: bool,

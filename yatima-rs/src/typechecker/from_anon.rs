@@ -3,10 +3,13 @@ use crate::{
   environment::{Env, ExprAnonCid, ConstAnonCid, UnivAnonCid},
   expression::ExprAnon,
   typechecker::universe::Univ,
-  typechecker::expression::{Expr, Const},
+  typechecker::expression::{Expr, Const, RecursorRule},
   universe::UnivAnon,
 };
-use std::rc::Rc;
+use std::{
+  rc::Rc,
+  collections::HashMap,
+};
 use alloc::collections::BTreeMap;
 
 pub struct ConversionEnv {
@@ -76,13 +79,85 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
   }
   let cnst = match cid_env.const_anon.get(const_cid).unwrap() {
     ConstAnon::Quotient { kind } => Rc::new(Const::Quotient{ kind: *kind }),
-    ConstAnon::Axiom { .. } => todo!(),
-    ConstAnon::Theorem { .. } => todo!(),
-    ConstAnon::Opaque { .. } => todo!(),
-    ConstAnon::Definition { .. } => todo!(),
-    ConstAnon::Inductive { .. } => todo!(),
-    ConstAnon::Constructor { .. } => todo!(),
-    ConstAnon::Recursor { .. } => todo!(),
+    ConstAnon::Axiom { lvl, typ, safe } => {
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      Rc::new(Const::Axiom { uvars: lvl.clone(), typ, safe: *safe })
+    },
+    ConstAnon::Theorem { lvl, typ, expr } => {
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      let expr = expr_from_anon(expr, cid_env, conv_env);
+      Rc::new(Const::Theorem { uvars: lvl.clone(), typ, expr })
+    },
+    ConstAnon::Opaque { lvl, typ, expr, safe } => {
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      let expr = expr_from_anon(expr, cid_env, conv_env);
+      Rc::new(Const::Opaque { uvars: lvl.clone(), typ, expr, safe: *safe })
+    }
+    ConstAnon::Definition { lvl, typ, expr, safe } => {
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      let expr = expr_from_anon(expr, cid_env, conv_env);
+      Rc::new(Const::Definition { uvars: lvl.clone(), typ, expr, safe: *safe })
+    },
+    ConstAnon::Inductive { lvl, typ, params, indices, ctors, recr, safe, refl, nest } => {
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      let mut t_ctors = Vec::new();
+      for (n, ctor) in ctors.iter().rev() {
+        let ctor = expr_from_anon(ctor, cid_env, conv_env);
+        t_ctors.push((n.clone(), ctor))
+      }
+      Rc::new(Const::Inductive {
+        uvars: lvl.clone(),
+        typ,
+        params: params.clone(),
+        indices: indices.clone(),
+        ctors: t_ctors,
+        recr: *recr,
+        safe: *safe,
+        refl: *refl,
+        nest: *nest
+      })
+    },
+    ConstAnon::Constructor { name, lvl, ind, typ, param, field, safe } => {
+      let ind = const_from_anon(ind, cid_env, conv_env);
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      Rc::new(Const::Constructor {
+        uvars: lvl.clone(),
+        name: name.clone(),
+        ind,
+        typ,
+        param: param.clone(),
+        field: field.clone(),
+        safe: *safe
+      })
+    },
+    ConstAnon::Recursor { lvl, ind, typ, params, indices, motives, minors, rules, k, safe } => {
+      let ind = const_from_anon(ind, cid_env, conv_env);
+      let typ = expr_from_anon(typ, cid_env, conv_env);
+      let params = TryFrom::try_from(params).unwrap();
+      let indices = TryFrom::try_from(indices).unwrap();
+      let motives = TryFrom::try_from(motives).unwrap();
+      let minors = TryFrom::try_from(minors).unwrap();
+      let mut t_rules = HashMap::new();
+      for (ctor, nfields, rhs) in rules {
+        let ctor = Rc::as_ptr(&const_from_anon(ctor, cid_env, conv_env));
+        let nfields = TryFrom::try_from(nfields).unwrap();
+        let rhs = expr_from_anon(rhs, cid_env, conv_env);
+        let rule = RecursorRule { nfields, rhs };
+        t_rules.insert(ctor, rule);
+      }
+      Rc::new(Const::Recursor {
+        uvars: lvl.clone(),
+        ind,
+        typ,
+        params,
+        indices,
+        motives,
+        minors,
+        rules: t_rules,
+        k: *k,
+        safe: *safe
+      })
+    }
   };
   conv_env.consts.insert(*const_cid, cnst.clone());
   cnst

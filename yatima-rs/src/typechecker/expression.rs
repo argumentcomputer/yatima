@@ -52,24 +52,44 @@ pub enum Expr {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Const {
   /// axiom
-  Axiom { name: Name, uvars: Nat, typ: ExprPtr },
+  Axiom {
+    // name: Name,
+    uvars: Nat,
+    typ: ExprPtr,
+    safe: bool
+  },
   /// theorem
-  Theorem { uvars: Nat, typ: ExprPtr, expr: ExprPtr },
+  Theorem {
+    uvars: Nat,
+    typ: ExprPtr,
+    expr: ExprPtr
+  },
   /// opaque
-  Opaque { name: Name, uvars: Nat, typ: ExprPtr, expr: ExprPtr, safe: bool },
+  Opaque {
+    // name: Name,
+    uvars: Nat,
+    typ: ExprPtr,
+    expr: ExprPtr,
+    safe: bool
+  },
   /// def
-  Definition { uvars: Nat, typ: ExprPtr, expr: ExprPtr, safe: DefSafety },
+  Definition {
+    uvars: Nat,
+    typ: ExprPtr,
+    expr: ExprPtr,
+    safe: DefSafety
+  },
   /// inductive type
   Inductive {
     uvars: Nat,
     typ: ExprPtr,
     params: Nat,
     indices: Nat,
-    unit: bool,
-    rec: bool,
+    ctors: Vec<(Name, Rc<Expr>)>,
+    recr: bool,
     safe: bool,
     refl: bool,
-    nested: bool,
+    nest: bool,
   },
   /// inductive constructor
   Constructor {
@@ -77,7 +97,6 @@ pub enum Const {
     uvars: Nat,
     ind: ConstPtr,
     typ: ExprPtr,
-    idx: Nat,
     param: Nat,
     field: Nat,
     safe: bool,
