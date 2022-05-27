@@ -75,14 +75,14 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
     None => (),
   }
   let cnst = match cid_env.const_anon.get(const_cid).unwrap() {
-    ConstAnon::Quotient(kind) => Rc::new(Const::Quotient{ kind: *kind }),
-    ConstAnon::Axiom(..) => todo!(),
-    ConstAnon::Theorem(..) => todo!(),
-    ConstAnon::Opaque(..) => todo!(),
-    ConstAnon::Definition(..) => todo!(),
-    ConstAnon::Inductive(..) => todo!(),
-    ConstAnon::Constructor(..) => todo!(),
-    ConstAnon::Recursor(..) => todo!(),
+    ConstAnon::Quotient { kind } => Rc::new(Const::Quotient{ kind: *kind }),
+    ConstAnon::Axiom { .. } => todo!(),
+    ConstAnon::Theorem { .. } => todo!(),
+    ConstAnon::Opaque { .. } => todo!(),
+    ConstAnon::Definition { .. } => todo!(),
+    ConstAnon::Inductive { .. } => todo!(),
+    ConstAnon::Constructor { .. } => todo!(),
+    ConstAnon::Recursor { .. } => todo!(),
   };
   conv_env.consts.insert(*const_cid, cnst.clone());
   cnst
