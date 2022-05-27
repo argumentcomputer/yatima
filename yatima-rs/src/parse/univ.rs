@@ -58,12 +58,11 @@ use crate::{
   universe::Univ,
 };
 
-use super::utils::{
+use crate::parse::utils::{
   parse_name,
   parse_space,
+  UnivCtx,
 };
-
-pub type UnivCtx = Vector<Name>;
 
 pub fn parse_univ_constant()
 -> impl Fn(Span) -> IResult<Span, Univ, ParseError<Span>> {

@@ -47,6 +47,8 @@ pub enum ParseErrorKind {
   ReservedSyntax(String),
   LitTypeLacksTermination(LitType),
   LiteralLacksTermination(Literal),
+  Env(String),
+  EnvBorrowMut(String),
   // TypeDefConstructorMustReturnItsType,
   InvalidSymbol(String),
   Nom(ErrorKind),
@@ -216,4 +218,3 @@ pub fn throw_err<I: AsBytes, A, F: Fn(ParseError<I>) -> ParseError<I>>(
     Err(Err::Failure(e)) => Err(Err::Failure(f(e))),
   }
 }
-
