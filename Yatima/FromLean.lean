@@ -123,7 +123,10 @@ mutual
       return (.lty lty, .lty)
     | .fix nam exp => do
       let expCid ← exprToCid exp
-      return (.fix expCid.anon, .fix nam expCid.meta)
+      return (
+        .fix expCid.anon, 
+        .fix nam expCid.meta
+      )
 
   def exprToCid (e : Expr) : EnvM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
