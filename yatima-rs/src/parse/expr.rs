@@ -558,6 +558,7 @@ pub fn parse_rec_expr_apps(
 ///   - type: `∀ (A: Type) (x: A) -> A`
 ///   - term: `λ A x => x`
 /// This is useful for parsing lets and defs
+///TODO(rish) unit tests for recursive case
 pub fn parse_bound_expression(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
@@ -579,12 +580,11 @@ pub fn parse_bound_expression(
     for (_, n, _) in bs.iter() {
       type_bind_ctx.push_front(n.clone());
     }
-    let (i, typ) = parse_rec_expr_apps(
+    let (i, typ) = parse_expr_apps(
       univ_ctx.clone(),
       type_bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
-      rec.clone(),
     )(i)?;
     let mut term_bind_ctx = bind_ctx.clone();
     for (_, n, _) in bs.iter() {
@@ -593,11 +593,12 @@ pub fn parse_bound_expression(
     let (i, _) = parse_space(i)?;
     let (i, _) = tag(":=")(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, trm) = parse_expr_apps(
+    let (i, trm) = parse_rec_expr_apps(
       univ_ctx.clone(),
       type_bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
+      rec.clone(),
     )(i)?;
     let trm = bs.iter().rev().fold(trm, |acc, (b, n, t)| {
       Expr::Lam(n.clone(), b.clone(), Box::new(t.clone()), Box::new(acc))

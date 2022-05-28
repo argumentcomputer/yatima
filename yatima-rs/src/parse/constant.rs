@@ -105,6 +105,7 @@ use nom::{
 use super::expr::{
   parse_binders0,
   parse_expr,
+  parse_expr_apps,
 };
 
 pub fn parse_levels(i: Span) -> IResult<Span, Vec<Name>, ParseError<Span>> {
@@ -130,7 +131,13 @@ pub fn parse_const_axiom(
     let (i, _) = parse_space(i)?;
     let (i, name) = parse_name(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, lvl) = parse_levels(i)?;
+    let (i, lvl) = opt(parse_levels)(i)?;
+    let lvl = match lvl {
+      Option::None => vec![],
+      Option::Some(l) => l
+    };
+    let (i, _) = parse_space(i)?;
+    let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
     let (upto, typ) = parse_expr(
       Vector::from(lvl.clone()),
@@ -154,7 +161,11 @@ pub fn parse_const_theorem(
     let (i, _) = parse_space(i)?;
     let (i, name) = parse_name(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, lvl) = parse_levels(i)?;
+    let (i, lvl) = opt(parse_levels)(i)?;
+    let lvl = match lvl {
+      Option::None => vec![],
+      Option::Some(l) => l
+    };
     let (i, _) = parse_space(i)?;
     let (upto, (typ, expr)) = parse_bound_expression(
       Vector::from(lvl.clone()),
@@ -186,7 +197,12 @@ pub fn parse_const_opaque(
     let (i, _) = parse_space(i)?;
     let (i, name) = parse_name(i)?;
     let rec = rec.map(|_| name.clone());
-    let (i, lvl) = parse_levels(i)?;
+    let (i, _) = parse_space(i)?;
+    let (i, lvl) = opt(parse_levels)(i)?;
+    let lvl = match lvl {
+      Option::None => vec![],
+      Option::Some(l) => l
+    };
     let (i, _) = parse_space(i)?;
     let (upto, (typ, expr)) = parse_bound_expression(
       Vector::from(lvl.clone()),
@@ -220,7 +236,11 @@ pub fn parse_const_def(
     let (i, name) = parse_name(i)?;
     let rec = rec.map(|_| name.clone());
     let (i, _) = parse_space(i)?;
-    let (i, lvl) = parse_levels(i)?;
+    let (i, lvl) = opt(parse_levels)(i)?;
+    let lvl = match lvl {
+      Option::None => vec![],
+      Option::Some(l) => l
+    };
     let (i, _) = parse_space(i)?;
     let (upto, (typ, expr)) = parse_bound_expression(
       Vector::from(lvl.clone()),
@@ -241,6 +261,7 @@ pub fn parse_const_def(
 /// | Cons (k: Nat) (x: A) (xs: Vector A k): Vector A (Nat.succ k),
 /// ```
 /// TODO: nest, refl
+#[derive(Clone, Debug, PartialEq)]
 struct InductiveDecl {
   safe: bool,
   recr: bool,
@@ -262,13 +283,18 @@ pub fn parse_const_inductive_decl(
       value(false, terminated(tag("unsafe"), parse_space)),
       success(true),
     ))(from)?;
-    let (i, _) = tag("inductive")(from)?;
+    let (i, _) = tag("inductive")(i)?;
     let (i, _) = parse_space(i)?;
     let (i, rec) = opt(tag("rec"))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, name) = parse_name(i)?;
+    let (i, _) = parse_space(i)?;
     let rec = rec.map(|_| name.clone());
-    let (i, lvl) = parse_levels(i)?;
+    let (i, lvl) = opt(parse_levels)(i)?;
+    let lvl = match lvl {
+      Option::None => vec![],
+      Option::Some(l) => l
+    };
     let (i, _) = parse_space(i)?;
     let univ_ctx = Vector::from(lvl.clone());
     let (i, params) = parse_binders0(
@@ -283,6 +309,14 @@ pub fn parse_const_inductive_decl(
     let (i, _) = parse_space(i)?;
     let bind_ctx: Vector<Name> =
       params.iter().map(|(_, n, _)| n.clone()).collect();
+
+    // the inductive type name is an implicitly bound variable
+    // within each constructor declaration; this is replaced
+    // with a reference to the inductive type constant when generating
+    // the constructor constant
+    let mut ctor_bind_ctx = bind_ctx.clone();
+    ctor_bind_ctx.push_back(name.clone());
+
     let (i, indices) = parse_binders0(
       univ_ctx.clone(),
       bind_ctx.clone(),
@@ -290,10 +324,13 @@ pub fn parse_const_inductive_decl(
       env_ctx.clone(),
       vec!['-'],
     )(i)?;
+
     let mut bind_ctx = bind_ctx;
     for (_, n, _) in indices.iter() {
       bind_ctx.push_front(n.clone());
     }
+    let (i, _) = parse_space(i)?;
+
     let (i, _) = if indices.len() != 0 {
       let (i, _) = tag("->")(i)?;
       let (i, _) = parse_space(i)?;
@@ -314,11 +351,13 @@ pub fn parse_const_inductive_decl(
       .chain(indices.clone().into_iter())
       .rev()
       .fold(typ, |acc, (b, n, t)| Expr::Pi(n, b, Box::new(t), Box::new(acc)));
+    let (i, _) = parse_space(i)?;
     let (i, _) = tag("where")(i)?;
+    let (i, _) = parse_space(i)?;
     let (i, ctors) = many0(terminated(
       parse_const_inductive_ctor(
         univ_ctx.clone(),
-        bind_ctx.clone(),
+        ctor_bind_ctx,
         global_ctx.clone(),
         env_ctx.clone(),
       ),
@@ -350,14 +389,266 @@ pub fn parse_const_inductive_ctor(
     let (i, _) = parse_space(i)?;
     let (i, nam) = parse_name(i)?;
     let (i, _) = parse_space(i)?;
-    let (i, _) = tag(":")(i)?;
-    let (i, typ) = parse_expr(
+    let (i, bs) = parse_binders0(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
+      vec![':'],
     )(i)?;
+
+    let mut bind_ctx_final = bind_ctx.clone();
+    for (_, n, _) in bs.iter() {
+      bind_ctx_final.push_front(n.clone());
+    }
+
+    let (i, _) = parse_space(i)?;
+    let (i, _) = tag(":")(i)?;
+    let (i, _) = parse_space(i)?;
+
+    let (i, typ) = parse_expr_apps(
+      univ_ctx.clone(),
+      bind_ctx_final,
+      global_ctx.clone(),
+      env_ctx.clone(),
+    )(i)?;
+
+    let typ = bs
+      .clone()
+      .into_iter()
+      .rev()
+      .fold(typ, |acc, (b, n, t)| Expr::Pi(n, b, Box::new(t), Box::new(acc)));
+
     let (i, _) = tag(",")(i)?;
     Ok((i, (nam, typ)))
+  }
+}
+
+#[cfg(test)]
+pub mod tests {
+  use alloc::rc::Rc;
+  use super::*;
+  use multihash::{
+    Code,
+    MultihashDigest,
+  };
+
+  #[test]
+  fn test_parse_levels() {
+    fn test(i: &str) -> IResult<Span, Vec<Name>, ParseError<Span>> {
+      parse_levels(Span::new(i))
+    }
+
+    let res = test("{}");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, vec![]);
+
+    let res = test("{u}");
+    assert_eq!(res.unwrap().1, vec![Name::from("u")]);
+
+    let res = test("{u v}");
+    assert_eq!(res.unwrap().1, vec![Name::from("u"), Name::from("v")]);
+  }
+
+  fn dummy_typ() -> Expr {
+    Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap())
+  }
+
+  fn dummy_typ_cid() -> ExprCid {
+    dummy_typ().store(&mut Env::new()).unwrap()
+  }
+
+  fn dummy_fix_typ_cid(name: Name) -> ExprCid {
+    Expr::Fix(name, Box::new(dummy_typ())).store(&mut Env::new()).unwrap()
+  }
+
+  #[test]
+  fn test_parse_axiom() {
+    fn test(i: &str) -> IResult<Span, Const, ParseError<Span>> {
+      let env_ctx = Rc::new(RefCell::new(Env::new()));
+      let global_ctx = OrdMap::new();
+      parse_const_axiom(global_ctx, env_ctx)(Span::new(i))
+    }
+
+    let res = test("axiom foo {u v} : Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Axiom {
+      name: Name::from("foo"),
+      lvl: vec![Name::from("u"), Name::from("v")],
+      typ: dummy_typ_cid(),
+      safe: true
+    });
+
+    let res = test("unsafe axiom foo : Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Axiom {
+      name: Name::from("foo"),
+      lvl: vec![],
+      typ: dummy_typ_cid(),
+      safe: false
+    });
+  }
+
+  #[test]
+  fn test_parse_theorem() {
+    fn test(i: &str) -> IResult<Span, Const, ParseError<Span>> {
+      let env_ctx = Rc::new(RefCell::new(Env::new()));
+      let global_ctx = OrdMap::new();
+      parse_const_theorem(global_ctx, env_ctx)(Span::new(i))
+    }
+
+    let res = test("theorem foo {u v} : Sort 0 := Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Theorem {
+      name: Name::from("foo"),
+      lvl: vec![Name::from("u"), Name::from("v")],
+      typ: dummy_typ_cid(),
+      expr: dummy_typ_cid()
+    });
+  }
+
+  #[test]
+  fn test_parse_opaque() {
+    fn test(i: &str) -> IResult<Span, Const, ParseError<Span>> {
+      let env_ctx = Rc::new(RefCell::new(Env::new()));
+      let global_ctx = OrdMap::new();
+      parse_const_opaque(global_ctx, env_ctx)(Span::new(i))
+    }
+
+    let res = test("opaque foo {u v} : Sort 0 := Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Opaque {
+      name: Name::from("foo"),
+      lvl: vec![Name::from("u"), Name::from("v")],
+      typ: dummy_typ_cid(),
+      expr: dummy_typ_cid(),
+      safe: true
+    });
+
+    let res = test("unsafe opaque rec foo {u v} : Sort 0 := Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Opaque {
+      name: Name::from("foo"),
+      lvl: vec![Name::from("u"), Name::from("v")],
+      typ: dummy_typ_cid(),
+      expr: dummy_fix_typ_cid(Name::from("foo")),
+      safe: false
+    });
+  }
+
+  #[test]
+  fn test_parse_def() {
+    fn test(i: &str) -> IResult<Span, Const, ParseError<Span>> {
+      let env_ctx = Rc::new(RefCell::new(Env::new()));
+      let global_ctx = OrdMap::new();
+      parse_const_def(global_ctx, env_ctx)(Span::new(i))
+    }
+
+    let res = test("def foo {u v} : Sort 0 := Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Definition {
+      name: Name::from("foo"),
+      lvl: vec![Name::from("u"), Name::from("v")],
+      typ: dummy_typ_cid(),
+      expr: dummy_typ_cid(),
+      safe: DefSafety::Safe
+    });
+
+    let res = test("unsafe def rec foo {u v} : Sort 0 := Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Definition {
+      name: Name::from("foo"),
+      lvl: vec![Name::from("u"), Name::from("v")],
+      typ: dummy_typ_cid(),
+      expr: dummy_fix_typ_cid(Name::from("foo")),
+      safe: DefSafety::Unsafe
+    });
+
+    let res = test("partial def foo : Sort 0 := Sort 0");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, Const::Definition {
+      name: Name::from("foo"),
+      lvl: vec![],
+      typ: dummy_typ_cid(),
+      expr: dummy_typ_cid(),
+      safe: DefSafety::Partial
+    });
+  }
+
+  fn dummy_const_cid(ind: u8) -> ConstCid {
+    let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[ind]));
+    let meta: ConstMetaCid = ConstMetaCid::new(Code::Sha3_256.digest(&[ind]));
+    ConstCid { anon, meta }
+  }
+
+  fn dummy_global_ctx() -> GlobalCtx {
+    OrdMap::from(vec![
+      (Name::from("Nat"), dummy_const_cid(0)),
+      (Name::from("Nat.zero"), dummy_const_cid(1)),
+      (Name::from("Nat.succ"), dummy_const_cid(2))
+    ])
+  }
+
+  #[test]
+  fn test_parse_inductive_decl() {
+    fn test(i: &str) -> IResult<Span, InductiveDecl, ParseError<Span>> {
+      let env_ctx = Rc::new(RefCell::new(Env::new()));
+      parse_const_inductive_decl(dummy_global_ctx(), env_ctx)(Span::new(i))
+    }
+
+    let nat = Expr::Const(Name::from("Nat"), dummy_const_cid(0), vec![]);
+    let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(1), vec![]);
+    let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(2), vec![]);
+
+    //TODO(rish) clean up notation (unnecessary emtpy universe lists and comma
+    // at the end, also split this big test up into its unit test components
+    let res = test(
+    "unsafe inductive rec Vector {u} (A: Sort 0) : (k: Nat {}) -> Sort 0 where
+     | Nil : Vector A Nat.zero {},
+     | Cons (k: Nat {}) (x: A) (xs: Vector A k): Vector A (Nat.succ {} k),");
+    assert!(res.is_ok());
+    assert_eq!(res.unwrap().1, InductiveDecl {
+      safe: false,
+      recr: true,
+      name: Name::from("Vector"),
+      lvl: vec![Name::from("u")],
+      params: vec![(BinderInfo::Default, Name::from("A"), dummy_typ())],
+      indices: vec![(BinderInfo::Default, Name::from("k"), nat.clone())],
+      typ: Expr::Pi(Name::from("A"), BinderInfo::Default, Box::new(dummy_typ()),
+      Box::new(Expr::Pi(Name::from("k"), BinderInfo::Default, Box::new(nat.clone()), Box::new(dummy_typ())))),
+      ctors: vec![
+        (Name::from("Nil"),
+          Expr::App(
+            Box::new(Expr::App(
+            Box::new(Expr::Var(Name::from("Vector"), 1u32.into())),
+            Box::new(Expr::Var(Name::from("A"), 0u32.into())))),
+            Box::new(nat_zero.clone())),
+          ),
+        (Name::from("Cons"),
+          Expr::Pi(Name::from("k"), BinderInfo::Default, Box::new(nat.clone()),
+          Box::new(
+          Expr::Pi(Name::from("x"), BinderInfo::Default, Box::new(Expr::Var(Name::from("A"), 1u32.into())),
+          Box::new(
+          Expr::Pi(Name::from("xs"), BinderInfo::Default, 
+            Box::new(Expr::App(
+            Box::new(Expr::App(
+            Box::new(Expr::Var(Name::from("Vector"), 3u32.into())),
+            Box::new(Expr::Var(Name::from("A"), 2u32.into())))),
+            Box::new(
+              Expr::Var(Name::from("k"), 1u32.into())),
+          )),
+          Box::new(
+          Expr::App(
+            Box::new(Expr::App(
+            Box::new(Expr::Var(Name::from("Vector"), 4u32.into())),
+            Box::new(Expr::Var(Name::from("A"), 3u32.into())))),
+            Box::new(
+              Expr::App(
+              Box::new(nat_succ.clone()),
+              Box::new(Expr::Var(Name::from("k"), 2u32.into())))),
+          ))))))),
+        ),
+      ]
+    });
   }
 }
