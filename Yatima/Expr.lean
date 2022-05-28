@@ -61,26 +61,65 @@ namespace Yatima
 
 namespace Expr
 
-def shift (inc : Nat) (dep : Option Nat) : Expr → Expr
+-- Get the list of de Bruijn indices of all the variables of a Yatima `Expr` (helpful for debugging later)
+def getIndices : Expr → List Nat
+  | var _ idx => [idx]
+  | app func input => getIndices func ++ getIndices input
+  | lam _ _ type body => getIndices type ++ getIndices body
+  | pi _ _ type body => getIndices type ++ getIndices body
+  | letE _ type value body => getIndices type ++ getIndices value ++ getIndices body
+  | fix _ body => getIndices body
+  | _ => [] -- All the rest of the cases are treated at once
+
+-- Gets the depth of a Yatima Expr (helpful for debugging later)
+def numBinders : Expr → Nat
+  | lam _ _ _ body => 1 + numBinders body
+  | pi _ _ _ body => 1 + numBinders body
+  | _ => 0
+
+-- Shift the de Bruijn of all bound variables at depth > `dep`.  
+def shift (expr : Expr) (inc : Nat) (dep : Option Nat := none) : Expr := match expr with
   | var name idx                => match dep with
     | some dep => if idx < dep then var name idx else var name <| idx + inc
     | none     => var name <| idx + inc
-  | sort lvl                    => sort lvl
-  | const name cid lvls         => const name cid lvls
   | app func input              => app (func.shift inc dep) (input.shift inc dep)
-  | lam name bind type body     => lam name bind (type.shift inc dep) (body.shift inc dep)
-  | pi name bind type body      => pi name bind (type.shift inc dep) (body.shift inc dep)
-  | letE name expr1 expr2 expr3 =>  letE name (expr1.shift inc dep) (expr2.shift inc dep) (expr3.shift    inc dep)
-  | lit litr                    => lit litr
-  | lty litType                 => lty litType
-  | fix name expr               => fix name <| expr.shift inc dep
+  | lam name bind type body     => lam name bind type (body.shift inc <| dep.map .succ)
+  | pi name bind type body      => pi name bind type (body.shift inc <| dep.map .succ)
+  | letE name type value body =>  
+    letE name type value (body.shift inc <| dep.map .succ)
+  | fix name body               => fix name <| body.shift inc dep
+  | other                       => other -- All the rest of the cases are treated at once
 
+/-
+TODO1: Fill in the `Fix` sorry after some guidance
+TODO2: I'm not sure this is right because I'm copying my work for untyped λ calculus which is 
+probably way simpler
+
+Substitute the expression `input` for any bound variable with de Bruijn index `subDep`
+-/
+def subst (expr input : Expr) (subDep : Nat := 0) : Expr :=
+shiftBack $ substAux expr input subDep
+where 
+substAux (expr input : Expr) (subDep : Nat := 0) : Expr := match expr with 
+  | var name idx => if idx == subDep then input else var name idx
+  | app func input' => app (substAux func input subDep) (substAux input' input subDep) 
+  | lam name bind type body => 
+    lam name bind (type.substAux input subDep) (body.substAux (.shift input 1 <| pure 0) subDep.succ) 
+  | pi name bind type body => 
+    pi name bind (type.substAux input subDep.succ) (body.substAux (.shift input 1 <| pure 0) subDep.succ) 
+  | letE name type value body => 
+    letE name (type.substAux input subDep) (value.substAux input subDep) (body.substAux (.shift input 1 <| pure 0) subDep.succ) 
+  | fix name body => sorry
+  | expr => expr -- All the rest of the cases are treated at once
+-- Shifts the dB indices of the outer-most Lambda by 1, this is separate because shift above only takes `Nat` input
+shiftBack : Expr → Expr 
+  | var name idx => match idx with
+    | 0          => unreachable! -- all the `0`-idx variables should be substituted out
+    | .succ idx' => var name idx'
+  | app func input' => app (shiftBack func) (shiftBack input')
+  | letE name type value body => letE name (shiftBack type) (shiftBack value) (shiftBack body)
+  | fix name body => sorry
+  | other => other
 end Expr
 
 end Yatima
-
-namespace tests
-
-
-end tests
-
