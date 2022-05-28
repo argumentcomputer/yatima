@@ -2,13 +2,15 @@ import Yatima.Ipld.Ipld
 import Yatima.Ipld.Multihash
 import Std.Data.RBTree
 
+namespace Yatima.DagCbor
+
 open Std (RBNode RBMap)
 
 def ser_null : ByteArray := ByteArray.mk #[0xf6]
 
 def ser_bool : Bool → ByteArray
-| true  => ByteArray.mk #[0xf5]
-| false => ByteArray.mk #[0xf4]
+  | true  => ByteArray.mk #[0xf5]
+  | false => ByteArray.mk #[0xf4]
 
 def ser_u8 (major : UInt8) (n : UInt8) : ByteArray :=
   if n <= 0x17
@@ -58,24 +60,26 @@ def nodeToList (map : RBNode String (fun _ => Ipld)) : List (String × Ipld) :=
 
 -- TODO: Add termination_by measure to show that serialize does terminate
 mutual
-partial def serialize : Ipld → ByteArray
-  | Ipld.null     => ser_null
-  | Ipld.bool   b => ser_bool b
-  | Ipld.number n => ser_u64 0 n
-  | Ipld.string s => ser_string s
-  | Ipld.bytes  b => ser_bytes b
-  | Ipld.array  a => ser_array a
-  | Ipld.object o => ser_object o
-  | Ipld.link cid => ser_link cid
 
-partial def ser_array (as: Array Ipld) : ByteArray :=
-  as.foldl (init := ser_u64 4 as.size.toUInt64)
-    fun acc a => acc ++ serialize a
+  partial def serialize : Ipld → ByteArray
+    | Ipld.null     => ser_null
+    | Ipld.bool   b => ser_bool b
+    | Ipld.number n => ser_u64 0 n
+    | Ipld.string s => ser_string s
+    | Ipld.bytes  b => ser_bytes b
+    | Ipld.array  a => ser_array a
+    | Ipld.object o => ser_object o
+    | Ipld.link cid => ser_link cid
 
-partial def ser_object (o: RBNode String (fun _ => Ipld)) : ByteArray :=
-  let list := nodeToList o
-  list.foldl (init := ser_u64 5 list.length.toUInt64)
-    fun acc (k, v) => acc ++ ser_string k ++ serialize v
+  partial def ser_array (as: Array Ipld) : ByteArray :=
+    as.foldl (init := ser_u64 4 as.size.toUInt64)
+      fun acc a => acc ++ serialize a
+
+  partial def ser_object (o: RBNode String (fun _ => Ipld)) : ByteArray :=
+    let list := nodeToList o
+    list.foldl (init := ser_u64 5 list.length.toUInt64)
+      fun acc (k, v) => acc ++ ser_string k ++ serialize v
+
 end
 
 structure ByteCursor where
@@ -84,15 +88,15 @@ structure ByteCursor where
   deriving Repr
 
 inductive DeserializeError
-| UnexpectedEOF
-| NoAlt
-| UnknownCborTag (tag: UInt8)
-| UnexpectedCborCode (code: Nat)
-| CidLenOutOfRange (len: UInt8)
-| CidPrefix (tag: UInt8)
-| CidRead
-| ExpectedTag (tag: UInt8) (read: UInt8)
-deriving BEq, Repr
+  | UnexpectedEOF
+  | NoAlt
+  | UnknownCborTag (tag: UInt8)
+  | UnexpectedCborCode (code: Nat)
+  | CidLenOutOfRange (len: UInt8)
+  | CidPrefix (tag: UInt8)
+  | CidRead
+  | ExpectedTag (tag: UInt8) (read: UInt8)
+  deriving BEq, Repr
 
 instance : ToString ByteCursor where
   toString bc := (toString bc.bytes.data.data) ++ "[" ++ (toString bc.pos) ++ "]"
@@ -272,3 +276,5 @@ partial def deserialize (x: ByteArray) : Except DeserializeError Ipld :=
   match EStateM.run deserialize_ipld (ByteCursor.mk x 0) with
   | EStateM.Result.ok x _ => Except.ok x
   | EStateM.Result.error e _ => Except.error e
+
+end Yatima.DagCbor

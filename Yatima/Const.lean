@@ -4,231 +4,251 @@ import Yatima.Expr
 namespace Yatima
 
 structure Axiom where
-  name: Name
-  lvls: List Name
-  type: ExprCid
-  safe: Bool
+  name : Name
+  lvls : List Name
+  type : ExprCid
+  safe : Bool
 
 structure AxiomAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  safe: Bool
+  lvls : Nat
+  type : ExprAnonCid
+  safe : Bool
 
 structure AxiomMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
+  name : Name
+  lvls : List Name
+  type : ExprMetaCid
 
 structure Theorem where
-  name: Name
-  lvls: List Name
-  type: ExprCid
-  value: ExprCid
+  name  : Name
+  lvls  : List Name
+  type  : ExprCid
+  value : ExprCid
 
 structure TheoremAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  value: ExprAnonCid
+  lvls  : Nat
+  type  : ExprAnonCid
+  value : ExprAnonCid
 
 structure TheoremMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
-  value: ExprMetaCid
+  name  : Name
+  lvls  : List Name
+  type  : ExprMetaCid
+  value : ExprMetaCid
 
 structure Opaque where
-  name: Name
-  lvls: List Name
-  type: ExprCid
-  value: ExprCid
-  safe: Bool
+  name  : Name
+  lvls  : List Name
+  type  : ExprCid
+  value : ExprCid
+  safe  : Bool
 
 structure OpaqueAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  value: ExprAnonCid
-  safe: Bool
+  lvls  : Nat
+  type  : ExprAnonCid
+  value : ExprAnonCid
+  safe  : Bool
 
 structure OpaqueMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
-  value: ExprMetaCid
+  name  : Name
+  lvls  : List Name
+  type  : ExprMetaCid
+  value : ExprMetaCid
 
-inductive DefSafety where
-| _safe
-| _unsafe
-| _partial
+inductive DefinitionSafety where
+  | safe | «unsafe» | «partial»
 
 structure Definition where
-  name: Name
-  lvls: List Name
-  type: ExprCid
-  value: ExprCid
-  safe: DefSafety
+  name   : Name
+  lvls   : List Name
+  type   : ExprCid
+  value  : ExprCid
+  safety : DefinitionSafety
 
 structure DefinitionAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  value: ExprAnonCid
-  safe: DefSafety
+  lvls   : Nat
+  type   : ExprAnonCid
+  value  : ExprAnonCid
+  safety : DefinitionSafety
 
 structure DefinitionMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
-  value: ExprMetaCid
+  name  : Name
+  lvls  : List Name
+  type  : ExprMetaCid
+  value : ExprMetaCid
 
 structure Inductive where
-  name: Name
-  lvls: List Name
-  type: ExprCid
-  params: Nat
-  indices: Nat
-  ctors: List (Name × ExprCid)
-  recr: Bool
-  safe: Bool
-  refl: Bool
-  nest: Bool
+  name    : Name
+  lvls    : List Name
+  type    : ExprCid
+  params  : Nat
+  indices : Nat
+  ctors   : List (Name × ExprCid)
+  recr    : Bool
+  safe    : Bool
+  refl    : Bool
+  nest    : Bool
 
 structure InductiveAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  params: Nat
-  indices: Nat
-  ctors: List (Name × ExprAnonCid)
-  recr: Bool
-  safe: Bool
-  refl: Bool
-  nest: Bool
+  lvls    : Nat
+  type    : ExprAnonCid
+  params  : Nat
+  indices : Nat
+  ctors   : List (Name × ExprAnonCid)
+  recr    : Bool
+  safe    : Bool
+  refl    : Bool
+  nest    : Bool
 
 structure InductiveMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
-  ctors: List ExprMetaCid
+  name  : Name
+  lvls  : List Name
+  type  : ExprMetaCid
+  ctors : List ExprMetaCid
 
 structure Constructor where
-  name: Name
-  lvls: List Name
-  type: Expr
-  ind: ConstCid
-  idx: Nat
-  params: Nat
-  fields: Nat
-  safe: Bool
+  name   : Name
+  lvls   : List Name
+  type   : ExprCid
+  ind    : ConstCid
+  idx    : Nat
+  params : Nat
+  fields : Nat
+  safe   : Bool
 
 structure ConstructorAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  ind: ConstAnonCid
-  idx: Nat
-  params: Nat
-  fields: Nat
-  safe: Bool
+  lvls   : Nat
+  type   : ExprAnonCid
+  ind    : ConstAnonCid
+  idx    : Nat
+  params : Nat
+  fields : Nat
+  safe   : Bool
 
 structure ConstructorMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
-  ind: ConstMetaCid
+  name : Name
+  lvls : List Name
+  type : ExprMetaCid
+  ind  : ConstMetaCid
 
-structure RecRule where
-  ctor : ConstCid
-  fields: Nat
-  rhs: Expr
+structure RecursorRule where
+  ctor   : ConstCid
+  fields : Nat
+  rhs    : ExprCid
 
-structure RecRuleAnon where
-  ctor : ConstAnonCid
-  fields: Nat
-  rhs: ExprAnonCid
+structure RecursorRuleAnon where
+  ctor   : ConstAnonCid
+  fields : Nat
+  rhs    : ExprAnonCid
 
-structure RecRuleMeta where
+structure RecursorRuleMeta where
   ctor : ConstMetaCid
-  rhs: ExprMetaCid
+  rhs  : ExprMetaCid
 
 structure Recursor where
-  name: Name
-  lvls: List Name
-  type: Expr
-  ind: ConstCid
-  params: Nat
-  indices: Nat
-  motives: Nat
-  minors: Nat
-  rules : List RecRule
-  k: Bool
-  safe: Bool
+  name    : Name
+  lvls    : List Name
+  type    : ExprCid
+  ind     : ConstCid
+  params  : Nat
+  indices : Nat
+  motives : Nat
+  minors  : Nat
+  rules   : List RecursorRule
+  k       : Bool
+  safe    : Bool
 
 structure RecursorAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  ind: ConstAnonCid
-  params: Nat
-  indices: Nat
-  motives: Nat
-  minors: Nat
-  rules : List RecRuleAnon
-  k: Bool
-  safe: Bool
+  lvls    : Nat
+  type    : ExprAnonCid
+  ind     : ConstAnonCid
+  params  : Nat
+  indices : Nat
+  motives : Nat
+  minors  : Nat
+  rules   : List RecursorRuleAnon
+  k       : Bool
+  safe    : Bool
 
 structure RecursorMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
-  ind: ConstMetaCid
-  rules : List RecRuleMeta
+  name  : Name
+  lvls  : List Name
+  type  : ExprMetaCid
+  ind   : ConstMetaCid
+  rules : List RecursorRuleMeta
 
 inductive QuotKind where
-| type
-| ctor
-| lift
-| ind
+  | type | ctor | lift | ind
 
 structure Quotient where
-  name: Name
-  lvls: List Name
-  type: Expr
-  kind: QuotKind
+  name : Name
+  lvls : List Name
+  type : ExprCid
+  kind : QuotKind
 
 structure QuotientAnon where
-  lvls: Nat
-  type: ExprAnonCid
-  kind: QuotKind
+  lvls : Nat
+  type : ExprAnonCid
+  kind : QuotKind
 
 structure QuotientMeta where
-  name: Name
-  lvls: List Name
-  type: ExprMetaCid
+  name : Name
+  lvls : List Name
+  type : ExprMetaCid
 
 inductive Const
-| «axiom» : Axiom → Const
-| «theorem» : Theorem → Const
-| «inductive» : Inductive → Const
-| opaque : Opaque → Const
-| definition : Definition → Const
-| constructor : Constructor → Const
-| recursor : Recursor → Const
-| quotient : Quotient → Const
+  | «axiom»     : Axiom → Const
+  | «theorem»   : Theorem → Const
+  | «inductive» : Inductive → Const
+  | opaque      : Opaque → Const
+  | definition  : Definition → Const
+  | constructor : Constructor → Const
+  | recursor    : Recursor → Const
+  | quotient    : Quotient → Const
 
 inductive ConstAnon
-| «axiom» : AxiomAnon → ConstAnon
-| «theorem» : TheoremAnon → ConstAnon
-| «inductive» : InductiveAnon → ConstAnon
-| opaque : OpaqueAnon → ConstAnon
-| definition : DefinitionAnon → ConstAnon
-| constructor : ConstructorAnon → ConstAnon
-| recursor : RecursorAnon → ConstAnon
-| quotient : QuotientAnon → ConstAnon
+  | «axiom»     : AxiomAnon → ConstAnon
+  | «theorem»   : TheoremAnon → ConstAnon
+  | «inductive» : InductiveAnon → ConstAnon
+  | opaque      : OpaqueAnon → ConstAnon
+  | definition  : DefinitionAnon → ConstAnon
+  | constructor : ConstructorAnon → ConstAnon
+  | recursor    : RecursorAnon → ConstAnon
+  | quotient    : QuotientAnon → ConstAnon
 
 inductive ConstMeta
-| «axiom» : AxiomMeta → ConstMeta
-| «theorem» : TheoremMeta → ConstMeta
-| «inductive» : InductiveMeta → ConstMeta
-| opaque : OpaqueMeta → ConstMeta
-| definition : DefinitionMeta → ConstMeta
-| constructor : ConstructorMeta → ConstMeta
-| recursor : RecursorMeta → ConstMeta
-| quotient : QuotientMeta → ConstMeta
+  | «axiom»     : AxiomMeta → ConstMeta
+  | «theorem»   : TheoremMeta → ConstMeta
+  | «inductive» : InductiveMeta → ConstMeta
+  | opaque      : OpaqueMeta → ConstMeta
+  | definition  : DefinitionMeta → ConstMeta
+  | constructor : ConstructorMeta → ConstMeta
+  | recursor    : RecursorMeta → ConstMeta
+  | quotient    : QuotientMeta → ConstMeta
+
+def Const.toAnon : Const → ConstAnon
+  | .axiom a => .axiom ⟨a.lvls.length, a.type.anon, a.safe⟩
+  | .theorem t => .theorem ⟨t.lvls.length, t.type.anon, t.value.anon⟩
+  | .inductive i => .inductive ⟨i.lvls.length, i.type.anon, i.params, i.indices,
+    i.ctors.map fun (n, e) => (n, e.anon), i.recr, i.safe, i.refl, i.nest⟩
+  | .opaque o => .opaque ⟨o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
+  | .definition d => .definition ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
+  | .constructor c => .constructor ⟨c.lvls.length, c.type.anon, c.ind.anon,
+    c.idx, c.params, c.fields, c.safe⟩
+  | .recursor r => .recursor ⟨r.lvls.length, r.type.anon, r.ind.anon, r.params,
+    r.indices, r.motives, r.minors,
+    r.rules.map fun rl => ⟨rl.ctor.anon, rl.fields, rl.rhs.anon⟩, r.k, r.safe⟩
+  | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
+
+def Const.toMeta : Const → ConstMeta
+  | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
+  | .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
+  | .inductive i => .inductive ⟨i.name, i.lvls, i.type.meta, i.ctors.map (·.2.meta)⟩
+  | .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta⟩
+  | .definition d => .definition ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
+  | .constructor c => .constructor ⟨c.name, c.lvls, c.type.meta, c.ind.meta⟩
+  | .recursor r => .recursor ⟨r.name, r.lvls, r.type.meta, r.ind.meta,
+    r.rules.map fun rl => ⟨rl.ctor.meta, rl.rhs.meta⟩⟩
+  | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
 
 end Yatima

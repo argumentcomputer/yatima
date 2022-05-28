@@ -1,7 +1,9 @@
 namespace Yatima
 
-structure Name where
-  name : String
-deriving BEq, Ord
+abbrev Name := String
+
+def Name.ofLeanName : Lean.Name → Name
+  | s@(.str ..) => s.toString
+  | _           => ""
 
 end Yatima
