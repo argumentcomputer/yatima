@@ -1,14 +1,5 @@
 import Lean
-import Yatima.Cid
-import Yatima.Univ
-import Yatima.Expr
-import Yatima.Const
-import Yatima.Env
 import Yatima.FromLean
-
--- forcing compilation:
-import Yatima.Ipld.DagCbor
-import Yatima.YatimaSpec
 
 open Yatima.Compiler.FromLean
 

@@ -1,4 +1,4 @@
-import Yatima.Ipld.Cid
+import Ipld.Cid
 
 namespace Yatima
 def UNIVANON  : UInt64 := 0xC0DE0001
