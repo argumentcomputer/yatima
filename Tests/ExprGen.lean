@@ -16,26 +16,27 @@ deriving Inhabited
 
 namespace LExpr
 
--- Positive shifts only
-def shift (inc : Nat) (cutoff : Nat) : LExpr → LExpr
-  | var idx        => if idx < cutoff then var idx else var $ inc + idx
-  | lam body       => lam $ body.shift inc <| cutoff.succ
-  | app func input => app (func.shift inc cutoff) (input.shift inc cutoff)
+/--
+Shift the de Bruijn indices of variables above cutoff `cutoff` in expression `expr` by an increment` inc`
 
--- Substitution for lambda expressions
+Implementation of `shift` and `subst` taken from _Types and Programming Languages_ by B. Pierce
+-/
+def shift (expr : LExpr) (inc : Nat) (cutoff : Nat) : LExpr :=
+  let rec walk (cutoff : Nat) (expr : LExpr) := match expr with
+    | var idx        => if idx < cutoff then var idx else var (idx + inc)
+    | lam body       => lam $ walk (cutoff.succ) body
+    | app func input => app (walk cutoff func) (walk cutoff input)
+  walk cutoff expr
+
+/--
+Substitute the expression `term` into variables of depth `dep` in the expression `expr`
+-/ 
 def subst (expr term : LExpr) (dep : Nat) : LExpr := 
-shiftBack $ substAux expr term dep
-where 
-substAux expr term dep : LExpr := match expr with
-  | var idx => if idx == dep then term else var idx
-  | lam body => lam $ body.subst (term.shift 1 0) (dep + 1)
-  | app func body => app (func.subst term dep) (body.subst term dep)
-shiftBack expr : LExpr := match expr with
-  | var idx => match idx with
-    | 0 => var 0 
-    | idx' + 1 => var idx'
-  | lam body => lam body
-  | app func input => app (shiftBack func) (shiftBack input)
+  let rec walk (acc : Nat) (expr : LExpr) := match expr with
+    | var idx        => if idx == dep + acc then term.shift acc 0 else var idx
+    | lam body       => lam $ walk (acc.succ) body
+    | app func input => app (walk acc func) (walk acc input)
+  walk 0 expr
 
 end LExpr
 
@@ -280,3 +281,26 @@ def printRandomLExpr : IO Unit := do
 def printExamples : IO Unit := do
   for _ in List.range 20 do
     printRandomLExpr
+
+-- #eval printExamples
+-- Random output:
+-- ((λ. (λ. #84)) (λ. (λ. #52)))
+-- (λ. #78)
+-- (λ. (λ. #21))
+-- (((#0 #0) (#0 #0)) ((#0 #0) (#0 #0)))
+-- (#0 #0)
+-- (λ. #8)
+-- (λ. (λ. ((λ. (((λ. (λ. #95)) (λ. (λ. #37))) ((λ. (λ. #9)) (λ. (λ. #77))))) (λ. (((λ. (λ. #40)) (λ. (λ. #44))) ((λ. (λ. #83)) (λ. (λ. #57))))))))
+-- (((λ. ((λ. (λ. ((#55 #56) (#57 #61)))) (λ. (λ. ((#7 #66) (#73 #59)))))) (λ. ((λ. (λ. ((#56 #7) (#27 #39)))) (λ. (λ. ((#52 #83) (#58 #23))))))) ((λ. ((λ. (λ. ((#60 #59) (#86 #83)))) (λ. (λ. ((#77 #83) (#28 #43)))))) (λ. ((λ. (λ. ((#21 #25) (#35 #74)))) (λ. (λ. ((#22 #11) (#82 #75))))))))
+-- (#73 #55)
+-- #0
+-- (λ. (λ. ((λ. (λ. #2)) (λ. (λ. #1)))))
+-- (((λ. (#4 #94)) (λ. (#34 #37))) ((λ. (#49 #5)) (λ. (#31 #12))))
+-- (λ. #69)
+-- (λ. #0)
+-- (λ. (λ. #24))
+-- #31
+-- #0
+-- (((λ. (λ. #74)) (λ. (λ. #60))) ((λ. (λ. #21)) (λ. (λ. #28))))
+-- #3
+-- (λ. ((λ. #1) (λ. #0)))

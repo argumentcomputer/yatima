@@ -73,53 +73,56 @@ def getIndices : Expr → List Nat
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
 def numBinders : Expr → Nat
-  | lam _ _ _ body => 1 + numBinders body
-  | pi _ _ _ body => 1 + numBinders body
+  | lam _ _ _ body  => 1 + numBinders body
+  | pi _ _ _ body   => 1 + numBinders body
+  | letE _ _ _ body => 1 + numBinders body
+  | fix _ body      => 1 + numBinders body
   | _ => 0
 
--- Shift the de Bruijn of all bound variables at depth > `dep`.  
-def shift (expr : Expr) (inc : Nat) (dep : Option Nat := none) : Expr := match expr with
-  | var name idx                => match dep with
-    | some dep => if idx < dep then var name idx else var name <| idx + inc
-    | none     => var name <| idx + inc
-  | app func input              => app (func.shift inc dep) (input.shift inc dep)
-  | lam name bind type body     => lam name bind type (body.shift inc <| dep.map .succ)
-  | pi name bind type body      => pi name bind type (body.shift inc <| dep.map .succ)
-  | letE name type value body =>  
-    letE name type value (body.shift inc <| dep.map .succ)
-  | fix name body               => fix name <| body.shift inc dep
-  | other                       => other -- All the rest of the cases are treated at once
+/--
+Shift the de Bruijn indices of all bound variables at depth > `dep`.
 
-/-
-TODO1: Fill in the `Fix` sorry after some guidance
-TODO2: I'm not sure this is right because I'm copying my work for untyped λ calculus which is 
-probably way simpler
-
-Substitute the expression `input` for any bound variable with de Bruijn index `subDep`
+`shift` and `subst` implementations are variation on those for untyped λ-expressions from `Tests/ExprGen.lean`.
 -/
-def subst (expr input : Expr) (subDep : Nat := 0) : Expr :=
-shiftBack $ substAux expr input subDep
-where 
-substAux (expr input : Expr) (subDep : Nat := 0) : Expr := match expr with 
-  | var name idx => if idx == subDep then input else var name idx
-  | app func input' => app (substAux func input subDep) (substAux input' input subDep) 
-  | lam name bind type body => 
-    lam name bind (type.substAux input subDep) (body.substAux (.shift input 1 <| pure 0) subDep.succ) 
-  | pi name bind type body => 
-    pi name bind (type.substAux input subDep.succ) (body.substAux (.shift input 1 <| pure 0) subDep.succ) 
-  | letE name type value body => 
-    letE name (type.substAux input subDep) (value.substAux input subDep) (body.substAux (.shift input 1 <| pure 0) subDep.succ) 
-  | fix name body => sorry
-  | expr => expr -- All the rest of the cases are treated at once
--- Shifts the dB indices of the outer-most Lambda by 1, this is separate because shift above only takes `Nat` input
-shiftBack : Expr → Expr 
-  | var name idx => match idx with
-    | 0          => unreachable! -- all the `0`-idx variables should be substituted out
-    | .succ idx' => var name idx'
-  | app func input' => app (shiftBack func) (shiftBack input')
-  | letE name type value body => letE name (shiftBack type) (shiftBack value) (shiftBack body)
-  | fix name body => sorry
-  | other => other
+def shift (expr : Expr) (inc : Int) (cutoff : Nat) : Expr := 
+  let rec walk (cutoff : Nat) (expr : Expr) : Expr := match expr with
+    | var name idx              => 
+      match inc with
+        | .ofNat inc   => if idx < cutoff then var name idx else var name <| idx + inc
+        | .negSucc inc => if idx < cutoff then var name idx else var name <| idx - inc.succ -- 0 - 1 = 0 
+    | app func input            => app (walk cutoff func) (walk cutoff input)
+    | lam name bind type body   => lam name bind (walk cutoff type) (walk cutoff.succ body)
+    | pi name bind type body    => pi name bind (walk cutoff type) (walk cutoff.succ body)
+    | letE name type value body =>
+      letE name (walk cutoff type) (walk cutoff value) (walk cutoff.succ body)
+    | fix name body             => fix name (walk cutoff.succ body)
+    | other                     => other -- All the rest of the cases are treated at once
+  walk cutoff expr
+/--
+Substitute the expression `term` for any bound variable with de Bruijn index `subDep`
+-/
+def subst (expr term : Expr) (dep : Nat) : Expr :=
+  let rec walk (acc : Nat) (expr : Expr) : Expr := match expr with
+    | var name idx => if idx == dep + acc then term.shift acc 0 else var name idx
+    | app func input => app (walk acc func) (walk acc input) 
+    | lam name bind type body => 
+      lam name bind (walk acc type) (walk acc.succ body) 
+    | pi name bind type body => 
+      pi name bind (walk acc type) (walk acc.succ body) 
+    | letE name type value body => 
+      letE name (walk acc type) (walk acc value) (walk acc.succ body) 
+    | fix name body => fix name (walk acc.succ body) 
+    | other => other -- All the rest of the cases are treated at once
+  walk 0 expr
+
+/--
+Substitute the expression `term` for the top level bound variable of the expression `expr`. 
+
+(essentially just `(λ. M) N` )
+-/
+def substTop (expr term : Expr) : Expr :=
+  expr.subst (term.shift 1 0) 0 |>.shift (-1) 0
+
 end Expr
 
 end Yatima
