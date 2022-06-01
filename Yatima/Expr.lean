@@ -118,11 +118,14 @@ def shiftVars (expr : Expr) (inc : Int) : Expr :=
   walk expr
 
 /--
-Substitute the expression `term` for any bound variable with de Bruijn index `subDep`
+Substitute the expression `term` for any bound variable with de Bruijn index `dep` in the expression `expr`
 -/
 def subst (expr term : Expr) (dep : Nat) : Expr :=
   let rec walk (acc : Nat) (expr : Expr) : Expr := match expr with
-    | var name idx => if idx == dep + acc then term.shift acc 0 else var name idx
+    | var name idx => match compare idx (dep + acc) with
+      | .eq => term.shiftFreeVars acc 0
+      | .gt => var name (idx - 1)
+      | .lt => var name idx
     | app func input => app (walk acc func) (walk acc input) 
     | lam name bind type body => 
       lam name bind (walk acc type) (walk acc.succ body) 
@@ -140,7 +143,7 @@ Substitute the expression `term` for the top level bound variable of the express
 (essentially just `(λ. M) N` )
 -/
 def substTop (expr term : Expr) : Expr :=
-  expr.subst (term.shift 1 0) 0 |>.shift (-1) 0
+  expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
 
 end Expr
 
