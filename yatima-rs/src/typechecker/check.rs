@@ -113,5 +113,6 @@ pub fn infer(
       Ok(Value::Sort(one))
     }
     Expr::Fix(..) => Err(CheckError::CannotInferFix),
+    _ => todo!() // Projections
   }
 }
