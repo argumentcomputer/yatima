@@ -67,6 +67,10 @@ pub fn expr_from_anon(expr_cid: &ExprAnonCid, cid_env: &Env, conv_env: &mut Conv
       let bod = expr_from_anon(bod_cid, cid_env, conv_env);
       Rc::new(Expr::Fix(bod))
     },
+    ExprAnon::Proj(idx, exp_cid) => {
+      let exp = expr_from_anon(exp_cid, cid_env, conv_env);
+      Rc::new(Expr::Fix(exp))
+    },
   };
   conv_env.exprs.insert(*expr_cid, expr.clone());
   expr
