@@ -9,3 +9,7 @@ A verifiable computing language
 ## Build
 
 Build it with `lake build`
+
+## Test
+
+Use `lake script run tests` to run the tests.
