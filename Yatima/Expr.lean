@@ -80,11 +80,11 @@ def numBinders : Expr → Nat
   | _ => 0
 
 /--
-Shift the de Bruijn indices of all bound variables at depth > `dep`.
+Shift the de Bruijn indices of all variables at depth > `cutoff` in expression `expr` by an increment `inc`.
 
-`shift` and `subst` implementations are variation on those for untyped λ-expressions from `Tests/ExprGen.lean`.
+`shiftFreeVars` and `subst` implementations are variation on those for untyped λ-expressions from `ExprGen.lean`.
 -/
-def shift (expr : Expr) (inc : Int) (cutoff : Nat) : Expr := 
+def shiftFreeVars (expr : Expr) (inc : Int) (cutoff : Nat) : Expr := 
   let rec walk (cutoff : Nat) (expr : Expr) : Expr := match expr with
     | var name idx              => 
       match inc with
@@ -98,6 +98,25 @@ def shift (expr : Expr) (inc : Int) (cutoff : Nat) : Expr :=
     | fix name body             => fix name (walk cutoff.succ body)
     | other                     => other -- All the rest of the cases are treated at once
   walk cutoff expr
+
+/--
+Shift the de Bruijn indices of all variables in expression `expr` by increment `inc`. 
+-/
+def shiftVars (expr : Expr) (inc : Int) : Expr :=
+  let rec walk (expr : Expr) : Expr := match expr with
+    | var name idx              => 
+      match inc with
+        | .ofNat inc   => var name <| idx + inc
+        | .negSucc inc => var name <| idx - inc.succ -- 0 - 1 = 0 
+    | app func input            => app (walk func) (walk input)
+    | lam name bind type body   => lam name bind (walk type) (walk body)
+    | pi name bind type body    => pi name bind (walk type) (walk body)
+    | letE name type value body =>
+      letE name (walk type) (walk value) (walk body)
+    | fix name body             => fix name (walk body)
+    | other                     => other -- All the rest of the cases are treated at once
+  walk expr
+
 /--
 Substitute the expression `term` for any bound variable with de Bruijn index `subDep`
 -/
