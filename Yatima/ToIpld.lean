@@ -1,7 +1,7 @@
-import Yatima.Ipld.Cid
-import Yatima.Ipld.Ipld
-import Yatima.Ipld.DagCbor
-import Yatima.Ipld.Multihash
+import Ipld.Cid
+import Ipld.Ipld
+import Ipld.DagCbor
+import Ipld.Multihash
 import Yatima.Univ
 import Yatima.Expr
 import Yatima.Const
