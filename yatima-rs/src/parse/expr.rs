@@ -134,7 +134,7 @@ pub fn parse_univ_args(
   }
 }
 
-// `foo:bafyqwoieruwqoieruuoqweqwerqw.bafyqwoieruwqoieruuoqweqwerq {u v w}`
+// `foo:bafyqwoieruwqoieruuoqweqwerqw.bafyqwoieruwqoieruuoqweqwerq.{u v w}`
 pub fn parse_expr_const(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
@@ -144,12 +144,13 @@ pub fn parse_expr_const(
   move |from: Span| {
     let (i, nam) = parse_name(from)?;
     let (i, cid) = opt(preceded(tag(":"), parse_const_cid))(i)?;
-    let (i, _) = parse_space(i)?;
-    let (i, args) = parse_univ_args(univ_ctx.clone())(i)?;
+    let (i, args) = opt(preceded(tag("."), parse_univ_args(univ_ctx.clone())))(i)?;
     let mut arg_cids = Vec::new();
-    for arg in args {
-      let (_, cid) = store_univ(env_ctx.clone(), arg, i)?;
-      arg_cids.push(cid);
+    if let Some(args) = args {
+      for arg in args {
+        let (_, cid) = store_univ(env_ctx.clone(), arg, i)?;
+        arg_cids.push(cid);
+      }
     }
     if let Some(cid) = cid {
       Ok((i, Expr::Const(nam, cid, arg_cids)))
@@ -823,19 +824,25 @@ pub mod tests {
         Span::new(i),
       )
     }
-    let res = test(env_ctx.clone(), vec![], vec![], "foo {}");
+    let res = test(env_ctx.clone(), vec![], vec![], "foo.{}");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![])
     );
-    let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo {}");
+    let res = test(env_ctx.clone(), vec![], vec![], "foo");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![])
     );
-    let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo {u v}");
+    let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo.{}");
+    assert!(res.is_ok());
+    assert_eq!(
+      res.unwrap().1,
+      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+    );
+    let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo.{u v}");
     println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(

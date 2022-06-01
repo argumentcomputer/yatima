@@ -600,12 +600,12 @@ pub mod tests {
     let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(1), vec![]);
     let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(2), vec![]);
 
-    //TODO(rish) clean up notation (unnecessary emtpy universe lists and comma
-    // at the end, also split this big test up into its unit test components
+    //TODO(rish) clean up notation (comma at the end),
+    //also split this big test up into its unit test components
     let res = test(
-    "unsafe inductive rec Vector {u} (A: Sort 0) : (k: Nat {}) -> Sort 0 where
-     | Nil : Vector A Nat.zero {},
-     | Cons (k: Nat {}) (x: A) (xs: Vector A k): Vector A (Nat.succ {} k),");
+    "unsafe inductive rec Vector {u} (A: Sort 0) : (k: Nat) -> Sort 0 where
+     | Nil : Vector A Nat.zero,
+     | Cons (k: Nat) (x: A) (xs: Vector A k): Vector A (Nat.succ k),");
     assert!(res.is_ok());
     assert_eq!(res.unwrap().1, InductiveDecl {
       safe: false,
