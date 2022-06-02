@@ -4,7 +4,7 @@ the aim is to write a generator for random `Expr` trees.
 
 For now all it does is generate untyped lambda expressions, but this is just a PoC for the main goal.
 -/
-import Yatima.Ipld.Utils
+import Ipld.Utils
 
 -- Basic inductive type for lambda expressions to test the expression generator before trying it on
 -- full blown Yatima Exprs
