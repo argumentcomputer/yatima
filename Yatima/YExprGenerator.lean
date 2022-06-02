@@ -11,11 +11,11 @@ deriving Inhabited
 instance : BEq Hole where
   beq := fun h₁ h₂ => h₁.id == h₂.id
 
-inductive VarType 
-  | free
-  | bdd
-
+inductive NodeType | app | lam | pi | letE | fix
+inductive VarType  | free | bdd
 inductive LeafType | sort | const | lit | var : VarType → LeafType
+
+abbrev ExprType := NodeType ⊕ LeafType 
 
 /--
 The type of **holed** Yatima expressions. Holes are basically less fancy Lean metavariables
@@ -94,21 +94,159 @@ def getNextHole : ExprGen (Option Hole) := do
     | []        => return none
     | hole :: _ => return some hole
 
-partial def getBinderDepth (hole : Hole) : ExprGen Nat := do
+/--
+Given a `hole`, find the binder depth of 
+-/
+partial def getBinderDepth (hole : Hole) : ExprGen (Option Nat) := do
   let head := (← get).head
   getBinderDepthAux hole head 0
-  where getBinderDepthAux (hole : Hole) (head : Hole) (acc : Nat) : ExprGen Nat := do
-    let expr? := (← getValue? head)
-      match expr? with 
-        | none => unreachable!
+  where getBinderDepthAux (hole : Hole) (head : Hole) (acc : Nat) : ExprGen (Option Nat) := do
+    if head == hole then pure acc else
+      let expr? := (← getValue? head)
+      match expr? with
+        | none => return none
         | some expr => match expr with
-          | .leaf _ => return acc
-          | .lam type body  => if body == hole then return acc else getBinderDepthAux hole body (acc + 1)
-          | .pi type body   => if body == hole then return acc else getBinderDepthAux hole body (acc + 1)
-          | .app func input => if hole == func || hole == input then return acc else 
-            let inFunc ← getBinderDepthAux hole func acc
-            let inInput ← getBinderDepthAux hole input acc
-            return min inFunc inInput
-          | other => return 0 -- TODO: Keep working 
+          |.leaf _ => return none
+          | .lam type body  => 
+            getBinderDepthAux hole type acc <||> getBinderDepthAux hole body acc.succ
+          | .pi type body   =>
+            getBinderDepthAux hole type acc <||> getBinderDepthAux hole body acc.succ
+          | .app func input => 
+            getBinderDepthAux hole func acc <||> getBinderDepthAux hole input acc
+          | .letE .. => pure $ some 0 --TODO: Look at the wiki page and 
+          | .fix body  => getBinderDepthAux hole body acc 
 
-open Yatima
+def getHoles (expr : HExpr) : ExprGen (List Hole) := do
+  match expr with
+    | .lam type body => return [type, body]
+    | .app func input => return [func, input]
+    | .pi  type body => return [type, body]
+    | .letE type value body => return [type, value, body]
+    | .fix body => return [body]
+    | .leaf _ => return []
+
+def genExpr (depth : Nat) (type : ExprType) : ExprGen HExpr := do
+  match type with
+    | .inl nodeType => match nodeType with
+        | .app  => return .app (← genNewHole depth.succ) (← genNewHole depth.succ) 
+        | .lam  => return .lam (← genNewHole depth.succ) (← genNewHole depth.succ) 
+        | .pi   => return .pi (← genNewHole depth.succ) (← genNewHole depth.succ) 
+        | .letE => return .letE (← genNewHole depth.succ)
+                                (← genNewHole depth.succ)
+                                (← genNewHole depth.succ)
+        | .fix  => return .fix (← genNewHole depth.succ)
+    | .inr leafType => return .leaf leafType
+
+def fillHole (target : Hole) (type : ExprType) : ExprGen Unit := do
+  let state ← get
+  let expr ← genExpr (target.treeDepth) type
+  let newHoles' := state.holes.erase target
+  let newHoles :=  newHoles' ++ (← getHoles expr)
+  let idx ← getIndex? target
+  match idx with
+    | none    => 
+      let newFilledHoles := (target, expr) :: state.filledHoles
+      let newState : State := {
+        holes := newHoles
+        filledHoles := newFilledHoles
+        head := state.head
+      }
+      return (← set newState)
+    | some id =>
+      let droppedHole := state.filledHoles.drop id
+      let newFilledHoles := (target, expr) :: state.filledHoles
+      let newState : State := {
+        holes := newHoles
+        filledHoles := newFilledHoles
+        head := state.head
+      }
+      return (← set newState)
+
+def getRandomType (isLeaf : Bool := False): IO ExprType := do
+  if isLeaf then 
+    let leafTypeNum ← IO.rand 0 3
+    match leafTypeNum with
+      | 0 => return Sum.inr .sort
+      | 1 => return Sum.inr .const
+      | 2 => return Sum.inr .lit
+      | _ => 
+        let isFree ← IO.rand 0 1
+        return Sum.inr $ .var (if isFree == 1 then .free else .bdd)
+  else
+    let nodeTypeNum ← IO.rand 0 4
+    match nodeTypeNum with
+      | 0 => return Sum.inl .app
+      | 1 => return Sum.inl .lam
+      | 2 => return Sum.inl .pi
+      | 3 => return Sum.inl .letE
+      | _ => return Sum.inl .fix
+
+def fillNextHole : ExprGen Unit := do
+  let state ← get
+  match state.holes with
+    | [] => return ()
+    | h :: hs =>
+      if h.treeDepth ≥ MAX_DEPTH then 
+        let exprType ← getRandomType true
+        fillHole h exprType
+      else
+        let exprType ← getRandomType
+        fillHole h exprType
+
+partial def fillAllHoles : ExprGen Unit := do
+  let state ← get
+  match state.holes with
+    | [] => return ()
+    | _ =>
+      fillNextHole
+      fillAllHoles
+
+def randomAlpha : IO Char := do
+  let isUpper ← IO.rand 0 1
+  if (isUpper == 1) then return .ofNat (← IO.rand 65 90) else return .ofNat (← IO.rand 97 122)
+
+-- generate 3-character long alpha names 
+def randomName : IO String := do
+  return String.mk [←randomAlpha, ←randomAlpha, ←randomAlpha] 
+
+-- TODO: Need a way to generate random `UnivCIDs`
+def randomSort : IO Yatima.Expr := sorry
+
+-- TODO: Need a way to generate random `ConstCid` (and `UnivCid`)s
+def randomConst : IO Yatima.Expr := sorry
+
+-- TODO: Just use randomName
+def randomLit : IO Yatima.Expr := sorry
+
+-- TODO: Same structure as before
+def randomVar : IO Yatima.Expr := sorry
+
+partial def assembleExprAux (head : Hole) : ExprGen Yatima.Expr := do
+  let hExpr ← getValue? head
+  match hExpr with
+    | none => unreachable!
+    | some expr => match expr with
+      | .app funcHole inputHole           => 
+        return .app (← assembleExprAux funcHole) (← assembleExprAux inputHole)
+      | .lam typeHole bodyHole            => 
+        return .lam (← randomName) default (← assembleExprAux typeHole) (← assembleExprAux bodyHole)
+      | .pi typeHole bodyHole             => 
+        return .pi (← randomName) default (← assembleExprAux typeHole) (← assembleExprAux bodyHole)
+      | .letE typeHole valueHole bodyHole =>
+        return .letE (← randomName) (← assembleExprAux typeHole) 
+                                    (← assembleExprAux valueHole) 
+                                    (← assembleExprAux bodyHole)
+      | .fix bodyHole                     => 
+        return .fix (← randomName) (← assembleExprAux bodyHole) 
+      | .leaf leafType => match leafType with
+        | .sort        => return (← randomSort)
+        | .const       => return (← randomConst)
+        | .lit         => return (← randomLit)
+        | .var varType => return (← randomVar)
+
+partial def run : ExprGen Yatima.Expr := do
+  fillAllHoles
+  let head := (← get).head
+  assembleExprAux head
+
+-- TODO: write a `ToString` instance to read the result (not super important)
