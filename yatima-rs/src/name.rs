@@ -69,3 +69,23 @@ impl<'de> Deserialize<'de> for Name {
     Ok(Name { inner: Rc::from(string.as_str()) })
   }
 }
+
+#[cfg(test)]
+pub mod tests {
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  pub fn arbitrary_ascii_name(g: &mut Gen, len: usize) -> Name {
+    let mut s: String = String::new();
+    while s.len() < len {
+      let i = (u32::arbitrary(g) % 26) + 97;
+      let c = unsafe { char::from_u32_unchecked(i) };
+      s.push(c)
+    }
+    Name::from(format!("{}", s))
+  }
+}
