@@ -10,7 +10,7 @@ namespace Yatima.ToIpld
 
 def ipldToCid (ipld : Ipld) : Except String Cid :=
   match Cid.fromBytes (Multihash.sha3_256 (DagCbor.serialize ipld)).digest with
-  | none     => throw "Unable to generate Cid for {-- todo}"
+  | none     => throw s!"Unable to generate Cid for {ipld}"
   | some cid => return cid
 
 instance : Coe Nat Ipld where
