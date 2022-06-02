@@ -134,7 +134,7 @@ pub fn parse_univ_args(
   }
 }
 
-// `foo:bafyqwoieruwqoieruuoqweqwerqw.bafyqwoieruwqoieruuoqweqwerq {u v w}`
+// `foo:bafyqwoieruwqoieruuoqweqwerqw.bafyqwoieruwqoieruuoqweqwerq.{u v w}`
 pub fn parse_expr_const(
   univ_ctx: UnivCtx,
   bind_ctx: BindCtx,
@@ -144,12 +144,13 @@ pub fn parse_expr_const(
   move |from: Span| {
     let (i, nam) = parse_name(from)?;
     let (i, cid) = opt(preceded(tag(":"), parse_const_cid))(i)?;
-    let (i, _) = parse_space(i)?;
-    let (i, args) = parse_univ_args(univ_ctx.clone())(i)?;
+    let (i, args) = opt(preceded(tag("."), parse_univ_args(univ_ctx.clone())))(i)?;
     let mut arg_cids = Vec::new();
-    for arg in args {
-      let (_, cid) = store_univ(env_ctx.clone(), arg, i)?;
-      arg_cids.push(cid);
+    if let Some(args) = args {
+      for arg in args {
+        let (_, cid) = store_univ(env_ctx.clone(), arg, i)?;
+        arg_cids.push(cid);
+      }
     }
     if let Some(cid) = cid {
       Ok((i, Expr::Const(nam, cid, arg_cids)))
@@ -579,14 +580,16 @@ pub fn parse_bound_expression(
     for (_, n, _) in bs.iter() {
       type_bind_ctx.push_front(n.clone());
     }
-    let (i, typ) = parse_rec_expr_apps(
+    let (i, typ) = parse_expr_apps(
       univ_ctx.clone(),
       type_bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
-      rec.clone(),
     )(i)?;
     let mut term_bind_ctx = bind_ctx.clone();
+    if let Some(name) = &rec {
+      term_bind_ctx.push_front(name.clone());
+    }
     for (_, n, _) in bs.iter() {
       term_bind_ctx.push_front(n.clone());
     }
@@ -595,13 +598,16 @@ pub fn parse_bound_expression(
     let (i, _) = parse_space(i)?;
     let (i, trm) = parse_expr_apps(
       univ_ctx.clone(),
-      type_bind_ctx.clone(),
+      term_bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
     )(i)?;
-    let trm = bs.iter().rev().fold(trm, |acc, (b, n, t)| {
+    let mut trm = bs.iter().rev().fold(trm, |acc, (b, n, t)| {
       Expr::Lam(n.clone(), b.clone(), Box::new(t.clone()), Box::new(acc))
     });
+    if let Some(name) = &rec {
+      trm = Expr::Fix(name.clone(), Box::new(trm));
+    }
     let typ = bs
       .into_iter()
       .rev()
@@ -766,7 +772,6 @@ pub mod tests {
       ))
     }
     let res = test(env_ctx.clone(), vec!["u", "v", "w"], "Sort u");
-    println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
@@ -819,19 +824,25 @@ pub mod tests {
         Span::new(i),
       )
     }
-    let res = test(env_ctx.clone(), vec![], vec![], "foo {}");
+    let res = test(env_ctx.clone(), vec![], vec![], "foo.{}");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![])
     );
-    let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo {}");
+    let res = test(env_ctx.clone(), vec![], vec![], "foo");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
       Expr::Const("foo".into(), dummy_const_cid(), vec![])
     );
-    let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo {u v}");
+    let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo.{}");
+    assert!(res.is_ok());
+    assert_eq!(
+      res.unwrap().1,
+      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+    );
+    let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo.{u v}");
     println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
@@ -1069,21 +1080,105 @@ pub mod tests {
   }
   #[test]
   fn test_parse_lam() {
-    let env_ctx = Rc::new(RefCell::new(Env::new()));
-    fn test(env_ctx: EnvCtx, i: &str) -> IResult<Span, Expr, ParseError<Span>> {
-      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env_ctx)(
+    fn test(i: &str) -> IResult<Span, Expr, ParseError<Span>> {
+      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), Rc::new(RefCell::new(Env::new())))(
         Span::new(i),
       )
     }
-    let res = test(env_ctx.clone(), "λ (a: Sort 0) => Sort 0");
+    let res = test("λ (a: Sort 0) => Sort 0");
     assert!(res.is_ok());
-    let res = test(env_ctx.clone(), "λ (A: Sort 0) (x : A) => A");
+    let res = test("λ (A: Sort 0) (x : A) => A");
     assert!(res.is_ok());
     let res = test(
-      env_ctx.clone(),
       "λ [X: Sort 0] {X: Sort 0} (A: Sort 0) (x : A) => A",
     );
-    println!("{:?}", res);
     assert!(res.is_ok());
+  }
+
+  #[test]
+  fn test_parse_bound_expression() {
+    fn test(i: &str, rec: Option<Name>) -> IResult<Span, (Expr, Expr), ParseError<Span>> {
+      parse_bound_expression(Vector::new(), Vector::new(), OrdMap::new(), Rc::new(RefCell::new(Env::new())),
+        rec)(Span::new(i))
+    }
+    let res = test("(a: Sort 0) : Sort 0 := a", Option::None);
+    assert!(res.is_ok());
+    let (_, (typ, trm)) = res.unwrap();
+    assert_eq!(typ,
+      Expr::Pi(Name::from("a"), BinderInfo::Default, 
+        Box::new(
+          Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+        ),
+        Box::new(
+          Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+        ),
+      )
+    );
+    assert_eq!(trm,
+      Expr::Lam(Name::from("a"), BinderInfo::Default, 
+        Box::new(
+          Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+        ),
+        Box::new(
+          Expr::Var(Name::from("a"), 0u32.into())
+        ),
+      )
+    );
+
+    let res = test("(a b: Sort 0) : Sort 0 := f a b", Option::Some(Name::from("f")));
+    assert!(res.is_ok());
+    let (_, (typ, trm)) = res.unwrap();
+    assert_eq!(typ,
+      Expr::Pi(Name::from("a"), BinderInfo::Default, 
+        Box::new(
+          Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+        ),
+        Box::new(
+          Expr::Pi(Name::from("b"), BinderInfo::Default, 
+            Box::new(
+              Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+            ),
+            Box::new(
+              Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+            ),
+          )
+        ),
+      )
+    );
+    assert_eq!(trm,
+      Expr::Fix(Name::from("f"),
+        Box::new(
+          Expr::Lam(Name::from("a"), BinderInfo::Default, 
+            Box::new(
+              Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+            ),
+            Box::new(
+              Expr::Lam(Name::from("b"), BinderInfo::Default, 
+                Box::new(
+                  Expr::Sort(Univ::Zero.cid(&mut Env::new()).unwrap()),
+                ),
+                Box::new(
+                  Expr::App(
+                    Box::new(
+                      Expr::App(
+                        Box::new(
+                          Expr::Var(Name::from("f"), 2u32.into())
+                        ),
+                        Box::new(
+                          Expr::Var(Name::from("a"), 1u32.into())
+                        )
+                      )
+                    ),
+                    Box::new(
+                      Expr::Var(Name::from("b"), 0u32.into())
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    );
   }
 }
