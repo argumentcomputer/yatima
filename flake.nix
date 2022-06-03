@@ -8,7 +8,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs.url = github:nixos/nixpkgs/nixos-21.05;
+    nixpkgs.url = github:nixos/nixpkgs/nixos-21.11;
     naersk = {
       url = github:nix-community/naersk;
       inputs.flake-utils.follows = "flake-utils";
