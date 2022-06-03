@@ -1,16 +1,19 @@
 import Yatima.Expr
+import Std.Data.HashMap
 
-def MAX_DEPTH : Nat := 10
+def MAX_DEPTH : Nat := 15 -- Not recommended going over 10 or 11 until generation parameters are adjusted
 
 structure Hole where
   id : Nat
   treeDepth : Nat
-  -- 
+  -- Add in UnivLevel information to make generating 
   -- Eventually may store the type signature of a Hole to generate type-correct Yatima expressions.
 deriving Inhabited  
 
 instance : BEq Hole where
   beq := fun h₁ h₂ => h₁.id == h₂.id
+instance : Hashable Hole where
+  hash := fun h₁ => hash h₁.id
 
 inductive NodeType | app | lam | pi | letE | fix
 inductive VarType  | free | bdd
@@ -31,66 +34,51 @@ inductive HExpr
 deriving Inhabited
 
 structure State where
-  holes : List Hole
-  filledHoles : List (Hole × HExpr) -- KVMap for `Hole` and `HExpr`s 
+  unfilledHoles : List Hole
+  filledHoles : Std.HashMap Hole HExpr -- KVMap for `Hole` and `HExpr`s
+  maxHoleID : Nat
   head : Hole
 
 def init : State := 
   let hole : Hole := ⟨0, 0⟩
 {
-  holes := [hole]
-  filledHoles := []
+  unfilledHoles := [hole]
+  filledHoles := .empty
+  maxHoleID := 0
   head := hole
 }
 
 abbrev ExprGen := StateT State IO
 
 def isFilled (hole : Hole) : ExprGen Bool := do
-  let keys := (← get).filledHoles.map (fun (h, _) => h.id)
-  return keys.elem hole.id
+  return (← get).filledHoles.contains hole
 
-def getIndex? (hole : Hole) : ExprGen (Option Nat) := do
-  let keys := (← get).filledHoles.map (fun (h, _) => h)
-  return keys.indexOf hole
+-- def getIndex? (hole : Hole) : ExprGen (Option Nat) := do
+--   let keys := (← get).filledHoles.map (fun (h, _) => h)
+--   return keys.indexOf hole
 
 def getValue? (hole : Hole) : ExprGen (Option HExpr) := do
-  let n := (← getIndex? hole)
-  match n with
-    | none => return none
-    | some n => 
-      let pairs := (← get).filledHoles
-      return some $ pairs.get! n |>.2
+  return (← get).filledHoles.find? hole
 
-def getHoleIds : ExprGen (List Nat) := do
-  let holes := (← get).holes
-  let filledHoles := (← get).filledHoles.map Prod.fst
-  return (filledHoles ++ holes).map Hole.id
-  
+-- def getHoleIds : ExprGen (List Nat) := do
+--   let holes := (← get).holes
+--   let filledHoles := (← get).filledHoles.map Prod.fst
+--   return (filledHoles ++ holes).map Hole.id
+
 def genNewHole (depth : Nat) : ExprGen Hole := do
-  let takenIds ← getHoleIds
-  match takenIds.maximum? with
-    | none    => 
-      IO.println "Does this ever happen?" -- I don't think this ever happens
-      let newHole : Hole := ⟨0, depth⟩
-      let state ← get
-      let newState : State := {
-        holes := newHole :: state.holes
-        filledHoles := state.filledHoles
-        head := state.head
-      }
-      return newHole
-    | some id => 
-      let newHole : Hole := ⟨id + 1, depth⟩
-      let state ← get
-      let newState : State := {
-        holes := newHole :: state.holes
-        filledHoles := state.filledHoles
-        head := state.head
-      }
-      return newHole
+  let state ← get
+  let newHole : Hole := ⟨state.maxHoleID + 1, depth⟩
+  let newState : State := {
+    unfilledHoles := state.unfilledHoles.concat newHole
+    filledHoles := state.filledHoles
+    maxHoleID := state.maxHoleID + 1
+    head := state.head
+    }
+  set newState
+  return newHole
 
 def getNextHole : ExprGen (Option Hole) := do
-  let holes := (← get).holes
+  let holes := (← get).unfilledHoles
   match holes with
     | []        => return none
     | hole :: _ => return some hole
@@ -114,7 +102,7 @@ partial def getBinderDepth (hole : Hole) : ExprGen (Option Nat) := do
             getBinderDepthAux hole type acc <||> getBinderDepthAux hole body acc.succ
           | .app func input => 
             getBinderDepthAux hole func acc <||> getBinderDepthAux hole input acc
-          | .letE .. => pure $ some 0 --TODO: Look at the wiki page and 
+          | .letE .. => pure $ some 0 --TODO: Look at the wiki page again and put the binder in the right place
           | .fix body  => getBinderDepthAux hole body acc 
 
 def getHoles (expr : HExpr) : ExprGen (List Hole) := do
@@ -126,42 +114,43 @@ def getHoles (expr : HExpr) : ExprGen (List Hole) := do
     | .fix body => return [body]
     | .leaf _ => return []
 
-def genExpr (depth : Nat) (type : ExprType) : ExprGen HExpr := do
+def genHExpr (depth : Nat) (type : ExprType) : ExprGen HExpr := do
   match type with
     | .inl nodeType => match nodeType with
-        | .app  => return .app (← genNewHole depth.succ) (← genNewHole depth.succ) 
-        | .lam  => return .lam (← genNewHole depth.succ) (← genNewHole depth.succ) 
-        | .pi   => return .pi (← genNewHole depth.succ) (← genNewHole depth.succ) 
-        | .letE => return .letE (← genNewHole depth.succ)
-                                (← genNewHole depth.succ)
-                                (← genNewHole depth.succ)
-        | .fix  => return .fix (← genNewHole depth.succ)
+        | .app  => 
+          let funcHole := (← genNewHole depth.succ)
+          let bodyHole := (← genNewHole depth.succ)
+          return .app funcHole bodyHole
+        | .lam  => 
+          let typeHole := (← genNewHole depth.succ)
+          let bodyHole := (← genNewHole depth.succ)
+          return .lam typeHole bodyHole
+        | .pi   =>
+          let typeHole := (← genNewHole depth.succ)
+          let bodyHole := (← genNewHole depth.succ)
+          return .pi typeHole bodyHole
+        | .letE => 
+          let typeHole  := (← genNewHole depth.succ)
+          let valueHole := (← genNewHole depth.succ)
+          let bodyHole  := (← genNewHole depth.succ)
+          return .letE typeHole valueHole bodyHole
+        | .fix  => 
+          let bodyHole := (← genNewHole depth.succ)
+          return .fix bodyHole
     | .inr leafType => return .leaf leafType
 
 def fillHole (target : Hole) (type : ExprType) : ExprGen Unit := do
+  let expr ← genHExpr (target.treeDepth) type
   let state ← get
-  let expr ← genExpr (target.treeDepth) type
-  let newHoles' := state.holes.erase target
-  let newHoles :=  newHoles' ++ (← getHoles expr)
-  let idx ← getIndex? target
-  match idx with
-    | none    => 
-      let newFilledHoles := (target, expr) :: state.filledHoles
-      let newState : State := {
-        holes := newHoles
+  let minusTarget := state.unfilledHoles.erase target
+  let newFilledHoles := state.filledHoles.insert target expr
+  let newState : State := {
+        unfilledHoles := minusTarget
         filledHoles := newFilledHoles
+        maxHoleID := state.maxHoleID
         head := state.head
       }
-      return (← set newState)
-    | some id =>
-      let droppedHole := state.filledHoles.drop id
-      let newFilledHoles := (target, expr) :: state.filledHoles
-      let newState : State := {
-        holes := newHoles
-        filledHoles := newFilledHoles
-        head := state.head
-      }
-      return (← set newState)
+  set newState
 
 def getRandomType (isLeaf : Bool := False): IO ExprType := do
   if isLeaf then 
@@ -184,7 +173,7 @@ def getRandomType (isLeaf : Bool := False): IO ExprType := do
 
 def fillNextHole : ExprGen Unit := do
   let state ← get
-  match state.holes with
+  match state.unfilledHoles with
     | [] => return ()
     | h :: hs =>
       if h.treeDepth ≥ MAX_DEPTH then 
@@ -196,7 +185,7 @@ def fillNextHole : ExprGen Unit := do
 
 partial def fillAllHoles : ExprGen Unit := do
   let state ← get
-  match state.holes with
+  match state.unfilledHoles with
     | [] => return ()
     | _ =>
       fillNextHole
@@ -287,8 +276,8 @@ def toString : Yatima.Expr → String
     s!"(let v=({valueString}) in {bodyString})" -- Do this better
   | lit literal =>
     match literal with
-      | .nat num => s!"{num}"
-      | .str str => str
+      | .nat num => s!"ln:{num}"
+      | .str str => s!"ls:{str}"
   | lty _ => "" -- Not generating literal types yet
   | fix _ body => 
     let bodyString := body.toString
