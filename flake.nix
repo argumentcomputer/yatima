@@ -8,7 +8,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs.url = github:nixos/nixpkgs/nixos-21.05;
+    # nixpkgs.url = github:nixos/nixpkgs/nixos-21.05;
+    nixpkgs.url = "github:NixOS/nixpkgs";
     naersk = {
       url = github:nix-community/naersk;
       inputs.flake-utils.follows = "flake-utils";
@@ -24,9 +25,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.naersk.follows = "naersk";
     };
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, lean, flake-utils, utils, nixpkgs, naersk }:
+  outputs = { self, lean, flake-utils, utils, nixpkgs, naersk, fenix }:
     let
       supportedSystems = [
         # "aarch64-linux"
@@ -53,15 +58,29 @@
           name = "Yatima";
           src = ".";
         };
+        rustFenix = (fenix.outputs.packages.${system}.complete.withComponents [
+          "cargo"
+          "clippy"
+          "rustc"
+          "rustfmt"
+          "rust-src"
+        ]);
       in
       {
         inherit project;
-        packages = {
+        packages.${system} = {
           inherit yatima-rs;
           inherit (project) modRoot sharedLib staticLib lean-package;
           inherit (leanPkgs) lean;
         };
 
         defaultPackage = yatima-rs;
+
+        devShell = pkgs.mkShell {
+          buildInputs = [
+            leanPkgs.lean
+            rustFenix
+          ];
+        };
       });
 }

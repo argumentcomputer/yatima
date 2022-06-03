@@ -1,5 +1,26 @@
 {
   "nodes": {
+    "fenix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-analyzer-src": "rust-analyzer-src"
+      },
+      "locked": {
+        "lastModified": 1654065136,
+        "narHash": "sha256-gej+XNJLLzKSdathREx4vmJvFQEfCPid6InjffFyrcg=",
+        "owner": "nix-community",
+        "repo": "fenix",
+        "rev": "8cfd5b7dec932d891355b36c7dd644af431150b6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "fenix",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "locked": {
         "lastModified": 1652372896,
@@ -161,27 +182,44 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1645296114,
-        "narHash": "sha256-y53N7TyIkXsjMpOG7RhvqJFGDacLs9HlyHeSTBioqYU=",
-        "owner": "nixos",
+        "lastModified": 1654128571,
+        "narHash": "sha256-BE/ozR3LqLP3Hw1ORbgG5P9km/5NzMkokRbrGOoNIyM=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "530a53dcbc9437363471167a5e4762c5fcfa34a1",
+        "rev": "e6123938cafa5f5a368090c68d9012adb980da5f",
         "type": "github"
       },
       "original": {
-        "owner": "nixos",
-        "ref": "nixos-21.05",
+        "owner": "NixOS",
         "repo": "nixpkgs",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
+        "fenix": "fenix",
         "flake-utils": "flake-utils",
         "lean": "lean",
         "naersk": "naersk",
         "nixpkgs": "nixpkgs_2",
         "utils": "utils"
+      }
+    },
+    "rust-analyzer-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1654021361,
+        "narHash": "sha256-NQoC5UTHUa4zC3dyx8tJGD5qKcCa5qLY6eOyHbhsooY=",
+        "owner": "rust-lang",
+        "repo": "rust-analyzer",
+        "rev": "e25cbf85849a48e02701736375c784b3e3e0e3fc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rust-lang",
+        "ref": "nightly",
+        "repo": "rust-analyzer",
+        "type": "github"
       }
     },
     "temci": {
