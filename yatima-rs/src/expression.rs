@@ -15,13 +15,13 @@ use crate::{
   name::Name,
   nat::Nat,
 };
-
 use serde::{
   Deserialize,
   Serialize,
 };
 
 use alloc::{
+  fmt,
   boxed::Box,
   string::String,
 };
@@ -48,10 +48,25 @@ pub enum Literal {
   Str(String),
 }
 
+impl fmt::Display for Literal {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Literal::Nat(n) => write!(f, "{}", n),
+      Literal::Str(str) => write!(f, "{}", str)
+    }
+  }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LitType {
   Nat,
   Str,
+}
+
+impl fmt::Display for LitType {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self)
+  }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -223,7 +238,122 @@ impl Expr {
       x => x,
     }
   }
+
+  pub fn pretty(&self, ind: bool) -> String {
+    
+    fn is_atom(expr: &Expr) -> bool {
+      matches!(expr, Expr::Var(..) | Expr::Sort(..) | Expr::Lit(..) | Expr::Lty(..))
+    }
+
+    // Basic logic around parantheses, makes sure we don't do atoms.
+    fn parens(ind: bool, expr: &Expr) -> String {
+      if is_atom(expr) {
+        expr.pretty(ind)
+      }
+      else {
+        format!("({})", expr.pretty(ind))
+      }
+    }
+
+    // This feels slightly hacky
+    fn with_binders(var: String, bi: &BinderInfo) -> String {
+      match bi {
+        BinderInfo::Default => format!("({})", var),
+        BinderInfo::Implicit => format!("{{{}}}", var),
+        BinderInfo::InstImplict => format!("[{}]", var),
+        BinderInfo::StrictImplict => format!("{{{{{}}}}}", var),
+      }
+    }
+
+    fn lambdas(ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
+      let bdd_var = with_binders(format!("{name} : {}", typ.pretty(ind)), bi);
+      match body {
+        Expr::Lam(name2, bi2, typ2, body2) => {
+          format!("{} {}", bdd_var, lambdas(ind, name2, bi2, typ2, body2))
+        }
+        _ => format!("{} => {}", bdd_var, body.pretty(ind)),
+      }
+    }
+
+    // Same thing as lamdba
+    fn foralls(ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
+      let bdd_var = with_binders(format!("{name} : {}", typ.pretty(ind)), bi);
+      match body {
+        Expr::Lam(name2, bi2, typ2, body2) => {
+          format!("{} {}", bdd_var, foralls(ind, name2, bi2, typ2, body2))
+        }
+        _ => format!("{} → {}", bdd_var, body.pretty(ind)),
+      }
+    }
+
+    // Handle nested applications
+    fn apps(ind: bool, fun: &Expr, arg: &Expr) -> String {
+      match (fun, arg) {
+        (Expr::App(fun, arg1), Expr::App(f, arg2)) => {
+          // Not sure why we need this case, but this was in lang-alpha
+          format!(
+            "{} ({})",
+            apps(ind, fun, arg1),
+            apps(ind, f, arg2)
+          )
+        }
+        (Expr::App(F, f), arg) => {
+          format!("{} {}", apps(ind, F, f), parens(ind, arg))
+        }
+        (F, Expr::App(f, a)) => {
+          format!("{} ({})", parens(ind, F), apps(ind, f, a))
+        }
+        (fun, arg) => {
+          format!("{} {}", parens(ind, fun), parens(ind, arg))
+        }
+      }
+    }
+
+    match self {
+      Expr::Var(name, idx) => 
+      if ind {
+        format!("{}^{}", name, idx)
+      }
+      else {
+        name.to_string()
+      },
+      Expr::Sort(..) => {
+        format!("Sort")
+      },
+      Expr::Const(..) => format!(""),
+      Expr::App(fun, arg) => {
+        format!("{}", apps(ind, fun, arg))
+      },
+      Expr::Lam(name, bi, typ, body) => {
+        format!("λ {}", lambdas(ind, name, bi, typ, body))
+      },
+      Expr::Pi(name, bi, typ, body) => { // Very similar to lambdas
+        format!("Π {}", foralls(ind, name, bi, typ, body))
+      },
+      Expr::Let(name, typ, expr, body) => {
+        format!("(let {} : {} := {} in {})", name, typ.pretty(ind), expr.pretty(ind), body.pretty(ind))
+      },
+      Expr::Lit(lit) => {
+        format!("{}", lit)
+      },
+      Expr::Lty(lty) => {
+        format!("{}", lty)
+      },
+      Expr::Fix(name, expr) => {
+        // Not sure what this actually does, sorry
+        // Also name is not used here?
+        format!("μ {}. {}", expr.pretty(ind), expr.pretty(ind)) 
+      },
+    }
+  }
 }
+
+impl fmt::Display for Expr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.pretty(false))
+  }
+}
+
 
 /// IPLD Serialization:
 /// ExprMeta::Var => [0, <name>]
