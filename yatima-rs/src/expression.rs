@@ -239,6 +239,43 @@ impl Expr {
     }
   }
 
+  /// The input `Vector : ∀ (A: Type) -> ∀ (n: Nat) -> Sort 0` with depth 1 returns:
+  ///   - string: `(A: Type)` 
+  ///   - type: `∀ (n: Nat) -> Sort 0`
+  /// This is useful for printing defs
+  /// sort of the inverse of parse_bound_expressions?
+  /// Note that this doesn't fail -- it just stops parsing if it hits a non-pi expr
+  pub fn parse_binders(&self, ind: bool, depth: Nat) -> (String, &Expr) {
+    // This feels slightly hacky
+    fn with_binders(var: String, bi: &BinderInfo) -> String {
+      match bi {
+        BinderInfo::Default => format!("({})", var),
+        BinderInfo::Implicit => format!("{{{}}}", var),
+        BinderInfo::InstImplict => format!("[{}]", var),
+        BinderInfo::StrictImplict => format!("{{{{{}}}}}", var),
+      }
+    }
+
+    if depth == Nat::from(0 as u32) {
+      ("".to_string(), self)
+    } else {
+      match self {
+        Expr::Pi(name, bi, typ, expr) => {
+          let bdd_var = with_binders(format!("{name} : {}", typ.pretty(ind)), bi);
+          let (binders, remaining) = expr.parse_binders(ind, Nat::from(u32::MAX));
+          (format!("{} {}", bdd_var, binders), remaining)
+        },
+        _ => ("".to_string(), self)
+      }
+    }
+    
+  }
+
+  /// this is the inverse of parse_bound_expression?
+  pub fn print_bound_expression(&self) -> String {
+    "".to_string()
+  }
+
   pub fn pretty(&self, ind: bool) -> String {
     
     fn is_atom(expr: &Expr) -> bool {
@@ -297,11 +334,11 @@ impl Expr {
             apps(ind, f, arg2)
           )
         }
-        (Expr::App(F, f), arg) => {
-          format!("{} {}", apps(ind, F, f), parens(ind, arg))
+        (Expr::App(fun, arg1), arg2) => {
+          format!("{} {}", apps(ind, fun, arg1), parens(ind, arg2))
         }
-        (F, Expr::App(f, a)) => {
-          format!("{} ({})", parens(ind, F), apps(ind, f, a))
+        (fun, Expr::App(fun2, arg)) => {
+          format!("{} ({})", parens(ind, fun), apps(ind, fun2, arg))
         }
         (fun, arg) => {
           format!("{} {}", parens(ind, fun), parens(ind, arg))
@@ -331,7 +368,7 @@ impl Expr {
         format!("Π {}", foralls(ind, name, bi, typ, body))
       },
       Expr::Let(name, typ, expr, body) => {
-        format!("(let {} : {} := {} in {})", name, typ.pretty(ind), expr.pretty(ind), body.pretty(ind))
+        format!("let {} : {} := {} in {}", name, typ.pretty(ind), expr.pretty(ind), body.pretty(ind))
       },
       Expr::Lit(lit) => {
         format!("{}", lit)
@@ -339,10 +376,10 @@ impl Expr {
       Expr::Lty(lty) => {
         format!("{}", lty)
       },
-      Expr::Fix(name, expr) => {
+      Expr::Fix(_, expr) => {
         // Not sure what this actually does, sorry
         // Also name is not used here?
-        format!("μ {}. {}", expr.pretty(ind), expr.pretty(ind)) 
+        format!("{}", expr.pretty(ind)) 
       },
     }
   }
@@ -353,7 +390,6 @@ impl fmt::Display for Expr {
     write!(f, "{}", self.pretty(false))
   }
 }
-
 
 /// IPLD Serialization:
 /// ExprMeta::Var => [0, <name>]

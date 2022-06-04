@@ -25,6 +25,11 @@ use multihash::{
   MultihashDigest,
 };
 
+use alloc::{
+  fmt,
+  string::String,
+};
+
 use libipld::{
   cbor::DagCborCodec,
   codec::Codec,
@@ -48,21 +53,21 @@ pub enum QuotKind {
 /// Yatima Constants
 #[derive(Clone, Debug, PartialEq)]
 pub enum Const {
-  /// axiom
+  /// Axiom: unsafe? axiom <name> {lvl*} : <typ>
   Axiom {
     name: Name,
     lvl: Vec<Name>,
     typ: ExprCid,
     safe: bool
   },
-  /// theorem
+  /// Theorem: theorem <name> {lvl*} : <typ> := <expr>
   Theorem {
     name: Name,
     lvl: Vec<Name>,
     typ: ExprCid,
     expr: ExprCid
   },
-  /// opaque
+  /// Opaque: unsafe? opaque rec? <name> {lvl*} : <typ> := <expr>
   Opaque {
     name: Name,
     lvl: Vec<Name>,
@@ -70,7 +75,7 @@ pub enum Const {
     expr: ExprCid,
     safe: bool
   },
-  /// def
+  /// Definitions: unsafe? def rec? <name> {lvl*} : <typ> := <expr>
   Definition {
     name: Name,
     lvl: Vec<Name>,
@@ -78,7 +83,14 @@ pub enum Const {
     expr: ExprCid,
     safe: DefSafety,
   },
-  /// inductive type
+  /// Inductive Type:
+  /// ```lean
+  /// unsafe? inductive rec? <name> {lvl*} (<params>{num_params}) : <typ> where
+  /// | constructor₁ : <expr>
+  /// | ..
+  /// | constructor₀ : <expr>
+  /// ```
+  /// wtf are nest and refl?
   Inductive {
     name: Name,
     lvl: Vec<Name>,
@@ -91,7 +103,7 @@ pub enum Const {
     refl: bool,
     nest: bool,
   },
-  /// inductive constructor
+  /// Inductive constructor: ???
   Constructor {
     name: Name,
     lvl: Vec<Name>,
@@ -101,7 +113,7 @@ pub enum Const {
     field: Nat,
     safe: bool,
   },
-  /// inductive recursor
+  /// Inductive recursor
   Recursor {
     lvl: Vec<Name>,
     ind: ConstCid,
@@ -283,6 +295,111 @@ impl Const {
     let cid = self.cid(env)?;
     env.insert_const_cache(cid, self);
     Ok(cid)
+  }
+
+  pub fn pretty(self, ind: bool, env: &Env) -> Option<String> {
+    fn pretty_lvls(lvl: Vec<Name>) -> String {
+      lvl.iter()
+         .map(|level| level.to_string())
+         .collect::<Vec<String>>()
+         .join(" ")
+    }
+
+    fn print_constructors(ind: bool, env: &Env, ctors: Vec<(Name, ExprCid)>) -> Option<String> {
+      let ctors: Vec<_> = 
+        ctors.into_iter()
+             .map(|(name, expr_cid)| match env.expr_cache.get(&expr_cid) {
+               Some(expr) => Some((name, expr)),
+               None => None
+             })
+             .collect::<Option<Vec<_>>>()?;
+      let res = 
+        ctors.into_iter()
+             .map(|(name, expr)| 
+              format!("| {} {}", name, expr.parse_binders(ind, Nat::from(u32::MAX)).1))
+             .collect::<Vec<String>>()
+             .join(" ");
+      Some(res)
+    }
+
+    match self {
+      // Axiom: unsafe? axiom <name> {lvl*} : <typ>
+      // TODO: (please help) make the code cleaner 
+      Const::Axiom { name, lvl, typ, safe } => {
+        let typ = env.expr_cache.get(&typ)?; 
+        Some(format!("{} axiom {} {{{}}} : {}", 
+                      safe, 
+                      name, 
+                      pretty_lvls(lvl), 
+                      typ.pretty(ind)))
+      }
+      // Theorem: theorem <name> {lvl*} : <typ> := <expr>
+      Const::Theorem { name, lvl, typ, expr } => {
+        let typ = env.expr_cache.get(&typ)?; 
+        let expr = env.expr_cache.get(&expr)?; 
+        Some(format!("theorem {} {{{}}} : {} := {}", 
+                      name, 
+                      pretty_lvls(lvl), 
+                      typ.pretty(ind),
+                      expr.pretty(ind)))
+      }
+      // Opaque: unsafe? opaque rec? <name> {lvl*} : <typ> := <expr>
+      Const::Opaque { name, lvl, typ, expr, safe } => {
+        Some("".to_string())
+      }
+      Const::Definition { name, lvl, typ, expr, safe } => {
+        Some("".to_string())
+      }
+      // Inductive Type:
+      // ```lean
+      // unsafe? inductive rec? <name> {lvl*} (<params>{num_params}) : <typ> where
+      // | constructor₁ : <expr>
+      // | ...
+      // | constructor₀ : <expr>
+      // ```
+      Const::Inductive {
+        name, lvl, typ, params, indices, 
+        ctors, recr, safe, refl, nest,
+      } => {
+        let typ = env.expr_cache.get(&typ)?; 
+        // here `<typ>` looks like `<params> -> <indices> -> <name>`
+        // we need to unwrap the `<params>`
+        let (params, remaining_typ) = typ.parse_binders(ind, params);
+        let ctors_str = print_constructors(ind, env, ctors)?;
+        Some(format!("{} inductive {} {} {{{}}} ({}) : {} where {}",
+                      safe, 
+                      recr,
+                      name,
+                      pretty_lvls(lvl),
+                      params, // print params
+                      remaining_typ.pretty(ind),
+                      ctors_str)) // print ctors
+      }
+      Const::Constructor { name, lvl, ind, typ, param, field, safe } => {
+        // TODO
+        let typ = env.expr_cache.get(&typ)?;  
+        let ind = env.const_cache.get(&ind)?;  
+        Some(format!("| {}  ", name))
+      }
+      Const::Recursor { // TODO
+        lvl,
+        ind,
+        typ,
+        params,
+        indices,
+        motives,
+        minors,
+        rules,
+        k,
+        safe,
+      } => {
+        Some("".to_string())
+      }
+      Const::Quotient { kind } => {
+        // TODO
+        Some("".to_string())
+      }
+    }
   }
 }
 
