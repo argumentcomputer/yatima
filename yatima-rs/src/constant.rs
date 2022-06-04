@@ -316,7 +316,7 @@ impl Const {
       let res = 
         ctors.into_iter()
              .map(|(name, expr)| 
-              format!("| {} {}", name, expr.parse_binders(ind, Nat::from(u32::MAX)).1))
+              format!("| {} {}", name, expr.parse_binders(env, ind, Nat::from(u32::MAX)).1))
              .collect::<Vec<String>>()
              .join(" ");
       Some(res)
@@ -331,7 +331,7 @@ impl Const {
                       safe, 
                       name, 
                       pretty_lvls(lvl), 
-                      typ.pretty(ind)))
+                      typ.pretty(env, ind)))
       }
       // Theorem: theorem <name> {lvl*} : <typ> := <expr>
       Const::Theorem { name, lvl, typ, expr } => {
@@ -340,8 +340,8 @@ impl Const {
         Some(format!("theorem {} {{{}}} : {} := {}", 
                       name, 
                       pretty_lvls(lvl), 
-                      typ.pretty(ind),
-                      expr.pretty(ind)))
+                      typ.pretty(env, ind),
+                      expr.pretty(env, ind)))
       }
       // Opaque: unsafe? opaque rec? <name> {lvl*} : <typ> := <expr>
       Const::Opaque { name, lvl, typ, expr, safe } => {
@@ -364,7 +364,7 @@ impl Const {
         let typ = env.expr_cache.get(&typ)?; 
         // here `<typ>` looks like `<params> -> <indices> -> <name>`
         // we need to unwrap the `<params>`
-        let (params, remaining_typ) = typ.parse_binders(ind, params);
+        let (params, remaining_typ) = typ.parse_binders(env, ind, params);
         let ctors_str = print_constructors(ind, env, ctors)?;
         Some(format!("{} inductive {} {} {{{}}} ({}) : {} where {}",
                       safe, 
@@ -372,7 +372,7 @@ impl Const {
                       name,
                       pretty_lvls(lvl),
                       params, // print params
-                      remaining_typ.pretty(ind),
+                      remaining_typ.pretty(env, ind),
                       ctors_str)) // print ctors
       }
       Const::Constructor { name, lvl, ind, typ, param, field, safe } => {

@@ -727,6 +727,8 @@ pub mod tests {
 
   use crate::expression::tests::{dummy_univ_ctx, dummy_global_ctx, dummy_const_cid};
 
+  use crate::expression::ExprEnv;
+
   use rand::Rng;
 
   use super::*;
@@ -1240,14 +1242,15 @@ pub mod tests {
   }
 
   #[quickcheck]
-  fn prop_expr_parse_print(x: Expr) -> bool {
-    let x = inst_vars(&dummy_univ_ctx(), &Vector::new(), &dummy_global_ctx(), &Rc::new(RefCell::new(Env::new())), x);
-    let s = x.pretty(false);
+  fn prop_expr_parse_print(x: ExprEnv) -> bool {
+    let env = x.env;
+    let x = inst_vars(&dummy_univ_ctx(), &Vector::new(), &dummy_global_ctx(), &Rc::new(RefCell::new(Env::new())), x.expr);
+    let s = x.pretty(&env, false);
     println!("input: \t\t{s}");
     let res = parse_expr_apps(dummy_univ_ctx(), Vector::new(), dummy_global_ctx(), Rc::new(RefCell::new(Env::new())))(Span::new(&s));
     match res {
       Ok((_, y)) => {
-        println!("re-parsed: \t{}", y.pretty(false));
+        println!("re-parsed: \t{}", y.pretty(&env, false));
         x == y
       }
       Err(e) => {

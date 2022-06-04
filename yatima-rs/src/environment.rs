@@ -176,6 +176,18 @@ impl Env {
     }
   }
 
+  pub fn extend(&mut self, other: Self){
+    self.const_cache.extend(other.const_cache);
+    self.expr_cache.extend(other.expr_cache);
+    self.univ_cache.extend(other.univ_cache);
+    self.const_meta.extend(other.const_meta);
+    self.expr_meta.extend(other.expr_meta);
+    self.univ_meta.extend(other.univ_meta);
+    self.const_anon.extend(other.const_anon);
+    self.expr_anon.extend(other.expr_anon);
+    self.univ_anon.extend(other.univ_anon);
+  }
+
   pub fn insert_univ_anon(&mut self, k: UnivAnonCid, v: UnivAnon) {
     self.univ_anon.insert(k, v);
   }
@@ -186,6 +198,10 @@ impl Env {
 
   pub fn insert_univ_cache(&mut self, k: UnivCid, v: Univ) {
     self.univ_cache.insert(k, v);
+  }
+
+  pub fn get_univ_cache(&self, k: &UnivCid) -> Option<&Univ> {
+    self.univ_cache.get(k)
   }
 
   pub fn insert_expr_anon(&mut self, k: ExprAnonCid, v: ExprAnon) {

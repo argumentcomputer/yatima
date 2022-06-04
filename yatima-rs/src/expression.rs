@@ -104,6 +104,12 @@ pub enum Expr {
   Proj(Nat, Box<Expr>),
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub struct ExprEnv {
+  pub expr: Expr,
+  pub env: Env,
+}
+
 impl Expr {
   pub fn cid(&self, env: &mut Env) -> Result<ExprCid, EnvError> {
     match self {
@@ -245,7 +251,7 @@ impl Expr {
   /// This is useful for printing defs
   /// sort of the inverse of parse_bound_expressions?
   /// Note that this doesn't fail -- it just stops parsing if it hits a non-pi expr
-  pub fn parse_binders(&self, ind: bool, depth: Nat) -> (String, &Expr) {
+  pub fn parse_binders(&self, env: &Env, ind: bool, depth: Nat) -> (String, &Expr) {
     // This feels slightly hacky
     fn with_binders(var: String, bi: &BinderInfo) -> String {
       match bi {
@@ -261,8 +267,8 @@ impl Expr {
     } else {
       match self {
         Expr::Pi(name, bi, typ, expr) => {
-          let bdd_var = with_binders(format!("{name} : {}", typ.pretty(ind)), bi);
-          let (binders, remaining) = expr.parse_binders(ind, Nat::from(u32::MAX));
+          let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
+          let (binders, remaining) = expr.parse_binders(env, ind, Nat::from(u32::MAX));
           (format!("{} {}", bdd_var, binders), remaining)
         },
         _ => ("".to_string(), self)
@@ -276,19 +282,19 @@ impl Expr {
     "".to_string()
   }
 
-  pub fn pretty(&self, ind: bool) -> String {
+  pub fn pretty(&self, env: &Env, ind: bool) -> String {
     
     fn is_atom(expr: &Expr) -> bool {
       matches!(expr, Expr::Var(..) | Expr::Sort(..) | Expr::Lit(..) | Expr::Lty(..))
     }
 
     // Basic logic around parantheses, makes sure we don't do atoms.
-    fn parens(ind: bool, expr: &Expr) -> String {
+    fn parens(env: &Env, ind: bool, expr: &Expr) -> String {
       if is_atom(expr) {
-        expr.pretty(ind)
+        expr.pretty(env, ind)
       }
       else {
-        format!("({})", expr.pretty(ind))
+        format!("({})", expr.pretty(env, ind))
       }
     }
 
@@ -302,46 +308,46 @@ impl Expr {
       }
     }
 
-    fn lambdas(ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
-      let bdd_var = with_binders(format!("{name} : {}", typ.pretty(ind)), bi);
+    fn lambdas(env: &Env, ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
+      let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
       match body {
         Expr::Lam(name2, bi2, typ2, body2) => {
-          format!("{} {}", bdd_var, lambdas(ind, name2, bi2, typ2, body2))
+          format!("{} {}", bdd_var, lambdas(env, ind, name2, bi2, typ2, body2))
         }
-        _ => format!("{} => {}", bdd_var, body.pretty(ind)),
+        _ => format!("{} => {}", bdd_var, body.pretty(env, ind)),
       }
     }
 
     // Same thing as lamdba
-    fn foralls(ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
-      let bdd_var = with_binders(format!("{name} : {}", typ.pretty(ind)), bi);
+    fn foralls(env: &Env, ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
+      let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
       match body {
         Expr::Lam(name2, bi2, typ2, body2) => {
-          format!("{} {}", bdd_var, foralls(ind, name2, bi2, typ2, body2))
+          format!("{} {}", bdd_var, foralls(env, ind, name2, bi2, typ2, body2))
         }
-        _ => format!("{} → {}", bdd_var, body.pretty(ind)),
+        _ => format!("{} → {}", bdd_var, body.pretty(env, ind)),
       }
     }
 
     // Handle nested applications
-    fn apps(ind: bool, fun: &Expr, arg: &Expr) -> String {
+    fn apps(env: &Env, ind: bool, fun: &Expr, arg: &Expr) -> String {
       match (fun, arg) {
         (Expr::App(fun, arg1), Expr::App(f, arg2)) => {
           // Not sure why we need this case, but this was in lang-alpha
           format!(
             "{} ({})",
-            apps(ind, fun, arg1),
-            apps(ind, f, arg2)
+            apps(env, ind, fun, arg1),
+            apps(env, ind, f, arg2)
           )
         }
         (Expr::App(fun, arg1), arg2) => {
-          format!("{} {}", apps(ind, fun, arg1), parens(ind, arg2))
+          format!("{} {}", apps(env, ind, fun, arg1), parens(env, ind, arg2))
         }
         (fun, Expr::App(fun2, arg)) => {
-          format!("{} ({})", parens(ind, fun), apps(ind, fun2, arg))
+          format!("{} ({})", parens(env, ind, fun), apps(env, ind, fun2, arg))
         }
         (fun, arg) => {
-          format!("{} {}", parens(ind, fun), parens(ind, arg))
+          format!("{} {}", parens(env, ind, fun), parens(env, ind, arg))
         }
       }
     }
@@ -354,21 +360,21 @@ impl Expr {
       else {
         name.to_string()
       },
-      Expr::Sort(..) => {
-        format!("Sort")
+      Expr::Sort(cid) => {
+        format!("Sort {}", env.get_univ_cache(cid).unwrap().pretty(ind))
       },
       Expr::Const(name, _, _) => format!("{}", name),
       Expr::App(fun, arg) => {
-        format!("{}", apps(ind, fun, arg))
+        format!("{}", apps(env, ind, fun, arg))
       },
       Expr::Lam(name, bi, typ, body) => {
-        format!("λ {}", lambdas(ind, name, bi, typ, body))
+        format!("λ {}", lambdas(env, ind, name, bi, typ, body))
       },
       Expr::Pi(name, bi, typ, body) => { // Very similar to lambdas
-        format!("Π {}", foralls(ind, name, bi, typ, body))
+        format!("Π {}", foralls(env, ind, name, bi, typ, body))
       },
       Expr::Let(name, typ, expr, body) => {
-        format!("let {} : {} := {} in {}", name, typ.pretty(ind), expr.pretty(ind), body.pretty(ind))
+        format!("let {} : {} := {} in {}", name, typ.pretty(env, ind), expr.pretty(env, ind), body.pretty(env, ind))
       },
       Expr::Lit(lit) => {
         format!("{}", lit)
@@ -377,7 +383,7 @@ impl Expr {
         format!("{}", lty)
       },
       Expr::Fix(_, expr) => {
-        format!("{}", expr.pretty(ind)) 
+        format!("{}", expr.pretty(env, ind)) 
       },
     }
   }
@@ -385,7 +391,7 @@ impl Expr {
 
 impl fmt::Display for Expr {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", self.pretty(false))
+    write!(f, "{}", self.pretty(&Env::new(), false))
   }
 }
 
@@ -482,6 +488,9 @@ impl ExprAnon {
       GlobalCtx,
       UnivCtx,
   };
+
+  use crate::universe::Univ;
+
   use im::{
     OrdMap,
     Vector,
@@ -529,32 +538,70 @@ impl ExprAnon {
     }
   }
 
-  impl Arbitrary for Expr {
+  impl Arbitrary for ExprEnv {
     fn arbitrary(g: &mut Gen) -> Self {
       let rec_freq = g.size().saturating_sub(50);
-      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Expr>)> = vec![
-        (100, Box::new(|_| Expr::Var(Name::from("_temp"), 0u8.into()))),
-        (rec_freq, Box::new(|g| {
-          Expr::App(
-            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
-            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
-          )
+      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ExprEnv>)> = vec![
+        (100, Box::new(|_| {
+          ExprEnv {
+            expr: Expr::Var(Name::from("_temp"), 0u8.into()),
+            env: Env::new()
+          }
         })),
         (rec_freq, Box::new(|g| {
-          Expr::Pi(
-            arbitrary_ascii_name(g, 5),
-            Arbitrary::arbitrary(g),
-            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
-            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
-          )
+          let fun: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let arg: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let mut env = fun.env;
+          env.extend(arg.env);
+          ExprEnv {
+            expr:
+              Expr::App(
+                Box::new(fun.expr),
+                Box::new(arg.expr)
+              ),
+            env: env
+          }
         })),
         (rec_freq, Box::new(|g| {
-          Expr::Lam(
-            arbitrary_ascii_name(g, 5),
-            Arbitrary::arbitrary(g),
-            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
-            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
-          )
+          let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let mut env = typ.env;
+          env.extend(trm.env);
+          ExprEnv {
+            expr:
+              Expr::Pi(
+                arbitrary_ascii_name(g, 5),
+                Arbitrary::arbitrary(g),
+                Box::new(typ.expr),
+                Box::new(trm.expr)
+              ),
+            env: env
+          }
+        })),
+        (rec_freq, Box::new(|g| {
+          let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let mut env = typ.env;
+          env.extend(trm.env);
+          ExprEnv {
+            expr:
+              Expr::Lam(
+                arbitrary_ascii_name(g, 5),
+                Arbitrary::arbitrary(g),
+                Box::new(typ.expr),
+                Box::new(trm.expr)
+              ),
+            env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          let mut env = Env::new();
+          let univ: Univ = Arbitrary::arbitrary(g);
+          let univ_cid = univ.store(&mut env).unwrap();
+          ExprEnv {
+            expr: Expr::Sort(univ_cid),
+            env: env
+          }
         })),
       ];
       frequency(g, input)
