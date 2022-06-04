@@ -697,6 +697,12 @@ pub fn parse_expr(
       parse_expr_lit(),
       parse_expr_lty(),
       parse_expr_sort(univ_ctx.clone(), env_ctx.clone()),
+      parse_expr_let(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
       parse_expr_const(
         univ_ctx.clone(),
         bind_ctx.clone(),

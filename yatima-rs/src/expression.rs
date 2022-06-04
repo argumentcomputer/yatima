@@ -571,6 +571,24 @@ impl ExprAnon {
             env: env
           }
         })),
+        (rec_freq.saturating_sub(25), Box::new(|g| {
+          let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let bod: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
+          let mut env = typ.env;
+          env.extend(trm.env);
+          env.extend(bod.env);
+          ExprEnv {
+            expr:
+              Expr::Let(
+                arbitrary_ascii_name(g, 5),
+                Box::new(typ.expr),
+                Box::new(trm.expr),
+                Box::new(bod.expr)
+              ),
+            env: env
+          }
+        })),
         (rec_freq, Box::new(|g| {
           let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
           let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
