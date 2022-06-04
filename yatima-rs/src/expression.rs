@@ -52,7 +52,7 @@ impl fmt::Display for Literal {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Literal::Nat(n) => write!(f, "{}", n),
-      Literal::Str(str) => write!(f, "{}", str)
+      Literal::Str(str) => write!(f, "\"{}\"", str)
     }
   }
 }
@@ -65,7 +65,10 @@ pub enum LitType {
 
 impl fmt::Display for LitType {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", self)
+    match self {
+      LitType::Nat => write!(f, "#Nat"),
+      LitType::Str => write!(f, "#Str")
+    }
   }
 }
 
@@ -546,6 +549,36 @@ impl ExprAnon {
       }
     }
   }
+  impl Arbitrary for Literal {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let gen: usize = Arbitrary::arbitrary(g);
+      let gen = gen % 2;
+      match gen {
+        0 => {
+          let nat: usize = Arbitrary::arbitrary(g);
+          Self::Nat(nat.into())
+        }
+        1 => {
+          let len: usize = Arbitrary::arbitrary(g);
+          let len = len % 10;
+          let str: String = arbitrary_ascii_name(g, len).to_string();
+          Self::Str(str)
+        }
+        _ => panic!()
+      }
+    }
+  }
+  impl Arbitrary for LitType {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let gen: usize = Arbitrary::arbitrary(g);
+      let gen = gen % 2;
+      match gen {
+        0 => Self::Nat,
+        1 => Self::Str,
+        _ => panic!()
+      }
+    }
+  }
 
   impl Arbitrary for ExprEnv {
     fn arbitrary(g: &mut Gen) -> Self {
@@ -628,6 +661,18 @@ impl ExprAnon {
           ExprEnv {
             expr: Expr::Sort(univ_cid),
             env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          ExprEnv {
+            expr: Expr::Lit(Arbitrary::arbitrary(g)),
+            env: Env::new()
+          }
+        })),
+        (100, Box::new(|g| {
+          ExprEnv {
+            expr: Expr::Lty(Arbitrary::arbitrary(g)),
+            env: Env::new()
           }
         })),
         (100, Box::new(|g| {
