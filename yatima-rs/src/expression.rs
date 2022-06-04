@@ -505,9 +505,9 @@ impl ExprAnon {
 
   impl Arbitrary for Expr {
     fn arbitrary(g: &mut Gen) -> Self {
-      let rec_freq = g.size().saturating_sub(10);
+      let rec_freq = g.size().saturating_sub(50);
       let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Expr>)> = vec![
-        (1, Box::new(|_| Expr::Var(Name::from("_temp"), 0u8.into()))),
+        (100, Box::new(|_| Expr::Var(Name::from("_temp"), 0u8.into()))),
         (rec_freq, Box::new(|g| {
           Expr::App(
             Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
