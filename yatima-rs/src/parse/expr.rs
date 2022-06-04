@@ -226,26 +226,37 @@ pub fn parse_expr_sort(
 
 /// Parse the termination marker of an application sequence
 pub fn parse_app_end(i: Span) -> IResult<Span, (), ParseError<Span>> {
-  let (i, _) = alt((
-    peek(tag("def")),
-    peek(tag("inductive")),
-    peek(tag("axiom")),
-    peek(tag("theorem")),
-    peek(tag("opaque")),
-    peek(tag("unsafe")),
-    peek(tag("partial")),
-    peek(tag("where")),
-    peek(tag(":=")),
-    peek(tag("->")),
-    peek(tag("in")),
-    peek(tag(")")),
-    peek(tag("{")),
-    peek(tag("}")),
-    peek(tag("[")),
-    peek(tag("]")),
-    peek(tag(",")),
-    peek(eof),
-  ))(i)?;
+  let (i, _) = peek(
+    alt((
+      eof,
+      tag(":="),
+      tag("->"),
+      tag(")"),
+      tag("{"),
+      tag("}"),
+      tag("["),
+      tag("]"),
+      tag(","),
+      preceded(
+        alt((
+          tag("def"),
+          tag("inductive"),
+          tag("axiom"),
+          tag("theorem"),
+          tag("opaque"),
+          tag("unsafe"),
+          tag("partial"),
+          tag("where"),
+          tag("in"),
+        )),
+        alt((
+          eof,
+          tag(" "),
+          tag("\n"),
+        ))
+      )
+    ))
+  )(i)?;
   Ok((i, ()))
 }
 
@@ -1085,6 +1096,13 @@ pub mod tests {
     assert!(res.is_ok());
     let res = test(
       "λ [X: Sort 0] {X: Sort 0} (A: Sort 0) (x : A) => A",
+    );
+    assert!(res.is_ok());
+
+    //"in" (and other reserved keywords) should not be considered
+    //the end of an application sequence unless followed by a space/newline/EOF
+    let res = test(
+      "λ [test: λ (inname : Sort 0) => inname inname] => Sort 0"
     );
     assert!(res.is_ok());
   }

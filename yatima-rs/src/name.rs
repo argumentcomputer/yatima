@@ -79,13 +79,23 @@ pub mod tests {
     Gen,
   };
 
+  use crate::parse::utils::reserved_symbols;
+
   pub fn arbitrary_ascii_name(g: &mut Gen, len: usize) -> Name {
-    let mut s: String = String::new();
-    while s.len() < len {
-      let i = (u32::arbitrary(g) % 26) + 97;
-      let c = unsafe { char::from_u32_unchecked(i) };
-      s.push(c)
+    let mut s: String;
+    
+    loop {
+      s = String::new();
+      while s.len() < len {
+        let i = (u32::arbitrary(g) % 26) + 97;
+        let c = unsafe { char::from_u32_unchecked(i) };
+        s.push(c)
+      }
+      if !reserved_symbols().contains(&s) {
+        break;
+      }
     }
+
     Name::from(format!("{}", s))
   }
 }

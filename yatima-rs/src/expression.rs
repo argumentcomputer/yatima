@@ -512,15 +512,7 @@ impl ExprAnon {
     Gen,
   };
 
-  pub fn arbitrary_name(g: &mut Gen) -> Name {
-    let s: String = Arbitrary::arbitrary(g);
-    let mut s: String = s
-      .chars()
-      .filter(|x| char::is_ascii_alphabetic(x))
-      .collect();
-    s.truncate(1);
-    Name::from(format!("_{}", s))
-  }
+  use crate::name::tests::arbitrary_ascii_name;
 
   // TODO can I #[derive(Arbitrary)]?
   impl Arbitrary for BinderInfo {
@@ -550,7 +542,7 @@ impl ExprAnon {
         })),
         (rec_freq, Box::new(|g| {
           Expr::Pi(
-            arbitrary_name(g),
+            arbitrary_ascii_name(g, 5),
             Arbitrary::arbitrary(g),
             Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
             Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
@@ -558,7 +550,7 @@ impl ExprAnon {
         })),
         (rec_freq, Box::new(|g| {
           Expr::Lam(
-            arbitrary_name(g),
+            arbitrary_ascii_name(g, 5),
             Arbitrary::arbitrary(g),
             Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
             Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
