@@ -251,8 +251,8 @@ impl Expr {
       match bi {
         BinderInfo::Default => format!("({})", var),
         BinderInfo::Implicit => format!("{{{}}}", var),
-        BinderInfo::InstImplict => format!("[{}]", var),
-        BinderInfo::StrictImplict => format!("{{{{{}}}}}", var),
+        BinderInfo::InstImplicit => format!("[{}]", var),
+        BinderInfo::StrictImplicit => format!("{{{{{}}}}}", var),
       }
     }
 
@@ -377,8 +377,6 @@ impl Expr {
         format!("{}", lty)
       },
       Expr::Fix(_, expr) => {
-        // Not sure what this actually does, sorry
-        // Also name is not used here?
         format!("{}", expr.pretty(ind)) 
       },
     }
