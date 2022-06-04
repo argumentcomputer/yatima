@@ -301,9 +301,9 @@ pub fn parse_binder(
   move |i: Span| {
     let (i, bind) = alt((
       value(BinderInfo::Default, tag("(")),
-      value(BinderInfo::StrictImplict, tag("{{")),
+      value(BinderInfo::StrictImplicit, tag("{{")),
       value(BinderInfo::Implicit, tag("{")),
-      value(BinderInfo::InstImplict, tag("[")),
+      value(BinderInfo::InstImplicit, tag("[")),
     ))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, ns) = many1(terminated(parse_name, parse_space))(i)?;
@@ -317,9 +317,9 @@ pub fn parse_binder(
     )(i)?;
     let close = match bind {
       BinderInfo::Default => ")",
-      BinderInfo::StrictImplict => "}}",
+      BinderInfo::StrictImplicit => "}}",
       BinderInfo::Implicit => "}",
-      BinderInfo::InstImplict => "]",
+      BinderInfo::InstImplicit => "]",
     };
     let (i, _) = tag(close)(i)?;
     let mut res = Vec::new();
@@ -714,6 +714,10 @@ pub mod tests {
     MultihashDigest,
   };
 
+  use crate::expression::tests::{dummy_univ_ctx, dummy_global_ctx, dummy_const_cid};
+
+  use rand::Rng;
+
   use super::*;
 
   #[test]
@@ -797,16 +801,6 @@ pub mod tests {
     );
   }
 
-  fn dummy_const_cid() -> ConstCid {
-    let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[0]));
-    let meta: ConstMetaCid = ConstMetaCid::new(Code::Sha3_256.digest(&[0]));
-    ConstCid { anon, meta }
-  }
-
-  fn dummy_global_ctx() -> GlobalCtx {
-    OrdMap::from(vec![(Name::from("foo"), dummy_const_cid())])
-  }
-
   #[test]
   fn test_parse_const() {
     let env_ctx = Rc::new(RefCell::new(Env::new()));
@@ -828,26 +822,26 @@ pub mod tests {
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
     let res = test(env_ctx.clone(), vec![], vec![], "foo");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
     let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo.{}");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
     let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo.{u v}");
     println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![
         Univ::Param("u".into(), 0u64.into()).cid(&mut Env::new()).unwrap(),
         Univ::Param("v".into(), 1u64.into()).cid(&mut Env::new()).unwrap()
       ])
@@ -863,7 +857,7 @@ pub mod tests {
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
   }
   #[test]
@@ -1180,5 +1174,68 @@ pub mod tests {
         )
       )
     );
+  }
+
+  pub fn inst_vars(
+    univ_ctx: &UnivCtx,
+    bind_ctx: &BindCtx,
+    global_ctx: &GlobalCtx,
+    env_ctx: &EnvCtx,
+    expr: Expr,
+  ) -> Expr {
+    match expr {
+      Expr::Var(_, _) => {
+        let mut rng = rand::thread_rng();
+        if bind_ctx.len() > 0 {
+          let gen: u32 = rng.gen_range(0..bind_ctx.len().try_into().unwrap());
+          let n = &bind_ctx[gen.try_into().unwrap()];
+          let (i, _) = bind_ctx.iter().enumerate().find(|(_, x)| *x == n).unwrap();
+          Expr::Var(n.clone(), i.into())
+        }
+        else {
+          let gen: u32 = rng.gen_range(0..global_ctx.len().try_into().unwrap());
+          let (n, cid) = global_ctx.iter().nth(gen.try_into().unwrap()).unwrap();
+          Expr::Const(n.to_owned(), cid.to_owned(), vec![])
+        }
+      },
+      Expr::App(fun, arg) => {
+        Expr::App( 
+          Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *fun)),
+          Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *arg)))
+      }
+      Expr::Lam(name, bind, typ, bod) => {
+        let mut new_bind_ctx = bind_ctx.clone();
+        new_bind_ctx.push_front(name.clone());
+        Expr::Lam(name, bind, 
+          Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *typ)),
+          Box::new(inst_vars(univ_ctx, &new_bind_ctx, global_ctx, env_ctx, *bod)))
+      }
+      Expr::Pi(name, bind, typ, bod) => {
+        let mut new_bind_ctx = bind_ctx.clone();
+        new_bind_ctx.push_front(name.clone());
+        Expr::Lam(name.clone(), bind.clone(), 
+          Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *typ)),
+          Box::new(inst_vars(univ_ctx, &new_bind_ctx, global_ctx, env_ctx, *bod)))
+      }
+      _ => expr
+    }
+  }
+
+  #[quickcheck]
+  fn prop_expr_parse_print(x: Expr) -> bool {
+    let x = inst_vars(&dummy_univ_ctx(), &Vector::new(), &dummy_global_ctx(), &Rc::new(RefCell::new(Env::new())), x);
+    let s = x.pretty(false);
+    println!("input: \t\t{s}");
+    let res = parse_expr_apps(dummy_univ_ctx(), Vector::new(), dummy_global_ctx(), Rc::new(RefCell::new(Env::new())))(Span::new(&s));
+    match res {
+      Ok((_, y)) => {
+        println!("re-parsed: \t{}", y.pretty(false));
+        x == y
+      }
+      Err(e) => {
+        println!("err: {:?}", e);
+        false
+      }
+    }
   }
 }

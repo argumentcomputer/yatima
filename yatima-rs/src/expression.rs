@@ -73,8 +73,8 @@ impl fmt::Display for LitType {
 pub enum BinderInfo {
   Default,
   Implicit,
-  StrictImplict,
-  InstImplict,
+  StrictImplicit,
+  InstImplicit,
 }
 
 /// Yatima Expressions
@@ -260,8 +260,8 @@ impl Expr {
       match bi {
         BinderInfo::Default => format!("({})", var),
         BinderInfo::Implicit => format!("{{{}}}", var),
-        BinderInfo::InstImplict => format!("[{}]", var),
-        BinderInfo::StrictImplict => format!("{{{{{}}}}}", var),
+        BinderInfo::InstImplicit => format!("[{}]", var),
+        BinderInfo::StrictImplicit => format!("{{{{{}}}}}", var),
       }
     }
 
@@ -320,7 +320,7 @@ impl Expr {
       Expr::Sort(..) => {
         format!("Sort")
       },
-      Expr::Const(..) => format!(""),
+      Expr::Const(name, _, _) => format!("{}", name),
       Expr::App(fun, arg) => {
         format!("{}", apps(ind, fun, arg))
       },
@@ -439,25 +439,99 @@ impl ExprAnon {
   }
 }
 
-//#[cfg(test)]
-// pub mod tests {
-//  use crate::content::tests::frequency;
-//
-//  use super::*;
-//  use quickcheck::{
-//    Arbitrary,
-//    Gen,
-//  };
-//
-//  impl Arbitrary for Bind {
-//    fn arbitrary(g: &mut Gen) -> Self {
-//      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Bind>)> = vec![
-//        (1, Box::new(|_| Bind::Default)),
-//        (1, Box::new(|_| Bind::Implicit)),
-//        (1, Box::new(|_| Bind::Strict)),
-//        (1, Box::new(|_| Bind::Class)),
-//      ];
-//      frequency(g, input)
-//    }
-//  }
-//}
+#[cfg(test)]
+ pub mod tests {
+  use crate::test::frequency;
+  use crate::parse::utils::{
+      BindCtx,
+      EnvCtx,
+      GlobalCtx,
+      UnivCtx,
+  };
+  use im::{
+    OrdMap,
+    Vector,
+  };
+
+  pub fn dummy_const_cid(ind: u8) -> ConstCid {
+    let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[ind]));
+    let meta: ConstMetaCid = ConstMetaCid::new(Code::Sha3_256.digest(&[ind]));
+    ConstCid { anon, meta }
+  }
+
+  pub fn dummy_global_ctx() -> GlobalCtx {
+    OrdMap::from(vec![
+      (Name::from("foo"), dummy_const_cid(0)),
+      (Name::from("Nat"), dummy_const_cid(1)),
+      (Name::from("Nat.zero"), dummy_const_cid(2)),
+      (Name::from("Nat.succ"), dummy_const_cid(3))
+    ])
+  }
+
+  pub fn dummy_univ_ctx() -> UnivCtx {
+    Vector::from(vec![Name::from("w"), Name::from("v"), Name::from("u")])
+  }
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  pub fn arbitrary_name(g: &mut Gen) -> Name {
+    let s: String = Arbitrary::arbitrary(g);
+    let mut s: String = s
+      .chars()
+      .filter(|x| char::is_ascii_alphabetic(x))
+      .collect();
+    s.truncate(1);
+    Name::from(format!("_{}", s))
+  }
+
+  // TODO can I #[derive(Arbitrary)]?
+  impl Arbitrary for BinderInfo {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let gen: usize = Arbitrary::arbitrary(g);
+      let gen = gen % 4;
+      match gen {
+        0 => Self::Default,
+        1 => Self::Implicit,
+        2 => Self::StrictImplicit,
+        3 => Self::InstImplicit,
+        _ => panic!()
+      }
+    }
+  }
+
+  impl Arbitrary for Expr {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let rec_freq = g.size().saturating_sub(10);
+      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Expr>)> = vec![
+        (1, Box::new(|_| Expr::Var(Name::from("_temp"), 0u8.into()))),
+        (rec_freq, Box::new(|g| {
+          Expr::App(
+            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
+            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
+          )
+        })),
+        (rec_freq, Box::new(|g| {
+          Expr::Pi(
+            arbitrary_name(g),
+            Arbitrary::arbitrary(g),
+            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
+            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
+          )
+        })),
+        (rec_freq, Box::new(|g| {
+          Expr::Lam(
+            arbitrary_name(g),
+            Arbitrary::arbitrary(g),
+            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)))),
+            Box::new(Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1))))
+          )
+        })),
+      ];
+      frequency(g, input)
+    }
+  }
+}

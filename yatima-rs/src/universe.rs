@@ -189,7 +189,7 @@ pub mod tests {
 
   impl Arbitrary for Univ {
     fn arbitrary(g: &mut Gen) -> Self {
-      let input: Vec<(i64, Box<dyn Fn(&mut Gen) -> Univ>)> = vec![
+      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Univ>)> = vec![
         (10, Box::new(|_| Univ::Zero)),
         (
           10,
