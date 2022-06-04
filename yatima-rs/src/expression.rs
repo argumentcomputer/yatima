@@ -13,7 +13,7 @@ use crate::{
     UnivMetaCid,
   },
   name::Name,
-  nat::Nat,
+  nat::Nat, typechecker::check::infer,
 };
 use serde::{
   Deserialize,
@@ -397,6 +397,7 @@ impl Expr {
       Expr::Fix(_, expr) => {
         format!("{}", expr.pretty(env, ind)) 
       },
+      _ => todo!() // Projections
     }
   }
 }
