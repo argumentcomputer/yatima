@@ -285,7 +285,7 @@ impl Expr {
   pub fn pretty(&self, env: &Env, ind: bool) -> String {
     
     fn is_atom(expr: &Expr) -> bool {
-      matches!(expr, Expr::Var(..) | Expr::Sort(..) | Expr::Lit(..) | Expr::Lty(..))
+      matches!(expr, Expr::Const(..) | Expr::Var(..) | Expr::Sort(..) | Expr::Lit(..) | Expr::Lty(..))
     }
 
     // Basic logic around parantheses, makes sure we don't do atoms.
@@ -363,7 +363,16 @@ impl Expr {
       Expr::Sort(cid) => {
         format!("Sort {}", env.get_univ_cache(cid).unwrap().pretty(ind))
       },
-      Expr::Const(name, _, _) => format!("{}", name),
+      Expr::Const(name, _, univs) => {
+        let univs: Vec<String> = univs.iter().map(
+          |univ_cid| env.get_univ_cache(univ_cid).unwrap().pretty(ind)).collect();
+        if univs.len() > 0 {
+          format!("{}.{{{}}}", name, univs.join(" "))
+        }
+        else {
+          format!("{}", name)
+        }
+      },
       Expr::App(fun, arg) => {
         format!("{}", apps(env, ind, fun, arg))
       },
@@ -540,7 +549,7 @@ impl ExprAnon {
 
   impl Arbitrary for ExprEnv {
     fn arbitrary(g: &mut Gen) -> Self {
-      let rec_freq = g.size().saturating_sub(50);
+      let rec_freq = g.size().saturating_sub(10);
       let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ExprEnv>)> = vec![
         (100, Box::new(|_| {
           ExprEnv {
@@ -594,12 +603,34 @@ impl ExprAnon {
             env: env
           }
         })),
-        (100, Box::new(|g| {
+        (100, Box::new(|_| {
           let mut env = Env::new();
-          let univ: Univ = Arbitrary::arbitrary(g);
+          let univ: Univ = Arbitrary::arbitrary(&mut Gen::new(50));
           let univ_cid = univ.store(&mut env).unwrap();
           ExprEnv {
             expr: Expr::Sort(univ_cid),
+            env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          let mut env = Env::new();
+
+          let num_univs: usize = Arbitrary::arbitrary(g);
+          let num_univs = num_univs % 3;
+          let mut univs = Vec::new();
+          for _ in 0..num_univs {
+            let univ: Univ = Arbitrary::arbitrary(&mut Gen::new(50));
+            univs.push(univ.store(&mut env).unwrap());
+          }
+
+          let ctx = dummy_global_ctx();
+          let const_idx: usize = Arbitrary::arbitrary(g);
+          let const_idx = const_idx % ctx.len();
+
+          let cnst = ctx.iter().nth(const_idx).unwrap();
+
+          ExprEnv {
+            expr: Expr::Const(cnst.0.to_owned(), cnst.1.to_owned(), univs),
             env: env
           }
         })),

@@ -190,18 +190,16 @@ pub mod tests {
   impl Arbitrary for Univ {
     fn arbitrary(g: &mut Gen) -> Self {
       let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Univ>)> = vec![
-        (10, Box::new(|_| Univ::Zero)),
-        (
-          10,
+        (100, Box::new(|_| Univ::Zero)),
+        (100,
           Box::new(|g| {
             let i = usize::arbitrary(g) % 3;
             let n = &dummy_univ_ctx()[i];
             Univ::Param(n.clone(), i.into())
           }),
         ),
-        (7, Box::new(|g| Univ::Succ(Box::new(Arbitrary::arbitrary(g))))),
-        (
-          6,
+        (g.size().saturating_sub(30), Box::new(|g| Univ::Succ(Box::new(Arbitrary::arbitrary(g))))),
+        (g.size().saturating_sub(40),
           Box::new(|g| {
             Univ::Max(
               Box::new(Arbitrary::arbitrary(g)),
@@ -209,8 +207,7 @@ pub mod tests {
             )
           }),
         ),
-        (
-          6,
+        (g.size().saturating_sub(40),
           Box::new(|g| {
             Univ::IMax(
               Box::new(Arbitrary::arbitrary(g)),

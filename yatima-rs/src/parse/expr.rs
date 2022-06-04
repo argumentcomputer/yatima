@@ -1237,6 +1237,14 @@ pub mod tests {
           Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *typ)),
           Box::new(inst_vars(univ_ctx, &new_bind_ctx, global_ctx, env_ctx, *bod)))
       }
+      Expr::Let(name, typ, trm, bod) => {
+        let mut new_bind_ctx = bind_ctx.clone();
+        new_bind_ctx.push_front(name.clone());
+        Expr::Let(name.clone(),
+          Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *typ)),
+          Box::new(inst_vars(univ_ctx, bind_ctx, global_ctx, env_ctx, *trm)),
+          Box::new(inst_vars(univ_ctx, &new_bind_ctx, global_ctx, env_ctx, *bod)))
+      }
       _ => expr
     }
   }
