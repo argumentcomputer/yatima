@@ -31,6 +31,7 @@ inductive Expr
   | lit   : Literal → Expr
   | lty   : LitType → Expr
   | fix   : Name → Expr → Expr
+  | proj  : Nat → Expr → Expr
   deriving BEq, Inhabited
 
 inductive ExprAnon
@@ -44,6 +45,7 @@ inductive ExprAnon
   | lit   : Literal → ExprAnon
   | lty   : LitType → ExprAnon
   | fix   : ExprAnonCid → ExprAnon
+  | proj  : Nat → ExprAnonCid → ExprAnon
   deriving BEq, Inhabited
 
 inductive ExprMeta
@@ -57,6 +59,7 @@ inductive ExprMeta
   | lit   : ExprMeta
   | lty   : ExprMeta
   | fix   : Name → ExprMetaCid → ExprMeta
+  | proj  : Nat → ExprMetaCid → ExprMeta
   deriving BEq, Inhabited
 
 namespace Expr

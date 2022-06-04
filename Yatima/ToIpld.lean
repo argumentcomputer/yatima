@@ -92,6 +92,7 @@ def exprAnonToIpld : ExprAnon → Ipld
   | .lit l      => .array #[.number EXPRANON, .number 7, l]
   | .lty l      => .array #[.number EXPRANON, .number 8, l]
   | .fix b      => .array #[.number EXPRANON, .number 9, b]
+  | .proj n e   => .array #[.number EXPRANON, .number 10, n, e]
 
 def exprMetaToIpld : ExprMeta → Ipld
   | .var n        => .array #[.number EXPRMETA, .number 0, n]
@@ -104,6 +105,7 @@ def exprMetaToIpld : ExprMeta → Ipld
   | .lit          => .array #[.number EXPRMETA, .number 7]
   | .lty          => .array #[.number EXPRMETA, .number 8]
   | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]
+  | .proj n e     => .array #[.number EXPRANON, .number 10, n, e]
 
 def constAnonToIpld : ConstAnon → Ipld
   | .axiom ⟨l, t, s⟩         => .array #[.number CONSTANON, .number 0, l, t, s]

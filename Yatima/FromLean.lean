@@ -110,6 +110,9 @@ mutual
     | .fix nam exp => do
       let expCid ← exprToCid exp
       return (.fix expCid.anon, .fix nam expCid.meta)
+    | .proj idx exp => do
+      let expCid ← exprToCid exp
+      return (.proj idx expCid.anon, .proj idx expCid.meta)
 
   def exprToCid (e : Expr) : EnvM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
@@ -217,7 +220,9 @@ mutual
       return .letE nam typ exp bod
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr levelParams e
-    | .proj .. => sorry
+    | .proj _ idx exp _ => do
+      let exp ← toYatimaExpr levelParams exp
+      return .proj idx exp
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
