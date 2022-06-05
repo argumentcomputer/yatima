@@ -335,9 +335,6 @@ impl Expr {
     // Handle nested applications
     fn apps(env: &Env, ind: bool, fun: &Expr, arg: &Expr) -> String {
       match (fun, arg) {
-        (fun, Expr::App(fun2, arg)) => {
-          format!("{} ({})", parens(env, ind, fun), apps(env, ind, fun2, arg))
-        }
         (Expr::App(fun, arg1), arg2) => {
           format!("{} {}", apps(env, ind, fun, arg1), parens(env, ind, arg2))
         }
