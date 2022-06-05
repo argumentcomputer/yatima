@@ -288,7 +288,7 @@ impl Expr {
   pub fn pretty(&self, env: &Env, ind: bool) -> String {
     
     fn is_atom(expr: &Expr) -> bool {
-      matches!(expr, Expr::Const(..) | Expr::Var(..) | Expr::Sort(..) | Expr::Lit(..) | Expr::Lty(..))
+      matches!(expr, Expr::Const(..) | Expr::Var(..) | Expr::Lit(..) | Expr::Lty(..))
     }
 
     // Basic logic around parantheses, makes sure we don't do atoms.
@@ -335,19 +335,11 @@ impl Expr {
     // Handle nested applications
     fn apps(env: &Env, ind: bool, fun: &Expr, arg: &Expr) -> String {
       match (fun, arg) {
-        (Expr::App(fun, arg1), Expr::App(f, arg2)) => {
-          // Not sure why we need this case, but this was in lang-alpha
-          format!(
-            "{} ({})",
-            apps(env, ind, fun, arg1),
-            apps(env, ind, f, arg2)
-          )
+        (fun, Expr::App(fun2, arg)) => {
+          format!("{} ({})", parens(env, ind, fun), apps(env, ind, fun2, arg))
         }
         (Expr::App(fun, arg1), arg2) => {
           format!("{} {}", apps(env, ind, fun, arg1), parens(env, ind, arg2))
-        }
-        (fun, Expr::App(fun2, arg)) => {
-          format!("{} ({})", parens(env, ind, fun), apps(env, ind, fun2, arg))
         }
         (fun, arg) => {
           format!("{} {}", parens(env, ind, fun), parens(env, ind, arg))
