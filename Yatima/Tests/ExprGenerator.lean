@@ -1,13 +1,17 @@
 import Yatima.Expr
+import Yatima.Cid
 import Std.Data.HashMap
 
-def MAX_DEPTH : Nat := 15 -- Not recommended going over 10 or 11 until generation parameters are adjusted
+-- Not recommended going over 15 unless generation parameters are adjusted below
+def MAX_DEPTH : Nat := 15 
 
 structure Hole where
   id : Nat
   treeDepth : Nat
-  -- Add in UnivLevel information to make generating 
-  -- Eventually may store the type signature of a Hole to generate type-correct Yatima expressions.
+  -- Add in UnivLevel information to help generate more sensible expressions
+  /-
+  Maybe store the type signature of a Hole to generate type-correct Yatima expressions? (need typechecker)
+  -/
 deriving Inhabited  
 
 instance : BEq Hole where
@@ -53,17 +57,8 @@ abbrev ExprGen := StateT State IO
 def isFilled (hole : Hole) : ExprGen Bool := do
   return (← get).filledHoles.contains hole
 
--- def getIndex? (hole : Hole) : ExprGen (Option Nat) := do
---   let keys := (← get).filledHoles.map (fun (h, _) => h)
---   return keys.indexOf hole
-
 def getValue? (hole : Hole) : ExprGen (Option HExpr) := do
   return (← get).filledHoles.find? hole
-
--- def getHoleIds : ExprGen (List Nat) := do
---   let holes := (← get).holes
---   let filledHoles := (← get).filledHoles.map Prod.fst
---   return (filledHoles ++ holes).map Hole.id
 
 def genNewHole (depth : Nat) : ExprGen Hole := do
   let state ← get
@@ -102,7 +97,10 @@ partial def getBinderDepth (hole : Hole) : ExprGen (Option Nat) := do
             getBinderDepthAux hole type acc <||> getBinderDepthAux hole body acc.succ
           | .app func input => 
             getBinderDepthAux hole func acc <||> getBinderDepthAux hole input acc
-          | .letE .. => pure $ some 0 --TODO: Look at the wiki page again and put the binder in the right place
+          | .letE type value body => 
+          getBinderDepthAux hole type acc  <||> 
+          getBinderDepthAux hole value acc <||>
+          getBinderDepthAux hole body acc.succ
           | .fix body  => getBinderDepthAux hole body acc 
 
 def getHoles (expr : HExpr) : ExprGen (List Hole) := do
@@ -152,113 +150,155 @@ def fillHole (target : Hole) (type : ExprType) : ExprGen Unit := do
       }
   set newState
 
-def getRandomType (isLeaf : Bool := False): IO ExprType := do
-  if isLeaf then 
-    let leafTypeNum ← IO.rand 0 3
-    match leafTypeNum with
-      | 0 => return Sum.inr .sort
-      | 1 => return Sum.inr .const
-      | 2 => return Sum.inr .lit
-      | _ => 
-        let isFree ← IO.rand 0 1
-        return Sum.inr $ .var (if isFree == 1 then .free else .bdd)
-  else
-    let nodeTypeNum ← IO.rand 0 4
-    match nodeTypeNum with
-      | 0 => return Sum.inl .app
-      | 1 => return Sum.inl .lam
-      | 2 => return Sum.inl .pi
-      | 3 => return Sum.inl .letE
-      | _ => return Sum.inl .fix
+variable {gen : Type} [RandomGen gen]
 
-def fillNextHole : ExprGen Unit := do
+def getRandomType (g : gen) (isLeaf : Bool := False) : ExprType × gen := 
+  let (randLeaf, g) := randNat g 0 100
+  let cutoff := 50 -- NOTE: Adjust this `cutoff` to change leaf generation order
+  if isLeaf || (randLeaf ≥ cutoff) then
+    let (leafTypeNum, g) := randNat g 0 3
+    match leafTypeNum with
+      | 0 => (Sum.inr .sort, g)
+      | 1 => (Sum.inr .const, g)
+      | 2 => (Sum.inr .lit, g)
+      | _ => 
+        let (isFree, g) := randBool g
+        (Sum.inr $ .var (if isFree then .free else .bdd), g)
+  else
+    let (nodeTypeNum, g) := randNat g 0 4
+    match nodeTypeNum with
+      | 0 => (Sum.inl .app, g)
+      | 1 => (Sum.inl .lam, g)
+      | 2 => (Sum.inl .pi, g)
+      | 3 => (Sum.inl .letE, g)
+      | _ => (Sum.inl .fix, g)
+
+def fillNextHole (g : gen) : ExprGen gen := do
   let state ← get
   match state.unfilledHoles with
-    | [] => return ()
+    | [] => return g
     | h :: hs =>
       if h.treeDepth ≥ MAX_DEPTH then 
-        let exprType ← getRandomType true
+        let (exprType, g) := getRandomType (isLeaf := true) g
         fillHole h exprType
+        return g
       else
-        let exprType ← getRandomType
+        let (exprType, g) := getRandomType g
         fillHole h exprType
+        return g
 
-partial def fillAllHoles : ExprGen Unit := do
+partial def fillAllHoles (g : gen) : ExprGen gen := do
   let state ← get
   match state.unfilledHoles with
-    | [] => return ()
+    | [] => return g
     | _ =>
-      fillNextHole
-      fillAllHoles
+      let g ← fillNextHole g
+      fillAllHoles g
 
-def randomAlpha : IO Char := do
-  let isUpper ← IO.rand 0 1
-  if (isUpper == 1) then return .ofNat (← IO.rand 65 90) else return .ofNat (← IO.rand 97 122)
+def randomAlpha (g : gen) : Char × gen :=
+  let (isUpper, g) := randBool g
+  let (lo, hi) := if isUpper then (65, 90) else (97, 122)
+  let (charNat, g) := randNat g lo hi
+  (.ofNat charNat, g)
 
--- generate 4-character long alpha names 
-def randomName : IO String := do
-  return String.mk [←randomAlpha, ←randomAlpha, ←randomAlpha, ←randomAlpha] 
+def someRandom {α : Type} (f : gen → α × gen) (n : Nat) (g : gen) : List α × gen := 
+  let rec someRandomAux (n : Nat) (acc : List α) (g : gen) := match n with
+    | 0       => (acc, g)
+    | .succ n => 
+      let (a, g) := f g
+      someRandomAux n (a :: acc) g
+  someRandomAux n [] g
+
+def randName (g : gen) : String × gen := 
+  let (cs, g) := someRandom randomAlpha 4 g
+  (.mk cs, g)
 
 -- not actually making a valid CID, just want something to fill in the holes
-def randomCid : IO Cid := do
+def randCid (g : gen) : Cid × gen :=
   let multiHash : Multihash := ⟨0, 0, .mk #[0xC0DE]⟩
-  return ⟨← IO.rand 0 1, ← IO.rand 0 1, multiHash⟩
+  let (ver, g) := randNat g 0 1
+  let (num, g) := randNat g 0 1
+  (⟨ver, num, multiHash⟩, g)
 
--- TODO: Need a way to generate random `UnivCIDs`
-def randomSort : IO Yatima.Expr := do
-  let univCid := ⟨.mk (← randomCid), .mk (← randomCid)⟩
-  return .sort univCid
+def randSort (g : gen) : Yatima.Expr × gen :=
+  let (anonCid, g) := randCid g
+  let (metaCid, g) := randCid g
+  let univCid := ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
+  (.sort univCid, g)
 
--- TODO: Need a way to generate random `ConstCid` (and `UnivCid`)s
-def randomConst : IO Yatima.Expr := do
-  let constCid := ⟨.mk (← randomCid), .mk (← randomCid)⟩
-  return .const (← randomName) constCid []
+def randConst (g : gen) : Yatima.Expr × gen :=
+  let (name, g) := randName g
+  let (anonCid, g) := randCid g
+  let (metaCid, g) := randCid g
+  let constCid := ⟨.mk anonCid, .mk metaCid⟩
+  (.const name constCid [], g)
 
-def randomLit : IO Yatima.Expr := do
-  let isNat ← IO.rand 0 1
-  if isNat == 1 then return .lit $ .nat (← IO.rand 0 100) else return .lit $ .str (← randomName)
+def randLit (g : gen) : Yatima.Expr × gen :=
+  let (isNat, g) := randBool g
+  if isNat then 
+    let (num, g) := randNat g 0 100
+    (.lit $ .nat num, g) else
+    let (str, g) := randName g
+    (.lit $ .str str, g)
 
-def randomVar (isBdd : Bool := false): IO Yatima.Expr := do
-  let name ← randomName
-  let freedom ← IO.rand 0 1 --
-  if isBdd || freedom == 0 then 
-    return .var (← randomName) (← IO.rand 0 2) else 
-    return .var (← randomName) (← IO.rand 2 3)
+def randVar (depth : Option Nat) (g : gen) (isBdd : Bool := false): Yatima.Expr × gen :=
+  let (name, g) := randName g
+  match depth with
+    | none => 
+      let (idx, g) := randNat g 0 100
+      (.var name idx, g)
+    | some dep => 
+      let (isBddR, g) := randBool g
+      if isBdd || isBddR then
+        let (idx, g) := randNat g 0 dep
+        (.var name idx, g) else
+        let (idx, g) := randNat g (dep + 1) 100
+        (.var name idx, g)
 
-partial def assembleExprAux (head : Hole) : ExprGen Yatima.Expr := do
+partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
   let hExpr ← getValue? head
   match hExpr with
     | none => unreachable!
     | some expr => match expr with
       | .app funcHole inputHole           => 
-        return .app (← assembleExprAux funcHole) (← assembleExprAux inputHole)
-      | .lam typeHole bodyHole            => 
-        return .lam (← randomName) default (← assembleExprAux typeHole) (← assembleExprAux bodyHole)
-      | .pi typeHole bodyHole             => 
-        return .pi (← randomName) default (← assembleExprAux typeHole) (← assembleExprAux bodyHole)
+        let (g₁, g₂) := RandomGen.split g
+        return .app (← assembleExprAux funcHole g₁) (← assembleExprAux inputHole g₂)
+      | .lam typeHole bodyHole            =>
+        let (name, g) := randName g
+        let (g₁, g₂) := RandomGen.split g 
+        return .lam name default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
+      | .pi typeHole bodyHole             =>
+        let (name, g) := randName g 
+        let (g₁, g₂) := RandomGen.split g
+        return .pi name default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
       | .letE typeHole valueHole bodyHole =>
-        return .letE (← randomName) (← assembleExprAux typeHole) 
-                                    (← assembleExprAux valueHole) 
-                                    (← assembleExprAux bodyHole)
-      | .fix bodyHole                     => 
-        return .fix (← randomName) (← assembleExprAux bodyHole) 
+        let (name, g) := randName g
+        let (g₁, g₂) := RandomGen.split g
+        let (g₂, g₃) := RandomGen.split g₂
+        return .letE name (← assembleExprAux typeHole g₁) 
+                          (← assembleExprAux valueHole g₂) 
+                          (← assembleExprAux bodyHole g₃)
+      | .fix bodyHole                     =>
+        let (name, g) := randName g
+        return .fix name (← assembleExprAux bodyHole g) 
       | .leaf leafType => match leafType with
-        | .sort        => return (← randomSort)
-        | .const       => return (← randomConst)
-        | .lit         => return (← randomLit)
-        | .var varType => return (← randomVar) /- Can add in a Boolean parameter to ensure
-                                                  the variables are all bounded -/
+        | .sort        => return randSort g  |>.1
+        | .const       => return randConst g |>.1
+        | .lit         => return randLit g   |>.1
+        | .var varType => 
+          let depth? ← getBinderDepth head
+          return randVar depth? g |>.1
 
-partial def run : ExprGen Yatima.Expr := do
-  fillAllHoles
+partial def run (g : gen): ExprGen Yatima.Expr := do
+  let g ← fillAllHoles g
   let head := (← get).head
-  assembleExprAux head
+  assembleExprAux head g
 
 namespace Yatima.Expr
 
 def toString : Yatima.Expr → String
   | var name idx => s!"v:{name}.{idx}"
-  | sort _ => "Sort" -- Do this better
+  | sort _ => "Sort"
   | const name .. => s!"c:{name}"
   | app func body =>
     let funcString := func.toString
@@ -266,19 +306,22 @@ def toString : Yatima.Expr → String
     s!"({funcString} {bodyString})"
   | lam _ _ type body =>
     let bodyString := body.toString
-    s!"(λ. {bodyString})"
+    let typeString := type.toString
+    s!"(λ({typeString}). {bodyString})"
   | pi _ _ type body =>
     let bodyString := body.toString
-    s!"(Π. {bodyString})"
+    let typeString := type.toString
+    s!"(Π({typeString}). {bodyString})"
   | letE _ type value body =>
     let valueString := value.toString
     let bodyString := body.toString
-    s!"(let v=({valueString}) in {bodyString})" -- Do this better
+    let typeString := type.toString
+    s!"(let v=({valueString}) : ({typeString}) in {bodyString})" 
   | lit literal =>
     match literal with
       | .nat num => s!"ln:{num}"
       | .str str => s!"ls:{str}"
-  | lty _ => "" -- Not generating literal types yet
+  | lty _ => ""
   | fix _ body => 
     let bodyString := body.toString
     s!"(μ.{bodyString})"
@@ -289,18 +332,15 @@ instance : ToString Expr := {
 
 end Yatima.Expr
 
+-- TODO : Figure out why this isn't acting randomly when running with a compiled binary.
 def printRandomExpr : IO Unit := do
-  let as ← run.run' init
-  IO.println s!"{as}"
+  let g ← IO.stdGenRef.get
+  let (r, _) := randNat g 0 2147483563
+  IO.setRandSeed r
+  let g' ← IO.stdGenRef.get
+  let ast ← (run g').run' init
+  IO.println s!"{ast}"
 
 def printExamples : IO Unit := do
   for _ in List.range 5 do
     printRandomExpr
-
--- Absolutely cursed outputs:
---#eval printExamples
--- (λ. (μ.(μ.(let v=((μ.(μ.(Π. (μ.(λ. (rezB 9))))))) in (μ.(μ.(Π. (μ.(λ. (65 JtPB))))))))))
--- (((λ. (μ.(let v=((let v=((((μ.(let v=(23) in 17)) (μ.(let v=(WZbf) in HyQi))) ((μ.(let v=(sAjD) in 77)) (μ.(let v=(80) in VcZO))))) in (((μ.(let v=(27) in Qyzm)) (μ.(let v=(59) in tjLz))) ((μ.(let v=(39) in 84)) (μ.(let v=(48) in 89)))))) in (let v=((((μ.(let v=(PAno) in 85)) (μ.(let v=(14) in 99))) ((μ.(let v=(XaIN) in 61)) (μ.(let v=(34) in DlWT))))) in (((μ.(let v=(49) in AGIQ)) (μ.(let v=(61) in nVvV))) ((μ.(let v=(dMPj) in 64)) (μ.(let v=(1) in 21)))))))) (λ. (μ.(let v=((let v=((((μ.(let v=(39) in oRBH)) (μ.(let v=(59) in AcPx))) ((μ.(let v=(95) in 41)) (μ.(let v=(73) in ewSA))))) in (((μ.(let v=(15) in 38)) (μ.(let v=(ShdC) in WDMR))) ((μ.(let v=(63) in 74)) (μ.(let v=(92) in jdzh)))))) in (let v=((((μ.(let v=(WaFI) in 26)) (μ.(let v=(1) in Fmie))) ((μ.(let v=(94) in eRWj)) (μ.(let v=(NGow) in YTFT))))) in (((μ.(let v=(IqWc) in JJjR)) (μ.(let v=(3) in AKIM))) ((μ.(let v=(23) in 78)) (μ.(let v=(92) in dYlL))))))))) ((λ. (μ.(let v=((let v=((((μ.(let v=(35) in 100)) (μ.(let v=(2) in oreH))) ((μ.(let v=(77) in Uolu)) (μ.(let v=(xsDk) in FIDc))))) in (((μ.(let v=(34) in 85)) (μ.(let v=(WBBz) in pJgU))) ((μ.(let v=(51) in ZKkA)) (μ.(let v=(mfhm) in 8)))))) in (let v=((((μ.(let v=(RRoi) in qcGC)) (μ.(let v=(PJxm) in 51))) ((μ.(let v=(zAgz) in PILL)) (μ.(let v=(xykK) in 12))))) in (((μ.(let v=(79) in 20)) (μ.(let v=(QqQL) in 78))) ((μ.(let v=(OIvf) in pxNP)) (μ.(let v=(lsoR) in egEn)))))))) (λ. (μ.(let v=((let v=((((μ.(let v=(ZdXn) in 29)) (μ.(let v=(45) in 3))) ((μ.(let v=(NDvF) in 74)) (μ.(let v=(75) in VlWH))))) in (((μ.(let v=(42) in 32)) (μ.(let v=(9) in 51))) ((μ.(let v=(27) in 55)) (μ.(let v=(rjBh) in 9)))))) in (let v=((((μ.(let v=(kuzm) in 25)) (μ.(let v=(rgPl) in 73))) ((μ.(let v=(66) in 2)) (μ.(let v=(lClH) in 55))))) in (((μ.(let v=(wlPn) in 3)) (μ.(let v=(75) in EyrI))) ((μ.(let v=(94) in YHqS)) (μ.(let v=(Bwkv) in oXVH))))))))))
--- (μ.(λ. (let v=((μ.(μ.(let v=((μ.(((μ.v:qwjK.3) (μ.v:yPhM.2)) ((μ.v:tora.0) (μ.v:dWrQ.2))))) in (μ.(((μ.v:dHdV.0) (μ.v:qKty.2)) ((μ.v:BgFI.3) (μ.v:XQsb.2)))))))) in (μ.(μ.(let v=((μ.(((μ.v:Nbvu.0) (μ.v:hAWW.1)) ((μ.v:imSv.0) (μ.v:oUXa.0))))) in (μ.(((μ.v:HXsU.3) (μ.v:GxMP.3)) ((μ.v:MLFF.2) (μ.v:mBAK.2))))))))))
--- (Π. (λ. (((Π. (Π. (let v=((μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort)))) in (μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort)))))) (Π. (Π. (let v=((μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort)))) in (μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort))))))) ((Π. (Π. (let v=((μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort)))) in (μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort)))))) (Π. (Π. (let v=((μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort)))) in (μ.(let v=((let v=(Sort) in Sort)) in (let v=(Sort) in Sort))))))))))
--- (μ.((μ.(let v=((let v=((μ.(λ. ((let v=((v:Wkra.0 v:CdOu.3)) in (v:UjPj.2 v:CDPj.0)) (let v=((v:TxYo.3 v:bBUJ.1)) in (v:ylPF.2 v:GbEM.3)))))) in (μ.(λ. ((let v=((v:lJuU.3 v:jpdO.2)) in (v:jJUj.3 v:PsEn.3)) (let v=((v:TcDP.3 v:YtgJ.0)) in (v:hJlX.2 v:Uzsj.2))))))) in (let v=((μ.(λ. ((let v=((v:bALc.3 v:mmMx.3)) in (v:LVoL.0 v:nHOv.1)) (let v=((v:nouj.2 v:fyWR.2)) in (v:kZRw.2 v:ICrA.2)))))) in (μ.(λ. ((let v=((v:TLSg.0 v:UWjN.3)) in (v:aqkX.2 v:QBZO.0)) (let v=((v:tGNY.0 v:pckg.1)) in (v:lFFc.0 v:hpzE.2)))))))) (μ.(let v=((let v=((μ.(λ. ((let v=((v:iegu.1 v:IXGr.3)) in (v:OQqN.2 v:RheE.3)) (let v=((v:nKYQ.2 v:nmEh.3)) in (v:Dggk.2 v:MfcD.3)))))) in (μ.(λ. ((let v=((v:ndWQ.2 v:wQwf.2)) in (v:iUEZ.2 v:nwGr.2)) (let v=((v:IdhU.2 v:QPOa.3)) in (v:uxrm.3 v:sSqP.2))))))) in (let v=((μ.(λ. ((let v=((v:GjDj.3 v:DUtU.2)) in (v:DLKk.0 v:WOPI.2)) (let v=((v:RuZD.2 v:eUvS.1)) in (v:EtRh.2 v:mIMK.3)))))) in (μ.(λ. ((let v=((v:MBOO.2 v:CYUe.2)) in (v:ZFbk.2 v:Fxft.0)) (let v=((v:jaSY.3 v:mWDb.0)) in (v:BKHR.2 v:AkWQ.1))))))))))
