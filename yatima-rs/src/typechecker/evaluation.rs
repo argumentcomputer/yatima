@@ -4,11 +4,10 @@ use crate::typechecker::{
   universe::*,
   value::*,
 };
+
+use core::cell::RefCell;
+use alloc::rc::Rc;
 use im::Vector;
-use std::{
-  cell::RefCell,
-  rc::Rc,
-};
 
 #[inline]
 pub fn result(val: Value) -> ThunkPtr { Rc::new(RefCell::new(Thunk::Res(val))) }

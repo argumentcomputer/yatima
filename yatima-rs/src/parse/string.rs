@@ -11,6 +11,11 @@ use crate::parse::{
   span::Span,
 };
 
+use alloc::{
+  borrow::ToOwned,
+  string::String
+};
+
 use nom::{
   branch::alt,
   bytes::complete::{
@@ -32,10 +37,6 @@ use nom::{
   Err,
   IResult,
 };
-
-use alloc::borrow::ToOwned;
-
-use alloc::string::String;
 
 pub fn parse_codepoint(from: Span) -> IResult<Span, char, ParseError<Span>> {
   let (i, _) =

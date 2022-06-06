@@ -1,18 +1,21 @@
-use std::{
+use core::{
   borrow::Borrow,
   fmt,
   ops::Deref,
+};
+
+use alloc::{
+  borrow::ToOwned,
   rc::Rc,
+  string::{
+    String,
+    ToString,
+  },
 };
 
 use serde::{
   Deserialize,
   Serialize,
-};
-
-use alloc::string::{
-  String,
-  ToString,
 };
 
 /// The name for packages, defs, and expressions

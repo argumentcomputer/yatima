@@ -9,8 +9,9 @@ use crate::typechecker::{
   universe::*,
   value::*,
 };
+
+use alloc::rc::Rc;
 use im::Vector;
-use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CheckError {

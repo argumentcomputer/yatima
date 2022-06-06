@@ -1,3 +1,4 @@
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 #![cfg_attr(test, feature(new_uninit))]
 #![cfg_attr(test, feature(box_into_inner))]
 
@@ -9,6 +10,7 @@ extern crate quickcheck_macros;
 #[cfg(test)]
 extern crate rand;
 
+#[macro_use]
 extern crate alloc;
 
 pub mod constant;

@@ -6,7 +6,6 @@ use crate::parse::{
   },
   span::Span,
 };
-use core::ops::DerefMut;
 
 use crate::{
   environment::{
@@ -19,6 +18,17 @@ use crate::{
   name::Name,
   nat::Nat,
   universe::Univ,
+};
+
+use core::{
+  cell::RefCell,
+  ops::DerefMut,
+};
+use alloc::{
+  borrow::ToOwned,
+  rc::Rc,
+  string::String,
+  vec::Vec,
 };
 
 use im::{
@@ -54,12 +64,6 @@ use nom::{
   Err,
   IResult,
 };
-
-use alloc::{
-  rc::Rc,
-  string::String,
-};
-use core::cell::RefCell;
 
 pub type UnivCtx = Vector<Name>;
 pub type BindCtx = Vector<Name>;

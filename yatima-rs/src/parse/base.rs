@@ -6,6 +6,13 @@ use crate::parse::error::{
 
 use crate::parse::span::Span;
 
+use alloc::{
+  borrow::ToOwned,
+  boxed::Box,
+  string::String,
+  vec::Vec,
+};
+
 use multibase::Base;
 
 use nom::{
@@ -21,14 +28,6 @@ use nom::{
   IResult,
   InputTakeAtPosition,
 };
-
-use alloc::{
-  borrow::ToOwned,
-  boxed::Box,
-  vec::Vec,
-};
-
-use alloc::string::String;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum LitBase {

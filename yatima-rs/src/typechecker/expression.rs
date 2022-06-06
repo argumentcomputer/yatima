@@ -13,9 +13,10 @@ use crate::{
   typechecker::universe::*,
 };
 
-use std::{
-  collections::HashMap,
+use alloc::{
+  collections::BTreeMap,
   rc::Rc,
+  vec::Vec,
 };
 
 pub type ExprPtr = Rc<Expr>;
@@ -114,7 +115,7 @@ pub enum Const {
     minors: Index,
     /// Since pointers are in one-to-one correspondence with CIDs, we can use
     /// raw pointers as keys
-    rules: HashMap<*const Const, RecursorRule>,
+    rules: BTreeMap<*const Const, RecursorRule>,
     k: bool,
     safe: bool,
   },

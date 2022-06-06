@@ -1,112 +1,30 @@
-use alloc::string::{
-  String,
-  ToString,
-};
-use im::{
-  OrdMap,
-  Vector,
-};
-use libipld::Cid;
-use num_traits::Zero;
-
-use core::cell::{
-  RefCell,
-  RefMut,
-};
-
-use core::ops::DerefMut;
-
 use crate::{
-  constant::{
-    Const,
-    DefSafety,
-    QuotKind,
-  },
-  environment::{
-    ConstAnonCid,
-    ConstCid,
-    ConstMetaCid,
-    Env,
-    EnvError,
-    ExprCid,
-    CONST_ANON,
-    CONST_META,
-  },
-  expression::{
-    BinderInfo,
-    Expr,
-    LitType,
-    Literal,
-  },
+  constant::{Const, DefSafety},
+  expression::{BinderInfo, Expr},
   name::Name,
-  nat::Nat,
   parse::{
-    base::parse_multibase,
-    error::{
-      throw_err,
-      ParseError,
-      ParseErrorKind,
-    },
+    error::ParseError,
     expr::parse_bound_expression,
     span::Span,
-    string::parse_string,
-    univ::parse_univ,
     utils::{
-      parse_builtin_symbol_end,
-      parse_name,
-      parse_nat,
-      parse_space,
-      parse_u8,
-      store_expr,
-      BindCtx,
-      EnvCtx,
-      GlobalCtx,
-      UnivCtx,
+      parse_name, parse_space, store_expr, BindCtx, EnvCtx, GlobalCtx, UnivCtx,
     },
   },
-  universe::Univ,
 };
+
+use alloc::{boxed::Box, vec::Vec};
+use im::Vector;
+
 use nom::{
   branch::alt,
-  bytes::complete::{
-    tag,
-    take_till,
-    take_till1,
-  },
-  character::complete::{
-    digit1,
-    multispace0,
-    multispace1,
-    satisfy,
-  },
-  combinator::{
-    eof,
-    map,
-    opt,
-    peek,
-    success,
-    value,
-  },
-  error::context,
-  multi::{
-    many0,
-    many1,
-    separated_list1,
-  },
-  sequence::{
-    delimited,
-    preceded,
-    terminated,
-  },
-  Err,
+  bytes::complete::tag,
+  combinator::{opt, success, value},
+  multi::many0,
+  sequence::{preceded, terminated},
   IResult,
 };
 
-use super::expr::{
-  parse_binders0,
-  parse_expr,
-  parse_expr_apps,
-};
+use super::expr::{parse_binders0, parse_expr, parse_expr_apps};
 
 pub fn parse_levels(i: Span) -> IResult<Span, Vec<Name>, ParseError<Span>> {
   let (i, _) = tag("{")(i)?;
@@ -134,7 +52,7 @@ pub fn parse_const_axiom(
     let (i, lvl) = opt(parse_levels)(i)?;
     let lvl = match lvl {
       Option::None => vec![],
-      Option::Some(l) => l
+      Option::Some(l) => l,
     };
     let (i, _) = parse_space(i)?;
     let (i, _) = tag(":")(i)?;
@@ -145,7 +63,7 @@ pub fn parse_const_axiom(
       global_ctx.clone(),
       env_ctx.clone(),
     )(i)?;
-    let (i, typ) = store_expr(env_ctx.clone(), typ, i)?;
+    let (_, typ) = store_expr(env_ctx.clone(), typ, i)?;
     Ok((upto, Const::Axiom { name, lvl, typ, safe }))
   }
 }
@@ -164,7 +82,7 @@ pub fn parse_const_theorem(
     let (i, lvl) = opt(parse_levels)(i)?;
     let lvl = match lvl {
       Option::None => vec![],
-      Option::Some(l) => l
+      Option::Some(l) => l,
     };
     let (i, _) = parse_space(i)?;
     let (upto, (typ, expr)) = parse_bound_expression(
@@ -175,7 +93,7 @@ pub fn parse_const_theorem(
       None,
     )(i)?;
     let (i, typ) = store_expr(env_ctx.clone(), typ, i)?;
-    let (i, expr) = store_expr(env_ctx.clone(), expr, i)?;
+    let (_, expr) = store_expr(env_ctx.clone(), expr, i)?;
     Ok((upto, Const::Theorem { name, lvl, typ, expr }))
   }
 }
@@ -201,7 +119,7 @@ pub fn parse_const_opaque(
     let (i, lvl) = opt(parse_levels)(i)?;
     let lvl = match lvl {
       Option::None => vec![],
-      Option::Some(l) => l
+      Option::Some(l) => l,
     };
     let (i, _) = parse_space(i)?;
     let (upto, (typ, expr)) = parse_bound_expression(
@@ -212,7 +130,7 @@ pub fn parse_const_opaque(
       rec,
     )(i)?;
     let (i, typ) = store_expr(env_ctx.clone(), typ, i)?;
-    let (i, expr) = store_expr(env_ctx.clone(), expr, i)?;
+    let (_, expr) = store_expr(env_ctx.clone(), expr, i)?;
     Ok((upto, Const::Opaque { name, lvl, typ, expr, safe }))
   }
 }
@@ -239,7 +157,7 @@ pub fn parse_const_def(
     let (i, lvl) = opt(parse_levels)(i)?;
     let lvl = match lvl {
       Option::None => vec![],
-      Option::Some(l) => l
+      Option::Some(l) => l,
     };
     let (i, _) = parse_space(i)?;
     let (upto, (typ, expr)) = parse_bound_expression(
@@ -250,7 +168,7 @@ pub fn parse_const_def(
       rec,
     )(i)?;
     let (i, typ) = store_expr(env_ctx.clone(), typ, i)?;
-    let (i, expr) = store_expr(env_ctx.clone(), expr, i)?;
+    let (_, expr) = store_expr(env_ctx.clone(), expr, i)?;
     Ok((upto, Const::Definition { name, lvl, typ, expr, safe }))
   }
 }
@@ -262,7 +180,7 @@ pub fn parse_const_def(
 /// ```
 /// TODO: nest, refl
 #[derive(Clone, Debug, PartialEq)]
-struct InductiveDecl {
+pub struct InductiveDecl {
   safe: bool,
   recr: bool,
   name: Name,
@@ -293,7 +211,7 @@ pub fn parse_const_inductive_decl(
     let (i, lvl) = opt(parse_levels)(i)?;
     let lvl = match lvl {
       Option::None => vec![],
-      Option::Some(l) => l
+      Option::Some(l) => l,
     };
     let (i, _) = parse_space(i)?;
     let univ_ctx = Vector::from(lvl.clone());
@@ -335,8 +253,7 @@ pub fn parse_const_inductive_decl(
       let (i, _) = tag("->")(i)?;
       let (i, _) = parse_space(i)?;
       Ok((i, ()))
-    }
-    else {
+    } else {
       Ok((i, ()))
     }?;
     let (i, typ) = parse_expr(
@@ -364,16 +281,19 @@ pub fn parse_const_inductive_decl(
       parse_space,
     ))(i)?;
 
-    Ok((i, InductiveDecl {
-      name,
-      lvl,
-      typ,
-      params,
-      indices,
-      ctors,
-      recr: rec.is_some(),
-      safe,
-    }))
+    Ok((
+      i,
+      InductiveDecl {
+        name,
+        lvl,
+        typ,
+        params,
+        indices,
+        ctors,
+        recr: rec.is_some(),
+        safe,
+      },
+    ))
   }
 }
 
@@ -426,12 +346,15 @@ pub fn parse_const_inductive_ctor(
 
 #[cfg(test)]
 pub mod tests {
-  use alloc::rc::Rc;
   use super::*;
-  use multihash::{
-    Code,
-    MultihashDigest,
+  use crate::{
+    environment::{ConstAnonCid, ConstCid, ConstMetaCid, Env, ExprCid},
+    universe::Univ,
   };
+  use alloc::rc::Rc;
+  use core::cell::RefCell;
+  use im::OrdMap;
+  use multihash::{Code, MultihashDigest};
 
   #[test]
   fn test_parse_levels() {
@@ -472,21 +395,27 @@ pub mod tests {
 
     let res = test("axiom foo {u v} : Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Axiom {
-      name: Name::from("foo"),
-      lvl: vec![Name::from("u"), Name::from("v")],
-      typ: dummy_typ_cid(),
-      safe: true
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Axiom {
+        name: Name::from("foo"),
+        lvl: vec![Name::from("u"), Name::from("v")],
+        typ: dummy_typ_cid(),
+        safe: true
+      }
+    );
 
     let res = test("unsafe axiom foo : Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Axiom {
-      name: Name::from("foo"),
-      lvl: vec![],
-      typ: dummy_typ_cid(),
-      safe: false
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Axiom {
+        name: Name::from("foo"),
+        lvl: vec![],
+        typ: dummy_typ_cid(),
+        safe: false
+      }
+    );
   }
 
   #[test]
@@ -499,12 +428,15 @@ pub mod tests {
 
     let res = test("theorem foo {u v} : Sort 0 := Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Theorem {
-      name: Name::from("foo"),
-      lvl: vec![Name::from("u"), Name::from("v")],
-      typ: dummy_typ_cid(),
-      expr: dummy_typ_cid()
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Theorem {
+        name: Name::from("foo"),
+        lvl: vec![Name::from("u"), Name::from("v")],
+        typ: dummy_typ_cid(),
+        expr: dummy_typ_cid()
+      }
+    );
   }
 
   #[test]
@@ -517,23 +449,29 @@ pub mod tests {
 
     let res = test("opaque foo {u v} : Sort 0 := Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Opaque {
-      name: Name::from("foo"),
-      lvl: vec![Name::from("u"), Name::from("v")],
-      typ: dummy_typ_cid(),
-      expr: dummy_typ_cid(),
-      safe: true
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Opaque {
+        name: Name::from("foo"),
+        lvl: vec![Name::from("u"), Name::from("v")],
+        typ: dummy_typ_cid(),
+        expr: dummy_typ_cid(),
+        safe: true
+      }
+    );
 
     let res = test("unsafe opaque rec foo {u v} : Sort 0 := Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Opaque {
-      name: Name::from("foo"),
-      lvl: vec![Name::from("u"), Name::from("v")],
-      typ: dummy_typ_cid(),
-      expr: dummy_fix_typ_cid(Name::from("foo")),
-      safe: false
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Opaque {
+        name: Name::from("foo"),
+        lvl: vec![Name::from("u"), Name::from("v")],
+        typ: dummy_typ_cid(),
+        expr: dummy_fix_typ_cid(Name::from("foo")),
+        safe: false
+      }
+    );
   }
 
   #[test]
@@ -546,33 +484,42 @@ pub mod tests {
 
     let res = test("def foo {u v} : Sort 0 := Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Definition {
-      name: Name::from("foo"),
-      lvl: vec![Name::from("u"), Name::from("v")],
-      typ: dummy_typ_cid(),
-      expr: dummy_typ_cid(),
-      safe: DefSafety::Safe
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Definition {
+        name: Name::from("foo"),
+        lvl: vec![Name::from("u"), Name::from("v")],
+        typ: dummy_typ_cid(),
+        expr: dummy_typ_cid(),
+        safe: DefSafety::Safe
+      }
+    );
 
     let res = test("unsafe def rec foo {u v} : Sort 0 := Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Definition {
-      name: Name::from("foo"),
-      lvl: vec![Name::from("u"), Name::from("v")],
-      typ: dummy_typ_cid(),
-      expr: dummy_fix_typ_cid(Name::from("foo")),
-      safe: DefSafety::Unsafe
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Definition {
+        name: Name::from("foo"),
+        lvl: vec![Name::from("u"), Name::from("v")],
+        typ: dummy_typ_cid(),
+        expr: dummy_fix_typ_cid(Name::from("foo")),
+        safe: DefSafety::Unsafe
+      }
+    );
 
     let res = test("partial def foo : Sort 0 := Sort 0");
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, Const::Definition {
-      name: Name::from("foo"),
-      lvl: vec![],
-      typ: dummy_typ_cid(),
-      expr: dummy_typ_cid(),
-      safe: DefSafety::Partial
-    });
+    assert_eq!(
+      res.unwrap().1,
+      Const::Definition {
+        name: Name::from("foo"),
+        lvl: vec![],
+        typ: dummy_typ_cid(),
+        expr: dummy_typ_cid(),
+        safe: DefSafety::Partial
+      }
+    );
   }
 
   fn dummy_const_cid(ind: u8) -> ConstCid {
@@ -585,7 +532,7 @@ pub mod tests {
     OrdMap::from(vec![
       (Name::from("Nat"), dummy_const_cid(0)),
       (Name::from("Nat.zero"), dummy_const_cid(1)),
-      (Name::from("Nat.succ"), dummy_const_cid(2))
+      (Name::from("Nat.succ"), dummy_const_cid(2)),
     ])
   }
 
@@ -597,58 +544,86 @@ pub mod tests {
     }
 
     let nat = Expr::Const(Name::from("Nat"), dummy_const_cid(0), vec![]);
-    let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(1), vec![]);
-    let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(2), vec![]);
+    let nat_zero =
+      Expr::Const(Name::from("Nat.zero"), dummy_const_cid(1), vec![]);
+    let nat_succ =
+      Expr::Const(Name::from("Nat.succ"), dummy_const_cid(2), vec![]);
 
     //TODO(rish) clean up notation (comma at the end),
     //also split this big test up into its unit test components
     let res = test(
-    "unsafe inductive rec Vector {u} (A: Sort 0) : (k: Nat) -> Sort 0 where
+      "unsafe inductive rec Vector {u} (A: Sort 0) : (k: Nat) -> Sort 0 where
      | Nil : Vector A Nat.zero,
-     | Cons (k: Nat) (x: A) (xs: Vector A k): Vector A (Nat.succ k),");
+     | Cons (k: Nat) (x: A) (xs: Vector A k): Vector A (Nat.succ k),",
+    );
     assert!(res.is_ok());
-    assert_eq!(res.unwrap().1, InductiveDecl {
-      safe: false,
-      recr: true,
-      name: Name::from("Vector"),
-      lvl: vec![Name::from("u")],
-      params: vec![(BinderInfo::Default, Name::from("A"), dummy_typ())],
-      indices: vec![(BinderInfo::Default, Name::from("k"), nat.clone())],
-      typ: Expr::Pi(Name::from("A"), BinderInfo::Default, Box::new(dummy_typ()),
-      Box::new(Expr::Pi(Name::from("k"), BinderInfo::Default, Box::new(nat.clone()), Box::new(dummy_typ())))),
-      ctors: vec![
-        (Name::from("Nil"),
-          Expr::App(
-            Box::new(Expr::App(
-            Box::new(Expr::Var(Name::from("Vector"), 1u32.into())),
-            Box::new(Expr::Var(Name::from("A"), 0u32.into())))),
-            Box::new(nat_zero.clone())),
-          ),
-        (Name::from("Cons"),
-          Expr::Pi(Name::from("k"), BinderInfo::Default, Box::new(nat.clone()),
-          Box::new(
-          Expr::Pi(Name::from("x"), BinderInfo::Default, Box::new(Expr::Var(Name::from("A"), 1u32.into())),
-          Box::new(
-          Expr::Pi(Name::from("xs"), BinderInfo::Default, 
-            Box::new(Expr::App(
-            Box::new(Expr::App(
-            Box::new(Expr::Var(Name::from("Vector"), 3u32.into())),
-            Box::new(Expr::Var(Name::from("A"), 2u32.into())))),
-            Box::new(
-              Expr::Var(Name::from("k"), 1u32.into())),
-          )),
-          Box::new(
-          Expr::App(
-            Box::new(Expr::App(
-            Box::new(Expr::Var(Name::from("Vector"), 4u32.into())),
-            Box::new(Expr::Var(Name::from("A"), 3u32.into())))),
-            Box::new(
-              Expr::App(
-              Box::new(nat_succ.clone()),
-              Box::new(Expr::Var(Name::from("k"), 2u32.into())))),
-          ))))))),
+    assert_eq!(
+      res.unwrap().1,
+      InductiveDecl {
+        safe: false,
+        recr: true,
+        name: Name::from("Vector"),
+        lvl: vec![Name::from("u")],
+        params: vec![(BinderInfo::Default, Name::from("A"), dummy_typ())],
+        indices: vec![(BinderInfo::Default, Name::from("k"), nat.clone())],
+        typ: Expr::Pi(
+          Name::from("A"),
+          BinderInfo::Default,
+          Box::new(dummy_typ()),
+          Box::new(Expr::Pi(
+            Name::from("k"),
+            BinderInfo::Default,
+            Box::new(nat.clone()),
+            Box::new(dummy_typ())
+          ))
         ),
-      ]
-    });
+        ctors: vec![
+          (
+            Name::from("Nil"),
+            Expr::App(
+              Box::new(Expr::App(
+                Box::new(Expr::Var(Name::from("Vector"), 1u32.into())),
+                Box::new(Expr::Var(Name::from("A"), 0u32.into()))
+              )),
+              Box::new(nat_zero.clone())
+            ),
+          ),
+          (
+            Name::from("Cons"),
+            Expr::Pi(
+              Name::from("k"),
+              BinderInfo::Default,
+              Box::new(nat.clone()),
+              Box::new(Expr::Pi(
+                Name::from("x"),
+                BinderInfo::Default,
+                Box::new(Expr::Var(Name::from("A"), 1u32.into())),
+                Box::new(Expr::Pi(
+                  Name::from("xs"),
+                  BinderInfo::Default,
+                  Box::new(Expr::App(
+                    Box::new(Expr::App(
+                      Box::new(Expr::Var(Name::from("Vector"), 3u32.into())),
+                      Box::new(Expr::Var(Name::from("A"), 2u32.into()))
+                    )),
+                    Box::new(Expr::Var(Name::from("k"), 1u32.into())),
+                  )),
+                  Box::new(Expr::App(
+                    Box::new(Expr::App(
+                      Box::new(Expr::Var(Name::from("Vector"), 4u32.into())),
+                      Box::new(Expr::Var(Name::from("A"), 3u32.into()))
+                    )),
+                    Box::new(Expr::App(
+                      Box::new(nat_succ.clone()),
+                      Box::new(Expr::Var(Name::from("k"), 2u32.into()))
+                    )),
+                  ))
+                ))
+              ))
+            ),
+          ),
+        ]
+      }
+    );
   }
 }

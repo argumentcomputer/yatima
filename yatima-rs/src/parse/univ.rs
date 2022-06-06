@@ -1,62 +1,26 @@
-use alloc::string::{
-  String,
-  ToString,
-};
-use im::Vector;
-
 use crate::parse::{
   error::{
     ParseError,
     ParseErrorKind,
   },
   span::Span,
-  utils::{
-    parse_nat,
-    parse_u8,
-  },
+  utils::parse_u8,
 };
+
+use alloc::boxed::Box;
 
 use nom::{
   branch::alt,
-  bytes::complete::{
-    tag,
-    take_till,
-    take_till1,
-  },
-  character::complete::{
-    digit1,
-    multispace0,
-    multispace1,
-    satisfy,
-  },
-  combinator::{
-    eof,
-    map,
-    opt,
-    peek,
-    success,
-    value,
-  },
-  error::context,
-  multi::{
-    many0,
-    many1,
-    separated_list1,
-  },
+  bytes::complete::tag,
   sequence::{
     delimited,
     preceded,
-    terminated,
   },
   Err,
   IResult,
 };
 
-use crate::{
-  name::Name,
-  nat::Nat,
-  universe::Univ,
-};
+use crate::universe::Univ;
 
 use crate::parse::utils::{
   parse_name,
@@ -168,6 +132,9 @@ pub fn parse_univ(
 #[cfg(test)]
 pub mod tests {
   use super::*;
+  use im::Vector;
+  use crate::name::Name;
+
 
   #[test]
   fn test_parse_univ_constant() {

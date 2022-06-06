@@ -13,6 +13,8 @@ use crate::{
   nat::Nat,
 };
 
+use alloc::vec::Vec;
+
 use serde::{
   Deserialize,
   Serialize,

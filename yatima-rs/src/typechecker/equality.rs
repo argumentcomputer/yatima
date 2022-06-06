@@ -3,8 +3,9 @@ use crate::typechecker::{
   universe::*,
   value::*,
 };
+
+use alloc::rc::Rc;
 use im::Vector;
-use std::rc::Rc;
 
 #[inline]
 pub fn extend_with_thunk(mut env: Env, thunk: ThunkPtr) -> Env {

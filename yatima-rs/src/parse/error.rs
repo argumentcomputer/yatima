@@ -24,12 +24,12 @@ use core::{
   fmt::Write,
   num::ParseIntError,
 };
-
-use alloc::vec::Vec;
+use alloc::{
+  string::String,
+  vec::Vec
+};
 
 use im::vector::Vector;
-
-use alloc::string::String;
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParseErrorKind {

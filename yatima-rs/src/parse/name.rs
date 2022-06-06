@@ -40,24 +40,6 @@ use nom::{
   IResult,
 };
 
-use sp_cid::Cid;
-use sp_im::vector::Vector;
-use sp_ipld::{
-  dag_cbor::DagCborCodec,
-  Codec,
-};
-use sp_multihash::{
-  Code,
-  MultihashDigest,
-};
-
-use alloc::string::String;
-
-use sp_std::{
-  borrow::ToOwned,
-  vec::Vec,
-};
-
 // pub fn parse_text(from: Span) -> IResult<Span, String, ParseError<Span>> {
 //  let (i, s) = take_till1(|x| char::is_whitespace(x) | (x == '.'))(from)?;
 //  let s: String = String::from(s.fragment().to_owned());

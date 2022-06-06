@@ -1,12 +1,11 @@
-use std::rc::Rc;
+use alloc::rc::Rc;
+use im::Vector;
 
 pub type UnivPtr = Rc<Univ>;
 
 /// Indexes are used for environment lookups. They take place of de Bruijn
 /// indices or levels.
 pub type Index = usize;
-
-use im::Vector;
 
 /// Universe levels
 #[derive(Clone, Debug, PartialEq, Eq)]

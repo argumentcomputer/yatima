@@ -1,8 +1,3 @@
-use core::ops::DerefMut;
-
-use libipld::Cid;
-use num_traits::Zero;
-
 use crate::{
   environment::{
     ConstAnonCid,
@@ -34,7 +29,6 @@ use crate::{
       parse_name,
       parse_nat,
       parse_space,
-      parse_u8,
       store_univ,
       BindCtx,
       EnvCtx,
@@ -44,32 +38,30 @@ use crate::{
   },
   universe::Univ,
 };
+
+use alloc::{
+  borrow::ToOwned,
+  boxed::Box,
+  vec::Vec
+};
+
+use libipld::Cid;
+use num_traits::Zero;
+
 use nom::{
   branch::alt,
-  bytes::complete::{
-    tag,
-    take_till,
-    take_till1,
-  },
-  character::complete::{
-    digit1,
-    multispace0,
-    multispace1,
-    satisfy,
-  },
+  bytes::complete::tag,
+  character::complete::satisfy,
   combinator::{
     eof,
-    map,
     opt,
     peek,
-    success,
     value,
   },
   error::context,
   multi::{
     many0,
     many1,
-    separated_list1,
   },
   sequence::{
     delimited,
@@ -708,7 +700,6 @@ pub mod tests {
 
   use crate::environment::Env;
 
-  use crate::constant::ConstAnon;
   use multihash::{
     Code,
     MultihashDigest,

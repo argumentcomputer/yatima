@@ -6,11 +6,12 @@ use crate::{
   typechecker::expression::{Expr, Const, RecursorRule},
   universe::UnivAnon,
 };
-use std::{
+
+use alloc::{
+  collections::BTreeMap,
   rc::Rc,
-  collections::HashMap,
+  vec::Vec,
 };
-use alloc::collections::BTreeMap;
 
 pub struct ConversionEnv {
   pub univs: BTreeMap<UnivAnonCid, Rc<Univ>>,
@@ -142,7 +143,7 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
       let indices = TryFrom::try_from(indices).unwrap();
       let motives = TryFrom::try_from(motives).unwrap();
       let minors = TryFrom::try_from(minors).unwrap();
-      let mut t_rules = HashMap::new();
+      let mut t_rules = BTreeMap::new();
       for (ctor, nfields, rhs) in rules {
         let ctor = Rc::as_ptr(&const_from_anon(ctor, cid_env, conv_env));
         let nfields = TryFrom::try_from(nfields).unwrap();
