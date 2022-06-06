@@ -274,7 +274,7 @@ struct InductiveDecl {
 }
 
 // TODO: tentative
-pub fn parse_const_inductive_decl(
+fn parse_const_inductive_decl(
   global_ctx: GlobalCtx,
   env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, InductiveDecl, ParseError<Span>> {
@@ -373,6 +373,35 @@ pub fn parse_const_inductive_decl(
       ctors,
       recr: rec.is_some(),
       safe,
+    }))
+  }
+}
+
+fn parse_const_inductive(
+  global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
+) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
+  move |from: Span| {
+    let (i, ind) = parse_const_inductive_decl(global_ctx.clone(), env_ctx.clone())(from)?;
+    let (i, typcid) = store_expr(env_ctx.clone(), ind.typ, i)?;
+    let (i, constcids) = ind.ctors.iter().fold(Ok((i, Vec::new())),
+      |acc, (name, expr)| {
+        let (i, mut cids) = acc?;
+        let (i, cid) = store_expr(env_ctx.clone(), expr.clone(), i)?;
+        cids.push((name.clone(), cid));
+        Ok((i, cids))
+      })?;
+    Ok((i, Const::Inductive {
+      name: ind.name,
+      lvl: ind.lvl,
+      typ: typcid,
+      params: ind.params.len(),
+      indices: ind.indices.len(),
+      ctors: constcids,
+      recr: ind.recr,
+      safe: ind.safe,
+      nest: false,
+      refl: false,
     }))
   }
 }
