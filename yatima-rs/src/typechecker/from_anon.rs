@@ -113,8 +113,8 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
       Rc::new(Const::Inductive {
         uvars: lvl.clone(),
         typ,
-        params: params.clone(),
-        indices: indices.clone(),
+        params: *params,
+        indices: *indices,
         ctors: t_ctors,
         recr: *recr,
         safe: *safe,

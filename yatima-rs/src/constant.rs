@@ -10,6 +10,10 @@ use crate::{
     ExprMetaCid,
   },
   name::Name,
+  expression::{
+    Expr,
+    BinderInfo,
+  },
   nat::Nat,
 };
 
@@ -95,8 +99,8 @@ pub enum Const {
     name: Name,
     lvl: Vec<Name>,
     typ: ExprCid,
-    params: Nat,
-    indices: Nat,
+    params: usize,
+    indices: usize,
     ctors: Vec<(Name, ExprCid)>,
     recr: bool,
     safe: bool,
@@ -128,6 +132,40 @@ pub enum Const {
   },
   /// quotient
   Quotient { kind: QuotKind },
+}
+
+/// The input `Vector : ∀ (A: Type) -> ∀ (n: Nat) -> Sort 0` with depth 1 returns:
+///   - string: `(A: Type)` 
+///   - type: `∀ (n: Nat) -> Sort 0`
+/// This is useful for printing defs
+/// sort of the inverse of parse_bound_expressions?
+/// Note that this doesn't fail -- it just stops parsing if it hits a non-pi expr
+fn get_binders<'a>(expr: &'a Expr, env: &Env, ind: bool) -> (Vec<String>, &'a Expr) {
+  // This feels slightly hacky
+  fn with_binders(var: String, bi: &BinderInfo) -> String {
+    match bi {
+      BinderInfo::Default => format!("({})", var),
+      BinderInfo::Implicit => format!("{{{}}}", var),
+      BinderInfo::InstImplicit => format!("[{}]", var),
+      BinderInfo::StrictImplicit => format!("{{{{{}}}}}", var),
+    }
+  }
+
+  let mut ret = Vec::new();
+  let mut expr = expr;
+
+  loop {
+    match expr {
+      Expr::Pi(name, bi, typ, rem_expr) => {
+        let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
+        ret.push(bdd_var);
+        expr = rem_expr;
+      },
+      _ => break
+    }
+  }
+
+  (ret, expr)
 }
 
 impl Const {
@@ -210,8 +248,8 @@ impl Const {
         let anon = ConstAnon::Inductive{
           lvl: lvl.len().into(),
           typ: typ.anon,
-          params: params.clone(),
-          indices: indices.clone(),
+          params: *params,
+          indices: *indices,
           ctors: ctors_anon,
           recr: *recr,
           safe: *safe,
@@ -315,10 +353,12 @@ impl Const {
              .collect::<Option<Vec<_>>>()?;
       let res = 
         ctors.into_iter()
-             .map(|(name, expr)| 
-              format!("| {} {}", name, expr.parse_binders(env, ind, Nat::from(u32::MAX)).1))
+             .map(|(name, expr)| {
+              let (bds, typ) = get_binders(expr, env, ind);
+              format!("| {} {} : {},\n", name, bds.join(" "), typ.pretty(env, ind))
+             })
              .collect::<Vec<String>>()
-             .join(" ");
+             .join("");
       Some(res)
     }
 
@@ -364,15 +404,16 @@ impl Const {
         let typ = env.expr_cache.get(&typ)?; 
         // here `<typ>` looks like `<params> -> <indices> -> <name>`
         // we need to unwrap the `<params>`
-        let (params, remaining_typ) = typ.parse_binders(env, ind, params);
+        let (bds, sort) = get_binders(typ, env, ind);
         let ctors_str = print_constructors(ind, env, ctors)?;
-        Some(format!("{} inductive {} {} {{{}}} ({}) : {} where {}",
+        Some(format!("{} inductive {} {} {{{}}} {} : {} -> {} where\n{}",
                       safe, 
                       recr,
                       name,
                       pretty_lvls(lvl),
-                      params, // print params
-                      remaining_typ.pretty(env, ind),
+                      bds[0..params].join(" "), // print params
+                      bds[params..].join(" "), // print indices
+                      sort.pretty(env, ind),
                       ctors_str)) // print ctors
       }
       Const::Constructor { name, lvl, ind, typ, param, field, safe } => {
@@ -515,8 +556,8 @@ pub enum ConstAnon {
   Inductive {
     lvl: Nat,
     typ: ExprAnonCid,
-    params: Nat,
-    indices: Nat,
+    params: usize,
+    indices: usize,
     ctors: Vec<(Name, ExprAnonCid)>,
     recr: bool,
     safe: bool,

@@ -248,43 +248,6 @@ impl Expr {
     }
   }
 
-  /// The input `Vector : ∀ (A: Type) -> ∀ (n: Nat) -> Sort 0` with depth 1 returns:
-  ///   - string: `(A: Type)` 
-  ///   - type: `∀ (n: Nat) -> Sort 0`
-  /// This is useful for printing defs
-  /// sort of the inverse of parse_bound_expressions?
-  /// Note that this doesn't fail -- it just stops parsing if it hits a non-pi expr
-  pub fn parse_binders(&self, env: &Env, ind: bool, depth: Nat) -> (String, &Expr) {
-    // This feels slightly hacky
-    fn with_binders(var: String, bi: &BinderInfo) -> String {
-      match bi {
-        BinderInfo::Default => format!("({})", var),
-        BinderInfo::Implicit => format!("{{{}}}", var),
-        BinderInfo::InstImplicit => format!("[{}]", var),
-        BinderInfo::StrictImplicit => format!("{{{{{}}}}}", var),
-      }
-    }
-
-    if depth == Nat::from(0 as u32) {
-      ("".to_string(), self)
-    } else {
-      match self {
-        Expr::Pi(name, bi, typ, expr) => {
-          let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
-          let (binders, remaining) = expr.parse_binders(env, ind, Nat::from(u32::MAX));
-          (format!("{} {}", bdd_var, binders), remaining)
-        },
-        _ => ("".to_string(), self)
-      }
-    }
-    
-  }
-
-  /// this is the inverse of parse_bound_expression?
-  pub fn print_bound_expression(&self) -> String {
-    "".to_string()
-  }
-
   pub fn pretty(&self, env: &Env, ind: bool) -> String {
     
     fn is_atom(expr: &Expr) -> bool {
