@@ -1,14 +1,14 @@
 use crate::{
-  name::Name,
   constant::{
     DefSafety,
-    QuotKind
+    QuotKind,
   },
   expression::{
     BinderInfo,
-    Literal,
     LitType,
+    Literal,
   },
+  name::Name,
   nat::Nat,
   typechecker::universe::*,
 };
@@ -59,29 +59,20 @@ pub enum Const {
     // name: Name,
     uvars: Nat,
     typ: ExprPtr,
-    safe: bool
+    safe: bool,
   },
   /// theorem
-  Theorem {
-    uvars: Nat,
-    typ: ExprPtr,
-    expr: ExprPtr
-  },
+  Theorem { uvars: Nat, typ: ExprPtr, expr: ExprPtr },
   /// opaque
   Opaque {
     // name: Name,
     uvars: Nat,
     typ: ExprPtr,
     expr: ExprPtr,
-    safe: bool
+    safe: bool,
   },
   /// def
-  Definition {
-    uvars: Nat,
-    typ: ExprPtr,
-    expr: ExprPtr,
-    safe: DefSafety
-  },
+  Definition { uvars: Nat, typ: ExprPtr, expr: ExprPtr, safe: DefSafety },
   /// inductive type
   Inductive {
     uvars: Nat,

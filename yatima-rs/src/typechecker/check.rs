@@ -1,13 +1,15 @@
-use crate::expression::{
-    Literal,
+use crate::{
+  expression::{
     LitType,
-  };
-use crate::typechecker::{
-  equality::*,
-  evaluation::*,
-  expression::*,
-  universe::*,
-  value::*,
+    Literal,
+  },
+  typechecker::{
+    equality::*,
+    evaluation::*,
+    expression::*,
+    universe::*,
+    value::*,
+  },
 };
 
 use alloc::rc::Rc;
@@ -114,6 +116,6 @@ pub fn infer(
       Ok(Value::Sort(one))
     }
     Expr::Fix(..) => Err(CheckError::CannotInferFix),
-    _ => todo!() // Projections
+    _ => todo!(), // Projections
   }
 }

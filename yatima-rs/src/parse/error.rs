@@ -18,15 +18,15 @@ use nom::{
   InputLength,
 };
 
+use alloc::{
+  string::String,
+  vec::Vec,
+};
 use core::{
   cmp::Ordering,
   fmt,
   fmt::Write,
   num::ParseIntError,
-};
-use alloc::{
-  string::String,
-  vec::Vec
 };
 
 use im::vector::Vector;

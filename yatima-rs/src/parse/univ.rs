@@ -132,9 +132,8 @@ pub fn parse_univ(
 #[cfg(test)]
 pub mod tests {
   use super::*;
-  use im::Vector;
   use crate::name::Name;
-
+  use im::Vector;
 
   #[test]
   fn test_parse_univ_constant() {

@@ -1,15 +1,17 @@
-use crate::expression::{
+use crate::{
+  expression::{
     BinderInfo,
-    Literal,
     LitType,
-  };
-use crate::typechecker::{
-  expression::*,
-  universe::*,
+    Literal,
+  },
+  typechecker::{
+    expression::*,
+    universe::*,
+  },
 };
 
-use core::cell::RefCell;
 use alloc::rc::Rc;
+use core::cell::RefCell;
 use im::Vector;
 
 // Expressions are things to be evaluated, given an appropriate environment.

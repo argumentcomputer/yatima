@@ -20,15 +20,15 @@ use crate::{
   universe::Univ,
 };
 
-use core::{
-  cell::RefCell,
-  ops::DerefMut,
-};
 use alloc::{
   borrow::ToOwned,
   rc::Rc,
   string::String,
   vec::Vec,
+};
+use core::{
+  cell::RefCell,
+  ops::DerefMut,
 };
 
 use im::{
@@ -53,13 +53,13 @@ use nom::{
     value,
   },
   multi::{
+    fold_many0,
     many0,
-    fold_many0
   },
   sequence::{
-    terminated,
-    preceded,
     pair,
+    preceded,
+    terminated,
   },
   Err,
   IResult,
@@ -201,8 +201,16 @@ pub fn parse_name(from: Span) -> IResult<Span, Name, ParseError<Span>> {
       | (x == ',')
       | (x == '.')
   });
-  let (i, (s1, s2)) = pair(&parse_word, fold_many0(preceded(tag("."), &parse_word), String::new,
-    |acc: String, res: nom_locate::LocatedSpan<&str>| {format!("{}.{}", acc, res.fragment())}))(from)?;
+  let (i, (s1, s2)) = pair(
+    &parse_word,
+    fold_many0(
+      preceded(tag("."), &parse_word),
+      String::new,
+      |acc: String, res: nom_locate::LocatedSpan<&str>| {
+        format!("{}.{}", acc, res.fragment())
+      },
+    ),
+  )(from)?;
   let s: String = String::from(s1.fragment().to_owned()) + &s2;
   if reserved_symbols().contains(&s) {
     Err(Err::Error(ParseError::new(from, ParseErrorKind::ReservedKeyword(s))))

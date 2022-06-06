@@ -19,7 +19,7 @@ use crate::{
 use alloc::{
   boxed::Box,
   string::String,
-  vec::Vec
+  vec::Vec,
 };
 
 use serde::{
@@ -87,7 +87,7 @@ pub enum Expr {
   Lty(LitType),
   /// Fixpoint recursion, μ x. x
   Fix(Name, Box<Expr>),
-  /// Projections 
+  /// Projections
   Proj(Nat, Box<Expr>),
 }
 

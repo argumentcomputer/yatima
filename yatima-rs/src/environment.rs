@@ -21,8 +21,8 @@ use alloc::collections::{
   BTreeSet,
 };
 
-use libipld::error::SerdeError;
 use cid::Cid;
+use libipld::error::SerdeError;
 use multihash::Multihash;
 use serde::{
   Deserialize,

@@ -13,7 +13,7 @@ use crate::parse::{
 
 use alloc::{
   borrow::ToOwned,
-  string::String
+  string::String,
 };
 
 use nom::{

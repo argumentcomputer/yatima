@@ -1,12 +1,14 @@
-use crate::constant::DefSafety;
-use crate::typechecker::{
-  expression::*,
-  universe::*,
-  value::*,
+use crate::{
+  constant::DefSafety,
+  typechecker::{
+    expression::*,
+    universe::*,
+    value::*,
+  },
 };
 
-use core::cell::RefCell;
 use alloc::rc::Rc;
+use core::cell::RefCell;
 use im::Vector;
 
 #[inline]
@@ -88,8 +90,8 @@ pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
       let itself = suspend(expr, env.clone());
       env.exprs.push_front(itself);
       eval(body, env)
-    },
-    _ => todo!() // Projections
+    }
+    _ => todo!(), // Projections
   }
 }
 

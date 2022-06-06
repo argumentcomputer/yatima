@@ -1,9 +1,20 @@
 use crate::{
   constant::ConstAnon,
-  environment::{Env, ExprAnonCid, ConstAnonCid, UnivAnonCid},
+  environment::{
+    ConstAnonCid,
+    Env,
+    ExprAnonCid,
+    UnivAnonCid,
+  },
   expression::ExprAnon,
-  typechecker::universe::Univ,
-  typechecker::expression::{Expr, Const, RecursorRule},
+  typechecker::{
+    expression::{
+      Const,
+      Expr,
+      RecursorRule,
+    },
+    universe::Univ,
+  },
   universe::UnivAnon,
 };
 
@@ -19,7 +30,11 @@ pub struct ConversionEnv {
   pub consts: BTreeMap<ConstAnonCid, Rc<Const>>,
 }
 
-pub fn expr_from_anon(expr_cid: &ExprAnonCid, cid_env: &Env, conv_env: &mut ConversionEnv) -> Rc<Expr> {
+pub fn expr_from_anon(
+  expr_cid: &ExprAnonCid,
+  cid_env: &Env,
+  conv_env: &mut ConversionEnv,
+) -> Rc<Expr> {
   match conv_env.exprs.get(expr_cid) {
     Some(expr) => return expr.clone(),
     None => (),
@@ -32,7 +47,7 @@ pub fn expr_from_anon(expr_cid: &ExprAnonCid, cid_env: &Env, conv_env: &mut Conv
     ExprAnon::Sort(univ_cid) => {
       let lvl = univ_from_anon(univ_cid, cid_env, conv_env);
       Rc::new(Expr::Sort(lvl))
-    },
+    }
     ExprAnon::Const(const_cid, univ_cids) => {
       let cnst = const_from_anon(const_cid, cid_env, conv_env);
       let lvls = univ_cids
@@ -40,60 +55,64 @@ pub fn expr_from_anon(expr_cid: &ExprAnonCid, cid_env: &Env, conv_env: &mut Conv
         .map(|univ_cid| univ_from_anon(univ_cid, cid_env, conv_env))
         .collect();
       Rc::new(Expr::Const(cnst, lvls))
-    },
+    }
     ExprAnon::App(fun_cid, arg_cid) => {
       let fun = expr_from_anon(fun_cid, cid_env, conv_env);
       let arg = expr_from_anon(arg_cid, cid_env, conv_env);
       Rc::new(Expr::App(fun, arg))
-    },
+    }
     ExprAnon::Lam(binfo, dom_cid, bod_cid) => {
       let dom = expr_from_anon(dom_cid, cid_env, conv_env);
       let bod = expr_from_anon(bod_cid, cid_env, conv_env);
       Rc::new(Expr::Lam(*binfo, dom, bod))
-    },
+    }
     ExprAnon::Pi(binfo, dom_cid, cod_cid) => {
       let dom = expr_from_anon(dom_cid, cid_env, conv_env);
       let cod = expr_from_anon(cod_cid, cid_env, conv_env);
       Rc::new(Expr::Pi(*binfo, dom, cod))
-    },
+    }
     ExprAnon::Let(typ_cid, exp_cid, bod_cid) => {
       let typ = expr_from_anon(typ_cid, cid_env, conv_env);
       let exp = expr_from_anon(exp_cid, cid_env, conv_env);
       let bod = expr_from_anon(bod_cid, cid_env, conv_env);
       Rc::new(Expr::Let(typ, exp, bod))
-    },
+    }
     ExprAnon::Lit(lit) => Rc::new(Expr::Lit(lit.clone())),
     ExprAnon::Lty(lty) => Rc::new(Expr::Lty(*lty)),
     ExprAnon::Fix(bod_cid) => {
       let bod = expr_from_anon(bod_cid, cid_env, conv_env);
       Rc::new(Expr::Fix(bod))
-    },
+    }
     ExprAnon::Proj(idx, exp_cid) => {
       let idx = TryFrom::try_from(idx).unwrap();
       let exp = expr_from_anon(exp_cid, cid_env, conv_env);
       Rc::new(Expr::Proj(idx, exp))
-    },
+    }
   };
   conv_env.exprs.insert(*expr_cid, expr.clone());
   expr
 }
 
-pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut ConversionEnv) -> Rc<Const> {
+pub fn const_from_anon(
+  const_cid: &ConstAnonCid,
+  cid_env: &Env,
+  conv_env: &mut ConversionEnv,
+) -> Rc<Const> {
   match conv_env.consts.get(const_cid) {
     Some(cnst) => return cnst.clone(),
     None => (),
   }
   let cnst = match cid_env.const_anon.get(const_cid).unwrap() {
-    ConstAnon::Quotient { kind } => Rc::new(Const::Quotient{ kind: *kind }),
+    ConstAnon::Quotient { kind } => Rc::new(Const::Quotient { kind: *kind }),
     ConstAnon::Axiom { lvl, typ, safe } => {
       let typ = expr_from_anon(typ, cid_env, conv_env);
       Rc::new(Const::Axiom { uvars: lvl.clone(), typ, safe: *safe })
-    },
+    }
     ConstAnon::Theorem { lvl, typ, expr } => {
       let typ = expr_from_anon(typ, cid_env, conv_env);
       let expr = expr_from_anon(expr, cid_env, conv_env);
       Rc::new(Const::Theorem { uvars: lvl.clone(), typ, expr })
-    },
+    }
     ConstAnon::Opaque { lvl, typ, expr, safe } => {
       let typ = expr_from_anon(typ, cid_env, conv_env);
       let expr = expr_from_anon(expr, cid_env, conv_env);
@@ -103,8 +122,18 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
       let typ = expr_from_anon(typ, cid_env, conv_env);
       let expr = expr_from_anon(expr, cid_env, conv_env);
       Rc::new(Const::Definition { uvars: lvl.clone(), typ, expr, safe: *safe })
-    },
-    ConstAnon::Inductive { lvl, typ, params, indices, ctors, recr, safe, refl, nest } => {
+    }
+    ConstAnon::Inductive {
+      lvl,
+      typ,
+      params,
+      indices,
+      ctors,
+      recr,
+      safe,
+      refl,
+      nest,
+    } => {
       let typ = expr_from_anon(typ, cid_env, conv_env);
       let mut t_ctors = Vec::new();
       for (n, ctor) in ctors.iter().rev() {
@@ -120,9 +149,9 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
         recr: *recr,
         safe: *safe,
         refl: *refl,
-        nest: *nest
+        nest: *nest,
       })
-    },
+    }
     ConstAnon::Constructor { name, lvl, ind, typ, param, field, safe } => {
       let ind = const_from_anon(ind, cid_env, conv_env);
       let typ = expr_from_anon(typ, cid_env, conv_env);
@@ -133,10 +162,21 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
         typ,
         param: param.clone(),
         field: field.clone(),
-        safe: *safe
+        safe: *safe,
       })
-    },
-    ConstAnon::Recursor { lvl, ind, typ, params, indices, motives, minors, rules, k, safe } => {
+    }
+    ConstAnon::Recursor {
+      lvl,
+      ind,
+      typ,
+      params,
+      indices,
+      motives,
+      minors,
+      rules,
+      k,
+      safe,
+    } => {
       let ind = const_from_anon(ind, cid_env, conv_env);
       let typ = expr_from_anon(typ, cid_env, conv_env);
       let params = TryFrom::try_from(params).unwrap();
@@ -161,7 +201,7 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
         minors,
         rules: t_rules,
         k: *k,
-        safe: *safe
+        safe: *safe,
       })
     }
   };
@@ -169,7 +209,11 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
   cnst
 }
 
-pub fn univ_from_anon(univ_cid: &UnivAnonCid, cid_env: &Env, conv_env: &mut ConversionEnv) -> Rc<Univ> {
+pub fn univ_from_anon(
+  univ_cid: &UnivAnonCid,
+  cid_env: &Env,
+  conv_env: &mut ConversionEnv,
+) -> Rc<Univ> {
   match conv_env.univs.get(univ_cid) {
     Some(expr) => return expr.clone(),
     None => (),
@@ -179,21 +223,21 @@ pub fn univ_from_anon(univ_cid: &UnivAnonCid, cid_env: &Env, conv_env: &mut Conv
     UnivAnon::Succ(lvl_cid) => {
       let lvl = univ_from_anon(lvl_cid, cid_env, conv_env);
       Rc::new(Univ::Succ(lvl))
-    },
+    }
     UnivAnon::Max(l_lvl_cid, r_lvl_cid) => {
       let l_lvl = univ_from_anon(l_lvl_cid, cid_env, conv_env);
       let r_lvl = univ_from_anon(r_lvl_cid, cid_env, conv_env);
       Rc::new(Univ::Max(l_lvl, r_lvl))
-    },
+    }
     UnivAnon::IMax(l_lvl_cid, r_lvl_cid) => {
       let l_lvl = univ_from_anon(l_lvl_cid, cid_env, conv_env);
       let r_lvl = univ_from_anon(r_lvl_cid, cid_env, conv_env);
       Rc::new(Univ::IMax(l_lvl, r_lvl))
-    },
+    }
     UnivAnon::Param(idx) => {
       let idx = TryFrom::try_from(idx).unwrap();
       Rc::new(Univ::Var(idx))
-    },
+    }
   };
   conv_env.univs.insert(*univ_cid, univ.clone());
   univ
