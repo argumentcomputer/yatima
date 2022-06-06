@@ -227,4 +227,12 @@ impl Env {
   pub fn insert_const_cache(&mut self, k: ConstCid, v: Const) {
     self.const_cache.insert(k, v);
   }
+
+  /// Top level printer that will produce all the decls in an enviorment 
+  pub fn pretty(&self, ind: bool) -> String {
+    // loop over all decls and print them out
+    // actually wait a minute...?
+    // how do we print stuff out in the correct order? bruh
+    "".to_string()
+  } 
 }

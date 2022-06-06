@@ -122,8 +122,8 @@ pub enum Const {
     lvl: Vec<Name>,
     ind: ConstCid,
     typ: ExprCid,
-    params: Nat,
-    indices: Nat,
+    params: usize,
+    indices: usize,
     motives: Nat,
     minors: Nat,
     rules: Vec<(ConstCid, Nat, ExprCid)>,
@@ -385,7 +385,14 @@ impl Const {
       }
       // Opaque: unsafe? opaque rec? <name> {lvl*} : <typ> := <expr>
       Const::Opaque { name, lvl, typ, expr, safe } => {
-        Some("".to_string())
+        let typ = env.expr_cache.get(&typ)?; 
+        let expr = env.expr_cache.get(&expr)?; 
+        Some(format!("{} opaque {} {{{}}} : {} := {}",
+                      safe, 
+                      name, 
+                      pretty_lvls(lvl), 
+                      typ.pretty(env, ind),
+                      expr.pretty(env, ind)))
       }
       Const::Definition { name, lvl, typ, expr, safe } => {
         Some("".to_string())
@@ -420,7 +427,7 @@ impl Const {
         // TODO
         let typ = env.expr_cache.get(&typ)?;  
         let ind = env.const_cache.get(&ind)?;  
-        Some(format!("| {}  ", name))
+        Some(format!("{}", name))
       }
       Const::Recursor { // TODO
         lvl,
@@ -434,6 +441,17 @@ impl Const {
         k,
         safe,
       } => {
+        let ind = env.const_cache.get(&ind)?;  
+        let (ind_name, ind_typ, ind_params, ind_indices) = 
+        (match ind {
+          Const::Inductive { name, lvl, typ, params, indices, .. } => {
+            Some((name, typ, params, indices))
+          },
+          _ => None,
+        })?;
+        if *ind_params != params || *ind_indices != indices {
+          return None
+        }
         Some("".to_string())
       }
       Const::Quotient { kind } => {
@@ -577,8 +595,8 @@ pub enum ConstAnon {
     lvl: Nat,
     ind: ConstAnonCid,
     typ: ExprAnonCid,
-    params: Nat,
-    indices: Nat,
+    params: usize,
+    indices: usize,
     motives: Nat,
     minors: Nat,
     rules: Vec<(ConstAnonCid, Nat, ExprAnonCid)>,
