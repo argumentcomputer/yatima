@@ -288,7 +288,7 @@ impl Expr {
     fn foralls(env: &Env, ind: bool, name: &str, bi: &BinderInfo, typ: &Expr, body: &Expr) -> String {
       let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
       match body {
-        Expr::Lam(name2, bi2, typ2, body2) => {
+        Expr::Pi(name2, bi2, typ2, body2) => {
           format!("{} {}", bdd_var, foralls(env, ind, name2, bi2, typ2, body2))
         }
         _ => format!("{} → {}", bdd_var, body.pretty(env, ind)),
@@ -449,17 +449,23 @@ impl ExprAnon {
   use crate::test::frequency;
   use crate::parse::utils::{
       BindCtx,
-      EnvCtx,
       GlobalCtx,
       UnivCtx,
   };
 
-  use crate::universe::Univ;
+  use crate::universe::{Univ, tests::arbitrary_univ};
 
   use im::{
     OrdMap,
     Vector,
   };
+
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::*;
 
   pub fn dummy_const_cid(ind: u8) -> ConstCid {
     let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[ind]));
@@ -479,12 +485,6 @@ impl ExprAnon {
   pub fn dummy_univ_ctx() -> UnivCtx {
     Vector::from(vec![Name::from("w"), Name::from("v"), Name::from("u")])
   }
-
-  use super::*;
-  use quickcheck::{
-    Arbitrary,
-    Gen,
-  };
 
   use crate::name::tests::arbitrary_ascii_name;
 
@@ -533,125 +533,152 @@ impl ExprAnon {
     }
   }
 
+  pub fn arbitrary_exprenv(g: &mut Gen, bind_ctx: &BindCtx, univ_ctx: &UnivCtx, global_ctx: &GlobalCtx) -> ExprEnv {
+    let rec_freq = g.size().saturating_sub(10);
+    let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ExprEnv>)> = vec![
+      (100, Box::new(|g| {
+        let gen: usize = Arbitrary::arbitrary(g);
+        if bind_ctx.len() > 0 {
+          let gen = gen % bind_ctx.len();
+          let n = &bind_ctx[gen];
+          let (i, _) = bind_ctx.iter().enumerate().find(|(_, x)| *x == n).unwrap();
+          ExprEnv {
+            expr: Expr::Var(n.clone(), i.into()),
+            env: Env::new()
+          }
+        }
+        else {
+          let gen = gen % global_ctx.len();
+          // global context must be non-empty
+          let (n, cid) = global_ctx.iter().nth(gen.try_into().unwrap()).unwrap();
+          ExprEnv {
+            expr: Expr::Const(n.to_owned(), cid.to_owned(), vec![]),
+            env: Env::new()
+          }
+        }
+      })),
+      (rec_freq, Box::new(|g| {
+        let fun: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), bind_ctx, univ_ctx, global_ctx);
+        let arg: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), bind_ctx, univ_ctx, global_ctx);
+        let mut env = fun.env;
+        env.extend(arg.env);
+        ExprEnv {
+          expr:
+            Expr::App(
+              Box::new(fun.expr),
+              Box::new(arg.expr)
+            ),
+          env: env
+        }
+      })),
+      (rec_freq.saturating_sub(25), Box::new(|g| {
+        let typ: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), bind_ctx, univ_ctx, global_ctx);
+        let trm: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), bind_ctx, univ_ctx, global_ctx);
+        let name = arbitrary_ascii_name(g, 5);
+        let mut bind_ctx = bind_ctx.clone();
+        bind_ctx.push_front(name.clone());
+        let bod: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), &bind_ctx, univ_ctx, global_ctx);
+        let mut env = typ.env;
+        env.extend(trm.env);
+        env.extend(bod.env);
+        ExprEnv {
+          expr:
+            Expr::Let(
+              name,
+              Box::new(typ.expr),
+              Box::new(trm.expr),
+              Box::new(bod.expr)
+            ),
+          env: env
+        }
+      })),
+      (rec_freq, Box::new(|g| {
+        let name = arbitrary_ascii_name(g, 5);
+        let typ: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), &bind_ctx, univ_ctx, global_ctx);
+        let mut bind_ctx = bind_ctx.clone();
+        bind_ctx.push_front(name.clone());
+        let trm: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), &bind_ctx, univ_ctx, global_ctx);
+        let mut env = typ.env;
+        env.extend(trm.env);
+        ExprEnv {
+          expr:
+            Expr::Pi(
+              name,
+              Arbitrary::arbitrary(g),
+              Box::new(typ.expr),
+              Box::new(trm.expr)
+            ),
+          env: env
+        }
+      })),
+      (rec_freq, Box::new(|g| {
+        let name = arbitrary_ascii_name(g, 5);
+        let typ: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), &bind_ctx, univ_ctx, global_ctx);
+        let mut bind_ctx = bind_ctx.clone();
+        bind_ctx.push_front(name.clone());
+        let trm: ExprEnv = arbitrary_exprenv(&mut Gen::new(g.size().saturating_sub(1)), &bind_ctx, univ_ctx, global_ctx);
+        let mut env = typ.env;
+        env.extend(trm.env);
+        ExprEnv {
+          expr:
+            Expr::Lam(
+              name,
+              Arbitrary::arbitrary(g),
+              Box::new(typ.expr),
+              Box::new(trm.expr)
+            ),
+          env: env
+        }
+      })),
+      (100, Box::new(|_| {
+        let mut env = Env::new();
+        let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
+        let univ_cid = univ.store(&mut env).unwrap();
+        ExprEnv {
+          expr: Expr::Sort(univ_cid),
+          env: env
+        }
+      })),
+      (100, Box::new(|g| {
+        ExprEnv {
+          expr: Expr::Lit(Arbitrary::arbitrary(g)),
+          env: Env::new()
+        }
+      })),
+      (100, Box::new(|g| {
+        ExprEnv {
+          expr: Expr::Lty(Arbitrary::arbitrary(g)),
+          env: Env::new()
+        }
+      })),
+      (100, Box::new(|g| {
+        let mut env = Env::new();
+
+        let num_univs: usize = Arbitrary::arbitrary(g);
+        let num_univs = num_univs % 3;
+        let mut univs = Vec::new();
+        for _ in 0..num_univs {
+          let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
+          univs.push(univ.store(&mut env).unwrap());
+        }
+
+        let const_idx: usize = Arbitrary::arbitrary(g);
+        let const_idx = const_idx % global_ctx.len();
+
+        let cnst = global_ctx.iter().nth(const_idx).unwrap();
+
+        ExprEnv {
+          expr: Expr::Const(cnst.0.to_owned(), cnst.1.to_owned(), univs),
+          env: env
+        }
+      })),
+    ];
+    frequency(g, input)
+  }
+
   impl Arbitrary for ExprEnv {
     fn arbitrary(g: &mut Gen) -> Self {
-      let rec_freq = g.size().saturating_sub(10);
-      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ExprEnv>)> = vec![
-        (100, Box::new(|_| {
-          ExprEnv {
-            expr: Expr::Var(Name::from("_temp"), 0u8.into()),
-            env: Env::new()
-          }
-        })),
-        (rec_freq, Box::new(|g| {
-          let fun: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let arg: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let mut env = fun.env;
-          env.extend(arg.env);
-          ExprEnv {
-            expr:
-              Expr::App(
-                Box::new(fun.expr),
-                Box::new(arg.expr)
-              ),
-            env: env
-          }
-        })),
-        (rec_freq.saturating_sub(25), Box::new(|g| {
-          let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let bod: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let mut env = typ.env;
-          env.extend(trm.env);
-          env.extend(bod.env);
-          ExprEnv {
-            expr:
-              Expr::Let(
-                arbitrary_ascii_name(g, 5),
-                Box::new(typ.expr),
-                Box::new(trm.expr),
-                Box::new(bod.expr)
-              ),
-            env: env
-          }
-        })),
-        (rec_freq, Box::new(|g| {
-          let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let mut env = typ.env;
-          env.extend(trm.env);
-          ExprEnv {
-            expr:
-              Expr::Pi(
-                arbitrary_ascii_name(g, 5),
-                Arbitrary::arbitrary(g),
-                Box::new(typ.expr),
-                Box::new(trm.expr)
-              ),
-            env: env
-          }
-        })),
-        (rec_freq, Box::new(|g| {
-          let typ: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let trm: ExprEnv = Arbitrary::arbitrary(&mut Gen::new(g.size().saturating_sub(1)));
-          let mut env = typ.env;
-          env.extend(trm.env);
-          ExprEnv {
-            expr:
-              Expr::Lam(
-                arbitrary_ascii_name(g, 5),
-                Arbitrary::arbitrary(g),
-                Box::new(typ.expr),
-                Box::new(trm.expr)
-              ),
-            env: env
-          }
-        })),
-        (100, Box::new(|_| {
-          let mut env = Env::new();
-          let univ: Univ = Arbitrary::arbitrary(&mut Gen::new(50));
-          let univ_cid = univ.store(&mut env).unwrap();
-          ExprEnv {
-            expr: Expr::Sort(univ_cid),
-            env: env
-          }
-        })),
-        (100, Box::new(|g| {
-          ExprEnv {
-            expr: Expr::Lit(Arbitrary::arbitrary(g)),
-            env: Env::new()
-          }
-        })),
-        (100, Box::new(|g| {
-          ExprEnv {
-            expr: Expr::Lty(Arbitrary::arbitrary(g)),
-            env: Env::new()
-          }
-        })),
-        (100, Box::new(|g| {
-          let mut env = Env::new();
-
-          let num_univs: usize = Arbitrary::arbitrary(g);
-          let num_univs = num_univs % 3;
-          let mut univs = Vec::new();
-          for _ in 0..num_univs {
-            let univ: Univ = Arbitrary::arbitrary(&mut Gen::new(50));
-            univs.push(univ.store(&mut env).unwrap());
-          }
-
-          let ctx = dummy_global_ctx();
-          let const_idx: usize = Arbitrary::arbitrary(g);
-          let const_idx = const_idx % ctx.len();
-
-          let cnst = ctx.iter().nth(const_idx).unwrap();
-
-          ExprEnv {
-            expr: Expr::Const(cnst.0.to_owned(), cnst.1.to_owned(), univs),
-            env: env
-          }
-        })),
-      ];
-      frequency(g, input)
+      arbitrary_exprenv(g, &Vector::new(), &dummy_univ_ctx(), &dummy_global_ctx())
     }
   }
 }

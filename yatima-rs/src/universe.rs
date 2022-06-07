@@ -173,50 +173,53 @@ impl UnivAnon {
 #[cfg(test)]
 pub mod tests {
   use super::*;
-  use crate::{
-    name::tests::arbitrary_ascii_name,
-    test::frequency,
-  };
+  use crate::test::frequency;
   use im::Vector;
   use quickcheck::{
     Arbitrary,
     Gen,
   };
+  
+  use crate::parse::utils::UnivCtx;
 
-  pub fn dummy_univ_ctx() -> Vector<Name> {
+  pub fn dummy_univ_ctx() -> UnivCtx {
     Vector::from(vec![Name::from("w"), Name::from("v"), Name::from("u")])
+  }
+
+  pub fn arbitrary_univ(g: &mut Gen, univ_ctx: &UnivCtx) -> Univ {
+    let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Univ>)> = vec![
+      (100, Box::new(|_| Univ::Zero)),
+      (100,
+        Box::new(|g| {
+          let i = usize::arbitrary(g) % univ_ctx.len();
+          let n = &univ_ctx[i];
+          Univ::Param(n.clone(), i.into())
+        }),
+      ),
+      (g.size().saturating_sub(30), Box::new(|g| Univ::Succ(Box::new(arbitrary_univ(g, univ_ctx))))),
+      (g.size().saturating_sub(40),
+        Box::new(|g| {
+          Univ::Max(
+            Box::new(arbitrary_univ(g, univ_ctx)),
+            Box::new(arbitrary_univ(g, univ_ctx)),
+          )
+        }),
+      ),
+      (g.size().saturating_sub(40),
+        Box::new(|g| {
+          Univ::IMax(
+            Box::new(arbitrary_univ(g, univ_ctx)),
+            Box::new(arbitrary_univ(g, univ_ctx)),
+          )
+        }),
+      ),
+    ];
+    frequency(g, input)
   }
 
   impl Arbitrary for Univ {
     fn arbitrary(g: &mut Gen) -> Self {
-      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> Univ>)> = vec![
-        (100, Box::new(|_| Univ::Zero)),
-        (100,
-          Box::new(|g| {
-            let i = usize::arbitrary(g) % 3;
-            let n = &dummy_univ_ctx()[i];
-            Univ::Param(n.clone(), i.into())
-          }),
-        ),
-        (g.size().saturating_sub(30), Box::new(|g| Univ::Succ(Box::new(Arbitrary::arbitrary(g))))),
-        (g.size().saturating_sub(40),
-          Box::new(|g| {
-            Univ::Max(
-              Box::new(Arbitrary::arbitrary(g)),
-              Box::new(Arbitrary::arbitrary(g)),
-            )
-          }),
-        ),
-        (g.size().saturating_sub(40),
-          Box::new(|g| {
-            Univ::IMax(
-              Box::new(Arbitrary::arbitrary(g)),
-              Box::new(Arbitrary::arbitrary(g)),
-            )
-          }),
-        ),
-      ];
-      frequency(g, input)
+      arbitrary_univ(g, &dummy_univ_ctx())
     }
   }
 

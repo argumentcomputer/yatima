@@ -140,7 +140,7 @@ pub enum Const {
 /// This is useful for printing defs
 /// sort of the inverse of parse_bound_expressions?
 /// Note that this doesn't fail -- it just stops parsing if it hits a non-pi expr
-fn get_binders<'a>(expr: &'a Expr, env: &Env, ind: bool) -> (Vec<String>, &'a Expr) {
+fn get_binders<'a>(expr: &'a Expr, depth: Option<usize>, env: &Env, ind: bool) -> (Vec<String>, &'a Expr) {
   // This feels slightly hacky
   fn with_binders(var: String, bi: &BinderInfo) -> String {
     match bi {
@@ -153,8 +153,10 @@ fn get_binders<'a>(expr: &'a Expr, env: &Env, ind: bool) -> (Vec<String>, &'a Ex
 
   let mut ret = Vec::new();
   let mut expr = expr;
+  let mut curr_depth = 0;
 
   loop {
+    if let Some(d) = depth { if curr_depth == d { break } }
     match expr {
       Expr::Pi(name, bi, typ, rem_expr) => {
         let bdd_var = with_binders(format!("{name} : {}", typ.pretty(env, ind)), bi);
@@ -163,6 +165,8 @@ fn get_binders<'a>(expr: &'a Expr, env: &Env, ind: bool) -> (Vec<String>, &'a Ex
       },
       _ => break
     }
+
+    curr_depth = curr_depth + 1;
   }
 
   (ret, expr)
@@ -354,7 +358,7 @@ impl Const {
       let res = 
         ctors.into_iter()
              .map(|(name, expr)| {
-              let (bds, typ) = get_binders(expr, env, ind);
+              let (bds, typ) = get_binders(expr, None, env, ind);
               format!("| {} {} : {},\n", name, bds.join(" "), typ.pretty(env, ind))
              })
              .collect::<Vec<String>>()
@@ -411,7 +415,7 @@ impl Const {
         let typ = env.expr_cache.get(&typ)?; 
         // here `<typ>` looks like `<params> -> <indices> -> <name>`
         // we need to unwrap the `<params>`
-        let (bds, sort) = get_binders(typ, env, ind);
+        let (bds, sort) = get_binders(typ, Some(params + indices), env, ind);
         let ctors_str = print_constructors(ind, env, ctors)?;
         Some(format!("{} inductive {} {} {{{}}} {} : {} -> {} where\n{}",
                       safe, 
@@ -619,4 +623,65 @@ impl ConstAnon {
     env.insert_const_anon(cid, self);
     Ok(cid)
   }
+}
+
+#[cfg(test)]
+pub mod tests {
+  use crate::test::frequency;
+  use crate::parse::utils::{
+      BindCtx,
+      EnvCtx,
+      GlobalCtx,
+      UnivCtx,
+  };
+
+  use crate::universe::Univ;
+
+  use im::{
+    OrdMap,
+    Vector,
+  };
+
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::*;
+
+  use crate::name::tests::arbitrary_ascii_name;
+
+  use crate::universe::tests::dummy_univ_ctx;
+
+  struct ConstEnv {
+    cnst: Const,
+    env: Env
+  }
+
+  //impl Arbitrary for Const {
+  //  fn arbitrary(g: &mut Gen) -> Self {
+  //    let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ConstEnv>)> = vec![
+  //      (100, Box::new(|_| {
+  //        let num_params = usize::arbitrary(g) % 10;
+  //        let num_inds = usize::arbitrary(g) % 10;
+  //        let num_ctors = usize::arbitrary(g) % 10;
+  //        let safe = bool::arbitrary(g);
+  //        ConstEnv {
+  //          cnst: Const::Inductive {
+  //            name: arbitrary_ascii_name(g, 5),
+  //            lvl: dummy_univ_ctx().iter().map(|n| n.clone()).collect(),
+  //            params: num_params,
+  //            indices: num_inds,
+  //            recr: bool::arbitrary(g),
+  //            safe: bool::arbitrary(g),
+  //            refl: bool::arbitrary(g),
+  //            nest: bool::arbitrary(g),
+  //          },
+  //          env: Env::new()
+  //        }
+  //      })),
+  //    ];
+  //    frequency(g, input)
+  //  }
+  //}
 }

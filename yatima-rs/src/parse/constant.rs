@@ -322,7 +322,7 @@ fn parse_const_inductive_decl(
       bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
-      vec!['-'],
+      vec!['-', '→'],
     )(i)?;
 
     let mut bind_ctx = bind_ctx;
@@ -332,7 +332,7 @@ fn parse_const_inductive_decl(
     let (i, _) = parse_space(i)?;
 
     let (i, _) = if indices.len() != 0 {
-      let (i, _) = tag("->")(i)?;
+      let (i, _) = alt((tag("->"), tag("→")))(i)?;
       let (i, _) = parse_space(i)?;
       Ok((i, ()))
     }
