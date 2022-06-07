@@ -8,10 +8,10 @@ import Yatima.Const
 
 namespace Yatima.ToIpld
 
-def ipldToCid (ipld : Ipld) : Except String Cid :=
-  match Cid.fromBytes (Multihash.sha3_256 (DagCbor.serialize ipld)).digest with
-  | none     => throw s!"Unable to generate Cid for {ipld}"
-  | some cid => return cid
+def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
+  let cbor := DagCbor.serialize ipld;
+  let hash := Multihash.sha3_256 cbor;
+  { version := 0x01, codec, hash }
 
 instance : Coe Nat Ipld where
   coe x := .bytes x.toByteArrayBE
@@ -127,34 +127,22 @@ def constMetaToIpld : ConstMeta → Ipld
   | .recursor ⟨n, l, t, i, r⟩ => .array #[.number CONSTMETA, .number 6, n, l, t, i, r]
   | .quotient ⟨n, l, t⟩       => .array #[.number CONSTMETA, .number 7, n, l, t]
 
-def univAnonToCid (univAnon : UnivAnon) : Except String UnivAnonCid :=
-  match ipldToCid $ univAnonToIpld univAnon with
-  | .ok    cid => return ⟨cid⟩
-  | .error msg => throw msg
+def univAnonToCid (univAnon : UnivAnon) : UnivAnonCid :=
+  { data := ipldToCid UNIVANON.toNat (univAnonToIpld univAnon) }
 
-def univMetaToCid (univMeta : UnivMeta) : Except String UnivMetaCid :=
-  match ipldToCid $ univMetaToIpld univMeta with
-  | .ok    cid => return ⟨cid⟩
-  | .error msg => throw msg
+def univMetaToCid (univMeta : UnivMeta) : UnivMetaCid :=
+  { data := ipldToCid UNIVMETA.toNat (univMetaToIpld univMeta) }
 
-def exprAnonToCid (exprAnon : ExprAnon) : Except String ExprAnonCid :=
-  match ipldToCid $ exprAnonToIpld exprAnon with
-  | .ok    cid => return ⟨cid⟩
-  | .error msg => throw msg
+def exprAnonToCid (exprAnon : ExprAnon) : ExprAnonCid :=
+  { data := ipldToCid EXPRANON.toNat (exprAnonToIpld exprAnon) }
 
-def exprMetaToCid (exprMeta : ExprMeta) : Except String ExprMetaCid :=
-  match ipldToCid $ exprMetaToIpld exprMeta with
-  | .ok    cid => return ⟨cid⟩
-  | .error msg => throw msg
+def exprMetaToCid (exprMeta : ExprMeta) : ExprMetaCid :=
+  { data := ipldToCid EXPRMETA.toNat (exprMetaToIpld exprMeta) }
 
-def constAnonToCid (constAnon : ConstAnon) : Except String ConstAnonCid :=
-  match ipldToCid $ constAnonToIpld constAnon with
-  | .ok    cid => return ⟨cid⟩
-  | .error msg => throw msg
+def constAnonToCid (constAnon : ConstAnon) : ConstAnonCid :=
+  { data := ipldToCid CONSTANON.toNat (constAnonToIpld constAnon) }
 
-def constMetaToCid (constMeta : ConstMeta) : Except String ConstMetaCid :=
-  match ipldToCid $ constMetaToIpld constMeta with
-  | .ok    cid => return ⟨cid⟩
-  | .error msg => throw msg
+def constMetaToCid (constMeta : ConstMeta) : ConstMetaCid :=
+  { data := ipldToCid CONSTMETA.toNat (constMetaToIpld constMeta) }
 
 end Yatima.ToIpld

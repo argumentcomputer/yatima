@@ -66,14 +66,10 @@ open ToIpld
 
 def univToCid (u : Univ) : EnvM UnivCid := do
   let univAnon : UnivAnon := u.toAnon
-  let univAnonCid : UnivAnonCid ← match univAnonToCid univAnon with
-    | .ok    cid => pure cid
-    | .error msg => throw msg
+  let univAnonCid : UnivAnonCid := univAnonToCid univAnon
   addToEnv $ .univ_anon univAnonCid univAnon
   let univMeta : UnivMeta := u.toMeta
-  let univMetaCid : UnivMetaCid ← match univMetaToCid univMeta with
-    | .ok    cid => pure cid
-    | .error msg => throw msg
+  let univMetaCid : UnivMetaCid := univMetaToCid univMeta
   addToEnv $ .univ_meta univMetaCid univMeta
   return ⟨univAnonCid, univMetaCid⟩
 
@@ -116,13 +112,9 @@ mutual
 
   def exprToCid (e : Expr) : EnvM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
-    let exprAnonCid : ExprAnonCid ← match exprAnonToCid exprAnon with
-      | .ok    cid => pure cid
-      | .error msg => throw msg
+    let exprAnonCid : ExprAnonCid := exprAnonToCid exprAnon
     addToEnv $ .expr_anon exprAnonCid exprAnon
-    let exprMetaCid : ExprMetaCid ← match exprMetaToCid exprMeta with
-      | .ok    cid => pure cid
-      | .error msg => throw msg
+    let exprMetaCid : ExprMetaCid := exprMetaToCid exprMeta
     addToEnv $ .expr_meta exprMetaCid exprMeta
     return ⟨exprAnonCid, exprMetaCid⟩
 
@@ -130,14 +122,10 @@ end
 
 def constToCid (c : Const) : EnvM ConstCid := do
   let constAnon : ConstAnon := c.toAnon
-  let constAnonCid : ConstAnonCid ← match constAnonToCid constAnon with
-    | .ok    cid => pure cid
-    | .error msg => throw msg
+  let constAnonCid : ConstAnonCid := constAnonToCid constAnon
   addToEnv $ .const_anon constAnonCid constAnon
   let constMeta : ConstMeta := c.toMeta
-  let constMetaCid : ConstMetaCid ← match constMetaToCid constMeta with
-    | .ok    cid => pure cid
-    | .error msg => throw msg
+  let constMetaCid : ConstMetaCid := constMetaToCid constMeta
   addToEnv $ .const_meta constMetaCid constMeta
   return ⟨constAnonCid, constMetaCid⟩
 
