@@ -42,6 +42,8 @@ use libipld::{
   codec::Codec,
 };
 
+use crate::parse::utils::with_binders;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Literal {
   Nat(Nat),
@@ -261,16 +263,6 @@ impl Expr {
       }
       else {
         format!("({})", expr.pretty(env, ind))
-      }
-    }
-
-    // This feels slightly hacky
-    fn with_binders(var: String, bi: &BinderInfo) -> String {
-      match bi {
-        BinderInfo::Default => format!("({})", var),
-        BinderInfo::Implicit => format!("{{{}}}", var),
-        BinderInfo::InstImplicit => format!("[{}]", var),
-        BinderInfo::StrictImplicit => format!("{{{{{}}}}}", var),
       }
     }
 

@@ -377,27 +377,46 @@ fn parse_const_inductive_decl(
   }
 }
 
-fn parse_const_inductive(
+pub fn inductive_decl_to_const_inductive(
+  env: &mut Env,
+  typ: &Expr,
+  ctors: &Vec<(Name, Expr)>
+) -> Result<(ExprCid, Vec<(Name, ExprCid)>), EnvError> {
+  let typcid = typ.clone().store(env)?;
+  let constcids = ctors.iter().fold(Ok(Vec::new()),
+    |acc, (name, expr)| {
+      let mut cids = acc?;
+      let cid = expr.clone().store(env)?;
+      cids.push((name.clone(), cid));
+      Ok(cids)
+    })?;
+    Ok((typcid, constcids))
+}
+
+pub fn parse_const_inductive(
   global_ctx: GlobalCtx,
   env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
   move |from: Span| {
     let (i, ind) = parse_const_inductive_decl(global_ctx.clone(), env_ctx.clone())(from)?;
-    let (i, typcid) = store_expr(env_ctx.clone(), ind.typ, i)?;
-    let (i, constcids) = ind.ctors.iter().fold(Ok((i, Vec::new())),
-      |acc, (name, expr)| {
-        let (i, mut cids) = acc?;
-        let (i, cid) = store_expr(env_ctx.clone(), expr.clone(), i)?;
-        cids.push((name.clone(), cid));
-        Ok((i, cids))
-      })?;
+    let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+      Err::Error(ParseError::new(
+        i,
+        ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+      ))
+    })?;
+
+    let (typcid, ctorcids) = inductive_decl_to_const_inductive(&mut env, &ind.typ, &ind.ctors).map_err(|e| {
+      Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+    })?;
+
     Ok((i, Const::Inductive {
       name: ind.name,
       lvl: ind.lvl,
       typ: typcid,
       params: ind.params.len(),
       indices: ind.indices.len(),
-      ctors: constcids,
+      ctors: ctorcids,
       recr: ind.recr,
       safe: ind.safe,
       nest: false,
