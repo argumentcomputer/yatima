@@ -389,11 +389,13 @@ impl Const {
         let (bds, sort) = get_binders(typ, Some(params + indices));
         let bds: Vec<String> = bds.iter().map(|((n, bi), e)| with_binders(format!("{n} : {}", e.pretty(env, ind)), bi)).collect();
         let ctors_str = print_constructors(ind, env, ctors)?;
-        Some(format!("inductive {} {{{}}} {} : {} -> {} where\n{}",
+        let sort_sep = if *indices > 0 { " -> " } else { "" };
+        Some(format!("inductive {} {{{}}} {} : {}{}{} where\n{}",
                       name,
                       pretty_lvls(lvl),
                       bds[0..*params].join(" "), // print params
                       bds[*params..].join(" "), // print indices
+                      sort_sep,
                       sort.pretty(env, ind),
                       ctors_str)) // print ctors
       }
@@ -710,9 +712,9 @@ pub mod tests {
           let univs = (&univs[..num_univs]).to_vec();
           let univ_ctx = Vector::from(univs.clone());
 
-          let num_params = usize::arbitrary(g) % 2;
-          let num_inds = usize::arbitrary(g) % 2;
-          let num_ctors = usize::arbitrary(g) % 2;
+          let num_params = usize::arbitrary(g) % 10;
+          let num_inds = usize::arbitrary(g) % 10;
+          let num_ctors = usize::arbitrary(g) % 10;
 
           let typ = arbitrary_pi(g, num_params + num_inds, &Vector::new(), &univ_ctx, &dummy_global_ctx());
 
@@ -725,9 +727,9 @@ pub mod tests {
           }
 
           let mut ctors = Vec::new();
-          for _ in [0..num_ctors] {
+          for _ in 0..num_ctors {
             let ctor_name = arbitrary_ascii_name(g, 5);
-            let ctor_depth = usize::arbitrary(g) % 2;
+            let ctor_depth = usize::arbitrary(g) % 10;
             let ctor_type = arbitrary_pi(g, ctor_depth, &ctor_bind_ctx, &univ_ctx, &dummy_global_ctx());
             env.extend(ctor_type.env);
             ctors.push((ctor_name, ctor_type.expr));

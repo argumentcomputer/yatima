@@ -307,23 +307,33 @@ fn parse_const_inductive_decl(
     let (i, _) = parse_space(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
-    let bind_ctx: Vector<Name> =
-      params.iter().map(|(_, n, _)| n.clone()).collect();
 
+    let mut ctor_bind_ctx = Vector::new();
     // the inductive type name is an implicitly bound variable
     // within each constructor declaration; this is replaced
     // with a reference to the inductive type constant when generating
     // the constructor constant
-    let mut ctor_bind_ctx = bind_ctx.clone();
-    ctor_bind_ctx.push_back(name.clone());
+    ctor_bind_ctx.push_front(name.clone());
 
-    let (i, indices) = parse_binders0(
+    let mut bind_ctx = Vector::new();
+
+    for (_, n, _) in params.iter() {
+      ctor_bind_ctx.push_front(n.clone());
+      bind_ctx.push_front(n.clone());
+    }
+
+    let (i, parsed_indices) = opt(parse_binders0(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
       vec!['-', '→'],
-    )(i)?;
+    ))(i)?;
+    let indices = 
+      match parsed_indices {
+        Some(i) => i,
+        None => Vec::new()
+      };
 
     let mut bind_ctx = bind_ctx;
     for (_, n, _) in indices.iter() {
@@ -339,7 +349,8 @@ fn parse_const_inductive_decl(
     else {
       Ok((i, ()))
     }?;
-    let (i, typ) = parse_expr(
+
+    let (i, typ) = parse_expr_apps(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
@@ -690,22 +701,21 @@ pub mod tests {
     });
   }
 
-  //#[quickcheck]
-  //fn prop_const_parse_print(x: ConstEnv) -> bool {
-  //  let s = x.cnst.pretty(&x.env, false).unwrap();
-  //  println!("input: \t\t{s}");
-  //  let res_env = Rc::new(RefCell::new(Env::new()));
-  //  let res = parse_const_inductive(dummy_global_ctx(), res_env.clone())(Span::new(&s));
-  //  match res {
-  //    Ok((_, y)) => {
-  //      println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());
-  //      print!("ORIG:\n{:?}\nREPARSED:\n{:?}", x.cnst, y);
-  //      x.cnst == y
-  //    }
-  //    Err(e) => {
-  //      println!("err: {:?}", e);
-  //      false
-  //    }
-  //  }
-  //}
+  #[quickcheck]
+  fn prop_const_parse_print(x: ConstEnv) -> bool {
+    let s = x.cnst.pretty(&x.env, false).unwrap();
+    println!("input: \t\t{s}");
+    let res_env = Rc::new(RefCell::new(Env::new()));
+    let res = parse_const_inductive(dummy_global_ctx(), res_env.clone())(Span::new(&s));
+    match res {
+      Ok((_, y)) => {
+        println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());
+        x.cnst == y
+      }
+      Err(e) => {
+        println!("err: {:?}", e);
+        false
+      }
+    }
+  }
 }
