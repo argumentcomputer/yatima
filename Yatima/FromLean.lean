@@ -289,8 +289,8 @@ mutual
         fun nam => do match (← read).find?' nam with
           | some leanConst =>
             let type ← match leanConst.type with
-              | e@(.const nm ..) =>
-                if nm == nam then pure $ .var nam 0 --fix: 0 is wrong
+              | e@(.const nam lvls _) =>
+                if nam == struct.name then pure $ .var nam lvls.length
                 else toYatimaExpr struct.levelParams e
               | e => toYatimaExpr struct.levelParams e
             let typeCid ← exprToCid type
