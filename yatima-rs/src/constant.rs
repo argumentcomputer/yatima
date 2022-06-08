@@ -392,12 +392,14 @@ impl Const {
         let sort_sep = if *indices > 0 { " -> " } else { "" };
         let unsafe_str = if *safe { "" } else { "unsafe " };
         let rec_str = if *recr { " rec" } else { "" };
-        Some(format!("{}inductive{} {} {{{}}} {} : {}{}{} where\n{}",
+        let lvls_str = if lvl.len() > 0 { format!(" {{{}}}", pretty_lvls(lvl)) } else { "".to_string() };
+        let params_str = if *params > 0 { format!(" {}", bds[0..*params].join(" ")) } else { "".to_string() };
+        Some(format!("{}inductive{} {}{}{} : {}{}{} where\n{}",
                       unsafe_str,
                       rec_str,
                       name,
-                      pretty_lvls(lvl),
-                      bds[0..*params].join(" "), // print params
+                      lvls_str,
+                      params_str, // print params
                       bds[*params..].join(" "), // print indices
                       sort_sep,
                       sort.pretty(env, ind),
@@ -710,6 +712,7 @@ pub mod tests {
     fn arbitrary(g: &mut Gen) -> Self {
       let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ConstEnv>)> = vec![
         (100, Box::new(|g| {
+          let expr_size = 60;
           let name = arbitrary_ascii_name(g, 5);
           let num_univs = usize::arbitrary(g) % 4;
           let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
@@ -720,7 +723,7 @@ pub mod tests {
           let num_inds = usize::arbitrary(g) % 5;
           let num_ctors = usize::arbitrary(g) % 5;
 
-          let typ = arbitrary_pi(&mut Gen::new(50), num_params + num_inds, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+          let typ = arbitrary_pi(&mut Gen::new(expr_size), num_params + num_inds, &Vector::new(), &univ_ctx, &dummy_global_ctx());
 
           let mut env = typ.env;
 
@@ -734,7 +737,7 @@ pub mod tests {
           for _ in 0..num_ctors {
             let ctor_name = arbitrary_ascii_name(g, 5);
             let ctor_depth = usize::arbitrary(g) % 5;
-            let ctor_type = arbitrary_pi(&mut Gen::new(50), ctor_depth, &ctor_bind_ctx, &univ_ctx, &dummy_global_ctx());
+            let ctor_type = arbitrary_pi(&mut Gen::new(expr_size), ctor_depth, &ctor_bind_ctx, &univ_ctx, &dummy_global_ctx());
             env.extend(ctor_type.env);
             ctors.push((ctor_name, ctor_type.expr));
           }
