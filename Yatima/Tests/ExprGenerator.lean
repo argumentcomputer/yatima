@@ -5,6 +5,8 @@ import Std.Data.HashMap
 -- Not recommended going over 15 unless generation parameters are adjusted below
 def MAX_DEPTH : Nat := 15 
 
+def VARIABLE_PREFERENCE : Nat := 20
+
 structure Hole where
   id : Nat
   treeDepth : Nat
@@ -52,7 +54,7 @@ def init : State :=
   head := hole
 }
 
-abbrev ExprGen := StateT State IO
+abbrev ExprGen := StateM State
 
 def isFilled (hole : Hole) : ExprGen Bool := do
   return (← get).filledHoles.contains hole
@@ -154,7 +156,7 @@ variable {gen : Type} [RandomGen gen]
 
 def getRandomType (g : gen) (isLeaf : Bool := False) : ExprType × gen := 
   let (randLeaf, g) := randNat g 0 100
-  let cutoff := 50 -- NOTE: Adjust this `cutoff` to change leaf generation order
+  let cutoff := 100 - VARIABLE_PREFERENCE -- NOTE: Adjust this `cutoff` to change leaf generation order
   if isLeaf || (randLeaf ≥ cutoff) then
     let (leafTypeNum, g) := randNat g 0 3
     match leafTypeNum with
@@ -289,10 +291,13 @@ partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
           let depth? ← getBinderDepth head
           return randVar depth? g |>.1
 
-partial def run (g : gen): ExprGen Yatima.Expr := do
+partial def run (g : gen) : ExprGen Yatima.Expr := do
   let g ← fillAllHoles g
   let head := (← get).head
   assembleExprAux head g
+
+-- This should end up being the typeclass instance for `Arbitrary Yatima.Expr`
+def arb (g : gen) : Yatima.Expr := (run g).run init |>.run |>.1
 
 namespace Yatima.Expr
 
@@ -332,12 +337,11 @@ instance : ToString Expr := {
 
 end Yatima.Expr
 
--- TODO : Figure out why this isn't acting randomly when running with a compiled binary.
 def printRandomExpr : IO Unit := do
-  let time ← IO.monoMsNow
+  let time ← IO.monoNanosNow
   IO.setRandSeed time
   let g' ← IO.stdGenRef.get
-  let ast ← (run g').run' init
+  let ast := arb g'
   IO.println s!"{ast}"
 
 def printExamples : IO Unit := do
