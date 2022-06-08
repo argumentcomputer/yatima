@@ -319,7 +319,7 @@ impl Env {
     let cids = self.topo_sort();
     let res = cids.into_iter().map(|cid| {
       let decl = self.const_cache.get(&cid).unwrap();
-      let pretty = decl.pretty(ind, self);
+      let pretty = decl.pretty(self, ind);
       pretty
     }).collect::<Option<Vec<_>>>()?.join("\n\n");
     Some(res)

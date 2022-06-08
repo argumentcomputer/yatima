@@ -481,6 +481,8 @@ pub mod tests {
     MultihashDigest,
   };
 
+  use crate::constant::tests::ConstEnv;
+
   #[test]
   fn test_parse_levels() {
     fn test(i: &str) -> IResult<Span, Vec<Name>, ParseError<Span>> {
@@ -623,19 +625,7 @@ pub mod tests {
     });
   }
 
-  fn dummy_const_cid(ind: u8) -> ConstCid {
-    let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[ind]));
-    let meta: ConstMetaCid = ConstMetaCid::new(Code::Sha3_256.digest(&[ind]));
-    ConstCid { anon, meta }
-  }
-
-  fn dummy_global_ctx() -> GlobalCtx {
-    OrdMap::from(vec![
-      (Name::from("Nat"), dummy_const_cid(0)),
-      (Name::from("Nat.zero"), dummy_const_cid(1)),
-      (Name::from("Nat.succ"), dummy_const_cid(2))
-    ])
-  }
+  use crate::expression::tests::{dummy_global_ctx, dummy_const_cid};
 
   #[test]
   fn test_parse_inductive_decl() {
@@ -644,9 +634,9 @@ pub mod tests {
       parse_const_inductive_decl(dummy_global_ctx(), env_ctx)(Span::new(i))
     }
 
-    let nat = Expr::Const(Name::from("Nat"), dummy_const_cid(0), vec![]);
-    let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(1), vec![]);
-    let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(2), vec![]);
+    let nat = Expr::Const(Name::from("Nat"), dummy_const_cid(1), vec![]);
+    let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(2), vec![]);
+    let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(3), vec![]);
 
     //TODO(rish) clean up notation (comma at the end),
     //also split this big test up into its unit test components
@@ -698,5 +688,24 @@ pub mod tests {
         ),
       ]
     });
+  }
+
+  #[quickcheck]
+  fn prop_const_parse_print(x: ConstEnv) -> bool {
+    let s = x.cnst.pretty(&x.env, false).unwrap();
+    println!("input: \t\t{s}");
+    let res_env = Rc::new(RefCell::new(Env::new()));
+    let res = parse_const_inductive(dummy_global_ctx(), res_env.clone())(Span::new(&s));
+    match res {
+      Ok((_, y)) => {
+        println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());
+        print!("ORIG:\n{:?}\nREPARSED:\n{:?}", x.cnst, y);
+        x.cnst == y
+      }
+      Err(e) => {
+        println!("err: {:?}", e);
+        false
+      }
+    }
   }
 }

@@ -309,7 +309,7 @@ impl Const {
     Ok(cid)
   }
 
-  pub fn pretty(&self, ind: bool, env: &Env) -> Option<String> {
+  pub fn pretty(&self, env: &Env, ind: bool) -> Option<String> {
     fn pretty_lvls(lvl: &Vec<Name>) -> String {
       lvl.iter()
          .map(|level| level.to_string())
@@ -389,9 +389,7 @@ impl Const {
         let (bds, sort) = get_binders(typ, Some(params + indices));
         let bds: Vec<String> = bds.iter().map(|((n, bi), e)| with_binders(format!("{n} : {}", e.pretty(env, ind)), bi)).collect();
         let ctors_str = print_constructors(ind, env, ctors)?;
-        Some(format!("{} inductive {} {} {{{}}} {} : {} -> {} where\n{}",
-                      safe, 
-                      recr,
+        Some(format!("inductive {} {{{}}} {} : {} -> {} where\n{}",
                       name,
                       pretty_lvls(lvl),
                       bds[0..*params].join(" "), // print params
@@ -652,11 +650,7 @@ pub mod tests {
       UnivCtx,
   };
 
-  use crate::universe::Univ;
-  use crate::expression::{
-    ExprEnv,
-    tests::{arbitrary_exprenv, dummy_global_ctx}
-  };
+  use crate::expression::tests::{ExprEnv, arbitrary_exprenv, dummy_global_ctx};
 
   use im::{
     OrdMap,
@@ -675,9 +669,9 @@ pub mod tests {
   use crate::universe::tests::dummy_univ_ctx;
 
   #[derive(Clone, Debug, PartialEq)]
-  struct ConstEnv {
-    cnst: Const,
-    env: Env
+  pub struct ConstEnv {
+    pub cnst: Const,
+    pub env: Env
   }
 
   fn arbitrary_pi(g: &mut Gen, depth: usize, bind_ctx: &BindCtx, univ_ctx: &UnivCtx, global_ctx: &GlobalCtx) -> ExprEnv {
@@ -760,7 +754,7 @@ pub mod tests {
               //refl: bool::arbitrary(g),
               //nest: bool::arbitrary(g),
               recr: false,
-              safe: false,
+              safe: true,
               refl: false,
               nest: false,
             },

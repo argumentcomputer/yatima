@@ -734,7 +734,7 @@ pub mod tests {
 
   use crate::expression::tests::{dummy_univ_ctx, dummy_global_ctx, dummy_const_cid};
 
-  use crate::expression::ExprEnv;
+  use crate::expression::tests::ExprEnv;
 
   use rand::Rng;
 

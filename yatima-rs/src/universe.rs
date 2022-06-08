@@ -191,9 +191,14 @@ pub mod tests {
       (100, Box::new(|_| Univ::Zero)),
       (100,
         Box::new(|g| {
-          let i = usize::arbitrary(g) % univ_ctx.len();
-          let n = &univ_ctx[i];
-          Univ::Param(n.clone(), i.into())
+          if univ_ctx.len() > 0 {
+            let i = usize::arbitrary(g) % univ_ctx.len();
+            let n = &univ_ctx[i];
+            Univ::Param(n.clone(), i.into())
+          }
+          else {
+            Univ::Zero
+          }
         }),
       ),
       (g.size().saturating_sub(30), Box::new(|g| Univ::Succ(Box::new(arbitrary_univ(g, univ_ctx))))),

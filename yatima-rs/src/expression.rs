@@ -113,12 +113,6 @@ pub enum Expr {
   Proj(Nat, Box<Expr>),
 }
 
-#[derive(PartialEq, Clone, Debug)]
-pub struct ExprEnv {
-  pub expr: Expr,
-  pub env: Env,
-}
-
 impl Expr {
   pub fn cid(&self, env: &mut Env) -> Result<ExprCid, EnvError> {
     match self {
@@ -497,6 +491,8 @@ impl ExprAnon {
     Gen,
   };
 
+  use crate::name::tests::arbitrary_ascii_name;
+
   use super::*;
 
   pub fn dummy_const_cid(ind: u8) -> ConstCid {
@@ -518,7 +514,11 @@ impl ExprAnon {
     Vector::from(vec![Name::from("w"), Name::from("v"), Name::from("u")])
   }
 
-  use crate::name::tests::arbitrary_ascii_name;
+  #[derive(PartialEq, Clone, Debug)]
+  pub struct ExprEnv {
+    pub expr: Expr,
+    pub env: Env,
+  }
 
   // TODO can I #[derive(Arbitrary)]?
   impl Arbitrary for BinderInfo {
