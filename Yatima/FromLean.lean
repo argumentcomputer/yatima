@@ -30,12 +30,19 @@ instance : Coe Lean.QuotKind QuotKind where coe
   | .lift => .lift
   | .ctor => .ctor
 
-abbrev EnvM := ReaderT Lean.ConstMap $ EStateM String Env
+structure ToYatimaState where
+  env        : Env
+  nBinders   : Nat
+  constSubst : Option Name
+  deriving Inhabited
 
-def EnvM.run (constMap : Lean.ConstMap) (state : Env) (m : EnvM α) :
+abbrev ToYatimaM := ReaderT Lean.ConstMap $ EStateM String ToYatimaState
+
+def ToYatimaM.run (constMap : Lean.ConstMap)
+  (state : ToYatimaState) (m : ToYatimaM α) :
     Except String Env :=
   match EStateM.run (ReaderT.run m constMap) state with
-  | .ok _ env  => .ok env
+  | .ok _ stt  => .ok stt.env
   | .error e _ => .error e
 
 inductive YatimaTuple
@@ -49,22 +56,27 @@ inductive YatimaTuple
   | const_anon  : ConstAnonCid → ConstAnon → YatimaTuple
   | const_meta  : ConstMetaCid → ConstMeta → YatimaTuple
 
-def addToEnv (y : YatimaTuple) : EnvM PUnit := do
-  let env ← get
+def addToEnv (y : YatimaTuple) : ToYatimaM PUnit := do
+  let stt ← get
+  let env := stt.env
   match y with
-  | .univ_cache  cid obj => set { env with univ_cache  := env.univ_cache.insert cid obj }
-  | .univ_anon   cid obj => set { env with univ_anon   := env.univ_anon.insert cid obj }
-  | .univ_meta   cid obj => set { env with univ_meta   := env.univ_meta.insert cid obj }
-  | .expr_cache  cid obj => set { env with expr_cache  := env.expr_cache.insert cid obj }
-  | .expr_anon   cid obj => set { env with expr_anon   := env.expr_anon.insert cid obj }
-  | .expr_meta   cid obj => set { env with expr_meta   := env.expr_meta.insert cid obj }
-  | .const_cache cid obj => set { env with const_cache := env.const_cache.insert cid obj }
-  | .const_anon  cid obj => set { env with const_anon  := env.const_anon.insert cid obj }
-  | .const_meta  cid obj => set { env with const_meta  := env.const_meta.insert cid obj }
+  | .univ_cache  cid obj => set { stt with env := { env with univ_cache  := env.univ_cache.insert cid obj } }
+  | .univ_anon   cid obj => set { stt with env := { env with univ_anon   := env.univ_anon.insert cid obj } }
+  | .univ_meta   cid obj => set { stt with env := { env with univ_meta   := env.univ_meta.insert cid obj } }
+  | .expr_cache  cid obj => set { stt with env := { env with expr_cache  := env.expr_cache.insert cid obj } }
+  | .expr_anon   cid obj => set { stt with env := { env with expr_anon   := env.expr_anon.insert cid obj } }
+  | .expr_meta   cid obj => set { stt with env := { env with expr_meta   := env.expr_meta.insert cid obj } }
+  | .const_cache cid obj => set { stt with env := { env with const_cache := env.const_cache.insert cid obj } }
+  | .const_anon  cid obj => set { stt with env := { env with const_anon  := env.const_anon.insert cid obj } }
+  | .const_meta  cid obj => set { stt with env := { env with const_meta  := env.const_meta.insert cid obj } }
+
+def incrNBinders : ToYatimaM PUnit := do
+  let stt ← get
+  set { stt with nBinders := stt.nBinders.succ }
 
 open ToIpld
 
-def univToCid (u : Univ) : EnvM UnivCid := do
+def univToCid (u : Univ) : ToYatimaM UnivCid := do
   let univAnon : UnivAnon := u.toAnon
   let univAnonCid : UnivAnonCid := univAnonToCid univAnon
   addToEnv $ .univ_anon univAnonCid univAnon
@@ -75,7 +87,7 @@ def univToCid (u : Univ) : EnvM UnivCid := do
 
 mutual
 
-  def separateExpr (e : Expr) : EnvM (ExprAnon × ExprMeta) :=
+  def separateExpr (e : Expr) : ToYatimaM (ExprAnon × ExprMeta) :=
     match e with
     | .var nam n => return (.var n, .var nam)
     | .sort u    => return (.sort u.anon, .sort u.meta)
@@ -110,7 +122,7 @@ mutual
       let expCid ← exprToCid exp
       return (.proj idx expCid.anon, .proj idx expCid.meta)
 
-  def exprToCid (e : Expr) : EnvM ExprCid := do
+  def exprToCid (e : Expr) : ToYatimaM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
     let exprAnonCid : ExprAnonCid := exprAnonToCid exprAnon
     addToEnv $ .expr_anon exprAnonCid exprAnon
@@ -120,7 +132,7 @@ mutual
 
 end
 
-def constToCid (c : Const) : EnvM ConstCid := do
+def constToCid (c : Const) : ToYatimaM ConstCid := do
   let constAnon : ConstAnon := c.toAnon
   let constAnonCid : ConstAnonCid := constAnonToCid constAnon
   addToEnv $ .const_anon constAnonCid constAnon
@@ -129,7 +141,7 @@ def constToCid (c : Const) : EnvM ConstCid := do
   addToEnv $ .const_meta constMetaCid constMeta
   return ⟨constAnonCid, constMetaCid⟩
 
-def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → EnvM Univ
+def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → ToYatimaM Univ
   | .zero _      => return .zero
   | .succ n _    => do
     let univ ← toYatimaUniv lvls n
@@ -161,32 +173,33 @@ mutual
 
   partial def toYatimaRecursorRule
     (ctorCid : ConstCid) (rules : Lean.RecursorRule) :
-      EnvM RecursorRule := do
+      ToYatimaM RecursorRule := do
     let rhs ← toYatimaExpr [] rules.rhs
     let rhsCid ← exprToCid rhs
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
   partial def toYatimaExpr (levelParams : List Lean.Name) :
-      Lean.Expr → EnvM Expr
+      Lean.Expr → ToYatimaM Expr
     | .bvar idx _ => return .var "" idx
     | .sort lvl _ => do
       let univ ← toYatimaUniv levelParams lvl
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
-    | .const nam lvls _ => do
-      match (← read).find?' nam with
-      | some leanConst =>
-        let const ← toYatimaConst leanConst
-        let constId ← constToCid const
-        addToEnv $ .const_cache constId const
-        let univs ← lvls.mapM $ toYatimaUniv levelParams
-        let univsCids ← univs.mapM univToCid
-        (univsCids.zip univs).forM fun (univCid, univ) =>
-          addToEnv $ .univ_cache univCid univ
-        return .const nam constId univsCids
-      | none => throw s!"Unknown constant '{nam}'"
+    | .const nam lvls _ => do match (← get).constSubst with
+      | some varName => return .var varName (← get).nBinders
+      | none         => match (← read).find?' nam with
+        | some leanConst =>
+          let const ← toYatimaConst leanConst
+          let constId ← constToCid const
+          addToEnv $ .const_cache constId const
+          let univs ← lvls.mapM $ toYatimaUniv levelParams
+          let univsCids ← univs.mapM univToCid
+          (univsCids.zip univs).forM fun (univCid, univ) =>
+            addToEnv $ .univ_cache univCid univ
+          return .const nam constId univsCids
+        | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => do
       let fnc ← toYatimaExpr levelParams fnc
       let arg ← toYatimaExpr levelParams arg
@@ -194,15 +207,18 @@ mutual
     | .lam nam bnd bod _ => do
       let bndInfo := bnd.binderInfo
       let bnd ← toYatimaExpr levelParams bnd
+      incrNBinders
       let bod ← toYatimaExpr levelParams bod
       return .lam nam bndInfo bnd bod
     | .forallE nam dom img _ => do
       let bndInfo := dom.binderInfo
       let dom ← toYatimaExpr levelParams dom
+      incrNBinders
       let img ← toYatimaExpr levelParams img
       return .pi nam bndInfo dom img
     | .letE nam typ exp bod _ => do
       let typ ← toYatimaExpr levelParams typ
+      incrNBinders
       let exp ← toYatimaExpr levelParams exp
       let bod ← toYatimaExpr levelParams bod
       return .letE nam typ exp bod
@@ -214,7 +230,7 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaConst : Lean.ConstantInfo → EnvM Const
+  partial def toYatimaConst : Lean.ConstantInfo → ToYatimaM Const
     | .axiomInfo struct => do
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
@@ -288,11 +304,8 @@ mutual
       let ctors : List (Name × ExprCid) ← struct.ctors.mapM
         fun nam => do match (← read).find?' nam with
           | some leanConst =>
-            let type ← match leanConst.type with
-              | e@(.const nam lvls _) =>
-                if nam == struct.name then pure $ .var nam lvls.length
-                else toYatimaExpr struct.levelParams e
-              | e => toYatimaExpr struct.levelParams e
+            set { (← get) with constSubst := some struct.name }
+            let type ← toYatimaExpr struct.levelParams leanConst.type
             let typeCid ← exprToCid type
             addToEnv $ .expr_cache typeCid type
             return (nam, typeCid)
@@ -343,14 +356,14 @@ mutual
 
 end
 
-def buildEnv (constMap : Lean.ConstMap) : EnvM Env := do
+def buildEnv (constMap : Lean.ConstMap) : ToYatimaM Env := do
   constMap.forM fun _ leanConst => do
     let yatimaConst ← toYatimaConst leanConst
     let constCid ← constToCid yatimaConst
     addToEnv $ .const_cache constCid yatimaConst
-  get
+  return (← get).env
 
 def extractEnv (constMap : Lean.ConstMap) : Except String Env :=
-  EnvM.run constMap default (buildEnv constMap)
+  ToYatimaM.run constMap default (buildEnv constMap)
 
 end Yatima.Compiler.FromLean
