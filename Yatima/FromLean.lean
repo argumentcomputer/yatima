@@ -188,7 +188,9 @@ mutual
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
     | .const nam lvls _ => do match (← get).constSubst with
-      | some varName => return .var varName (← get).nBinders
+      | some varName =>
+        set { (← get) with constSubst := none }
+        return .var varName (← get).nBinders
       | none         => match (← read).find?' nam with
         | some leanConst =>
           let const ← toYatimaConst leanConst
