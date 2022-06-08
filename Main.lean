@@ -9,9 +9,6 @@ def main : List String → IO UInt32
     Lean.initSearchPath $ ← Lean.findSysroot
     let (env, ok) ← Lean.Elab.runFrontend input .empty f `main
     if ok then
-      let l := env.constants.toList.map fun (n, _) => n
-      IO.println l
-      -- return 0
       match extractEnv env.constants with
       | .ok env => --todo
         return 0
