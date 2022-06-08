@@ -129,9 +129,7 @@ def constToCid (c : Const) : EnvM ConstCid := do
   addToEnv $ .const_meta constMetaCid constMeta
   return ⟨constAnonCid, constMetaCid⟩
 
-mutual
-
-  partial def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → EnvM Univ
+def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → EnvM Univ
   | .zero _      => return .zero
   | .succ n _    => do
     let univ ← toYatimaUniv lvls n
@@ -158,6 +156,8 @@ mutual
     | some n => return .param nam n
     | none   => throw s!"'{nam}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
+
+mutual
 
   partial def toYatimaRecursorRule
     (ctorCid : ConstCid) (rules : Lean.RecursorRule) :
