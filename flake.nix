@@ -64,10 +64,10 @@
 
         defaultPackage = yatima-rs;
 
-	      devShell = pkgs.mkShell {
+        devShell = pkgs.mkShell {
           buildInputs = [
             pkgs.protobuf
           ];
-	      };
+        };
       });
 }
