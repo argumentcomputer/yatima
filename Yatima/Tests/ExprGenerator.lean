@@ -334,9 +334,8 @@ end Yatima.Expr
 
 -- TODO : Figure out why this isn't acting randomly when running with a compiled binary.
 def printRandomExpr : IO Unit := do
-  let g ← IO.stdGenRef.get
-  let (r, _) := randNat g 0 2147483563
-  IO.setRandSeed r
+  let time ← IO.monoMsNow
+  IO.setRandSeed time
   let g' ← IO.stdGenRef.get
   let ast ← (run g').run' init
   IO.println s!"{ast}"
