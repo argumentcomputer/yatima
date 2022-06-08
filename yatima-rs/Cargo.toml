@@ -17,7 +17,7 @@ base-x = { version = "0.2.8", default-features = false }
 multibase = { version = "0.9.1", default-features = false }
 multihash = { version = "0.16.2", default-features = false, features = ["alloc", "secure-hashes"] }
 cid = { version = "0.8.4", default-features = false, features = ["alloc", "serde-codec"] }
-libipld = { package = "lurk-ipld", version = "0.1.0", default-features = false, features = ["dag-cbor", "dag-json", "serde-codec"] }
+libipld = { version = "0.13.1", default-features = false, features = ["dag-cbor", "derive", "serde-codec"] }
 serde = { version = "1.0.137", default-features = false, features = ["alloc", "serde_derive"] }
 serde_tuple = "0.5.0"
 serde_repr = "0.1.8"
