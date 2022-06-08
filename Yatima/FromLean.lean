@@ -288,7 +288,11 @@ mutual
       let ctors : List (Name × ExprCid) ← struct.ctors.mapM
         fun nam => do match (← read).find?' nam with
           | some leanConst =>
-            let type ← toYatimaExpr struct.levelParams leanConst.type
+            let type ← match leanConst.type with
+              | e@(.const nm ..) =>
+                if nm == nam then pure $ .var nam 0 --fix: 0 is wrong
+                else toYatimaExpr struct.levelParams e
+              | e => toYatimaExpr struct.levelParams e
             let typeCid ← exprToCid type
             addToEnv $ .expr_cache typeCid type
             return (nam, typeCid)
