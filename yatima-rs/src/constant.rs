@@ -24,13 +24,16 @@ use serde::{
 
 use libipld::serde::to_ipld;
 
+use im::{
+  Vector,
+};
+
 use multihash::{
   Code,
   MultihashDigest,
 };
 
 use alloc::{
-  fmt,
   string::String,
 };
 
@@ -306,15 +309,15 @@ impl Const {
     Ok(cid)
   }
 
-  pub fn pretty(self, ind: bool, env: &Env) -> Option<String> {
-    fn pretty_lvls(lvl: Vec<Name>) -> String {
+  pub fn pretty(&self, ind: bool, env: &Env) -> Option<String> {
+    fn pretty_lvls(lvl: &Vec<Name>) -> String {
       lvl.iter()
          .map(|level| level.to_string())
          .collect::<Vec<String>>()
          .join(" ")
     }
 
-    fn print_constructors(ind: bool, env: &Env, ctors: Vec<(Name, ExprCid)>) -> Option<String> {
+    fn print_constructors(ind: bool, env: &Env, ctors: &Vec<(Name, ExprCid)>) -> Option<String> {
       let ctors: Vec<_> = 
         ctors.into_iter()
              .map(|(name, expr_cid)| match env.expr_cache.get(&expr_cid) {
@@ -391,8 +394,8 @@ impl Const {
                       recr,
                       name,
                       pretty_lvls(lvl),
-                      bds[0..params].join(" "), // print params
-                      bds[params..].join(" "), // print indices
+                      bds[0..*params].join(" "), // print params
+                      bds[*params..].join(" "), // print indices
                       sort.pretty(env, ind),
                       ctors_str)) // print ctors
       }
@@ -415,22 +418,67 @@ impl Const {
         safe,
       } => {
         let ind = env.const_cache.get(&ind)?;  
-        let (ind_name, ind_typ, ind_params, ind_indices) = 
+        let (.., ind_params, ind_indices) = 
         (match ind {
           Const::Inductive { name, lvl, typ, params, indices, .. } => {
             Some((name, typ, params, indices))
           },
           _ => None,
         })?;
-        if *ind_params != params || *ind_indices != indices {
+        if *ind_params != *params || *ind_indices != *indices {
           return None
         }
         Some("".to_string())
       }
-      Const::Quotient { kind } => {
+      Const::Quotient { .. } => {
         // TODO
         Some("".to_string())
       }
+    }
+  }
+
+  pub fn get_internal_refs(&self, env: &Env) -> Vec<ConstCid> {
+    match self {
+      Const::Axiom { name, lvl, typ, safe } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        typ.get_internal_refs()
+      },
+      Const::Theorem { name, lvl, typ, expr } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        let expr = env.expr_cache.get(&expr).unwrap();
+        let mut refs = typ.get_internal_refs();
+        refs.extend(expr.get_internal_refs());
+        refs
+      },
+      Const::Opaque { name, lvl, typ, expr, safe } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        let expr = env.expr_cache.get(&expr).unwrap();
+        let mut refs = typ.get_internal_refs();
+        refs.extend(expr.get_internal_refs());
+        refs
+      },
+      Const::Definition { name, lvl, typ, expr, safe } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        let expr = env.expr_cache.get(&expr).unwrap();
+        let mut refs = typ.get_internal_refs();
+        refs.extend(expr.get_internal_refs());
+        refs
+      },
+      Const::Inductive { name, lvl, typ, params, indices, ctors, recr, safe, refl, nest } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        typ.get_internal_refs()
+      },
+      Const::Constructor { name, lvl, ind, typ, param, field, safe } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        typ.get_internal_refs()
+      },
+      Const::Recursor { lvl, ind, typ, params, indices, motives, minors, rules, k, safe } => {
+        let typ = env.expr_cache.get(&typ).unwrap();
+        typ.get_internal_refs()
+      },
+      Const::Quotient { kind } => {
+        Vec::<ConstCid>::new()
+      },
     }
   }
 }

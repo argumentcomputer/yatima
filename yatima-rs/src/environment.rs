@@ -16,6 +16,7 @@ use crate::{
   },
 };
 
+use im::Vector;
 use libipld::error::SerdeError;
 
 use alloc::collections::{
@@ -136,6 +137,25 @@ pub struct EnvSet {
   pub env: BTreeSet<ConstCid>,
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub struct EnvNode {
+  pub neighbours: Vec<ConstCid>,
+  pub in_degree: usize,
+}
+
+impl EnvNode {
+  pub fn new() -> Self {
+    EnvNode {
+      neighbours: Vec::<ConstCid>::new(),
+      in_degree: 0,
+    }
+  }
+
+  // pub fn get_neighbours(&self) -> &Vec<ConstCid> {
+  //   self.neighbours
+  // }
+}
+
 /// A Yatima Environment, which includes the full Merkle tree of all the various
 /// CIDs, and also caches the Const/Expr/Univ trees to avoid frequent Anon/Meta
 /// merges
@@ -153,6 +173,9 @@ pub struct Env {
   pub univ_anon: BTreeMap<UnivAnonCid, UnivAnon>,
   pub expr_anon: BTreeMap<ExprAnonCid, ExprAnon>,
   pub const_anon: BTreeMap<ConstAnonCid, ConstAnon>,
+
+  pub const_dag: BTreeMap<ConstCid, EnvNode>,
+  pub in_degree: BTreeMap<ConstCid, usize>,
 }
 
 #[derive(Debug)]
@@ -173,6 +196,8 @@ impl Env {
       const_anon: BTreeMap::new(),
       expr_anon: BTreeMap::new(),
       univ_anon: BTreeMap::new(),
+      const_dag: BTreeMap::new(),
+      in_degree: BTreeMap::new(),
     }
   }
 
@@ -228,11 +253,75 @@ impl Env {
     self.const_cache.insert(k, v);
   }
 
-  /// Top level printer that will produce all the decls in an enviorment 
-  pub fn pretty(&self, ind: bool) -> String {
-    // loop over all decls and print them out
-    // actually wait a minute...?
-    // how do we print stuff out in the correct order? bruh
-    "".to_string()
+  fn make_dag(&self) -> BTreeMap<ConstCid, EnvNode> {
+    let mut dag = BTreeMap::new();
+    let mut in_degrees: BTreeMap<ConstCid, usize> = BTreeMap::new();
+    // first clone the keys
+    // we need to do this to have all the cids accessible when
+    // we start counting the in-degrees of each node
+    for (cid, const_decl) in &self.const_cache {
+      let refs = const_decl.get_internal_refs(self);
+      dag.insert(cid.clone(), EnvNode { neighbours: refs, in_degree: 0 });
+      in_degrees.insert(*cid, 0);
+    }
+
+    for (cid, _) in &self.const_cache {
+      let neighbours = &dag.get(cid).unwrap().neighbours;
+      for n in neighbours {
+        *in_degrees.get_mut(n).unwrap() += 1;
+      }
+    }
+
+    for (cid, const_decl) in &self.const_cache {
+      let node = dag.get_mut(cid).unwrap();
+      node.in_degree = *in_degrees.get_mut(cid).unwrap();
+    }
+
+    // The three for loops are disturbing to me, 
+    // but the problem is this: given an node A,
+    // we must 1. get A's `neighbours`; 
+    //         2. for each `neighbour` n, 
+    //            increment `n.in_degree`.
+    // However, Rust's borrow checker cannot guarantee 
+    // that A is not equal to n, so it does not allow
+    // the mutation of n while A is borrowed.
+    // To amend this, I count all the in degrees
+    // in a separate map, then copy over the values.
+
+    return dag;
+  }
+
+  pub fn topo_sort(&self) -> Vector<ConstCid> {
+    let mut const_dag = self.make_dag();
+    let mut res = Vector::<ConstCid>::new();
+    let mut s: Vector<ConstCid> = 
+      const_dag.iter()
+          .filter(|(_, x)| x.in_degree == 0)
+          .map(|(x, _)| x)
+          .cloned()
+          .collect();
+    while !s.is_empty() {
+      let curr = s.pop_back().unwrap();
+      res.push_back(curr);
+      let neighbours = const_dag.get(&curr).unwrap().neighbours.clone();
+      for i in 0..neighbours.len() {
+        const_dag.get_mut(&neighbours[i]).unwrap().in_degree -= 1;
+        if const_dag.get(&neighbours[i]).unwrap().in_degree == 0 {
+          res.push_back(neighbours[i]);
+        }
+      }
+    }
+    res
+  }
+
+  /// Top level printer that will produce all the decls in an enviroment 
+  pub fn pretty(&mut self, ind: bool) -> Option<String> {
+    let cids = self.topo_sort();
+    let res = cids.into_iter().map(|cid| {
+      let decl = self.const_cache.get(&cid).unwrap();
+      let pretty = decl.pretty(ind, self);
+      pretty
+    }).collect::<Option<Vec<_>>>()?.join("\n\n");
+    Some(res)
   } 
 }

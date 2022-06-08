@@ -20,6 +20,10 @@ use serde::{
   Serialize,
 };
 
+use im::{
+  Vector,
+};
+
 use alloc::{
   fmt,
   boxed::Box,
@@ -342,6 +346,42 @@ impl Expr {
         format!("{}", expr.pretty(env, ind)) 
       },
       _ => todo!() // Projections
+    }
+  }
+
+  pub fn get_internal_refs(&self) -> Vec<ConstCid> {
+    match self {
+      Expr::Const(name, cid, univs) => {
+        Vec::from(vec![*cid])
+      },
+      Expr::App(fun, arg) => {
+        let mut refs = fun.get_internal_refs();
+        refs.extend(arg.get_internal_refs());
+        refs
+      },
+      Expr::Lam(name, bi, typ, body) => {
+        let mut refs = typ.get_internal_refs();
+        refs.extend(body.get_internal_refs());
+        refs
+      },
+      Expr::Pi(name, bi, typ, body) => { 
+        let mut refs = typ.get_internal_refs();
+        refs.extend(body.get_internal_refs());
+        refs
+      },
+      Expr::Let(name, typ, expr, body) => {
+        let mut refs = typ.get_internal_refs();
+        refs.extend(expr.get_internal_refs());
+        refs.extend(body.get_internal_refs());
+        refs
+      },
+      Expr::Fix(_, expr) => {
+        expr.get_internal_refs()
+      },
+      Expr::Proj(idx, expr) => {
+        expr.get_internal_refs()
+      }
+      _ => Vec::<ConstCid>::new()
     }
   }
 }
