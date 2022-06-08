@@ -690,22 +690,22 @@ pub mod tests {
     });
   }
 
-  #[quickcheck]
-  fn prop_const_parse_print(x: ConstEnv) -> bool {
-    let s = x.cnst.pretty(&x.env, false).unwrap();
-    println!("input: \t\t{s}");
-    let res_env = Rc::new(RefCell::new(Env::new()));
-    let res = parse_const_inductive(dummy_global_ctx(), res_env.clone())(Span::new(&s));
-    match res {
-      Ok((_, y)) => {
-        println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());
-        print!("ORIG:\n{:?}\nREPARSED:\n{:?}", x.cnst, y);
-        x.cnst == y
-      }
-      Err(e) => {
-        println!("err: {:?}", e);
-        false
-      }
-    }
-  }
+  //#[quickcheck]
+  //fn prop_const_parse_print(x: ConstEnv) -> bool {
+  //  let s = x.cnst.pretty(&x.env, false).unwrap();
+  //  println!("input: \t\t{s}");
+  //  let res_env = Rc::new(RefCell::new(Env::new()));
+  //  let res = parse_const_inductive(dummy_global_ctx(), res_env.clone())(Span::new(&s));
+  //  match res {
+  //    Ok((_, y)) => {
+  //      println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());
+  //      print!("ORIG:\n{:?}\nREPARSED:\n{:?}", x.cnst, y);
+  //      x.cnst == y
+  //    }
+  //    Err(e) => {
+  //      println!("err: {:?}", e);
+  //      false
+  //    }
+  //  }
+  //}
 }

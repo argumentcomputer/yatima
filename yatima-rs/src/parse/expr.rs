@@ -638,7 +638,7 @@ pub fn parse_expr_let(
   move |from: Span| {
     let (i, _) = tag("let")(from)?;
     let (i, _) = parse_space(i)?;
-    let (i, rec) = opt(tag("rec"))(i)?;
+    let (i, rec) = opt(preceded(tag("rec"), alt((tag(" "), tag("\n")))))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, nam) = parse_name(i)?;
     let rec = rec.map(|_| nam.clone());
@@ -1092,6 +1092,20 @@ pub mod tests {
     println!("{:?}", res);
     assert!(res.is_ok());
   }
+
+  #[test]
+  fn test_parse_let() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
+    fn test(env_ctx: EnvCtx, i: &str) -> IResult<Span, Expr, ParseError<Span>> {
+      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
+    }
+    let res = test(env_ctx.clone(), "let recname : Sort 0 := #Str in recname");
+    print!("{:?}", res);
+    assert!(res.is_ok());
+  }
+
   #[test]
   fn test_parse_lam() {
     fn test(i: &str) -> IResult<Span, Expr, ParseError<Span>> {
