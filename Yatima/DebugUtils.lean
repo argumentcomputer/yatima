@@ -5,7 +5,7 @@ namespace Yatima.Utils
 instance : ToString Lean.RecursorRule where
   toString x := s!"{x.ctor} {x.nfields} {x.rhs}"
 
-def prettyIsUnsafe (x: Bool) : String := if x then "" else "unsafe "
+def prettyIsUnsafe (x: Bool) : String := if x then "unsafe " else ""
 def prettyDefSafety : Lean.DefinitionSafety -> String
 | .unsafe => "unsafe "
 | .safe => ""

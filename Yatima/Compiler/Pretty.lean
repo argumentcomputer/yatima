@@ -4,7 +4,7 @@ import Lean
 
 namespace Yatima.Compiler.FromLean
 
-def prettyIsUnsafe (x: Bool) : String := if x then "" else "unsafe "
+def prettyIsSafe (x: Bool) : String := if x then "" else "unsafe "
 def prettyDefSafety : Yatima.DefinitionSafety -> String
 | .unsafe => "unsafe "
 | .safe => ""
@@ -73,7 +73,7 @@ mutual
     match const with 
     | .«axiom» ax => do
       let type ← getExpr ax.type ax.name
-      pure s!"{prettyIsUnsafe ax.safe}axiom {ax.name} {ax.lvls} : {← prettyExpr type}"
+      pure s!"{prettyIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← prettyExpr type}"
     | .«theorem» thm => do
       let type ← getExpr thm.type thm.name
       let value ← getExpr thm.value thm.name
@@ -81,13 +81,13 @@ mutual
              s!"  {← prettyExpr value}" 
     | .«inductive» ind => do 
       let type ← getExpr ind.type ind.name
-      pure $ s!"{prettyIsUnsafe ind.safe}inductive {ind.name} {ind.lvls} : {← prettyExpr type} :=\n" ++
+      pure $ s!"{prettyIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← prettyExpr type} :=\n" ++
              s!"  {ind.params} {ind.indices} {ind.recr} {ind.refl} {ind.nest}\n" ++
              s!"{← prettyCtors ind.ctors}"
     | .opaque opaq => do
       let type ← getExpr opaq.type opaq.name
       let value ← getExpr opaq.value opaq.name
-      pure $ s!"{prettyIsUnsafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← prettyExpr type} :=\n" ++
+      pure $ s!"{prettyIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← prettyExpr type} :=\n" ++
              s!"  {← prettyExpr value}"
     | .definition defn => do
       let type ← getExpr defn.type defn.name
@@ -97,13 +97,13 @@ mutual
     | .constructor ctor => do
       let type ← getExpr ctor.type ctor.name
       let ind ← getConst ctor.ind
-      pure $ s!"{prettyIsUnsafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← prettyExpr type} :=\n" ++
+      pure $ s!"{prettyIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← prettyExpr type} :=\n" ++
              s!"  {ind.name} {ctor.idx} {ctor.params} {ctor.fields}"
     | .recursor recr => do
       let type ← getExpr recr.type recr.name
       let ind ← getConst recr.ind
       let rules ← prettyRules recr.rules
-      pure $ s!"{prettyIsUnsafe recr.safe}recursor {recr.name} {recr.lvls} : {← prettyExpr type} :=\n" ++
+      pure $ s!"{prettyIsSafe recr.safe}recursor {recr.name} {recr.lvls} : {← prettyExpr type} :=\n" ++
              s!"  {ind.name} {recr.params} {recr.indices} {recr.motives} {recr.minors} {rules} {recr.k}"
     | .quotient quot => do
       let type ← getExpr quot.type quot.name
