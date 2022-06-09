@@ -172,9 +172,9 @@ def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → ToYatimaM Univ
 mutual
 
   partial def toYatimaRecursorRule
-    (ctorCid : ConstCid) (rules : Lean.RecursorRule) :
+    (levelParams : List Lean.Name) (ctorCid : ConstCid) (rules : Lean.RecursorRule) :
       ToYatimaM RecursorRule := do
-    let rhs ← toYatimaExpr [] rules.rhs
+    let rhs ← toYatimaExpr levelParams rules.rhs
     let rhsCid ← exprToCid rhs
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
