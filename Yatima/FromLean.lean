@@ -303,6 +303,7 @@ mutual
       let type ← toYatimaExpr struct.levelParams struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
+      set { (← get) with constSubst := some struct.name }
       let ctors : List (Name × ExprCid) ← struct.ctors.mapM
         fun nam => do match (← read).find?' nam with
           | some leanConst =>
@@ -312,6 +313,7 @@ mutual
             addToEnv $ .expr_cache typeCid type
             return (nam, typeCid)
           | none => throw s!"Unknown constant '{nam}'"
+      set { (← get) with constSubst := none }
       return .inductive {
         name := struct.name
         lvls := struct.levelParams.map .ofLeanName
@@ -342,7 +344,7 @@ mutual
           motives := struct.numMotives
           indices := struct.numIndices
           minors := struct.numMinors
-          rules := ← struct.rules.mapM $ toYatimaRecursorRule constId
+          rules := ← struct.rules.mapM $ toYatimaRecursorRule struct.levelParams constId
           k := struct.k
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{inductName}'"
