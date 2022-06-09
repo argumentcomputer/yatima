@@ -1,6 +1,7 @@
 import Yatima.Env
 import Yatima.ToIpld
 import Yatima.DebugUtils
+import Yatima.Const
 
 import Lean
 
@@ -182,7 +183,11 @@ mutual
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
   partial def toYatimaExpr (ls : List Lean.Name) (recr: Option Name): Lean.Expr → CompileM Expr
-    | .bvar idx _ => return .var "" idx
+    | .bvar idx _ => do
+      let name ← match (← read).bindCtx.get? idx with
+      | some name => pure name
+      | none => throw "Processed bvar has index greater than length of binder context"      
+      return .var s!"{name}" idx
     | .sort lvl _ => do
       let univ ← toYatimaUniv ls lvl
       let univCid ← univToCid univ

@@ -1,6 +1,6 @@
 import Lean
 import Yatima.DebugUtils
-import Yatima.FromLean
+import Yatima.Compiler.Pretty
 
 open Yatima.Compiler.FromLean
 open Yatima.Utils
@@ -13,10 +13,10 @@ def main : List String → IO UInt32
     --dbg_trace s!"------------"
     --dbg_trace env.constants
     dbg_trace s!"------------"
-    dbg_trace (filterUnsafeConstants env.constants)
+    -- dbg_trace (filterUnsafeConstants env.constants)
     dbg_trace s!"------------"
     if ok then
-      match extractEnv (filterUnsafeConstants env.constants) with
+      match extractAndPrintEnv (filterUnsafeConstants env.constants) with
       | .ok env => --todo
         return 0
       | .error e =>
