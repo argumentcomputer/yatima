@@ -1,11 +1,12 @@
-import Yatima.Env
+import Yatima.Compiler.CompileM
+import Yatima.Compiler.Printing
 import Yatima.ToIpld
-import Yatima.DebugUtils
-import Yatima.Const
 
 import Lean
 
 namespace Yatima.Compiler.FromLean
+
+open Yatima.Compiler.CompileM
 
 instance : Coe Lean.Name Name where
   coe := .ofLeanName
@@ -32,22 +33,6 @@ instance : Coe Lean.QuotKind QuotKind where coe
   | .lift => .lift
   | .ctor => .ctor
 
-structure CompileState where
-  env        : Yatima.Env
-  deriving Inhabited
-
-structure CompileEnv where
-  constMap   : Lean.ConstMap
-  bindCtx    : List Name
-  deriving Inhabited
-
-abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
-
-def CompileM.run (env: CompileEnv) (ste: CompileState) (m : CompileM α) : Except String Env :=
-  match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ ste  => .ok ste.env
-  | .error e _ => .error e
-
 inductive YatimaEnvEntry
   | univ_cache  : UnivCid      → Univ      → YatimaEnvEntry
   | univ_anon   : UnivAnonCid  → UnivAnon  → YatimaEnvEntry
@@ -72,10 +57,6 @@ def addToEnv (y : YatimaEnvEntry) : CompileM Unit := do
   | .const_cache cid obj => set { stt with env := { env with const_cache := env.const_cache.insert cid obj } }
   | .const_anon  cid obj => set { stt with env := { env with const_anon  := env.const_anon.insert cid obj } }
   | .const_meta  cid obj => set { stt with env := { env with const_meta  := env.const_meta.insert cid obj } }
-
-
-def bind (name: Name): CompileM α → CompileM α :=
-  withReader (fun e => CompileEnv.mk e.constMap (name :: e.bindCtx))
 
 open ToIpld
 
@@ -174,15 +155,16 @@ def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → CompileM Univ
 
 mutual
 
-  partial def toYatimaRecursorRule
-    (levelParams : List Lean.Name) (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule)
-    : CompileM RecursorRule := do
+  partial def toYatimaRecursorRule (levelParams : List Lean.Name)
+    (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) :
+      CompileM RecursorRule := do
     let rhs ← toYatimaExpr levelParams (some name) rules.rhs
     let rhsCid ← exprToCid rhs
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
-  partial def toYatimaExpr (ls : List Lean.Name) (recr: Option Name): Lean.Expr → CompileM Expr
+  partial def toYatimaExpr (ls : List Lean.Name) (recr: Option Name) :
+      Lean.Expr → CompileM Expr
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
@@ -346,14 +328,29 @@ mutual
         kind := struct.kind }
 end
 
-def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
-  constMap.forM fun _ leanConst => do
+open Yatima.Compiler PrintLean PrintYatima in
+def buildEnv (constMap : Lean.ConstMap)
+    (printLean : Bool) (printYatima : Bool) : CompileM Env := do
+  let dbg := printLean || printYatima
+  constMap.forM fun name leanConst => do
+    if dbg then dbg_trace s!"Processing: {name}"
+    if printLean then
+      dbg_trace "------- Lean constant -------"
+      dbg_trace s!"{printLeanConst leanConst}"
     let yatimaConst ← toYatimaConst leanConst
+    if printYatima then
+      dbg_trace "------ Yatima constant ------"
+      dbg_trace s!"{← printYatimaConst yatimaConst}\n"
     let constCid ← constToCid yatimaConst
     addToEnv $ .const_cache constCid yatimaConst
   return (← get).env
 
-def extractEnv (constMap : Lean.ConstMap) : Except String Env :=
-  CompileM.run (CompileEnv.mk constMap []) default (buildEnv constMap)
+def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
+  Lean.List.toSMap $ cs.toList.filter fun (_, c) => !c.isUnsafe
+
+def extractEnv (constMap : Lean.ConstMap)
+    (printLean : Bool) (printYatima : Bool) : Except String Env :=
+  let map := filterUnsafeConstants constMap
+  CompileM.run ⟨map, []⟩ default (buildEnv map printLean printYatima)
 
 end Yatima.Compiler.FromLean

@@ -1,28 +1,38 @@
 import Lean
-import Yatima.DebugUtils
-import Yatima.Compiler.Pretty
+import Yatima.Compiler.FromLean
 
-open Yatima.Compiler.FromLean
-open Yatima.Utils
+def List.pop : (l : List α) → l ≠ [] → α × List α
+  | a :: as, _ => (a, as)
 
-def main : List String → IO UInt32
-  | ["build", f] => do
-    let input ← IO.FS.readFile ⟨f⟩
-    Lean.initSearchPath $ ← Lean.findSysroot
-    let (env, ok) ← Lean.Elab.runFrontend input .empty f `main
-    --dbg_trace s!"------------"
-    --dbg_trace env.constants
-    dbg_trace s!"------------"
-    -- dbg_trace (filterUnsafeConstants env.constants)
-    dbg_trace s!"------------"
-    if ok then
-      match extractAndPrintEnv (filterUnsafeConstants env.constants) with
-      | .ok env => --todo
+open Yatima.Compiler.FromLean in
+def main (args : List String) : IO UInt32 := do
+  if h : args ≠ [] then
+    let (cmd, args) := args.pop h
+    match cmd with
+    | "build" =>
+      if h : args ≠ [] then
+        let (fileName, args) := args.pop h
+        let input ← IO.FS.readFile ⟨fileName⟩
+        Lean.initSearchPath $ ← Lean.findSysroot
+        let (env, ok) ← Lean.Elab.runFrontend input .empty fileName `main
+        if ok then
+          match extractEnv env.constants
+            (args.contains "-pl") (args.contains "-py") with
+          | .ok env =>
+            -- todo: compile to .ya
+            return 0
+          | .error e =>
+            IO.println e
+            return 1
+        else
+          IO.eprintln s!"Lean frontend failed on file {fileName}"
+          return 1
+      else
+        -- todo: print help
         return 0
-      | .error e =>
-        IO.println e
-        return 1
-    else
-      IO.eprintln s!"Lean frontend failed on file {f}"
-      return 1
-  | _ => return 0
+    | _ =>
+      -- todo: print help
+      return 0
+  else
+    -- todo: print help
+    return 0
