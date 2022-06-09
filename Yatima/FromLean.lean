@@ -1,5 +1,6 @@
 import Yatima.Env
 import Yatima.ToIpld
+import Yatima.DebugUtils
 
 import Lean
 

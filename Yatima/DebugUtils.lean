@@ -1,5 +1,6 @@
 import Lean
 
+namespace Yatima.Utils
 
 instance : ToString Lean.RecursorRule where
   toString x := s!"{x.ctor} {x.nfields} {x.rhs}"
@@ -42,10 +43,8 @@ def constantInfoToString : Lean.ConstantInfo -> String
   s!"{prettyIsUnsafe val.isUnsafe}recursor {val.name} {val.levelParams} : {val.type} :=
   {val.all} {val.numParams} {val.numIndices} {val.numMotives} {val.numMinors} {val.rules} {val.k}"
 
-instance bruh : ToString Lean.ConstantInfo where
+instance : ToString Lean.ConstantInfo where
   toString := constantInfoToString
-
-#check bruh
 
 instance : ToString Lean.ConstMap where
   toString cs :=
@@ -54,3 +53,7 @@ instance : ToString Lean.ConstMap where
 
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
   Lean.List.toSMap (List.filter (fun (n, c) => !c.isUnsafe) cs.toList)
+
+end Yatima.Utils
+
+#check Yatima.Utils.filterUnsafeConstants
