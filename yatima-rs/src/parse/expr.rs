@@ -34,6 +34,7 @@ use crate::{
       parse_name,
       parse_nat,
       parse_space,
+      parse_space1,
       parse_u8,
       store_univ,
       BindCtx,
@@ -638,7 +639,7 @@ pub fn parse_expr_let(
   move |from: Span| {
     let (i, _) = tag("let")(from)?;
     let (i, _) = parse_space(i)?;
-    let (i, rec) = opt(preceded(tag("rec"), alt((tag(" "), tag("\n")))))(i)?;
+    let (i, rec) = opt(preceded(tag("rec"), parse_space1))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, nam) = parse_name(i)?;
     let rec = rec.map(|_| nam.clone());

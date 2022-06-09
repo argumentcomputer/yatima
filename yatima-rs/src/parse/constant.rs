@@ -56,6 +56,7 @@ use crate::{
       parse_name,
       parse_nat,
       parse_space,
+      parse_space1,
       parse_u8,
       store_expr,
       BindCtx,
@@ -139,7 +140,7 @@ pub fn parse_const_axiom(
     let (i, _) = parse_space(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
-    let (upto, typ) = parse_expr(
+    let (upto, typ) = parse_expr_apps(
       Vector::from(lvl.clone()),
       Vector::new(),
       global_ctx.clone(),
@@ -188,7 +189,7 @@ pub fn parse_const_opaque(
 ) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
   move |from: Span| {
     let (i, safe) = alt((
-      value(false, terminated(tag("unsafe"), parse_space)),
+      value(false, terminated(tag("unsafe"), parse_space1)),
       success(true),
     ))(from)?;
     let (i, _) = tag("opaque")(i)?;
@@ -225,8 +226,8 @@ pub fn parse_const_def(
 ) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
   move |from: Span| {
     let (i, safe) = alt((
-      value(DefSafety::Unsafe, terminated(tag("unsafe"), parse_space)),
-      value(DefSafety::Partial, terminated(tag("partial"), parse_space)),
+      value(DefSafety::Unsafe, terminated(tag("unsafe"), parse_space1)),
+      value(DefSafety::Partial, terminated(tag("partial"), parse_space1)),
       success(DefSafety::Safe),
     ))(from)?;
     let (i, _) = tag("def")(i)?;
@@ -483,6 +484,37 @@ pub fn parse_const_inductive_ctor(
   }
 }
 
+/// Parses each term variant
+pub fn parse_const(
+  global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
+) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
+  move |i: Span| {
+    alt((
+      parse_const_inductive(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_def(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_opaque(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_theorem(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_axiom(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+    ))(i)
+  }
+}
+
 #[cfg(test)]
 pub mod tests {
   use alloc::rc::Rc;
@@ -706,7 +738,7 @@ pub mod tests {
     let s = x.cnst.pretty(&x.env, false).unwrap();
     println!("input: \t\t{s}");
     let res_env = Rc::new(RefCell::new(Env::new()));
-    let res = parse_const_inductive(dummy_global_ctx(), res_env.clone())(Span::new(&s));
+    let res = parse_const(dummy_global_ctx(), res_env.clone())(Span::new(&s));
     match res {
       Ok((_, y)) => {
         println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());

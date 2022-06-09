@@ -311,10 +311,13 @@ impl Const {
 
   pub fn pretty(&self, env: &Env, ind: bool) -> Option<String> {
     fn pretty_lvls(lvl: &Vec<Name>) -> String {
-      lvl.iter()
-         .map(|level| level.to_string())
-         .collect::<Vec<String>>()
-         .join(" ")
+      if lvl.len() > 0 { 
+        let lvls_str = lvl.iter()
+           .map(|level| level.to_string())
+           .collect::<Vec<String>>()
+           .join(" ");
+        format!(" {{{}}}", lvls_str)
+      } else { "".to_string() }
     }
 
     fn print_constructors(ind: bool, env: &Env, ctors: &Vec<(Name, ExprCid)>) -> Option<String> {
@@ -338,43 +341,64 @@ impl Const {
     }
 
     match self {
-      // Axiom: unsafe? axiom <name> {lvl*} : <typ>
+      // Axiom: unsafe? axiom <name> {lvl*}? : <typ>
       // TODO: (please help) make the code cleaner 
       Const::Axiom { name, lvl, typ, safe } => {
         let typ = env.expr_cache.get(&typ)?; 
-        Some(format!("{} axiom {} {{{}}} : {}", 
-                      safe, 
+        let safety_str = if *safe { "" } else { "unsafe " };
+        Some(format!("{}axiom {}{} : {}", 
+                      safety_str, 
                       name, 
                       pretty_lvls(lvl), 
                       typ.pretty(env, ind)))
       }
-      // Theorem: theorem <name> {lvl*} : <typ> := <expr>
+      // Theorem: theorem <name> {lvl*}? : <typ> := <expr>
       Const::Theorem { name, lvl, typ, expr } => {
         let typ = env.expr_cache.get(&typ)?; 
         let expr = env.expr_cache.get(&expr)?; 
-        Some(format!("theorem {} {{{}}} : {} := {}", 
+        Some(format!("theorem {}{} : {} := {}", 
                       name, 
                       pretty_lvls(lvl), 
                       typ.pretty(env, ind),
                       expr.pretty(env, ind)))
       }
-      // Opaque: unsafe? opaque rec? <name> {lvl*} : <typ> := <expr>
+      // Opaque: unsafe? opaque rec? <name> {lvl*}? : <typ> := <expr>
       Const::Opaque { name, lvl, typ, expr, safe } => {
         let typ = env.expr_cache.get(&typ)?; 
         let expr = env.expr_cache.get(&expr)?; 
-        Some(format!("{} opaque {} {{{}}} : {} := {}",
-                      safe, 
+
+        let rec_str = if matches!(expr, Expr::Fix(..)) { " rec" } else { "" };
+        let safety_str = if *safe { "" } else { "unsafe " };
+        Some(format!("{}opaque{} {}{} : {} := {}",
+                      safety_str, 
+                      rec_str, 
                       name, 
                       pretty_lvls(lvl), 
                       typ.pretty(env, ind),
                       expr.pretty(env, ind)))
       }
       Const::Definition { name, lvl, typ, expr, safe } => {
-        Some("".to_string())
+        let typ = env.expr_cache.get(&typ)?; 
+        let expr = env.expr_cache.get(&expr)?; 
+
+        let rec_str = if matches!(expr, Expr::Fix(..)) { " rec" } else { "" };
+        let safety_str = match safe {
+          DefSafety::Unsafe => "unsafe ",
+          DefSafety::Safe => "",
+          DefSafety::Partial => "partial "
+        };
+
+        Some(format!("{}def{} {}{} : {} := {}",
+                      safety_str, 
+                      rec_str,
+                      name, 
+                      pretty_lvls(lvl), 
+                      typ.pretty(env, ind),
+                      expr.pretty(env, ind)))
       }
       // Inductive Type:
       // ```lean
-      // unsafe? inductive rec? <name> {lvl*} (<params>{num_params}) : <typ> where
+      // unsafe? inductive rec? <name> {lvl*}? (<params>{num_params}) : <typ> where
       // | constructor₁ : <expr>
       // | ...
       // | constructor₀ : <expr>
@@ -392,13 +416,12 @@ impl Const {
         let sort_sep = if *indices > 0 { " -> " } else { "" };
         let unsafe_str = if *safe { "" } else { "unsafe " };
         let rec_str = if *recr { " rec" } else { "" };
-        let lvls_str = if lvl.len() > 0 { format!(" {{{}}}", pretty_lvls(lvl)) } else { "".to_string() };
         let params_str = if *params > 0 { format!(" {}", bds[0..*params].join(" ")) } else { "".to_string() };
         Some(format!("{}inductive{} {}{}{} : {}{}{} where\n{}",
                       unsafe_str,
                       rec_str,
                       name,
-                      lvls_str,
+                      pretty_lvls(lvl),
                       params_str, // print params
                       bds[*params..].join(" "), // print indices
                       sort_sep,
@@ -682,6 +705,19 @@ pub mod tests {
     pub env: Env
   }
 
+  impl Arbitrary for DefSafety {
+    fn arbitrary(g: &mut Gen) -> Self {
+      let gen: usize = Arbitrary::arbitrary(g);
+      let gen = gen % 3;
+      match gen {
+        0 => Self::Unsafe,
+        1 => Self::Safe,
+        2 => Self::Partial,
+        _ => panic!()
+      }
+    }
+  }
+
   fn arbitrary_pi(g: &mut Gen, depth: usize, bind_ctx: &BindCtx, univ_ctx: &UnivCtx, global_ctx: &GlobalCtx) -> ExprEnv {
     if depth > 0 {
       let name = arbitrary_ascii_name(g, 5);
@@ -762,6 +798,126 @@ pub mod tests {
               safe: bool::arbitrary(g),
               refl: false,
               nest: false,
+            },
+            env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          let name = arbitrary_ascii_name(g, 5);
+          let num_univs = usize::arbitrary(g) % 4;
+          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
+          let univs = (&univs[..num_univs]).to_vec();
+          let univ_ctx = Vector::from(univs.clone());
+
+          let rec = bool::arbitrary(g);
+
+          let typ_size = usize::arbitrary(g) % 5;
+          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+
+          let mut env = typ.env;
+
+          let mut expr_bind_ctx = Vector::new();
+          if rec {
+            expr_bind_ctx.push_front(name.clone());
+          }
+
+          let exprenv = arbitrary_exprenv(g, &expr_bind_ctx, &univ_ctx, &dummy_global_ctx());
+          env.extend(exprenv.env);
+          let expr = if rec { Expr::Fix(name.clone(), Box::new(exprenv.expr)) } else {exprenv.expr};
+
+
+          ConstEnv {
+            cnst: Const::Definition {
+              name: name,
+              lvl: univs,
+              typ: typ.expr.store(&mut env).unwrap(),
+              expr: expr.store(&mut env).unwrap(),
+              safe: DefSafety::arbitrary(g),
+            },
+            env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          let name = arbitrary_ascii_name(g, 5);
+          let num_univs = usize::arbitrary(g) % 4;
+          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
+          let univs = (&univs[..num_univs]).to_vec();
+          let univ_ctx = Vector::from(univs.clone());
+
+          let rec = bool::arbitrary(g);
+
+          let typ_size = usize::arbitrary(g) % 5;
+          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+
+          let mut env = typ.env;
+
+          let mut expr_bind_ctx = Vector::new();
+          if rec {
+            expr_bind_ctx.push_front(name.clone());
+          }
+
+          let exprenv = arbitrary_exprenv(g, &expr_bind_ctx, &univ_ctx, &dummy_global_ctx());
+          env.extend(exprenv.env);
+          let expr = if rec { Expr::Fix(name.clone(), Box::new(exprenv.expr)) } else {exprenv.expr};
+
+
+          ConstEnv {
+            cnst: Const::Opaque {
+              name: name,
+              lvl: univs,
+              typ: typ.expr.store(&mut env).unwrap(),
+              expr: expr.store(&mut env).unwrap(),
+              safe: bool::arbitrary(g),
+            },
+            env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          let name = arbitrary_ascii_name(g, 5);
+          let num_univs = usize::arbitrary(g) % 4;
+          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
+          let univs = (&univs[..num_univs]).to_vec();
+          let univ_ctx = Vector::from(univs.clone());
+
+          let typ_size = usize::arbitrary(g) % 5;
+          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+
+          let mut env = typ.env;
+
+          let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+          env.extend(exprenv.env);
+
+          ConstEnv {
+            cnst: Const::Theorem {
+              name: name,
+              lvl: univs,
+              typ: typ.expr.store(&mut env).unwrap(),
+              expr: exprenv.expr.store(&mut env).unwrap(),
+            },
+            env: env
+          }
+        })),
+        (100, Box::new(|g| {
+          let name = arbitrary_ascii_name(g, 5);
+          let num_univs = usize::arbitrary(g) % 4;
+          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
+          let univs = (&univs[..num_univs]).to_vec();
+          let univ_ctx = Vector::from(univs.clone());
+
+          let typ_size = usize::arbitrary(g) % 5;
+          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+
+          let mut env = typ.env;
+
+          let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &dummy_global_ctx());
+          env.extend(exprenv.env);
+
+          ConstEnv {
+            cnst: Const::Axiom {
+              name: name,
+              safe: bool::arbitrary(g),
+              lvl: univs,
+              typ: typ.expr.store(&mut env).unwrap(),
             },
             env: env
           }
