@@ -4,11 +4,13 @@ import Lean
 
 namespace Yatima.Compiler.FromLean
 
-def prettyIsSafe (x: Bool) : String := if x then "" else "unsafe "
+def prettyIsSafe (x: Bool) : String :=
+  if x then "" else "unsafe "
+
 def prettyDefSafety : Yatima.DefinitionSafety -> String
-| .unsafe => "unsafe "
-| .safe => ""
-| .partial => "partial "
+  | .unsafe => "unsafe "
+  | .safe => ""
+  | .partial => "partial "
 
 def getConst (const_cid : ConstCid) : CompileM Const := do
   match (← get).env.const_cache.find? const_cid with
@@ -20,14 +22,14 @@ def getExpr (expr_cid : ExprCid) (name : Name) : CompileM Expr := do
   | some expr => pure expr
   | none => throw s!"Could not find type of {name} in context"
 
-instance : ToString QuotKind where
-  toString x := match x with
+instance : ToString QuotKind where toString
   | .type => "Quot"
   | .ctor => "Quot.mk"
   | .lift => "Quot.lift"
-  | .ind => "Quot.ind"
+  | .ind  => "Quot.ind"
 
 mutual
+
   partial def prettyRule (rule : RecursorRule) : CompileM String := do
     let ctor ← getConst rule.ctor
     let rhs ← getExpr rule.rhs ctor.name
@@ -71,15 +73,15 @@ mutual
 
   partial def prettyConst (const : Const) : CompileM String := do
     match const with 
-    | .«axiom» ax => do
+    | .axiom ax => do
       let type ← getExpr ax.type ax.name
       pure s!"{prettyIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← prettyExpr type}"
-    | .«theorem» thm => do
+    | .theorem thm => do
       let type ← getExpr thm.type thm.name
       let value ← getExpr thm.value thm.name
       pure $ s!"theorem {thm.name} {thm.lvls} : {← prettyExpr type} :=\n" ++
              s!"  {← prettyExpr value}" 
-    | .«inductive» ind => do 
+    | .inductive ind => do
       let type ← getExpr ind.type ind.name
       pure $ s!"{prettyIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← prettyExpr type} :=\n" ++
              s!"  {ind.params} {ind.indices} {ind.recr} {ind.refl} {ind.nest}\n" ++

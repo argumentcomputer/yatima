@@ -193,18 +193,21 @@ mutual
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
-    | .const nam lvls _ => if recr == some nam then return .var nam (← read).bindCtx.length else do
-      match (← read).constMap.find?' nam with
-        | some leanConst => do
-          let const ← toYatimaConst leanConst
-          let constId ← constToCid const
-          addToEnv $ .const_cache constId const
-          let univs ← lvls.mapM $ toYatimaUniv ls
-          let univsCids ← univs.mapM univToCid
-          (univsCids.zip univs).forM fun (univCid, univ) =>
-            addToEnv $ .univ_cache univCid univ
-          return .const nam constId univsCids
-        | none => throw s!"Unknown constant '{nam}'"
+    | .const nam lvls _ =>
+      if recr == some nam then
+        return .var nam (← read).bindCtx.length
+      else do
+        match (← read).constMap.find?' nam with
+          | some leanConst => do
+            let const ← toYatimaConst leanConst
+            let constId ← constToCid const
+            addToEnv $ .const_cache constId const
+            let univs ← lvls.mapM $ toYatimaUniv ls
+            let univsCids ← univs.mapM univToCid
+            (univsCids.zip univs).forM fun (univCid, univ) =>
+              addToEnv $ .univ_cache univCid univ
+            return .const nam constId univsCids
+          | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr ls recr fnc) <*> (toYatimaExpr ls recr arg)
     | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr ls recr typ) <*> (bind nam $ toYatimaExpr ls recr bod)
     | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr ls recr dom) <*> (bind nam $ toYatimaExpr ls recr img)
