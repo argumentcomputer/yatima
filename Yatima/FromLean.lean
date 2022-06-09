@@ -210,7 +210,8 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaConst : Lean.ConstantInfo → CompileM Const
+  partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
+    withReader (fun e => CompileEnv.mk e.constMap []) $ match const with
     | .axiomInfo struct => do
       let type ← toYatimaExpr struct.levelParams none struct.type
       let typeCid ← exprToCid type
