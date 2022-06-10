@@ -897,9 +897,6 @@ pub mod tests {
 
         let mut env = typ.env;
 
-        let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &global_ctx);
-        env.extend(exprenv.env);
-
         ConstEnv {
           cnst: Const::Axiom {
             name: name.clone(),

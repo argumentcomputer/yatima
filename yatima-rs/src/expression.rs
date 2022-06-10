@@ -566,13 +566,13 @@ impl ExprAnon {
   }
 
   fn arbitrary_sort(univ_ctx: &UnivCtx) -> ExprEnv {
-      let mut env = Env::new();
-      let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
-      let univ_cid = univ.store(&mut env).unwrap();
-      ExprEnv {
-        expr: Expr::Sort(univ_cid),
-        env
-      }
+    let mut env = Env::new();
+    let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
+    let univ_cid = univ.store(&mut env).unwrap();
+    ExprEnv {
+      expr: Expr::Sort(univ_cid),
+      env
+    }
   }
 
   pub fn arbitrary_exprenv(g: &mut Gen, bind_ctx: &BindCtx, univ_ctx: &UnivCtx, global_ctx: &GlobalCtx) -> ExprEnv {
@@ -676,13 +676,7 @@ impl ExprAnon {
         }
       })),
       (100, Box::new(|_| {
-        let mut env = Env::new();
-        let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
-        let univ_cid = univ.store(&mut env).unwrap();
-        ExprEnv {
-          expr: Expr::Sort(univ_cid),
-          env: env
-        }
+        arbitrary_sort(univ_ctx)
       })),
       (100, Box::new(|g| {
         ExprEnv {

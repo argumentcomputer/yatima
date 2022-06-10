@@ -23,7 +23,8 @@ pub fn parse_env(
     loop {
       (i, _) = parse_space(i)?;
       match &parse_const(global_ctx.clone(), env_ctx.clone())(i) {
-        Ok((_, cnst)) => {
+        Ok((new_i, cnst)) => {
+          i = *new_i;
           let res = store_const(env_ctx.clone(), cnst.clone(), i)?;
           i = res.0;
           global_ctx.insert(cnst.name(), res.1);
@@ -40,21 +41,22 @@ pub mod tests {
 
   use alloc::rc::Rc;
 
-  use crate::expression::tests::dummy_global_ctx;
-
   use crate::environment::Env;
   use core::cell::RefCell;
+
+  use im::OrdMap;
 
   #[quickcheck]
   fn prop_env_parse_print(x: Env) -> bool {
     let s = x.pretty(false).unwrap();
-    println!("input: \t\t{s}");
+    println!("input: \n{s}");
     let y = Rc::new(RefCell::new(Env::new()));
-    let res = parse_env(dummy_global_ctx(), y.clone())(Span::new(&s));
+    let res = parse_env(OrdMap::new(), y.clone())(Span::new(&s));
     match res {
       Ok((_, _)) => {
         let y =  y.try_borrow().unwrap().clone();
-        println!("re-parsed: \t{}", y.pretty(false).unwrap());
+        println!("re-parsed: \n{}", y.pretty(false).unwrap());
+        if x != y { println!("ORIG: \t{:?}\nNEW: \t{:?}", x, y) }
         x == y
       }
       Err(e) => {
