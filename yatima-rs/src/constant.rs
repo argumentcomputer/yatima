@@ -303,6 +303,19 @@ impl Const {
     }
   }
 
+  pub fn name(&self) -> Name {
+    match self {
+      Const::Axiom { name, .. } => { name.clone() }
+      Const::Theorem { name, .. } => { name.clone() }
+      Const::Opaque { name, .. } => { name.clone() }
+      Const::Definition { name, .. } => { name.clone() }
+      Const::Inductive { name, .. } => { name.clone() }
+      Const::Constructor { name, .. } => { name.clone() }
+      Const::Recursor { .. } => { Name::from("") }
+      Const::Quotient { .. } => { Name::from("") }
+    }
+  }
+
   pub fn store(self, env: &mut Env) -> Result<ConstCid, EnvError> {
     let cid = self.cid(env)?;
     env.insert_const_cache(cid, self);
@@ -676,17 +689,17 @@ pub mod tests {
   use crate::test::frequency;
   use crate::parse::utils::{
       BindCtx,
-      EnvCtx,
       GlobalCtx,
       UnivCtx,
   };
 
   use crate::expression::tests::{ExprEnv, arbitrary_exprenv, dummy_global_ctx};
 
-  use im::{
-    OrdMap,
-    Vector,
-  };
+  use crate::name::tests::arbitrary_ascii_name;
+
+  use crate::universe::tests::dummy_univ_ctx;
+
+  use im::Vector;
 
   use quickcheck::{
     Arbitrary,
@@ -694,10 +707,6 @@ pub mod tests {
   };
 
   use super::*;
-
-  use crate::name::tests::arbitrary_ascii_name;
-
-  use crate::universe::tests::dummy_univ_ctx;
 
   #[derive(Clone, Debug, PartialEq)]
   pub struct ConstEnv {
@@ -744,186 +753,170 @@ pub mod tests {
     }
   }
 
+  pub fn arbitrary_constenv(g: &mut Gen, name: Option<Name>, global_ctx: &GlobalCtx) -> ConstEnv {
+    let name = if let Some(n) = name { n.clone() } else { arbitrary_ascii_name(g, 5) };
+    let name = &name;
+
+    let num_univs = usize::arbitrary(g) % 4;
+    let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
+    let univs = (&univs[..num_univs]).to_vec();
+    let univs = &univs;
+    let univ_ctx = Vector::from(univs.clone());
+
+    let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ConstEnv>)> = vec![
+      (100, Box::new(|g| {
+        let expr_size = 60;
+
+        let num_params = usize::arbitrary(g) % 5;
+        let num_inds = usize::arbitrary(g) % 5;
+        let num_ctors = usize::arbitrary(g) % 5;
+
+        let typ = arbitrary_pi(&mut Gen::new(expr_size), num_params + num_inds, &Vector::new(), &univ_ctx, &global_ctx);
+
+        let mut env = typ.env;
+
+        let mut ctor_bind_ctx = Vector::new();
+        ctor_bind_ctx.push_front(name.clone());
+        for ((n, _), _) in get_binders(&typ.expr, None).0[..num_params].iter() {
+          ctor_bind_ctx.push_front(n.clone());
+        }
+
+        let mut ctors = Vec::new();
+        for _ in 0..num_ctors {
+          let ctor_name = arbitrary_ascii_name(g, 5);
+          let ctor_depth = usize::arbitrary(g) % 5;
+          let ctor_type = arbitrary_pi(&mut Gen::new(expr_size), ctor_depth, &ctor_bind_ctx, &univ_ctx, &global_ctx);
+          env.extend(ctor_type.env);
+          ctors.push((ctor_name, ctor_type.expr));
+        }
+
+        let typcid = typ.expr.clone().store(&mut env).unwrap();
+        let ctorcids = ctors.iter().fold(Vec::new(),
+          |mut cids, (name, expr)| {
+            let cid = expr.clone().store(&mut env).unwrap();
+            cids.push((name.clone(), cid));
+            cids
+          });
+
+        ConstEnv {
+          cnst: Const::Inductive {
+            name: name.clone(),
+            lvl: univs.clone(),
+            params: num_params,
+            indices: num_inds,
+            typ: typcid,
+            ctors: ctorcids,
+            recr: bool::arbitrary(g),
+            safe: bool::arbitrary(g),
+            refl: false,
+            nest: false,
+          },
+          env: env
+        }
+      })),
+      (100, Box::new(|g| {
+        let rec = bool::arbitrary(g);
+
+        let typ_size = usize::arbitrary(g) % 5;
+        let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &global_ctx);
+
+        let mut env = typ.env;
+
+        let mut expr_bind_ctx = Vector::new();
+        if rec {
+          expr_bind_ctx.push_front(name.clone());
+        }
+
+        let exprenv = arbitrary_exprenv(g, &expr_bind_ctx, &univ_ctx, &global_ctx);
+        env.extend(exprenv.env);
+        let expr = if rec { Expr::Fix(name.clone(), Box::new(exprenv.expr)) } else {exprenv.expr};
+
+
+        ConstEnv {
+          cnst: Const::Definition {
+            name: name.clone(),
+            lvl: univs.clone(),
+            typ: typ.expr.store(&mut env).unwrap(),
+            expr: expr.store(&mut env).unwrap(),
+            safe: DefSafety::arbitrary(g),
+          },
+          env: env
+        }
+      })),
+      (100, Box::new(|g| {
+        let rec = bool::arbitrary(g);
+
+        let typ_size = usize::arbitrary(g) % 5;
+        let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &global_ctx);
+
+        let mut env = typ.env;
+
+        let mut expr_bind_ctx = Vector::new();
+        if rec {
+          expr_bind_ctx.push_front(name.clone());
+        }
+
+        let exprenv = arbitrary_exprenv(g, &expr_bind_ctx, &univ_ctx, &global_ctx);
+        env.extend(exprenv.env);
+        let expr = if rec { Expr::Fix(name.clone(), Box::new(exprenv.expr)) } else {exprenv.expr};
+
+
+        ConstEnv {
+          cnst: Const::Opaque {
+            name: name.clone(),
+            lvl: univs.clone(),
+            typ: typ.expr.store(&mut env).unwrap(),
+            expr: expr.store(&mut env).unwrap(),
+            safe: bool::arbitrary(g),
+          },
+          env: env
+        }
+      })),
+      (100, Box::new(|g| {
+        let typ_size = usize::arbitrary(g) % 5;
+        let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &global_ctx);
+
+        let mut env = typ.env;
+
+        let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &global_ctx);
+        env.extend(exprenv.env);
+
+        ConstEnv {
+          cnst: Const::Theorem {
+            name: name.clone(),
+            lvl: univs.clone(),
+            typ: typ.expr.store(&mut env).unwrap(),
+            expr: exprenv.expr.store(&mut env).unwrap(),
+          },
+          env: env
+        }
+      })),
+      (100, Box::new(|g| {
+        let typ_size = usize::arbitrary(g) % 5;
+        let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &global_ctx);
+
+        let mut env = typ.env;
+
+        let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &global_ctx);
+        env.extend(exprenv.env);
+
+        ConstEnv {
+          cnst: Const::Axiom {
+            name: name.clone(),
+            safe: bool::arbitrary(g),
+            lvl: univs.clone(),
+            typ: typ.expr.store(&mut env).unwrap(),
+          },
+          env: env
+        }
+      })),
+    ];
+    frequency(g, input)
+  }
+
   impl Arbitrary for ConstEnv {
-    fn arbitrary(g: &mut Gen) -> Self {
-      let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ConstEnv>)> = vec![
-        (100, Box::new(|g| {
-          let expr_size = 60;
-          let name = arbitrary_ascii_name(g, 5);
-          let num_univs = usize::arbitrary(g) % 4;
-          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
-          let univs = (&univs[..num_univs]).to_vec();
-          let univ_ctx = Vector::from(univs.clone());
-
-          let num_params = usize::arbitrary(g) % 5;
-          let num_inds = usize::arbitrary(g) % 5;
-          let num_ctors = usize::arbitrary(g) % 5;
-
-          let typ = arbitrary_pi(&mut Gen::new(expr_size), num_params + num_inds, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-
-          let mut env = typ.env;
-
-          let mut ctor_bind_ctx = Vector::new();
-          ctor_bind_ctx.push_front(name.clone());
-          for ((n, _), _) in get_binders(&typ.expr, None).0[..num_params].iter() {
-            ctor_bind_ctx.push_front(n.clone());
-          }
-
-          let mut ctors = Vec::new();
-          for _ in 0..num_ctors {
-            let ctor_name = arbitrary_ascii_name(g, 5);
-            let ctor_depth = usize::arbitrary(g) % 5;
-            let ctor_type = arbitrary_pi(&mut Gen::new(expr_size), ctor_depth, &ctor_bind_ctx, &univ_ctx, &dummy_global_ctx());
-            env.extend(ctor_type.env);
-            ctors.push((ctor_name, ctor_type.expr));
-          }
-
-          let typcid = typ.expr.clone().store(&mut env).unwrap();
-          let ctorcids = ctors.iter().fold(Vec::new(),
-            |mut cids, (name, expr)| {
-              let cid = expr.clone().store(&mut env).unwrap();
-              cids.push((name.clone(), cid));
-              cids
-            });
-
-          ConstEnv {
-            cnst: Const::Inductive {
-              name: name,
-              lvl: univs,
-              params: num_params,
-              indices: num_inds,
-              typ: typcid,
-              ctors: ctorcids,
-              recr: bool::arbitrary(g),
-              safe: bool::arbitrary(g),
-              refl: false,
-              nest: false,
-            },
-            env: env
-          }
-        })),
-        (100, Box::new(|g| {
-          let name = arbitrary_ascii_name(g, 5);
-          let num_univs = usize::arbitrary(g) % 4;
-          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
-          let univs = (&univs[..num_univs]).to_vec();
-          let univ_ctx = Vector::from(univs.clone());
-
-          let rec = bool::arbitrary(g);
-
-          let typ_size = usize::arbitrary(g) % 5;
-          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-
-          let mut env = typ.env;
-
-          let mut expr_bind_ctx = Vector::new();
-          if rec {
-            expr_bind_ctx.push_front(name.clone());
-          }
-
-          let exprenv = arbitrary_exprenv(g, &expr_bind_ctx, &univ_ctx, &dummy_global_ctx());
-          env.extend(exprenv.env);
-          let expr = if rec { Expr::Fix(name.clone(), Box::new(exprenv.expr)) } else {exprenv.expr};
-
-
-          ConstEnv {
-            cnst: Const::Definition {
-              name: name,
-              lvl: univs,
-              typ: typ.expr.store(&mut env).unwrap(),
-              expr: expr.store(&mut env).unwrap(),
-              safe: DefSafety::arbitrary(g),
-            },
-            env: env
-          }
-        })),
-        (100, Box::new(|g| {
-          let name = arbitrary_ascii_name(g, 5);
-          let num_univs = usize::arbitrary(g) % 4;
-          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
-          let univs = (&univs[..num_univs]).to_vec();
-          let univ_ctx = Vector::from(univs.clone());
-
-          let rec = bool::arbitrary(g);
-
-          let typ_size = usize::arbitrary(g) % 5;
-          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-
-          let mut env = typ.env;
-
-          let mut expr_bind_ctx = Vector::new();
-          if rec {
-            expr_bind_ctx.push_front(name.clone());
-          }
-
-          let exprenv = arbitrary_exprenv(g, &expr_bind_ctx, &univ_ctx, &dummy_global_ctx());
-          env.extend(exprenv.env);
-          let expr = if rec { Expr::Fix(name.clone(), Box::new(exprenv.expr)) } else {exprenv.expr};
-
-
-          ConstEnv {
-            cnst: Const::Opaque {
-              name: name,
-              lvl: univs,
-              typ: typ.expr.store(&mut env).unwrap(),
-              expr: expr.store(&mut env).unwrap(),
-              safe: bool::arbitrary(g),
-            },
-            env: env
-          }
-        })),
-        (100, Box::new(|g| {
-          let name = arbitrary_ascii_name(g, 5);
-          let num_univs = usize::arbitrary(g) % 4;
-          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
-          let univs = (&univs[..num_univs]).to_vec();
-          let univ_ctx = Vector::from(univs.clone());
-
-          let typ_size = usize::arbitrary(g) % 5;
-          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-
-          let mut env = typ.env;
-
-          let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-          env.extend(exprenv.env);
-
-          ConstEnv {
-            cnst: Const::Theorem {
-              name: name,
-              lvl: univs,
-              typ: typ.expr.store(&mut env).unwrap(),
-              expr: exprenv.expr.store(&mut env).unwrap(),
-            },
-            env: env
-          }
-        })),
-        (100, Box::new(|g| {
-          let name = arbitrary_ascii_name(g, 5);
-          let num_univs = usize::arbitrary(g) % 4;
-          let univs: Vec<Name> = dummy_univ_ctx().iter().map(|n| n.clone()).collect();
-          let univs = (&univs[..num_univs]).to_vec();
-          let univ_ctx = Vector::from(univs.clone());
-
-          let typ_size = usize::arbitrary(g) % 5;
-          let typ = arbitrary_pi(g, typ_size, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-
-          let mut env = typ.env;
-
-          let exprenv = arbitrary_exprenv(g, &Vector::new(), &univ_ctx, &dummy_global_ctx());
-          env.extend(exprenv.env);
-
-          ConstEnv {
-            cnst: Const::Axiom {
-              name: name,
-              safe: bool::arbitrary(g),
-              lvl: univs,
-              typ: typ.expr.store(&mut env).unwrap(),
-            },
-            env: env
-          }
-        })),
-      ];
-      frequency(g, input)
+    fn arbitrary(g: &mut Gen) -> ConstEnv {
+      arbitrary_constenv(g, None, &dummy_global_ctx())
     }
   }
 }

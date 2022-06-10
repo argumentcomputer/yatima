@@ -15,6 +15,7 @@ use crate::{
     ExprCid,
     UnivCid,
   },
+  constant::Const,
   expression::{
     Expr,
     BinderInfo,
@@ -334,6 +335,23 @@ pub fn store_expr(
     Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
   })?;
   Ok((i, expr))
+}
+
+pub fn store_const(
+  env_ctx: EnvCtx,
+  cnst: Const,
+  i: Span,
+) -> IResult<Span, ConstCid, ParseError<Span>> {
+  let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+    Err::Error(ParseError::new(
+      i,
+      ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+    ))
+  })?;
+  let cnstcid = cnst.store(env.deref_mut()).map_err(|e| {
+    Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+  })?;
+  Ok((i, cnstcid))
 }
 
 /// The input `Vector : ∀ (A: Type) -> ∀ (n: Nat) -> Sort 0` with depth 1 returns:

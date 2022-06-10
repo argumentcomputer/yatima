@@ -265,15 +265,14 @@ impl Env {
       in_degrees.insert(*cid, 0);
     }
 
-    for (cid, _) in &self.const_cache {
-      let neighbours = &dag.get(cid).unwrap().neighbours;
+    for (_, node) in &dag {
+      let neighbours = &node.neighbours;
       for n in neighbours {
         *in_degrees.get_mut(n).unwrap() += 1;
       }
     }
 
-    for (cid, const_decl) in &self.const_cache {
-      let node = dag.get_mut(cid).unwrap();
+    for (cid, node) in &mut dag {
       node.in_degree = *in_degrees.get_mut(cid).unwrap();
     }
 
@@ -303,11 +302,10 @@ impl Env {
     while !s.is_empty() {
       let curr = s.pop_back().unwrap();
       res.push_back(curr);
-      let neighbours = const_dag.get(&curr).unwrap().neighbours.clone();
-      for i in 0..neighbours.len() {
-        const_dag.get_mut(&neighbours[i]).unwrap().in_degree -= 1;
-        if const_dag.get(&neighbours[i]).unwrap().in_degree == 0 {
-          res.push_back(neighbours[i]);
+      for n in const_dag.get(&curr).unwrap().neighbours.clone() {
+        const_dag.get_mut(&n).unwrap().in_degree -= 1;
+        if const_dag.get(&n).unwrap().in_degree == 0 {
+          res.push_back(n);
         }
       }
     }
@@ -315,7 +313,7 @@ impl Env {
   }
 
   /// Top level printer that will produce all the decls in an enviroment 
-  pub fn pretty(&mut self, ind: bool) -> Option<String> {
+  pub fn pretty(&self, ind: bool) -> Option<String> {
     let cids = self.topo_sort();
     let res = cids.into_iter().map(|cid| {
       let decl = self.const_cache.get(&cid).unwrap();
@@ -324,4 +322,55 @@ impl Env {
     }).collect::<Option<Vec<_>>>()?.join("\n\n");
     Some(res)
   } 
+}
+
+#[cfg(test)]
+pub mod tests {
+  use crate::test::frequency;
+  use crate::parse::utils::{
+      BindCtx,
+      GlobalCtx,
+      UnivCtx,
+  };
+
+  use crate::expression::tests::{ExprEnv, arbitrary_exprenv, dummy_global_ctx};
+
+  use crate::name::tests::arbitrary_ascii_name;
+
+  use crate::constant::tests::arbitrary_constenv;
+
+  use im::OrdMap;
+
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use super::*;
+
+  
+  impl Arbitrary for Env {
+    fn arbitrary(g: &mut Gen) -> Env {
+      let env_size = usize::arbitrary(g) % 100;
+
+      let mut global_ctx = OrdMap::new();
+      let mut env = Env::new();
+      for _ in 0..env_size { 
+        let mut name;
+        loop {
+          name = arbitrary_ascii_name(g, 5);
+          if let None = global_ctx.get(&name) {
+            break;
+          }
+        }
+        let mut constenv = arbitrary_constenv(g, Some(name.clone()), &global_ctx);
+
+        let cnstcid = constenv.cnst.store(&mut constenv.env).unwrap();
+        global_ctx.insert(name.clone(), cnstcid);
+        env.extend(constenv.env);
+      }
+
+      env
+    }
+  }
 }
