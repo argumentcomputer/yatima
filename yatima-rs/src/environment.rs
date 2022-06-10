@@ -326,15 +326,6 @@ impl Env {
 
 #[cfg(test)]
 pub mod tests {
-  use crate::test::frequency;
-  use crate::parse::utils::{
-      BindCtx,
-      GlobalCtx,
-      UnivCtx,
-  };
-
-  use crate::expression::tests::{ExprEnv, arbitrary_exprenv, dummy_global_ctx};
-
   use crate::name::tests::arbitrary_ascii_name;
 
   use crate::constant::tests::arbitrary_constenv;
@@ -351,7 +342,7 @@ pub mod tests {
   
   impl Arbitrary for Env {
     fn arbitrary(g: &mut Gen) -> Env {
-      let env_size = usize::arbitrary(g) % 100;
+      let env_size = 1;
 
       let mut global_ctx = OrdMap::new();
       let mut env = Env::new();

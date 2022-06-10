@@ -1,114 +1,16 @@
-use alloc::string::{
-  String,
-  ToString,
-};
-use im::{
-  OrdMap,
-  Vector,
-};
-use libipld::Cid;
-use num_traits::Zero;
-
-use core::cell::{
-  RefCell,
-  RefMut,
+use crate::parse::{
+  error::ParseError,
+  span::Span,
+  constant::parse_const,
+  utils::{
+    parse_space,
+    store_const,
+    EnvCtx,
+    GlobalCtx,
+  }
 };
 
-use core::ops::DerefMut;
-
-use crate::{
-  constant::{
-    Const,
-    DefSafety,
-    QuotKind,
-  },
-  environment::{
-    ConstAnonCid,
-    ConstCid,
-    ConstMetaCid,
-    Env,
-    EnvError,
-    ExprCid,
-    CONST_ANON,
-    CONST_META,
-  },
-  expression::{
-    BinderInfo,
-    Expr,
-    LitType,
-    Literal,
-  },
-  name::Name,
-  nat::Nat,
-  parse::{
-    constant::parse_const,
-    base::parse_multibase,
-    error::{
-      throw_err,
-      ParseError,
-      ParseErrorKind,
-    },
-    expr::parse_bound_expression,
-    span::Span,
-    string::parse_string,
-    univ::parse_univ,
-    utils::{
-      parse_builtin_symbol_end,
-      parse_name,
-      parse_nat,
-      parse_space,
-      parse_space1,
-      parse_u8,
-      store_const,
-      BindCtx,
-      EnvCtx,
-      GlobalCtx,
-      UnivCtx,
-    },
-  },
-  universe::Univ,
-};
-use nom::{
-  branch::alt,
-  bytes::complete::{
-    tag,
-    take_till,
-    take_till1,
-  },
-  character::complete::{
-    digit1,
-    multispace0,
-    multispace1,
-    satisfy,
-  },
-  combinator::{
-    eof,
-    map,
-    opt,
-    peek,
-    success,
-    value,
-  },
-  error::context,
-  multi::{
-    many0,
-    many1,
-    separated_list1,
-  },
-  sequence::{
-    delimited,
-    preceded,
-    terminated,
-  },
-  Err,
-  IResult,
-};
-
-use super::expr::{
-  parse_binders0,
-  parse_expr,
-  parse_expr_apps,
-};
+use nom::IResult;
 
 /// Parses each constant, storing them in the provided environment context.
 pub fn parse_env(
@@ -139,6 +41,9 @@ pub mod tests {
   use alloc::rc::Rc;
 
   use crate::expression::tests::dummy_global_ctx;
+
+  use crate::environment::Env;
+  use core::cell::RefCell;
 
   #[quickcheck]
   fn prop_env_parse_print(x: Env) -> bool {

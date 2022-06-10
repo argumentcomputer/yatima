@@ -565,11 +565,21 @@ impl ExprAnon {
     }
   }
 
+  fn arbitrary_sort(univ_ctx: &UnivCtx) -> ExprEnv {
+      let mut env = Env::new();
+      let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
+      let univ_cid = univ.store(&mut env).unwrap();
+      ExprEnv {
+        expr: Expr::Sort(univ_cid),
+        env
+      }
+  }
+
   pub fn arbitrary_exprenv(g: &mut Gen, bind_ctx: &BindCtx, univ_ctx: &UnivCtx, global_ctx: &GlobalCtx) -> ExprEnv {
     let rec_freq = g.size().saturating_sub(10);
     let input: Vec<(usize, Box<dyn Fn(&mut Gen) -> ExprEnv>)> = vec![
       (100, Box::new(|g| {
-        let gen: usize = Arbitrary::arbitrary(g);
+        let gen = usize::arbitrary(g);
         if bind_ctx.len() > 0 {
           let gen = gen % bind_ctx.len();
           let n = &bind_ctx[gen];
@@ -580,13 +590,16 @@ impl ExprAnon {
           }
         }
         else {
-          let gen = gen % global_ctx.len();
-          // global context must be non-empty
-          let (n, cid) = global_ctx.iter().nth(gen.try_into().unwrap()).unwrap();
-          ExprEnv {
-            expr: Expr::Const(n.to_owned(), cid.to_owned(), vec![]),
-            env: Env::new()
+          if global_ctx.len() > 0 {
+            let gen = gen % global_ctx.len();
+            // global context must be non-empty
+            let (n, cid) = global_ctx.iter().nth(gen.try_into().unwrap()).unwrap();
+            ExprEnv {
+              expr: Expr::Const(n.to_owned(), cid.to_owned(), vec![]),
+              env: Env::new()
+            }
           }
+          else { arbitrary_sort(univ_ctx) }
         }
       })),
       (rec_freq, Box::new(|g| {
@@ -684,25 +697,28 @@ impl ExprAnon {
         }
       })),
       (100, Box::new(|g| {
-        let mut env = Env::new();
+        if global_ctx.len() > 0 {
+          let mut env = Env::new();
 
-        let num_univs: usize = Arbitrary::arbitrary(g);
-        let num_univs = num_univs % 3;
-        let mut univs = Vec::new();
-        for _ in 0..num_univs {
-          let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
-          univs.push(univ.store(&mut env).unwrap());
+          let num_univs: usize = Arbitrary::arbitrary(g);
+          let num_univs = num_univs % 3;
+          let mut univs = Vec::new();
+          for _ in 0..num_univs {
+            let univ: Univ = arbitrary_univ(&mut Gen::new(50), univ_ctx);
+            univs.push(univ.store(&mut env).unwrap());
+          }
+
+          let const_idx: usize = Arbitrary::arbitrary(g);
+          let const_idx = const_idx % global_ctx.len();
+
+          let cnst = global_ctx.iter().nth(const_idx).unwrap();
+
+          ExprEnv {
+            expr: Expr::Const(cnst.0.to_owned(), cnst.1.to_owned(), univs),
+            env: env
+          }
         }
-
-        let const_idx: usize = Arbitrary::arbitrary(g);
-        let const_idx = const_idx % global_ctx.len();
-
-        let cnst = global_ctx.iter().nth(const_idx).unwrap();
-
-        ExprEnv {
-          expr: Expr::Const(cnst.0.to_owned(), cnst.1.to_owned(), univs),
-          env: env
-        }
+        else { arbitrary_sort(univ_ctx) }
       })),
     ];
     frequency(g, input)
