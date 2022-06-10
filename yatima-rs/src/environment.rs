@@ -305,7 +305,7 @@ impl Env {
       for n in const_dag.get(&curr).unwrap().neighbours.clone() {
         const_dag.get_mut(&n).unwrap().in_degree -= 1;
         if const_dag.get(&n).unwrap().in_degree == 0 {
-          res.push_back(n);
+          s.push_back(n);
         }
       }
     }
@@ -319,7 +319,7 @@ impl Env {
       let decl = self.const_cache.get(&cid).unwrap();
       let pretty = decl.pretty(self, ind);
       pretty
-    }).collect::<Option<Vec<_>>>()?.join("\n\n");
+    }).rev().collect::<Option<Vec<_>>>()?.join("\n\n");
     Some(res)
   } 
 }
@@ -342,7 +342,7 @@ pub mod tests {
   
   impl Arbitrary for Env {
     fn arbitrary(g: &mut Gen) -> Env {
-      let env_size = 1;
+      let env_size = usize::arbitrary(g) % 10 + 1;
 
       let mut global_ctx = OrdMap::new();
       let mut env = Env::new();

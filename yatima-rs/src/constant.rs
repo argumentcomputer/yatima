@@ -508,7 +508,12 @@ impl Const {
       },
       Const::Inductive { name, lvl, typ, params, indices, ctors, recr, safe, refl, nest } => {
         let typ = env.expr_cache.get(&typ).unwrap();
-        typ.get_internal_refs()
+        let mut refs = typ.get_internal_refs();
+        for (_, ctorcid) in ctors {
+          let ctor = env.expr_cache.get(&ctorcid).unwrap();
+          refs.extend(ctor.get_internal_refs());
+        }
+        refs
       },
       Const::Constructor { name, lvl, ind, typ, param, field, safe } => {
         let typ = env.expr_cache.get(&typ).unwrap();

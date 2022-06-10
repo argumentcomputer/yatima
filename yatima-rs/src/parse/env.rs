@@ -29,7 +29,9 @@ pub fn parse_env(
           i = res.0;
           global_ctx.insert(cnst.name(), res.1);
         },
-        Err(_) => break Ok((i, ()))
+        Err(_) => {
+          break Ok((i, ()))
+        }
       }
     }
   }
