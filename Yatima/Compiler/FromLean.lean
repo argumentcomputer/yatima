@@ -153,7 +153,6 @@ def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → CompileM Univ
     | none   => throw s!"'{nam}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
 
-open PrintLean PrintYatima in
 mutual
 
   partial def toYatimaRecursorRule (levelParams : List Lean.Name)
@@ -331,30 +330,32 @@ mutual
         kind := struct.kind }
 
   partial def processYatimaConst (const: Lean.ConstantInfo) : CompileM Const := do
-    let ste ← get
-    let env ← read
-    let name := const.name
-    let cache := ste.cache
+    let name : Name := const.name
+    let cache := (← get).cache
     match cache.find? name with
     | none =>
-      let dbg := env.printLean || env.printYatima
-      if dbg then dbg_trace s!"\nProcessing: {name}"
-      if env.printLean then
-        dbg_trace "------- Lean constant -------"
-        dbg_trace s!"{printLeanConst const}"
       let const ← toYatimaConst const
-      if env.printYatima then
-        dbg_trace "------ Yatima constant ------"
-        dbg_trace s!"{← printYatimaConst const}"
-      set { ste with cache := cache.insert name const }
+      set { ← get with cache := cache.insert name const }
       pure const
     | some const => pure const
 
 end
 
+open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
-  constMap.forM fun _ const => do
-    let const ← processYatimaConst const
+  constMap.forM fun name const => do
+    let env ← read
+    let cache := (← get).cache
+    let dbg := env.printLean || env.printYatima
+    if dbg then dbg_trace s!"\nProcessing: {name}"
+    if env.printLean then
+      dbg_trace "------- Lean constant -------"
+      dbg_trace s!"{printLeanConst const}"
+    let const ← toYatimaConst const
+    set { ← get with cache := cache.insert name const }
+    if env.printYatima then
+      dbg_trace "------ Yatima constant ------"
+      dbg_trace s!"{← printYatimaConst const}"
     addToEnv $ .const_cache (← constToCid const) const
   return (← get).env
 
