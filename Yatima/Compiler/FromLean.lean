@@ -214,7 +214,6 @@ mutual
         dbg_trace "------- Lean constant -------"
         dbg_trace s!"{printLeanConst const}"
       let const ← buildYatimaConst const
-      addToEnv $ .const_cache (← constToCid const) const
       if env.printYatima then
         dbg_trace "------ Yatima constant ------"
         dbg_trace s!"{← printYatimaConst const}"
@@ -353,8 +352,9 @@ mutual
 end
 
 def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
-  constMap.forM fun _ leanConst => do
-    let _ ← processYatimaConst leanConst
+  constMap.forM fun _ const => do
+    let const ← processYatimaConst const
+    addToEnv $ .const_cache (← constToCid const) const
   return (← get).env
 
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
