@@ -181,7 +181,7 @@ mutual
       else do
         match (← read).constMap.find?' nam with
           | some leanConst => do
-            let const ← toYatimaConst leanConst
+            let const ← processYatimaConst leanConst
             let constId ← constToCid const
             addToEnv $ .const_cache constId const
             let univs ← lvls.mapM $ toYatimaUniv ls
@@ -201,7 +201,9 @@ mutual
     | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
-    withReader (fun e => CompileEnv.mk e.constMap []) $ match const with
+    withReader
+      (fun e => CompileEnv.mk e.constMap [] e.printLean e.printYatima) $
+        match const with
     | .axiomInfo struct => do
       let type ← toYatimaExpr struct.levelParams none struct.type
       let typeCid ← exprToCid type
@@ -255,7 +257,7 @@ mutual
       addToEnv $ .expr_cache typeCid type
       match (← read).constMap.find? struct.induct with
       | some leanConst =>
-        let const ← toYatimaConst leanConst
+        let const ← processYatimaConst leanConst
         let constId ← constToCid const
         addToEnv $ .const_cache constId const
         return .constructor {
@@ -300,7 +302,7 @@ mutual
       let inductName := struct.getInduct
       match (← read).constMap.find? inductName with
       | some leanConst =>
-        let const ← toYatimaConst leanConst
+        let const ← processYatimaConst leanConst
         let constId ← constToCid const
         addToEnv $ .const_cache constId const
         let rules ← struct.rules.mapM $ toYatimaRecursorRule struct.levelParams constId struct.name
@@ -326,23 +328,35 @@ mutual
         lvls := struct.levelParams.map .ofLeanName
         type := typeCid
         kind := struct.kind }
+
+  partial def processYatimaConst (const: Lean.ConstantInfo) : CompileM Const := do
+    let name : Name := const.name
+    let cache := (← get).cache
+    match cache.find? name with
+    | none =>
+      let const ← toYatimaConst const
+      set { ← get with cache := cache.insert name const }
+      pure const
+    | some const => pure const
+
 end
 
-open Yatima.Compiler PrintLean PrintYatima in
-def buildEnv (constMap : Lean.ConstMap)
-    (printLean : Bool) (printYatima : Bool) : CompileM Env := do
-  let dbg := printLean || printYatima
-  constMap.forM fun name leanConst => do
-    if dbg then dbg_trace s!"Processing: {name}"
-    if printLean then
+open PrintLean PrintYatima in
+def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
+  constMap.forM fun name const => do
+    let env ← read
+    let cache := (← get).cache
+    let dbg := env.printLean || env.printYatima
+    if dbg then dbg_trace s!"\nProcessing: {name}"
+    if env.printLean then
       dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst leanConst}"
-    let yatimaConst ← toYatimaConst leanConst
-    if printYatima then
+      dbg_trace s!"{printLeanConst const}"
+    let const ← toYatimaConst const
+    set { ← get with cache := cache.insert name const }
+    if env.printYatima then
       dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst yatimaConst}\n"
-    let constCid ← constToCid yatimaConst
-    addToEnv $ .const_cache constCid yatimaConst
+      dbg_trace s!"{← printYatimaConst const}"
+    addToEnv $ .const_cache (← constToCid const) const
   return (← get).env
 
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
@@ -351,6 +365,6 @@ def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
 def extractEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : Except String Env :=
   let map := filterUnsafeConstants constMap
-  CompileM.run ⟨map, []⟩ default (buildEnv map printLean printYatima)
+  CompileM.run ⟨map, [], printLean, printYatima⟩ default (buildEnv map)
 
 end Yatima.Compiler.FromLean
