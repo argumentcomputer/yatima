@@ -201,27 +201,7 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def processYatimaConst (const: Lean.ConstantInfo) : CompileM Const := do
-    let ste ← get
-    let env ← read
-    let name := const.name
-    let cache := ste.cache
-    match cache.find? name with
-    | none =>
-      let dbg := env.printLean || env.printYatima
-      if dbg then dbg_trace s!"\nProcessing: {name}"
-      if env.printLean then
-        dbg_trace "------- Lean constant -------"
-        dbg_trace s!"{printLeanConst const}"
-      let const ← buildYatimaConst const
-      if env.printYatima then
-        dbg_trace "------ Yatima constant ------"
-        dbg_trace s!"{← printYatimaConst const}"
-      set { ste with cache := cache.insert name const }
-      pure const
-    | some const => pure const
-
-  partial def buildYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
+  partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
     withReader
       (fun e => CompileEnv.mk e.constMap [] e.printLean e.printYatima) $
         match const with
@@ -349,6 +329,27 @@ mutual
         lvls := struct.levelParams.map .ofLeanName
         type := typeCid
         kind := struct.kind }
+
+  partial def processYatimaConst (const: Lean.ConstantInfo) : CompileM Const := do
+    let ste ← get
+    let env ← read
+    let name := const.name
+    let cache := ste.cache
+    match cache.find? name with
+    | none =>
+      let dbg := env.printLean || env.printYatima
+      if dbg then dbg_trace s!"\nProcessing: {name}"
+      if env.printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let const ← toYatimaConst const
+      if env.printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
+      set { ste with cache := cache.insert name const }
+      pure const
+    | some const => pure const
+
 end
 
 def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
