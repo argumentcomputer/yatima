@@ -4,7 +4,7 @@ import Yatima.Compiler.FromLean
 def List.pop : (l : List α) → l ≠ [] → α × List α
   | a :: as, _ => (a, as)
 
-open Yatima.Compiler.FromLean in
+open Yatima.Compiler.FromLean Yatima.Compiler.CompileM in
 def main (args : List String) : IO UInt32 := do
   if h : args ≠ [] then
     let (cmd, args) := args.pop h
@@ -16,8 +16,7 @@ def main (args : List String) : IO UInt32 := do
         Lean.initSearchPath $ ← Lean.findSysroot
         let (env, ok) ← Lean.Elab.runFrontend input .empty fileName `main
         if ok then
-          match extractEnv env.constants
-            (args.contains "-pl") (args.contains "-py") with
+          match extractEnv env.constants $ mkConfig args with
           | .ok env =>
             -- todo: compile to .ya
             return 0

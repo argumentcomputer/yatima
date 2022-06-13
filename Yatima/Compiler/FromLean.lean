@@ -201,7 +201,8 @@ mutual
     | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
-    withReader (fun e => CompileEnv.mk e.constMap []) $ match const with
+    withReader (fun e => CompileEnv.mk e.constMap [] e.config) $ 
+    match const with
     | .axiomInfo struct => do
       let type ← toYatimaExpr struct.levelParams none struct.type
       let typeCid ← exprToCid type
@@ -329,16 +330,15 @@ mutual
 end
 
 open Yatima.Compiler PrintLean PrintYatima in
-def buildEnv (constMap : Lean.ConstMap)
-    (printLean : Bool) (printYatima : Bool) : CompileM Env := do
-  let dbg := printLean || printYatima
+def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
+  let dbg := (← read).config.ppLean || (← read).config.ppYatima
   constMap.forM fun name leanConst => do
     if dbg then dbg_trace s!"Processing: {name}"
-    if printLean then
+    if (← read).config.ppLean then
       dbg_trace "------- Lean constant -------"
       dbg_trace s!"{printLeanConst leanConst}"
     let yatimaConst ← toYatimaConst leanConst
-    if printYatima then
+    if (← read).config.ppYatima then
       dbg_trace "------ Yatima constant ------"
       dbg_trace s!"{← printYatimaConst yatimaConst}\n"
     let constCid ← constToCid yatimaConst
@@ -348,9 +348,9 @@ def buildEnv (constMap : Lean.ConstMap)
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
   Lean.List.toSMap $ cs.toList.filter fun (_, c) => !c.isUnsafe
 
-def extractEnv (constMap : Lean.ConstMap)
-    (printLean : Bool) (printYatima : Bool) : Except String Env :=
+def extractEnv (constMap : Lean.ConstMap) (config : CompileConfig)
+  : Except String Env :=
   let map := filterUnsafeConstants constMap
-  CompileM.run ⟨map, []⟩ default (buildEnv map printLean printYatima)
+  CompileM.run ⟨map, [], config⟩ default (buildEnv map)
 
 end Yatima.Compiler.FromLean
