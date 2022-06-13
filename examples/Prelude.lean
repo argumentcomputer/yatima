@@ -621,8 +621,6 @@ theorem Nat.eq_of_beq_eq_true : {n m : Nat} → Eq (beq n m) true → Eq n m
     have : Eq n m := eq_of_beq_eq_true this
     this ▸ rfl
 
-#print Nat.eq_of_beq_eq_true
-
 theorem Nat.ne_of_beq_eq_false : {n m : Nat} → Eq (beq n m) false → Not (Eq n m)
   | zero,   zero,   h₁, h₂ => Bool.noConfusion h₁
   | zero,   succ m, h₁, h₂ => Nat.noConfusion h₂

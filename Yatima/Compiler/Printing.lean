@@ -16,7 +16,7 @@ def printDefSafety : Yatima.DefinitionSafety -> String
 def getConst (const_cid : ConstCid) : CompileM Const := do
   match (← get).env.const_cache.find? const_cid with
   | some const => pure const
-  | none => throw s!"Could not find constant of cid in context"
+  | none => throw "Could not find constant of cid in context"
 
 def getExpr (expr_cid : ExprCid) (name : Name) : CompileM Expr := do
   match (← get).env.expr_cache.find? expr_cid with
