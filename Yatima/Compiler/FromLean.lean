@@ -4,7 +4,7 @@ import Yatima.ToIpld
 
 import Lean
 
-namespace Yatima.Compiler.FromLean
+namespace Yatima.Compiler
 
 open Yatima.Compiler.CompileM
 
@@ -125,53 +125,52 @@ def constToCid (c : Const) : CompileM ConstCid := do
   addToEnv $ .const_meta constMetaCid constMeta
   return ⟨constAnonCid, constMetaCid⟩
 
-def toYatimaUniv (lvls : List Lean.Name) : Lean.Level → CompileM Univ
+def toYatimaUniv : Lean.Level → CompileM Univ
   | .zero _      => return .zero
   | .succ n _    => do
-    let univ ← toYatimaUniv lvls n
+    let univ ← toYatimaUniv n
     let univCid ← univToCid univ
     addToEnv $ .univ_cache univCid univ
     return .succ univCid
   | .max  a b _  => do
-    let univA ← toYatimaUniv lvls a
+    let univA ← toYatimaUniv a
     let univACid ← univToCid univA
     addToEnv $ .univ_cache univACid univA
-    let univB ← toYatimaUniv lvls b
+    let univB ← toYatimaUniv b
     let univBCid ← univToCid univB
     addToEnv $ .univ_cache univBCid univB
     return .max univACid univBCid
   | .imax a b _  => do
-    let univA ← toYatimaUniv lvls a
+    let univA ← toYatimaUniv a
     let univACid ← univToCid univA
     addToEnv $ .univ_cache univACid univA
-    let univB ← toYatimaUniv lvls b
+    let univB ← toYatimaUniv b
     let univBCid ← univToCid univB
     addToEnv $ .univ_cache univBCid univB
     return .imax univACid univBCid
-  | .param nam _ => match lvls.indexOf nam with
+  | .param nam _ => do
+    let lvls := (← read).univCtx
+    match lvls.indexOf nam with
     | some n => return .param nam n
     | none   => throw s!"'{nam}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
 
 mutual
 
-  partial def toYatimaRecursorRule (levelParams : List Lean.Name)
-    (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) :
-      CompileM RecursorRule := do
-    let rhs ← toYatimaExpr levelParams (some name) rules.rhs
+  partial def toYatimaRecursorRule (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) : CompileM RecursorRule := do
+    let rhs ← toYatimaExpr (some name) rules.rhs
     let rhsCid ← exprToCid rhs
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
-  partial def toYatimaExpr (ls : List Lean.Name) (recr: Option Name) :
-      Lean.Expr → CompileM Expr
+  partial def toYatimaExpr (recr: Option Name): Lean.Expr → CompileM Expr
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
-      | none => throw "Processed bvar has index greater than length of binder context"      
+      | none => throw "Processed bvar has index greater than length of binder context"
       return .var s!"{name}" idx
     | .sort lvl _ => do
-      let univ ← toYatimaUniv ls lvl
+      let univ ← toYatimaUniv lvl
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
@@ -184,28 +183,27 @@ mutual
             let const ← processYatimaConst leanConst
             let constId ← constToCid const
             addToEnv $ .const_cache constId const
-            let univs ← lvls.mapM $ toYatimaUniv ls
+            let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
               addToEnv $ .univ_cache univCid univ
             return .const nam constId univsCids
           | none => throw s!"Unknown constant '{nam}'"
-    | .app fnc arg _ => .app <$> (toYatimaExpr ls recr fnc) <*> (toYatimaExpr ls recr arg)
-    | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr ls recr typ) <*> (bind nam $ toYatimaExpr ls recr bod)
-    | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr ls recr dom) <*> (bind nam $ toYatimaExpr ls recr img)
-    | .letE nam typ exp bod _ => .letE nam <$> (toYatimaExpr ls recr typ) <*> (toYatimaExpr ls recr exp) <*> (bind nam $ toYatimaExpr ls recr bod)
+    | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
+    | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (bind nam $ toYatimaExpr recr bod)
+    | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr recr dom) <*> (bind nam $ toYatimaExpr recr img)
+    | .letE nam typ exp bod _ => .letE nam <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (bind nam $ toYatimaExpr recr bod)
     | .lit lit _ => return .lit lit
-    | .mdata _ e _ => toYatimaExpr ls recr e
-    | .proj _ idx exp _ => .proj idx <$> toYatimaExpr ls recr exp
+    | .mdata _ e _ => toYatimaExpr recr e
+    | .proj _ idx exp _ => .proj idx <$> toYatimaExpr recr exp
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
-    withReader
-      (fun e => CompileEnv.mk e.constMap [] e.printLean e.printYatima) $
-        match const with
+    withReader (fun e => CompileEnv.mk e.constMap const.levelParams [] e.printLean e.printYatima) $
+    match const with
     | .axiomInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       return .axiom {
@@ -214,10 +212,10 @@ mutual
         type := typeCid
         safe := not struct.isUnsafe }
     | .thmInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
-      let value ← Expr.fix struct.name <$> toYatimaExpr struct.levelParams (some struct.name) struct.value
+      let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
       let valueCid ← exprToCid value
       addToEnv $ .expr_cache valueCid value
       return .theorem {
@@ -226,10 +224,10 @@ mutual
         type  := typeCid
         value := valueCid }
     | .opaqueInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
-      let value ← Expr.fix struct.name <$> toYatimaExpr struct.levelParams (some struct.name) struct.value
+      let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
       let valueCid ← exprToCid value
       addToEnv $ .expr_cache valueCid value
       return .opaque {
@@ -239,10 +237,10 @@ mutual
         value := valueCid
         safe  := not struct.isUnsafe }
     | .defnInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
-      let value ← Expr.fix struct.name <$> toYatimaExpr struct.levelParams (some struct.name) struct.value
+      let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
       let valueCid ← exprToCid value
       addToEnv $ .expr_cache valueCid value
       return .definition {
@@ -252,7 +250,7 @@ mutual
         value  := valueCid
         safety := struct.safety }
     | .ctorInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       match (← read).constMap.find? struct.induct with
@@ -271,7 +269,7 @@ mutual
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{struct.induct}'"
     | .inductInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       let ctors : List (Name × Lean.Expr) ← struct.ctors.mapM
@@ -280,7 +278,7 @@ mutual
           | none => throw s!"Unknown constant '{nam}'"
       let ctors : List (Name × ExprCid) ← ctors.mapM
         fun (nam, typ) => do
-         let type ← toYatimaExpr struct.levelParams (some struct.name) typ
+         let type ← toYatimaExpr (some struct.name) typ
          let typeCid ← exprToCid type
          addToEnv $ .expr_cache typeCid type
          return (nam, typeCid)
@@ -296,7 +294,7 @@ mutual
         nest := struct.isNested
         safe := not struct.isUnsafe }
     | .recInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       let inductName := struct.getInduct
@@ -305,7 +303,7 @@ mutual
         let const ← processYatimaConst leanConst
         let constId ← constToCid const
         addToEnv $ .const_cache constId const
-        let rules ← struct.rules.mapM $ toYatimaRecursorRule struct.levelParams constId struct.name
+        let rules ← struct.rules.mapM $ toYatimaRecursorRule constId struct.name
         return .recursor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
@@ -320,7 +318,7 @@ mutual
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{inductName}'"
     | .quotInfo struct => do
-      let type ← toYatimaExpr struct.levelParams none struct.type
+      let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       return .quotient {
@@ -342,6 +340,7 @@ mutual
 end
 
 open PrintLean PrintYatima in
+
 def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
   constMap.forM fun name const => do
     let env ← read
@@ -362,9 +361,12 @@ def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
   Lean.List.toSMap $ cs.toList.filter fun (_, c) => !c.isUnsafe
 
-def extractEnv (constMap : Lean.ConstMap)
-    (printLean : Bool) (printYatima : Bool) : Except String Env :=
+def extractEnv
+    (constMap : Lean.ConstMap)
+    (printLean : Bool)
+    (printYatima : Bool) 
+  : Except String Env :=
   let map := filterUnsafeConstants constMap
-  CompileM.run ⟨map, [], printLean, printYatima⟩ default (buildEnv map)
+  CompileM.run ⟨map, [], [], printLean, printYatima⟩ default (buildEnv map)
 
-end Yatima.Compiler.FromLean
+end Yatima.Compiler

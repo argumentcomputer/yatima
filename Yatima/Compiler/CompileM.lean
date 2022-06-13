@@ -14,6 +14,7 @@ instance : Inhabited CompileState where
 
 structure CompileEnv where
   constMap    : Lean.ConstMap
+  univCtx     : List Lean.Name
   bindCtx     : List Name
   printLean   : Bool
   printYatima : Bool
@@ -21,12 +22,13 @@ structure CompileEnv where
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
-def bind (name: Name): CompileM α → CompileM α :=
-  withReader fun e => ⟨e.constMap, (name :: e.bindCtx), e.printLean, e.printYatima⟩
-
 def CompileM.run (env: CompileEnv) (ste: CompileState) (m : CompileM α) : Except String Env :=
   match EStateM.run (ReaderT.run m env) ste with
   | .ok _ ste  => .ok ste.env
   | .error e _ => .error e
+
+def bind (name: Name): CompileM α → CompileM α :=
+  withReader $ fun e =>
+    CompileEnv.mk e.constMap e.univCtx (name :: e.bindCtx) e.printLean e.printYatima
 
 end Yatima.Compiler.CompileM
