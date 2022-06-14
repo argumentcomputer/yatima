@@ -175,8 +175,7 @@ def getRandomType (g : gen) (isLeaf : Bool := False) : ExprType × gen :=
       | _ => (Sum.inl .fix, g)
 
 def fillNextHole (g : gen) : ExprGen gen := do
-  let state ← get
-  match state.unfilledHoles with
+  match (← get).unfilledHoles with
     | [] => return g
     | h :: hs =>
       if h.treeDepth ≥ MAX_DEPTH then 
