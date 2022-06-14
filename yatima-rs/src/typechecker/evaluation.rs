@@ -89,7 +89,8 @@ pub fn eval(expr: ExprPtr, mut env: Env) -> Value {
       let itself = suspend(expr, env.clone());
       env.exprs.push_front(itself);
       eval(body, env)
-    }
+    },
+    _ => todo!() // Projections
   }
 }
 

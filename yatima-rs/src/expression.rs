@@ -15,6 +15,7 @@ use crate::{
   name::Name,
   nat::Nat,
 };
+
 use serde::{
   Deserialize,
   Serialize,
@@ -84,6 +85,8 @@ pub enum Expr {
   Lty(LitType),
   /// Fixpoint recursion, μ x. x
   Fix(Name, Box<Expr>),
+  /// Projections 
+  Proj(Nat, Box<Expr>),
 }
 
 impl Expr {
@@ -163,6 +166,12 @@ impl Expr {
         let meta = ExprMeta::Fix(name.clone(), x_cid.meta).store(env)?;
         Ok(ExprCid { anon, meta })
       }
+      Expr::Proj(idx, exp) => {
+        let exp_cid = exp.cid(env)?;
+        let anon = ExprAnon::Proj(idx.clone(), exp_cid.anon).store(env)?;
+        let meta = ExprMeta::Proj(idx.clone(), exp_cid.meta).store(env)?;
+        Ok(ExprCid { anon, meta })
+      }
     }
   }
 
@@ -227,6 +236,7 @@ impl Expr {
 /// ExprMeta::Lit => [7]
 /// ExprMeta::Lty => [8]
 /// ExprMeta::Fix => [9, <name>, <body>]
+/// ExprMeta::Proj => [10, <expr>]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ExprMeta {
   Var(Name),
@@ -239,6 +249,7 @@ pub enum ExprMeta {
   Lit,
   Lty,
   Fix(Name, ExprMetaCid),
+  Proj(Nat, ExprMetaCid),
 }
 
 impl ExprMeta {
@@ -267,6 +278,7 @@ impl ExprMeta {
 /// ExprAnon::Lit => [7, <lit>]
 /// ExprAnon::Lty => [8, <lty>]
 /// ExprAnon::Fix => [9, <body>]
+/// ExprAnon::Proj => [10, <expr>]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ExprAnon {
   Var(Nat),
@@ -279,6 +291,7 @@ pub enum ExprAnon {
   Lit(Literal),
   Lty(LitType),
   Fix(ExprAnonCid),
+  Proj(Nat, ExprAnonCid),
 }
 
 impl ExprAnon {

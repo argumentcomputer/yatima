@@ -251,4 +251,14 @@ def Const.toMeta : Const → ConstMeta
     r.rules.map fun rl => ⟨rl.ctor.meta, rl.rhs.meta⟩⟩
   | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
 
+def Const.name : Const → Name
+  | .axiom a => a.name
+  | .theorem t => t.name
+  | .inductive i => i.name
+  | .opaque o => o.name
+  | .definition d => d.name
+  | .constructor c => c.name
+  | .recursor r => r.name
+  | .quotient q => q.name
+
 end Yatima

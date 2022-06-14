@@ -45,6 +45,8 @@ pub enum Expr {
   Lty(LitType),
   /// Fixpoint recursion, μ x. x
   Fix(ExprPtr),
+  /// Projections
+  Proj(Index, ExprPtr),
 }
 
 /// Constants for typechecking. They must also come from their anon
