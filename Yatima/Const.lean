@@ -88,7 +88,7 @@ structure MutualDefinitionBlockMeta where
 
 structure MutualDefinition where
   block : ConstCid
-  name : Name
+  name  : Name
   idx   : Nat
 
 structure MutualDefinitionAnon where

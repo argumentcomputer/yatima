@@ -106,6 +106,8 @@ mutual
       let type ← getExpr quot.type quot.name
       pure $ s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
+    | .mutBlock b => sorry
+    | .mutDef d   => sorry
 
 end
 
