@@ -420,6 +420,16 @@ partial def cmpExpr (names: List (Lean.Name)) (x : Lean.Expr) (y : Lean.Expr) : 
     let ts ← cmpExpr names tx ty
     return (concatOrds [ compare nx ny , ts ])
 
+def cmpDef (names : List Lean.Name) (x: Lean.DefinitionVal) (y: Lean.DefinitionVal) : CompileM Ordering := do
+    let ls := compare x.levelParams.length y.levelParams.length
+    let ts ← cmpExpr names x.type y.type
+    let vs ← cmpExpr names x.value y.value
+    return (concatOrds [ls, ts, vs])
+
+def sortDefs (ds: List Lean.DefinitionVal): CompileM (List Lean.DefinitionVal) := do
+    let names : List Lean.Name := List.map (fun x => x.name) ds
+    sortByM (cmpDef names) ds
+
 open PrintLean PrintYatima in
 
 def buildEnv (constMap : Lean.ConstMap) : CompileM Env := do

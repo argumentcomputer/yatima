@@ -57,16 +57,3 @@ instance : HMul Ordering Ordering Ordering where
   | .eq, x => x
 
 end Yatima.Compiler
---def compareMutDef (names : List Lean.Name) (x: Lean.DefinitionVal) (y: Lean.DefinitionVal) : Ordering :=
---  concatOrds
---    [ compare x.levelParams.length y.levelParams.length
---    , compare x.type y.type
---    , compare x.value y.value
---    ]
---
---
---
---def sortMutDef (ds: List Lean.DefinitionVal): List Lean.DefinitionVal := 
---  let names : List Lean.Name := List.map (fun x => x.name) ds
---  sortBy (compareMutDef names) ds
---
