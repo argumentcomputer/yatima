@@ -13,13 +13,13 @@ def printDefSafety : Yatima.DefinitionSafety -> String
   | .safe    => ""
   | .partial => "partial "
 
-def getConst (const_cid : ConstCid) : CompileM Const := do
-  match (← get).env.const_cache.find? const_cid with
+def getConst (constCid : ConstCid) : CompileM Const := do
+  match (← get).env.const_cache.find? constCid with
   | some const => pure const
   | none => throw "Could not find constant of cid in context"
 
-def getExpr (expr_cid : ExprCid) (name : Name) : CompileM Expr := do
-  match (← get).env.expr_cache.find? expr_cid with
+def getExpr (exprCid : ExprCid) (name : Name) : CompileM Expr := do
+  match (← get).env.expr_cache.find? exprCid with
   | some expr => pure expr
   | none => throw s!"Could not find type of {name} in context"
 
@@ -67,47 +67,52 @@ mutual
     | .fix name body => return s!"(μ {name} {← printExpr body})"
     | .proj idx expr => return s!"(proj {idx} {← printExpr expr})"
 
+  partial def printDefinition (defn : Definition) : CompileM String := do
+    let type ← getExpr defn.type defn.name
+    let value ← getExpr defn.value defn.name
+    return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
+           s!"  {← printExpr value}"
+
   partial def printYatimaConst : Const → CompileM String
     | .axiom ax => do
       let type ← getExpr ax.type ax.name
-      pure s!"{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
+      return s!"{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
     | .theorem thm => do
       let type ← getExpr thm.type thm.name
       let value ← getExpr thm.value thm.name
-      pure $ s!"theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
+      return s!"theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
              s!"  {← printExpr value}" 
     | .inductive ind => do
       let type ← getExpr ind.type ind.name
-      pure $ s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr type} :=\n" ++
+      return s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.params} {ind.indices} {ind.recr} {ind.refl} {ind.nest}\n" ++
              s!"{← printCtors ind.ctors}"
     | .opaque opaq => do
       let type ← getExpr opaq.type opaq.name
       let value ← getExpr opaq.value opaq.name
-      pure $ s!"{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
+      return s!"{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
              s!"  {← printExpr value}"
-    | .definition defn => do
-      let type ← getExpr defn.type defn.name
-      let value ← getExpr defn.value defn.name
-      pure $ s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
-             s!"  {← printExpr value}"
+    | .definition defn => printDefinition defn
     | .constructor ctor => do
       let type ← getExpr ctor.type ctor.name
       let ind ← getConst ctor.ind
-      pure $ s!"{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr type} :=\n" ++
+      return s!"{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.name} {ctor.idx} {ctor.params} {ctor.fields}"
     | .recursor recr => do
       let type ← getExpr recr.type recr.name
       let ind ← getConst recr.ind
       let rules ← printRules recr.rules
-      pure $ s!"{printIsSafe recr.safe}recursor {recr.name} {recr.lvls} : {← printExpr type} :=\n" ++
+      return s!"{printIsSafe recr.safe}recursor {recr.name} {recr.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.name} {recr.params} {recr.indices} {recr.motives} {recr.minors} {rules} {recr.k}"
     | .quotient quot => do
       let type ← getExpr quot.type quot.name
-      pure $ s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
+      return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
-    | .mutBlock b => sorry
-    | .mutDef d   => sorry
+    | .mutBlock mutBlock => do
+      let defStrings ← mutBlock.defs.mapM printDefinition
+      return s!"mutual\n{"\n".intercalate defStrings}\nend"
+    | .mutDef mutDef =>
+      return s!"mut {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
 
 end
 

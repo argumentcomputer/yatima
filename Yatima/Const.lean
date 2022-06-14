@@ -97,8 +97,7 @@ structure MutualDefinitionAnon where
 
 structure MutualDefinitionMeta where
   block : ConstMetaCid
-  name : Name
-
+  name  : Name
 
 structure Inductive where
   name    : Name

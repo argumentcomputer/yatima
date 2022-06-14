@@ -364,10 +364,7 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
       | none, _   => throw s!"'{x}' not found in '{lvls}'"
       | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
-instance : Functor List where 
-  map := List.map
-
-partial def cmpExpr (names: List (Lean.Name)) (x : Lean.Expr) (y : Lean.Expr) : CompileM Ordering := do
+partial def cmpExpr (names : List Lean.Name) (x : Lean.Expr) (y : Lean.Expr) : CompileM Ordering := do
   match x, y with
   | .mvar .., _ => throw "Unfilled expr metavariable"
   | _, .mvar .. => throw "Unfilled expr metavariable"
@@ -413,25 +410,24 @@ partial def cmpExpr (names: List (Lean.Name)) (x : Lean.Expr) (y : Lean.Expr) : 
   | .letE _ _ _ _ _, _ => return .lt
   | _, .letE _ _ _ _ _ => return .gt
   | .lit x _, .lit y _ =>
-    return (if x < y then .lt else if x == y then .eq else .gt)
+    return if x < y then .lt else if x == y then .eq else .gt
   | .lit _ _, _ => return .lt
   | _, .lit _ _ => return .gt
   | .proj _ nx tx _, .proj _ ny ty _ => do
     let ts ← cmpExpr names tx ty
-    return (concatOrds [ compare nx ny , ts ])
+    return concatOrds [ compare nx ny , ts ]
 
 def cmpDef (names : List Lean.Name) (x: Lean.DefinitionVal) (y: Lean.DefinitionVal) : CompileM Ordering := do
-    let ls := compare x.levelParams.length y.levelParams.length
-    let ts ← cmpExpr names x.type y.type
-    let vs ← cmpExpr names x.value y.value
-    return (concatOrds [ls, ts, vs])
+  let ls := compare x.levelParams.length y.levelParams.length
+  let ts ← cmpExpr names x.type y.type
+  let vs ← cmpExpr names x.value y.value
+  return concatOrds [ls, ts, vs]
 
-def sortDefs (ds: List Lean.DefinitionVal): CompileM (List Lean.DefinitionVal) := do
-    let names : List Lean.Name := List.map (fun x => x.name) ds
-    sortByM (cmpDef names) ds
+def sortDefs (ds: List Lean.DefinitionVal): CompileM (List Lean.DefinitionVal) :=
+  let names : List Lean.Name := ds.map (·.name)
+  sortByM (cmpDef names) ds
 
 open PrintLean PrintYatima in
-
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
