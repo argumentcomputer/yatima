@@ -288,7 +288,7 @@ partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
           let depth? ← getBinderDepth head
           return randVar depth? g |>.1
 
-partial def run (g : gen) : ExprGen Yatima.Expr := do
+def run (g : gen) : ExprGen Yatima.Expr := do
   let g ← fillAllHoles g
   let head := (← get).head
   assembleExprAux head g
