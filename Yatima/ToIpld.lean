@@ -67,6 +67,12 @@ instance : Coe QuotKind Ipld where coe
   | .lift => .number 3
   | .ind  => .number 4
 
+instance : Coe DefinitionAnon Ipld where coe
+  | .mk n l t v => .array #[n, l, t, v]
+
+instance : Coe DefinitionMeta Ipld where coe
+  | .mk n l t v => .array #[n, l, t, v]
+
 def univAnonToIpld : UnivAnon → Ipld
   | .zero     => .array #[.number UNIVANON, .number 0]
   | .succ p   => .array #[.number UNIVANON, .number 1, p]
@@ -112,10 +118,12 @@ def constAnonToIpld : ConstAnon → Ipld
   | .theorem ⟨l, t, v⟩       => .array #[.number CONSTANON, .number 1, l, t, v]
   | .inductive ⟨l, t, p, i, c, r, s, rf, n⟩ => .array #[.number CONSTANON, .number 2, l, t, p, i, c, r, s, rf, n]
   | .opaque ⟨l, t, v, s⟩     => .array #[.number CONSTANON, .number 3, l, t, v, s]
-  | .definition ⟨l, t, v, s⟩ => .array #[.number CONSTANON, .number 4, l, t, v, s]
+  | .definition ⟨n, l, t, v⟩ => .array #[.number CONSTANON, .number 4, n, l, t, v]
   | .constructor ⟨l, t, i, idx, p, f, s⟩ => .array #[.number CONSTANON, .number 5, l, t, i, idx, p, f, s]
   | .recursor ⟨l, t, i, p, is, m, mi, r, k, s⟩ => .array #[.number CONSTANON, .number 6, l, t, i, p, is, m, mi, r, k, s]
   | .quotient ⟨l, t, k⟩      => .array #[.number CONSTANON, .number 7, l, t, k]
+  | .mutBlock ⟨ds⟩           => .array #[.number CONSTANON, .number 8, ds]
+  | .mutDef ⟨b, i⟩           => .array #[.number CONSTANON, .number 9, b, i]
 
 def constMetaToIpld : ConstMeta → Ipld
   | .axiom ⟨n, l, t⟩          => .array #[.number CONSTMETA, .number 0, n, l, t]
@@ -126,6 +134,8 @@ def constMetaToIpld : ConstMeta → Ipld
   | .constructor ⟨n, l, t, i⟩ => .array #[.number CONSTMETA, .number 5, n, l, t, i]
   | .recursor ⟨n, l, t, i, r⟩ => .array #[.number CONSTMETA, .number 6, n, l, t, i, r]
   | .quotient ⟨n, l, t⟩       => .array #[.number CONSTMETA, .number 7, n, l, t]
+  | .mutBlock ⟨ds⟩           => .array #[.number CONSTANON, .number 8, ds]
+  | .mutDef ⟨b, i⟩           => .array #[.number CONSTANON, .number 9, b, i]
 
 def univAnonToCid (univAnon : UnivAnon) : UnivAnonCid :=
   { data := ipldToCid UNIVANON.toNat (univAnonToIpld univAnon) }
