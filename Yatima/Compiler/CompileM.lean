@@ -13,16 +13,14 @@ instance : Inhabited CompileState where
   default := ⟨default, .empty⟩
 
 structure CompileEnv where
-  constMap    : Lean.ConstMap
-  bindCtx     : List Name
-  printLean   : Bool
-  printYatima : Bool
+  constMap : Lean.ConstMap
+  bindCtx  : List Name
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
 def bind (name: Name): CompileM α → CompileM α :=
-  withReader fun e => ⟨e.constMap, (name :: e.bindCtx), e.printLean, e.printYatima⟩
+  withReader fun e => ⟨e.constMap, name :: e.bindCtx⟩
 
 def CompileM.run (env: CompileEnv) (ste: CompileState) (m : CompileM α) : Except String Env :=
   match EStateM.run (ReaderT.run m env) ste with
