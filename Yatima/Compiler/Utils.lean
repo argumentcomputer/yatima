@@ -1,5 +1,6 @@
 import Lean
 import Yatima.Compiler.CompileM
+import Yatima.Graph
 
 namespace Yatima.Compiler
 /- mergesort implementation based on https://hackage.haskell.org/package/base-4.16.1.0/docs/src/Data-OldList.html#sort -/
@@ -45,10 +46,6 @@ end
 
 def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) := do
   sequencesM cmp xs >>= mergeAllM cmp
-
---def referenceMap (constMap : Lean.ConstMap) : RBMap Lean.Name (List Lean.Name) := sorry
---
---def detectCycles (constMap : Lean.ConstMap) : List (List Lean.Name) := sorry
 
 instance : HMul Ordering Ordering Ordering where
   hMul
