@@ -188,8 +188,7 @@ def fillNextHole (g : gen) : ExprGen gen := do
         return g
 
 partial def fillAllHoles (g : gen) : ExprGen gen := do
-  let state ← get
-  match state.unfilledHoles with
+  match (← get).unfilledHoles with
     | [] => return g
     | _ =>
       let g ← fillNextHole g
