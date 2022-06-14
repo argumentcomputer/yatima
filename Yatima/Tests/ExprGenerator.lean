@@ -75,8 +75,7 @@ def genNewHole (depth : Nat) : ExprGen Hole := do
   return newHole
 
 def getNextHole : ExprGen (Option Hole) := do
-  let holes := (← get).unfilledHoles
-  match holes with
+  match (← get).unfilledHoles with
     | []        => return none
     | hole :: _ => return some hole
 
