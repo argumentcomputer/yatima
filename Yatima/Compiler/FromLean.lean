@@ -1,12 +1,11 @@
 import Yatima.Compiler.CompileM
 import Yatima.Compiler.Printing
+import Yatima.Compiler.Utils
 import Yatima.ToIpld
 
 import Lean
 
 namespace Yatima.Compiler
-
-open Yatima.Compiler.CompileM
 
 instance : Coe Lean.Name Name where
   coe := .ofLeanName
@@ -338,6 +337,88 @@ mutual
     | some const => pure const
 
 end
+
+def concatOrds : List Ordering -> Ordering :=
+  List.foldl (fun x y => x * y) .eq
+
+def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
+  match x, y with
+  | .mvar .., _ => throw "Unfilled level metavariable"
+  | _, .mvar .. => throw "Unfilled level metavariable"
+  | .zero _, .zero _ => return .eq
+  | .zero _, _ => return .lt
+  | _, .zero _  => return .gt
+  | .succ x _, .succ y _ => cmpLevel x y
+  | .succ x _, _ => return .lt
+  | _, .succ x _ => return .gt
+  | .max lx ly _, .max rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel rx ry
+  | .max _ _ _, _ => return .lt
+  | _, .max _ _ _ => return .gt
+  | .imax lx ly _, .imax rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel rx ry
+  | .imax _ _ _, _ => return .lt
+  | _, .imax _ _ _ => return .gt
+  | .param x _, .param y _ => do
+    let lvls := (← read).univCtx
+    match (lvls.indexOf x), (lvls.indexOf y) with
+      | some xi, some yi => return (compare xi yi)
+      | none, _   => throw s!"'{x}' not found in '{lvls}'"
+      | _, none   => throw s!"'{y}' not found in '{lvls}'"
+
+instance : Functor List where 
+  map := List.map
+
+partial def cmpExpr (names: List (Lean.Name)) (x : Lean.Expr) (y : Lean.Expr) : CompileM Ordering := do
+  match x, y with
+  | .mvar .., _ => throw "Unfilled expr metavariable"
+  | _, .mvar .. => throw "Unfilled expr metavariable"
+  | .fvar .., _ => throw "expr free variable"
+  | _, .fvar .. => throw "expr free metavariable"
+  | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
+  | .mdata _ x _, y  => cmpExpr names x y
+  | x, .mdata _ y _  => cmpExpr names x y
+  | .bvar x _, .bvar y _ => return (compare x y)
+  | .bvar _ _, _ => return .lt
+  | _, .bvar _ _ => return .gt
+  | .sort x _, .sort y _ => cmpLevel x y
+  | .sort _ _, _ => return .lt
+  | _, .sort _ _ => return .gt
+  | .const x xls _, .const y yls _ => do
+    let univs ← concatOrds <$> (List.mapM (fun (x,y) => cmpLevel x y) (List.zip xls yls))
+    if univs != .eq then return univs
+    match names.contains x, names.contains y with
+    | true, true => return .eq
+    | false, true => return .gt
+    | true, false => return .lt
+    | false, false => do
+      match (← read).constMap.find?' x, (← read).constMap.find?' y with
+      | some x_const, some y_const => do
+        let xCid ← processYatimaConst x_const >>= constToCid
+        let yCid ← processYatimaConst y_const >>= constToCid
+        return (compare xCid yCid)
+      | none, some _ => throw s!"Unknown constant '{x}'"
+      | some _, none => throw s!"Unknown constant '{y}'"
+      | _, _ => throw s!"Unknown constants '{x}, {y}'"
+  | .const _ _ _, _ => return .lt
+  | _, .const _ _ _ => return .gt
+  | .app xf xa _, .app yf ya _ => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
+  | .app _ _ _, _ => return .lt
+  | _, .app _ _ _ => return .gt
+  | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+  | .lam _ _ _ _, _ => return .lt
+  | _, .lam _ _ _ _ => return .gt
+  | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+  | .forallE _ _ _ _, _ => return .lt
+  | _, .forallE _ _ _ _ => return .gt
+  | .letE _ xt xv xb _, .letE _ yt yv yb _ => (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
+  | .letE _ _ _ _ _, _ => return .lt
+  | _, .letE _ _ _ _ _ => return .gt
+  | .lit x _, .lit y _ =>
+    return (if x < y then .lt else if x == y then .eq else .gt)
+  | .lit _ _, _ => return .lt
+  | _, .lit _ _ => return .gt
+  | .proj _ nx tx _, .proj _ ny ty _ => do
+    let ts ← cmpExpr names tx ty
+    return (concatOrds [ compare nx ny , ts ])
 
 open PrintLean PrintYatima in
 

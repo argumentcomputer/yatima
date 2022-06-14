@@ -2,7 +2,7 @@ import Lean
 import Std
 import Yatima.Env
 
-namespace Yatima.Compiler.CompileM
+namespace Yatima.Compiler
 
 open Std (RBMap) in
 structure CompileState where
@@ -31,4 +31,4 @@ def bind (name: Name): CompileM α → CompileM α :=
   withReader $ fun e =>
     CompileEnv.mk e.constMap e.univCtx (name :: e.bindCtx) e.printLean e.printYatima
 
-end Yatima.Compiler.CompileM
+end Yatima.Compiler
