@@ -8,6 +8,10 @@ def findM {ordering : α → α → Ordering} [Monad m] [MonadExcept ε m]
   | some b => pure b
   | none => throw e
 
+instance [ToString α] [ToString β] {ordering : α → α → Ordering} : 
+  ToString (RBMap α β ordering) :=
+  { toString := fun rbmap => s!"{rbmap.toList}" }
+
 end Std.RBMap 
 
 namespace List
@@ -85,8 +89,6 @@ def referenceMap (constMap : ConstMap) : ReferenceMap :=
 instance : ToString ReferenceMap := 
  { toString := fun refs => toString refs.toList }
 
--- def detectCycles (constMap : ConstMap) : List (List Name) := sorry
-
 end Lean
 
 abbrev Graph := Lean.ReferenceMap
@@ -155,7 +157,7 @@ partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
     | some vs => do
       let ts ← vs.mapM generate
       pure $ .node v $ ts.filter $ not ∘ Tree.isEmpty
-    | none => throw s!"Vertex {v} not in graph"
+    | none => throw s!"Vertex {v} not found in graph"
 
 def generateVs (vs : List Vertex) : dfsM $ List $ Tree Vertex := do 
   vs.mapM generate
@@ -173,7 +175,7 @@ def dfs? (g : Graph) (vs : List Vertex) : Except String $ List $ Tree Vertex :=
 def dfs! (g : Graph) (vs : List Vertex) : List $ Tree Vertex :=
   match EStateM.run (ReaderT.run (generateVs vs) g) { visited := .empty } with 
   | .ok res state => res 
-  | .error e _ => panic! "bruh"
+  | .error e _ => panic! e
 
 def dff? (g : Graph) : Except String $ List $ Tree Vertex :=
   g.dfs? g.vertices 
@@ -187,43 +189,44 @@ def preord (g : Graph) : List Vertex :=
 def postord (g : Graph) : List Vertex :=
   Tree.postorderF (dff! g)
 
--- doesn't work lmao
--- def scc (g : Graph) : List $ Tree Vertex :=
---   dfs! (transposeG g) (postord g).reverse
-
 structure NodeInfo where
   index : Nat
   lowlink : Nat
   onStack : Bool
+  deriving Repr
 
-structure tarjanState where 
+instance : ToString NodeInfo :=
+  { toString := fun info => s!"i: {info.index}, low: {info.lowlink}, on: {info.onStack}" }
+
+structure sccState where 
   info : RBMap Name NodeInfo compare
   index : Nat 
   stack : List Name
 
-instance : Inhabited tarjanState := 
+instance : Inhabited sccState := 
   { default := ⟨.empty, default, default⟩ }
 
-abbrev tarjanM := ReaderT Graph $ EStateM String tarjanState
+abbrev sccM := ReaderT Graph $ EStateM String sccState
 
-namespace tarjanM
+namespace sccM
 
-def getInfo (v : Vertex) : tarjanM NodeInfo := do 
-  (← get).info.findM v s!"Vertex {v} not found" 
+def getInfo (v : Vertex) : sccM NodeInfo := do 
+  (← get).info.findM v s!"Vertex {v} not found in graph" 
 
-def setInfo (v : Vertex) (info : NodeInfo) : tarjanM Unit := do
+def setInfo (v : Vertex) (info : NodeInfo) : sccM Unit := do
   set { ← get with info := (← get).info.insert v info }
 
-partial def strongConnect (v : Vertex) : tarjanM (List Vertex) := do 
+partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do 
   let idx := (← get).index
   set ({ info := (← get).info.insert v ⟨idx, idx, true⟩, 
          index := idx + 1, 
-         stack := v :: (← get).stack } : tarjanState)
+         stack := v :: (← get).stack } : sccState)
   
   let edges ← match (← read).find? v with 
               | some vs => pure vs
-              | none => throw "bruh"
-
+              | none => throw s!"Vertex {v} not found in graph"
+  
+  let mut sccs := []
   for w in edges do 
     match (← get).info.find? w with 
     | some ⟨widx, wlowlink, won⟩ => do 
@@ -231,7 +234,7 @@ partial def strongConnect (v : Vertex) : tarjanM (List Vertex) := do
         let ⟨vidx, vlowlink, von⟩ ← getInfo v
         setInfo v ⟨vidx, min vlowlink widx, von⟩
     | none => do
-      let _ ← strongConnect w 
+      sccs := (← strongConnect w) ++ sccs
       let ⟨vidx, vlowlink, von⟩ ← getInfo v 
       let ⟨_, wlowlink, _⟩ ← getInfo w
       setInfo v ⟨vidx, min vlowlink wlowlink, von⟩
@@ -245,31 +248,29 @@ partial def strongConnect (v : Vertex) : tarjanM (List Vertex) := do
       let ⟨idx, lowlink, on⟩ ← getInfo w
       setInfo w ⟨idx, lowlink, false⟩
     set { ← get with stack := s } 
-    pure scc
+    pure $ scc::sccs
   else pure []
 
-def tarjanM.run : tarjanM $ List $ List Vertex := do 
+def run : sccM $ List $ List Vertex := do 
   (← read).vertices.foldlM (fun acc v => do
     match (← get).info.find? v with 
     | some ⟨idx, _, _⟩ => pure acc 
     | none => 
     match ← strongConnect v with 
       | [] => pure $ acc
-      | [a] => pure $ acc
-      | as => pure $ as::acc
+      | as => pure $ as.filter (fun x => x.length != 1) ++ acc
   ) []
 
+end sccM
 
-def tarjans? (g : Graph) : Except String $ List $ List Vertex :=
-  match EStateM.run (ReaderT.run tarjanM.run g) default with 
+def scc? (g : Graph) : Except String $ List $ List Vertex :=
+  match EStateM.run (ReaderT.run sccM.run g) default with 
   | .ok res state => .ok res 
   | .error e _ => .error e
 
-def tarjans! (g : Graph) : List $ List Vertex :=
-  match EStateM.run (ReaderT.run tarjanM.run g) default with 
+def scc! (g : Graph) : List $ List Vertex :=
+  match EStateM.run (ReaderT.run sccM.run g) default with 
   | .ok res state => res 
-  | .error e _ => panic! "bruh"
-
-end tarjanM
+  | .error e _ => panic! e
 
 end Graph
