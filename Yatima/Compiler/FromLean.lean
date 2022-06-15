@@ -433,7 +433,7 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if [`QQQ, `WWW].contains name then
+    if name.toString.startsWith "QQQ" || name.toString.startsWith "WWW" then
       let env ← read
       let cache := (← get).cache
       let dbg := printLean || printYatima
