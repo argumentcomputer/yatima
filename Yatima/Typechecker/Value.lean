@@ -8,7 +8,7 @@ namespace Yatima.Typechecker
 -- environment. Finally, environments are maps that gives free variables of
 -- expressions their values. When we talk about "unevaluated expressions",
 -- you should think of these expression/environment pairs
-unsafe structure Env (Value : Type) where
+structure Env (Value : Type) where
   -- The environment will bind free variables to different things, depending on
   -- the evaluation strategy.
   -- 1) Strict evaluation: binds free variables to values
@@ -20,22 +20,21 @@ unsafe structure Env (Value : Type) where
   -- environment for universe variables as well:
   univs : List Univ
 
--- The arguments of a stuck sequence of applications `(h a1 ... an)`
-unsafe abbrev Args := List Expr
-
+mutual
 -- A neutral term is either a variable or a constant with not enough arguments to reduce.
--- They appear as the head of a stuck application
-unsafe inductive Neutral
-| fvar : Name → Nat → Neutral
-| const : Name → Const → List Univ → Neutral
+-- They appear as the head of a stuck application.
+inductive Neutral
+-- Here variables also carry their types, but this is purely for an optimization
+| fvar : Name → Nat → Thunk Value → Neutral
+| const : Hash → Name → Const → List Univ → Neutral
 
 -- Yatima values. We assume that values are only reduced from well-typed expressions.
-unsafe inductive Value
+inductive Value
 -- Type universes. It is assumed `Univ` is reduced/simplified
 | sort : Univ → Value
 -- Values can only be an application if its a stuck application. That is, if
 -- the head of the application is neutral
-| app : Neutral → Args → Value
+| app : Neutral → List (Thunk Value) → Value
 --  Lambdas are unevaluated expressions with environments for their free
 --  variables apart from their argument variables
 | lam : BinderInfo → Expr → Env Value → Value
@@ -44,5 +43,13 @@ unsafe inductive Value
 | pi : BinderInfo → Thunk Value → Expr → Env Value → Value
 | lit : Literal → Value
 | lty : LitType → Value
+deriving Inhabited
+end
+
+-- The arguments of a stuck sequence of applications `(h a1 ... an)`
+abbrev Args := List (Thunk Value)
+
+instance : Inhabited (Thunk Value) where
+  default := Thunk.mk (fun _ => Value.sort Univ.zero)
 
 end Yatima.Typechecker

@@ -68,7 +68,7 @@ structure Recursor (Expr : Type) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : RBMap Hash (RecursorRule Expr) Ord.compare
+  rules   : List (Hash × (RecursorRule Expr))
   k       : Bool
   safe    : Bool
 
@@ -79,17 +79,17 @@ structure Quotient (Expr : Type) where
   kind : QuotKind
 
 mutual
-unsafe inductive Const
-  | «axiom»     : Hash → (Axiom Expr) → Const
-  | «theorem»   : Hash → (Theorem Expr) → Const
-  | «inductive» : Hash → (Inductive Expr) → Const
-  | opaque      : Hash → (Opaque Expr) → Const
-  | definition  : Hash → (Definition Expr) → Const
-  | constructor : Hash → (Constructor Expr) → Const
-  | recursor    : Hash → (Recursor Expr) → Const
-  | quotient    : Hash → (Quotient Expr) → Const
+inductive Const
+  | «axiom»     : (Axiom Expr) → Const
+  | «theorem»   : (Theorem Expr) → Const
+  | «inductive» : (Inductive Expr) → Const
+  | opaque      : (Opaque Expr) → Const
+  | definition  : (Definition Expr) → Const
+  | constructor : (Constructor Expr) → Const
+  | recursor    : (Recursor Expr) → Const
+  | quotient    : (Quotient Expr) → Const
 
-unsafe inductive Expr
+inductive Expr
   | var   : Hash → Name → Nat → Expr
   | sort  : Hash → Univ → Expr
   | const : Hash → Name → Const → List Univ → Expr
@@ -101,6 +101,7 @@ unsafe inductive Expr
   | lty   : Hash → LitType → Expr
   | fix   : Hash → Name → Expr → Expr
   | proj  : Hash → Nat → Expr → Expr
+  deriving Inhabited
 end
 
 end Yatima.Typechecker
