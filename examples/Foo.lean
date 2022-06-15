@@ -1,15 +1,20 @@
-prelude
+-- inductive Bar
+--   | hi | bye
 
-def id (A : Type) (x : A) : A := x
+-- def bar := Bar.hi
 
-inductive Unit where
-| unit
+-- inductive MyNat
+-- | zero : MyNat
+-- | succ : MyNat → MyNat
 
-inductive Bar
-  | hi | bye
+mutual
 
-def bar := Bar.hi
+  def QQQ : Nat → Nat
+    | 0     => 0
+    | n + 1 => 1 + WWW n
+  
+  def WWW : Nat → Nat
+    | 0     => 0
+    | n + 1 => 1 + QQQ n
 
-inductive MyNat
-| zero : MyNat
-| succ : MyNat → MyNat
+end

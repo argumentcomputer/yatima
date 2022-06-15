@@ -330,10 +330,13 @@ mutual
     let cache := (← get).cache
     match cache.find? name with
     | none =>
+      dbg_trace s!"[ALREADY IN CACHE] processing {name}"
       let const ← toYatimaConst const
       set { ← get with cache := cache.insert name const }
       pure const
-    | some const => pure const
+    | some const =>
+      dbg_trace s!"[NOT IN CACHE YET] processing {name}"
+      pure const
 
 end
 
@@ -430,18 +433,19 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    let env ← read
-    let cache := (← get).cache
-    let dbg := printLean || printYatima
-    if dbg then dbg_trace s!"\nProcessing: {name}"
-    if printLean then
-      dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst const}"
-    let const ← toYatimaConst const
-    if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst const}"
-    addToEnv $ .const_cache (← constToCid const) const
+    if [`QQQ, `WWW].contains name then
+      let env ← read
+      let cache := (← get).cache
+      let dbg := printLean || printYatima
+      if dbg then dbg_trace s!"\nProcessing: {name}"
+      if printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let const ← toYatimaConst const
+      if printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
+      addToEnv $ .const_cache (← constToCid const) const
   return (← get).env
 
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
