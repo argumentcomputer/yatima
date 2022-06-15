@@ -1,6 +1,14 @@
 import Yatima.Graph.Tree
 
-namespace Lean
+namespace Std.RBMap
+
+def findM {ordering : α → α → Ordering} [Monad m] [MonadExcept ε m] 
+  (rbmap : RBMap α β ordering) (a : α) (e : ε) : m β :=
+  match rbmap.find? a with 
+  | some b => pure b
+  | none => throw e
+
+end Std.RBMap 
 
 namespace List
 
@@ -10,7 +18,14 @@ def eraseDup [BEq α] : List α → List α
     let exs := eraseDup xs
     if exs.contains x then exs else x::exs
 
+def splitAtP [BEq α] (p : α → Bool) (l : List α) : List α × List α :=
+  match l.dropWhile p with 
+  | [] => panic! "shouldnt happen" --
+  | a::as => ⟨l.takeWhile p ++ [a], as⟩
+
 end List
+
+namespace Lean
 
 open Std (RBMap)
 
@@ -28,6 +43,7 @@ mutual
 
   partial def getExprRefs (expr : Expr) : List Name :=
     match expr with 
+    | .mdata _ exp _ => getExprRefs exp
     | .const name _ _ => [name]
     | .app func arg _ => 
       getExprRefs func ++  getExprRefs arg
@@ -54,7 +70,8 @@ mutual
     | .inductInfo val => 
       getExprRefs val.type ++ val.ctors ++ val.all
     | .recInfo    val => 
-      getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor
+      getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
+                  ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
     | .quotInfo   val => getExprRefs val.type
 
 end
@@ -125,7 +142,7 @@ def inDegree (g : Graph) (v : Vertex) : Option Nat :=
   g.inDegrees.find? v
 
 structure dfsState where 
- visited : RBMap Name Bool compare
+  visited : RBMap Name Bool compare
 
 abbrev dfsM := ReaderT Graph $ EStateM String dfsState
 
@@ -137,7 +154,7 @@ partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
     match (← read).find? v with 
     | some vs => do
       let ts ← vs.mapM generate
-      pure $ .node v $ ts.filter Tree.isEmpty
+      pure $ .node v $ ts.filter $ not ∘ Tree.isEmpty
     | none => throw s!"Vertex {v} not in graph"
 
 def generateVs (vs : List Vertex) : dfsM $ List $ Tree Vertex := do 
@@ -148,12 +165,111 @@ def dfsM.run (g : Graph) (v : Vertex) : Except String $ Tree Vertex  :=
   | .ok res state => .ok res 
   | .error e _ => .error e
 
-def dfs (g : Graph) (vs : List Vertex) : Except String $ List $ Tree Vertex :=
+def dfs? (g : Graph) (vs : List Vertex) : Except String $ List $ Tree Vertex :=
   match EStateM.run (ReaderT.run (generateVs vs) g) { visited := .empty } with 
   | .ok res state => .ok res 
   | .error e _ => .error e
 
-def dff (g : Graph) : Except String $ List $ Tree Vertex :=
-  g.dfs g.vertices 
+def dfs! (g : Graph) (vs : List Vertex) : List $ Tree Vertex :=
+  match EStateM.run (ReaderT.run (generateVs vs) g) { visited := .empty } with 
+  | .ok res state => res 
+  | .error e _ => panic! "bruh"
+
+def dff? (g : Graph) : Except String $ List $ Tree Vertex :=
+  g.dfs? g.vertices 
+
+def dff! (g : Graph) : List $ Tree Vertex :=
+  g.dfs! g.vertices
+
+def preord (g : Graph) : List Vertex :=
+  Tree.preorderF g.dff!
+
+def postord (g : Graph) : List Vertex :=
+  Tree.postorderF (dff! g)
+
+-- doesn't work lmao
+-- def scc (g : Graph) : List $ Tree Vertex :=
+--   dfs! (transposeG g) (postord g).reverse
+
+structure NodeInfo where
+  index : Nat
+  lowlink : Nat
+  onStack : Bool
+
+structure tarjanState where 
+  info : RBMap Name NodeInfo compare
+  index : Nat 
+  stack : List Name
+
+instance : Inhabited tarjanState := 
+  { default := ⟨.empty, default, default⟩ }
+
+abbrev tarjanM := ReaderT Graph $ EStateM String tarjanState
+
+namespace tarjanM
+
+def getInfo (v : Vertex) : tarjanM NodeInfo := do 
+  (← get).info.findM v s!"Vertex {v} not found" 
+
+def setInfo (v : Vertex) (info : NodeInfo) : tarjanM Unit := do
+  set { ← get with info := (← get).info.insert v info }
+
+partial def strongConnect (v : Vertex) : tarjanM (List Vertex) := do 
+  let idx := (← get).index
+  set ({ info := (← get).info.insert v ⟨idx, idx, true⟩, 
+         index := idx + 1, 
+         stack := v :: (← get).stack } : tarjanState)
+  
+  let edges ← match (← read).find? v with 
+              | some vs => pure vs
+              | none => throw "bruh"
+
+  for w in edges do 
+    match (← get).info.find? w with 
+    | some ⟨widx, wlowlink, won⟩ => do 
+      if won then 
+        let ⟨vidx, vlowlink, von⟩ ← getInfo v
+        setInfo v ⟨vidx, min vlowlink widx, von⟩
+    | none => do
+      let _ ← strongConnect w 
+      let ⟨vidx, vlowlink, von⟩ ← getInfo v 
+      let ⟨_, wlowlink, _⟩ ← getInfo w
+      setInfo v ⟨vidx, min vlowlink wlowlink, von⟩
+
+  let ⟨vidx, vlowlink, von⟩ ← getInfo v
+  
+  if vidx == vlowlink then do
+    let s := (← get).stack
+    let (scc, s) := s.splitAtP fun w => w != v 
+    scc.forM fun w => do 
+      let ⟨idx, lowlink, on⟩ ← getInfo w
+      setInfo w ⟨idx, lowlink, false⟩
+    set { ← get with stack := s } 
+    pure scc
+  else pure []
+
+def tarjanM.run : tarjanM $ List $ List Vertex := do 
+  (← read).vertices.foldlM (fun acc v => do
+    match (← get).info.find? v with 
+    | some ⟨idx, _, _⟩ => pure acc 
+    | none => 
+    match ← strongConnect v with 
+      | [] => pure $ acc
+      | [a] => pure $ acc
+      | as => pure $ as::acc
+  ) []
+
+
+def tarjans? (g : Graph) : Except String $ List $ List Vertex :=
+  match EStateM.run (ReaderT.run tarjanM.run g) default with 
+  | .ok res state => .ok res 
+  | .error e _ => .error e
+
+def tarjans! (g : Graph) : List $ List Vertex :=
+  match EStateM.run (ReaderT.run tarjanM.run g) default with 
+  | .ok res state => res 
+  | .error e _ => panic! "bruh"
+
+end tarjanM
 
 end Graph

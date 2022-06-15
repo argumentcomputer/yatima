@@ -1,4 +1,3 @@
-import Yatima.Compiler.CompileM
 import Yatima.Compiler.Printing
 import Yatima.Compiler.Utils
 import Yatima.ToIpld

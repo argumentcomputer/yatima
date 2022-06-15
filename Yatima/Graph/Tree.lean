@@ -33,6 +33,7 @@ import Lean
 inductive Tree (α : Type) where 
   | empty : Tree α
   | node : α → List (Tree α) → Tree α
+  deriving BEq, Repr
 
 namespace Tree
 open Lean
@@ -44,6 +45,14 @@ def isEmpty (ta : Tree α) : Bool :=
 
 instance : Inhabited (Tree α) :=
   { default := .empty }
+
+partial def toString [ToString α] (ta : Tree α) : String := 
+  match ta with 
+  | .empty => "[]"
+  | .node x ts => s!"[ node := {x} \n" ++ "\n".intercalate (ts.map toString) ++ "]"
+
+instance [ToString α] : ToString (Tree α) :=
+  { toString := toString }
 
 partial def size (ta : Tree α) : Nat :=
   match ta with
@@ -74,6 +83,18 @@ mutual
   
   partial def preorderF (ts : List $ Tree α) : List α :=
     (ts.map preorder).join
+
+end
+
+mutual 
+
+  partial def postorder (ta : Tree α) : List α :=
+    match ta with 
+    | .empty => []
+    | .node x ts => postorderF ts ++ [x]
+  
+  partial def postorderF (ts : List $ Tree α) : List α :=
+    (ts.map postorder).join
 
 end
 

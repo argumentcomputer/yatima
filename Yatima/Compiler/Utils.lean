@@ -1,6 +1,5 @@
-import Lean
 import Yatima.Compiler.CompileM
-import Yatima.Graph
+import Yatima.Graph.Graph
 
 namespace Yatima.Compiler
 /- mergesort implementation based on https://hackage.haskell.org/package/base-4.16.1.0/docs/src/Data-OldList.html#sort -/
