@@ -108,11 +108,9 @@ partial def leqUniv (a b : Univ) (diff : Int) : Bool :=
     -- 1) idx <- zero
     -- 2) idx <- succ (var idx)
     -- In the first substitution, we know `a` becomes `zero`
-    if leqUniv Univ.zero (instReduce b idx Univ.zero) diff
-    then
-      let succ := Univ.succ (Univ.var nam idx)
-      leqUniv (instReduce a idx succ) (instReduce b idx succ) diff
-    else false
+    leqUniv Univ.zero (instReduce b idx Univ.zero) diff &&
+    let succ := Univ.succ (Univ.var nam idx)
+    leqUniv (instReduce a idx succ) (instReduce b idx succ) diff
   | Univ.imax c (Univ.max e f), _ =>
     -- Here we use the relationship
     -- imax c (max e f) = max (imax c e) (imax c f)
@@ -125,11 +123,9 @@ partial def leqUniv (a b : Univ) (diff : Int) : Bool :=
     leqUniv new_max b diff
   -- Analogous to previous case
   | _, Univ.imax _ (Univ.var nam idx) =>
-    if leqUniv (instReduce a idx Univ.zero) Univ.zero diff
-    then
-      let succ := Univ.succ (Univ.var nam idx)
-      leqUniv (instReduce a idx succ) (instReduce b idx succ) diff
-    else false
+    leqUniv (instReduce a idx Univ.zero) Univ.zero diff &&
+    let succ := Univ.succ (Univ.var nam idx)
+    leqUniv (instReduce a idx succ) (instReduce b idx succ) diff
   | _, Univ.imax c (Univ.max e f) =>
     let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
     leqUniv a new_max diff
@@ -141,5 +137,19 @@ partial def leqUniv (a b : Univ) (diff : Int) : Bool :=
 -- The equality algorithm. Assumes `a` and `b` are already reduced
 partial def equalUniv (a b : Univ) : Bool :=
   leqUniv a b 0 && leqUniv b a 0
+
+def equalUnivs (us us' : List Univ) : Bool :=
+  match us, us' with
+  | [], [] => true
+  | u::us, u'::us' => equalUniv u u' && equalUnivs us us'
+  | _, _ => false
+
+-- Faster equality for zero, assumes reduced `a`
+def univIsZero (a : Univ) : Bool :=
+  match a with
+  | .zero => true
+  -- all other cases are false since they are either `Succ` or a reduced expression with free variables,
+  -- which are never semantically equal to zero
+  | _ => false
 
 end Yatima.Typechecker

@@ -1,4 +1,3 @@
-import Yatima.Typechecker.Univ
 import Yatima.Typechecker.Expr
 
 namespace Yatima.Typechecker
@@ -26,7 +25,7 @@ mutual
 inductive Neutral
 -- Here variables also carry their types, but this is purely for an optimization
 | fvar : Name → Nat → Thunk Value → Neutral
-| const : Hash → Name → Const → List Univ → Neutral
+| const : Name → Const → List Univ → Neutral
 
 -- Yatima values. We assume that values are only reduced from well-typed expressions.
 inductive Value
@@ -37,10 +36,10 @@ inductive Value
 | app : Neutral → List (Thunk Value) → Value
 --  Lambdas are unevaluated expressions with environments for their free
 --  variables apart from their argument variables
-| lam : BinderInfo → Expr → Env Value → Value
+| lam : Name → BinderInfo → Expr → Env Value → Value
 --  Pi types will have thunks for their domains and unevaluated expressions
 --  analogous to lambda bodies for their codomains
-| pi : BinderInfo → Thunk Value → Expr → Env Value → Value
+| pi : Name → BinderInfo → Thunk Value → Expr → Env Value → Value
 | lit : Literal → Value
 | lty : LitType → Value
 deriving Inhabited
