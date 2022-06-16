@@ -35,6 +35,7 @@ def withName (name : Name) : CompileM α → CompileM α :=
 
 def withLevelsAndResetBindCtx (levels : List Lean.Name) :
     CompileM α → CompileM α :=
+  -- todo: maybe we want to reset `order` here as well
   withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, e.order⟩
 
 def withOrder (order : Std.HashMap Lean.Name Nat) : CompileM α → CompileM α :=
