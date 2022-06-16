@@ -28,13 +28,11 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Exc
   | .ok _ ste  => .ok ste.env
   | .error e _ => .error e
 
-def withResetBindCtx : CompileM α → CompileM α :=
-  withReader fun e => ⟨e.constMap, e.univCtx, [], e.cycles⟩
-
 def bind (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles⟩
 
-def bindLvls (lvls : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.cycles⟩
+def withBindLevelsAndResetBindCtx (lvls : List Lean.Name) :
+    CompileM α → CompileM α :=
+  withReader $ fun e => ⟨e.constMap, lvls, [], e.cycles⟩
 
 end Yatima.Compiler

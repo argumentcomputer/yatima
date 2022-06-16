@@ -225,10 +225,9 @@ mutual
     | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaConst (const: Lean.ConstantInfo) :
-      CompileM Const := 
-    withResetBindCtx $ bindLvls const.levelParams $ do
+      CompileM Const := withBindLevelsAndResetBindCtx const.levelParams do
     match const with
-    | .axiomInfo struct => 
+    | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -264,18 +263,18 @@ mutual
         safe  := not struct.isUnsafe }
     | .defnInfo struct =>
       -- figure out if we're in mutual definition
-      let mutualOrNot? : Unit ← match (← read).cycles.find? struct.name with 
-      | some mutuals => do 
-        let mutuals ← mutuals.mapM fun name => do 
+      match (← read).cycles.find? struct.name with 
+      | some mutualNames =>
+        let mutualDefs ← mutualNames.mapM fun name => do 
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn 
-          | _ => throw ""
-        -- sort
-        let mutuals ← sortDefs mutuals
+          -- there shouldn't be anything else other than definitions here, so:
+          | _ => unreachable!
+        let mutualDefs ← sortDefs mutualDefs
         -- process somehow?
         -- well what do we return? the `mutualDefnBlock`?
         throw "complete me"
-      | none => do -- if we aren't in a mutual everything is normal
+      | none =>
         let type ← toYatimaExpr none struct.type
         let typeCid ← exprToCid type
         addToEnv $ .expr_cache typeCid type
@@ -307,7 +306,7 @@ mutual
           fields := struct.numFields
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{struct.induct}'"
-    | .inductInfo struct => 
+    | .inductInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -448,7 +447,6 @@ end
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
-  
   constMap.forM fun name const => do
     if name.toString.startsWith "QQQ" || name.toString.startsWith "WWW" then
       let env ← read
