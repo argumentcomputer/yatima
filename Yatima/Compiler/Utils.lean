@@ -43,7 +43,7 @@ mutual
   | [] => List.cons (as [a]) <$> sequencesM cmp []
 end
 
-def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) := do
+def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) :=
   sequencesM cmp xs >>= mergeAllM cmp
 
 instance : HMul Ordering Ordering Ordering where

@@ -24,7 +24,7 @@ def eraseDup [BEq α] : List α → List α
 
 def splitAtP [BEq α] (p : α → Bool) (l : List α) : List α × List α :=
   match l.dropWhile p with 
-  | [] => panic! "shouldnt happen" --
+  | [] => unreachable!
   | a::as => ⟨l.takeWhile p ++ [a], as⟩
 
 end List
@@ -38,10 +38,11 @@ instance : Ord Name :=
 
 abbrev ReferenceMap := RBMap Name (List Name) Ord.compare
 
-def ReferenceMap.empty := @RBMap.empty Name (List Name) Ord.compare
+def ReferenceMap.empty : ReferenceMap :=
+  .empty
 
 instance : Inhabited ReferenceMap := 
-  { default := ReferenceMap.empty }
+  { default := .empty }
 
 mutual 
 
@@ -265,12 +266,12 @@ end sccM
 
 def scc? (g : Graph) : Except String $ List $ List Vertex :=
   match EStateM.run (ReaderT.run sccM.run g) default with 
-  | .ok res state => .ok res 
+  | .ok  res _ => .ok res 
   | .error e _ => .error e
 
 def scc! (g : Graph) : List $ List Vertex :=
   match EStateM.run (ReaderT.run sccM.run g) default with 
-  | .ok res state => res 
+  | .ok  res _ => res 
   | .error e _ => panic! e
 
 end Graph

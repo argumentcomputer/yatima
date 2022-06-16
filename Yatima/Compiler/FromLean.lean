@@ -1,3 +1,4 @@
+import Yatima.Graph.Graph
 import Yatima.Compiler.Printing
 import Yatima.Compiler.Utils
 import Yatima.ToIpld
@@ -197,10 +198,10 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
-    withReader (fun e => ⟨e.constMap, const.levelParams, []⟩) $
+  partial def toYatimaConst (const: Lean.ConstantInfo) :
+      CompileM Const := withResetBindCtx do
     match const with
-    | .axiomInfo struct => do
+    | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -209,7 +210,7 @@ mutual
         lvls := struct.levelParams.map .ofLeanName
         type := typeCid
         safe := not struct.isUnsafe }
-    | .thmInfo struct => do
+    | .thmInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -221,7 +222,7 @@ mutual
         lvls  := struct.levelParams.map .ofLeanName
         type  := typeCid
         value := valueCid }
-    | .opaqueInfo struct => do
+    | .opaqueInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -234,7 +235,7 @@ mutual
         type  := typeCid
         value := valueCid
         safe  := not struct.isUnsafe }
-    | .defnInfo struct => do
+    | .defnInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -247,7 +248,7 @@ mutual
         type   := typeCid
         value  := valueCid
         safety := struct.safety }
-    | .ctorInfo struct => do
+    | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -266,7 +267,7 @@ mutual
           fields := struct.numFields
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{struct.induct}'"
-    | .inductInfo struct => do
+    | .inductInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -291,7 +292,7 @@ mutual
         refl := struct.isReflexive
         nest := struct.isNested
         safe := not struct.isUnsafe }
-    | .recInfo struct => do
+    | .recInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -315,7 +316,7 @@ mutual
           k := struct.k
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{inductName}'"
-    | .quotInfo struct => do
+    | .quotInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -457,6 +458,14 @@ def extractEnv
   (printYatima : Bool)
     : Except String Env :=
   let map := filterUnsafeConstants constMap
-  CompileM.run ⟨map, [], []⟩ default (buildEnv map printLean printYatima)
+  let g : Graph := Lean.referenceMap map
+  match g.scc? with
+  | .ok vss =>
+    let nss : List (List Name) :=
+      vss.map fun vs =>
+        vs.map fun (v : Lean.Name) => (v : Name) -- forcing coercion
+    dbg_trace nss
+    CompileM.run ⟨map, [], [], nss⟩ default (buildEnv map printLean printYatima)
+  | .error e => throw e
 
 end Yatima.Compiler
