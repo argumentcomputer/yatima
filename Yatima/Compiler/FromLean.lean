@@ -200,6 +200,7 @@ mutual
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
     | .const nam lvls _ =>
+      -- todo: also handle the case when `nam` is in a cycle
       if recr == some nam then
         return .var nam (← read).bindCtx.length
       else do
@@ -215,17 +216,32 @@ mutual
             return .const nam constId univsCids
           | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
-    | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (bind nam $ toYatimaExpr recr bod)
-    | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr recr dom) <*> (bind nam $ toYatimaExpr recr img)
-    | .letE nam typ exp bod _ => .letE nam <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (bind nam $ toYatimaExpr recr bod)
+    | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName nam $ toYatimaExpr recr bod)
+    | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr recr dom) <*> (withName nam $ toYatimaExpr recr img)
+    | .letE nam typ exp bod _ => .letE nam <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (withName nam $ toYatimaExpr recr bod)
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr recr e
     | .proj _ idx exp _ => .proj idx <$> toYatimaExpr recr exp
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
+  partial def toYatimaDef (defn : Lean.DefinitionVal) : CompileM Definition := do
+    let type ← toYatimaExpr none defn.type
+    let typeCid ← exprToCid type
+    addToEnv $ .expr_cache typeCid type
+    -- todo: check if defn.name is in a cycle (via `CompileEnv.order`)
+    let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
+    let valueCid ← exprToCid value
+    addToEnv $ .expr_cache valueCid value
+    return {
+      name   := defn.name
+      lvls   := defn.levelParams.map .ofLeanName
+      type   := typeCid
+      value  := valueCid
+      safety := defn.safety }
+
   partial def toYatimaConst (const: Lean.ConstantInfo) :
-      CompileM Const := withBindLevelsAndResetBindCtx const.levelParams do
+      CompileM Const := withLevelsAndResetBindCtx const.levelParams do
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
@@ -267,26 +283,14 @@ mutual
       | some mutualNames =>
         let mutualDefs ← mutualNames.mapM fun name => do 
           match (← read).constMap.find? name with 
-          | some (.defnInfo defn) => pure defn 
+          | some (.defnInfo defn) => pure defn
           -- there shouldn't be anything else other than definitions here, so:
           | _ => unreachable!
         let mutualDefs ← sortDefs mutualDefs
-        -- process somehow?
-        -- well what do we return? the `mutualDefnBlock`?
-        throw "complete me"
-      | none =>
-        let type ← toYatimaExpr none struct.type
-        let typeCid ← exprToCid type
-        addToEnv $ .expr_cache typeCid type
-        let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
-        let valueCid ← exprToCid value
-        addToEnv $ .expr_cache valueCid value
-        return .definition {
-          name   := struct.name
-          lvls   := struct.levelParams.map .ofLeanName
-          type   := typeCid
-          value  := valueCid
-          safety := struct.safety }
+        -- todo: fill this sorry with a hashmap of each name to its position in the cycle, starting from 0
+        let definitions ← withOrder sorry $ mutualDefs.mapM toYatimaDef
+        return .mutBlock ⟨definitions⟩
+      | none => return .definition $ ← toYatimaDef struct
     | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
@@ -480,7 +484,7 @@ def extractEnv
         vs.map fun v => (v, vs)
     dbg_trace nss
     CompileM.run 
-      ⟨map, [], [], Std.RBMap.ofList nss.join⟩ 
+      ⟨map, [], [], Std.RBMap.ofList nss.join, .empty⟩
       default 
       (buildEnv map printLean printYatima)
   | .error e => throw e
