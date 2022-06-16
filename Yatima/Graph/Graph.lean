@@ -73,7 +73,7 @@ mutual
     | .ctorInfo   val => 
       val.induct :: getExprRefs val.type
     | .inductInfo val => 
-      getExprRefs val.type ++ val.ctors ++ val.all
+      getExprRefs val.type ++ val.all
     | .recInfo    val => 
       getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
                   ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join

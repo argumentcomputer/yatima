@@ -13,11 +13,12 @@ structure CompileState where
 instance : Inhabited CompileState where
   default := ⟨default, .empty⟩
 
+open Std (RBMap) in
 structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  cycles   : List (List Name)
+  cycles   : RBMap Lean.Name (List Lean.Name) compare
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -32,5 +33,8 @@ def withResetBindCtx : CompileM α → CompileM α :=
 
 def bind (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles⟩
+
+def bindLvls (lvls : List Lean.Name) : CompileM α → CompileM α :=
+  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.cycles⟩
 
 end Yatima.Compiler
