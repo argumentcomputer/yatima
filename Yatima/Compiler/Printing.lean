@@ -73,15 +73,17 @@ mutual
     return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
            s!"  {← printExpr value}"
 
+  partial def printTheorem (thm : Theorem) : CompileM String := do 
+    let type ← getExpr thm.type thm.name
+    let value ← getExpr thm.value thm.name
+    return s!"theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
+           s!"  {← printExpr value}" 
+  
   partial def printYatimaConst : Const → CompileM String
     | .axiom ax => do
       let type ← getExpr ax.type ax.name
       return s!"{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
-    | .theorem thm => do
-      let type ← getExpr thm.type thm.name
-      let value ← getExpr thm.value thm.name
-      return s!"theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
-             s!"  {← printExpr value}" 
+    | .theorem thm => printTheorem thm
     | .inductive ind => do
       let type ← getExpr ind.type ind.name
       return s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr type} :=\n" ++
@@ -108,11 +110,16 @@ mutual
       let type ← getExpr quot.type quot.name
       return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
-    | .mutBlock mutBlock => do
-      let defStrings ← mutBlock.defs.mapM printDefinition
+    | .mutDefBlock mutDefBlock => do
+      let defStrings ← mutDefBlock.defs.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
     | .mutDef mutDef =>
       return s!"mut {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
+    | .mutThmBlock mutThmBlock => do
+      let ThmStrings ← mutThmBlock.thms.mapM printTheorem
+      return s!"mutual\n{"\n".intercalate ThmStrings}\nend"
+    | .mutThm mutThm =>
+      return s!"mut {mutThm.name}@{mutThm.idx} {← printYatimaConst (← getConst mutThm.block)}"
 
 end
 

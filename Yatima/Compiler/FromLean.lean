@@ -293,7 +293,7 @@ mutual
           set { ← get with mutIdx := (← get).mutIdx.insert name i }
           i := i + 1
         let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
-        return .mutBlock ⟨definitions⟩
+        return .mutDefBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef struct
     | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
