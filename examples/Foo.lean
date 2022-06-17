@@ -1,4 +1,4 @@
-import Lean
+
 -- inductive Bar
 --   | hi | bye
 

@@ -7,13 +7,14 @@ namespace Yatima.Compiler
 
 open Std (RBMap) in
 structure CompileState where
-  env   : Yatima.Env
-  cache : RBMap Name Const Ord.compare
+  env    : Yatima.Env
+  cache  : RBMap Name Const Ord.compare
+  mutIdx : RBMap Lean.Name Nat compare
 
 instance : Inhabited CompileState where
-  default := ⟨default, .empty⟩
+  default := ⟨default, .empty, .empty⟩
 
-open Std (RBMap HashMap) in
+open Std (RBMap) in
 structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
@@ -33,10 +34,9 @@ def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
     ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles, e.order⟩
 
-def withLevelsAndResetBindCtx (levels : List Lean.Name) :
+def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  -- todo: maybe we want to reset `order` here as well
-  withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, e.order⟩
+  withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, []⟩
 
 def withOrder (order : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, e.cycles, order⟩
