@@ -77,6 +77,28 @@ structure DefinitionMeta where
   type  : ExprMetaCid
   value : ExprMetaCid
 
+structure MutualDefinitionBlock where
+  defs : List Definition
+
+structure MutualDefinitionBlockAnon where
+  defs : List DefinitionAnon
+
+structure MutualDefinitionBlockMeta where
+  defs : List DefinitionMeta
+
+structure MutualDefinition where
+  block : ConstCid
+  name  : Name
+  idx   : Nat
+
+structure MutualDefinitionAnon where
+  block : ConstAnonCid
+  idx   : Nat
+
+structure MutualDefinitionMeta where
+  block : ConstMetaCid
+  name  : Name
+
 structure Inductive where
   name    : Name
   lvls    : List Name
@@ -205,6 +227,8 @@ inductive Const
   | constructor : Constructor → Const
   | recursor    : Recursor → Const
   | quotient    : Quotient → Const
+  | mutBlock    : MutualDefinitionBlock → Const
+  | mutDef      : MutualDefinition → Const
 
 inductive ConstAnon
   | «axiom»     : AxiomAnon → ConstAnon
@@ -215,6 +239,8 @@ inductive ConstAnon
   | constructor : ConstructorAnon → ConstAnon
   | recursor    : RecursorAnon → ConstAnon
   | quotient    : QuotientAnon → ConstAnon
+  | mutBlock    : MutualDefinitionBlockAnon → ConstAnon
+  | mutDef      : MutualDefinitionAnon → ConstAnon
 
 inductive ConstMeta
   | «axiom»     : AxiomMeta → ConstMeta
@@ -225,6 +251,11 @@ inductive ConstMeta
   | constructor : ConstructorMeta → ConstMeta
   | recursor    : RecursorMeta → ConstMeta
   | quotient    : QuotientMeta → ConstMeta
+  | mutBlock    : MutualDefinitionBlockMeta → ConstMeta
+  | mutDef      : MutualDefinitionMeta → ConstMeta
+
+def Definition.toAnon (d: Definition) : DefinitionAnon :=
+  ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
 
 def Const.toAnon : Const → ConstAnon
   | .axiom a => .axiom ⟨a.lvls.length, a.type.anon, a.safe⟩
@@ -232,33 +263,54 @@ def Const.toAnon : Const → ConstAnon
   | .inductive i => .inductive ⟨i.lvls.length, i.type.anon, i.params, i.indices,
     i.ctors.map fun (n, e) => (n, e.anon), i.recr, i.safe, i.refl, i.nest⟩
   | .opaque o => .opaque ⟨o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
-  | .definition d => .definition ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
+  | .definition d => .definition d.toAnon
   | .constructor c => .constructor ⟨c.lvls.length, c.type.anon, c.ind.anon,
     c.idx, c.params, c.fields, c.safe⟩
   | .recursor r => .recursor ⟨r.lvls.length, r.type.anon, r.ind.anon, r.params,
     r.indices, r.motives, r.minors,
     r.rules.map fun rl => ⟨rl.ctor.anon, rl.fields, rl.rhs.anon⟩, r.k, r.safe⟩
   | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
+  | .mutBlock x => .mutBlock ⟨List.map Definition.toAnon x.defs⟩
+  | .mutDef x => .mutDef ⟨x.block.anon, x.idx⟩
+
+def Definition.toMeta (d: Definition) : DefinitionMeta :=
+  ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
 
 def Const.toMeta : Const → ConstMeta
   | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
   | .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
   | .inductive i => .inductive ⟨i.name, i.lvls, i.type.meta, i.ctors.map (·.2.meta)⟩
   | .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta⟩
-  | .definition d => .definition ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
+  | .definition d => .definition d.toMeta
   | .constructor c => .constructor ⟨c.name, c.lvls, c.type.meta, c.ind.meta⟩
   | .recursor r => .recursor ⟨r.name, r.lvls, r.type.meta, r.ind.meta,
     r.rules.map fun rl => ⟨rl.ctor.meta, rl.rhs.meta⟩⟩
   | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
+  | .mutBlock x => .mutBlock ⟨List.map Definition.toMeta x.defs⟩
+  | .mutDef x => .mutDef ⟨x.block.meta, x.name⟩
 
 def Const.name : Const → Name
-  | .axiom a => a.name
-  | .theorem t => t.name
-  | .inductive i => i.name
-  | .opaque o => o.name
-  | .definition d => d.name
+  | .axiom       a => a.name
+  | .theorem     t => t.name
+  | .inductive   i => i.name
+  | .opaque      o => o.name
+  | .definition  d => d.name
   | .constructor c => c.name
   | .recursor r => r.name
   | .quotient q => q.name
+  | .mutBlock x => s!"mutual {x.defs.map (·.name)}" -- TODO
+  | .mutDef x => x.name
+
+def Const.ctorName : Const → String
+  | .axiom a => "axiom"
+  | .theorem t => "theorem"
+  | .inductive i => "inductive"
+  | .opaque o => "opaque"
+  | .definition d => "definition"
+  | .constructor c => "constructor"
+  | .recursor r => "recursor"
+  | .quotient q => "quotient"
+  | .mutBlock x => "mutBlock"
+  | .mutDef x => "mutDef"
 
 end Yatima

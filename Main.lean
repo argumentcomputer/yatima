@@ -4,7 +4,7 @@ import Yatima.Compiler.FromLean
 def List.pop : (l : List α) → l ≠ [] → α × List α
   | a :: as, _ => (a, as)
 
-open Yatima.Compiler.FromLean in
+open Yatima.Compiler in
 def main (args : List String) : IO UInt32 := do
   if h : args ≠ [] then
     let (cmd, args) := args.pop h
