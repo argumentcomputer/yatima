@@ -52,4 +52,14 @@ instance : HMul Ordering Ordering Ordering where
   | .lt, _ => .lt
   | .eq, x => x
 
+def printInfo : CompileM Unit := do 
+  dbg_trace "\n\nInfo:"
+  dbg_trace s!"`univ_cache` size: {(← get).env.univ_cache.size}"
+  dbg_trace s!"`expr_cache` size: {(← get).env.expr_cache.size}"
+  dbg_trace s!"`const_cache` size: {(← get).env.const_cache.size}"
+  dbg_trace s!"`constMap` size: {(← read).constMap.size}"
+  dbg_trace s!"`cache` size: {(← get).cache.size}"
+  dbg_trace s!"`cache`: {(← get).cache.toList.map Prod.fst}"
+  -- dbg_trace s!"`WWW._mutual`: {((← get).cache.toList.map Prod.fst).contains }"
+
 end Yatima.Compiler
