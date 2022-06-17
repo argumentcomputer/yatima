@@ -206,21 +206,13 @@ mutual
         | some i => return .var nam $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' nam with
           | some const => do
-            let const ← processYatimaConst const
-            let constId ← constToCid const
-            addToEnv $ .const_cache constId const
+            let (const, constCid) ← processYatimaConst const
             let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
               addToEnv $ .univ_cache univCid univ
             -- is it referencing a mutual definition?
-            match (← get).mutIdx.find? nam with
-            | some i =>
-              let const : Const := .mutDef ⟨constId, nam, i⟩
-              let constId ← constToCid const
-              addToEnv $ .const_cache constId const
-              return .const const.name constId univsCids
-            | none   => return .const nam constId univsCids
+            return .const const.name constCid univsCids
           | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
     | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName nam $ toYatimaExpr recr bod)
@@ -306,14 +298,12 @@ mutual
       addToEnv $ .expr_cache typeCid type
       match (← read).constMap.find? struct.induct with
       | some leanConst =>
-        let const ← processYatimaConst leanConst
-        let constId ← constToCid const
-        addToEnv $ .const_cache constId const
+        let (const, constCid) ← processYatimaConst leanConst
         return .constructor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
           type := typeCid
-          ind  := constId
+          ind  := constCid
           idx  := struct.cidx
           params := struct.numParams
           fields := struct.numFields
@@ -351,16 +341,14 @@ mutual
       let inductName := struct.getInduct
       match (← read).constMap.find? inductName with
       | some leanConst =>
-        let const ← processYatimaConst leanConst
-        let constId ← constToCid const
-        addToEnv $ .const_cache constId const
-        let rules ← struct.rules.mapM $ toYatimaRecursorRule constId struct.name
+        let (const, cid) ← processYatimaConst leanConst
+        let rules ← struct.rules.mapM $ toYatimaRecursorRule cid struct.name
         return .recursor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
           type := typeCid
           params := struct.numParams
-          ind := constId
+          ind := cid
           motives := struct.numMotives
           indices := struct.numIndices
           minors := struct.numMinors
@@ -378,14 +366,36 @@ mutual
         type := typeCid
         kind := struct.kind }
 
-  partial def processYatimaConst (const: Lean.ConstantInfo) : CompileM Const := do
-    let name : Name := const.name
-    match (← get).cache.find? name with
-    | none =>
-      let const ← toYatimaConst const
-      set { ← get with cache := (← get).cache.insert name const }
-      pure const
-    | some const => pure const
+  /-- 
+  Process a Lean constant into a Yatima constant, 
+  returning both the Yatima constant and its cid. 
+  
+  Different behavior is taken if the input `leanConst`
+  is in a mutual block, since `toYatimaConst` returns
+  the constant of the entire block (see `toYatimaConst`).
+  We avoid returning the entire block and return the 
+  `mutDef` corresponding the input.
+
+  Side effects: caches any new processed values
+  in `cache`, `expr_cache`, and `const_cache`.
+  -/
+  partial def processYatimaConst (leanConst: Lean.ConstantInfo) : CompileM $ Const × ConstCid := do
+    match (← get).cache.find? leanConst.name with
+    | none => 
+      let const ← toYatimaConst leanConst
+      let constCid ← constToCid const
+      addToEnv $ .const_cache constCid const
+      set { ← get with cache := (← get).cache.insert const.name const }
+      match (← get).mutIdx.find? leanConst.name with 
+      | some i => do 
+        let mutConst := .mutDef ⟨constCid, leanConst.name, i⟩
+        let mutCid ← constToCid mutConst
+        addToEnv $ .const_cache mutCid mutConst
+        set { ← get with cache := 
+          (← get).cache.insert leanConst.name mutConst } 
+        pure (mutConst, mutCid)
+      | none => pure (const, constCid)
+    | some const => pure (const, ← constToCid const)
   
   partial def cmpExpr (names : List Lean.Name) :
       Lean.Expr → Lean.Expr → CompileM Ordering
@@ -411,9 +421,9 @@ mutual
       | true, false => return .lt
       | false, false => do
         match (← read).constMap.find?' x, (← read).constMap.find?' y with
-        | some x_const, some y_const => do
-          let xCid ← processYatimaConst x_const >>= constToCid
-          let yCid ← processYatimaConst y_const >>= constToCid
+        | some xConst, some yConst => do
+          let xCid ← processYatimaConst xConst >>= constToCid ∘ Prod.fst
+          let yCid ← processYatimaConst yConst >>= constToCid ∘ Prod.fst
           return (compare xCid yCid)
         | none, some _ => throw s!"Unknown constant '{x}'"
         | some _, none => throw s!"Unknown constant '{y}'"
@@ -463,11 +473,10 @@ def buildEnv (constMap : Lean.ConstMap)
       if printLean then
         dbg_trace "------- Lean constant -------"
         dbg_trace s!"{printLeanConst const}"
-      let const ← processYatimaConst const
+      let (const, constCid) ← processYatimaConst const
       if printYatima then
         dbg_trace "------ Yatima constant ------"
         dbg_trace s!"{← printYatimaConst const}"
-      addToEnv $ .const_cache (← constToCid const) const
   printInfo
   return (← get).env
 
