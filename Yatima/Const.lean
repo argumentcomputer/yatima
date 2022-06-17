@@ -298,19 +298,19 @@ def Const.name : Const → Name
   | .constructor c => c.name
   | .recursor r => r.name
   | .quotient q => q.name
-  | .mutBlock x => s!"Mutual{x.defs.map (·.name)}" -- TODO
+  | .mutBlock x => s!"mutual {x.defs.map (·.name)}" -- TODO
   | .mutDef x => x.name
 
-def Const.type : Const → String
-  | .axiom a => "ax"
-  | .theorem t => "the"
-  | .inductive i => "ind"
-  | .opaque o => "opa"
-  | .definition d => "defn"
-  | .constructor c => "ctor"
-  | .recursor r => "recr"
-  | .quotient q => "quot"
-  | .mutBlock x => "mutB"
-  | .mutDef x => "mutD"
+def Const.ctorName : Const → String
+  | .axiom a => "axiom"
+  | .theorem t => "theorem"
+  | .inductive i => "inductive"
+  | .opaque o => "opaque"
+  | .definition d => "definition"
+  | .constructor c => "constructor"
+  | .recursor r => "recursor"
+  | .quotient q => "quotient"
+  | .mutBlock x => "mutBlock"
+  | .mutDef x => "mutDef"
 
 end Yatima

@@ -72,23 +72,26 @@ mutual
 
   def separateExpr (e : Expr) : CompileM (ExprAnon × ExprMeta) :=
     match e with
-    | .var nam n => return (.var n, .var nam)
+    | .var name n => return (.var n, .var name)
     | .sort u    => return (.sort u.anon, .sort u.meta)
-    | .const nam c ls =>
-      return (.const c.anon $ ls.map (·.anon), .const nam c.meta $ ls.map (·.meta))
+    | .const name c ls =>
+      return (.const c.anon $ ls.map (·.anon),
+        .const name c.meta $ ls.map (·.meta))
     | .app fnc arg => do
       let fncCid ← exprToCid fnc
       let argCid ← exprToCid arg
       return (.app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta)
-    | .lam nam bnd typ bod => do
+    | .lam name bnd typ bod => do
       let typCid ← exprToCid typ
       let bodCid ← exprToCid bod
-      return (.lam typCid.anon bodCid.anon, .lam nam bnd typCid.meta bodCid.meta)
-    | .pi nam bnd dom img => do 
+      return (.lam typCid.anon bodCid.anon,
+        .lam name bnd typCid.meta bodCid.meta)
+    | .pi name bnd dom img => do
       let domCid ← exprToCid dom
       let imgCid ← exprToCid img
-      return (.pi domCid.anon imgCid.anon, .pi nam bnd domCid.meta imgCid.meta)
-    | .letE nam typ exp bod => do
+      return (.pi domCid.anon imgCid.anon,
+        .pi name bnd domCid.meta imgCid.meta)
+    | .letE name typ exp bod => do
       let typCid ← exprToCid typ
       let expCid ← exprToCid exp
       let bodCid ← exprToCid bod
@@ -98,9 +101,9 @@ mutual
       )
     | .lit lit => return (.lit lit, .lit)
     | .lty lty => return (.lty lty, .lty)
-    | .fix nam exp => do
+    | .fix name exp => do
       let expCid ← exprToCid exp
-      return (.fix expCid.anon, .fix nam expCid.meta)
+      return (.fix expCid.anon, .fix name expCid.meta)
     | .proj idx exp => do
       let expCid ← exprToCid exp
       return (.proj idx expCid.anon, .proj idx expCid.meta)
@@ -147,11 +150,11 @@ def toYatimaUniv : Lean.Level → CompileM Univ
     let univBCid ← univToCid univB
     addToEnv $ .univ_cache univBCid univB
     return .imax univACid univBCid
-  | .param nam _ => do
+  | .param name _ => do
     let lvls := (← read).univCtx
-    match lvls.indexOf nam with
-    | some n => return .param nam n
-    | none   => throw s!"'{nam}' not found in '{lvls}'"
+    match lvls.indexOf name with
+    | some n => return .param name n
+    | none   => throw s!"'{name}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
 
 def concatOrds : List Ordering -> Ordering :=
@@ -182,7 +185,9 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
 
 mutual
 
-  partial def toYatimaRecursorRule (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) : CompileM RecursorRule := do
+  partial def toYatimaRecursorRule
+    (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) :
+      CompileM RecursorRule := do
     let rhs ← toYatimaExpr (some name) rules.rhs
     let rhsCid ← exprToCid rhs
     addToEnv $ .expr_cache rhsCid rhs
@@ -199,25 +204,24 @@ mutual
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
-    | .const nam lvls _ => do
-      if recr == some nam then
-        return .var nam (← read).bindCtx.length
-      else match (← read).order.indexOf nam with
-        | some i => return .var nam $ (← read).bindCtx.length + i
-        | none   => match (← read).constMap.find?' nam with
+    | .const name lvls _ => do
+      if recr == some name then
+        return .var name (← read).bindCtx.length
+      else match (← read).order.indexOf name with
+        | some i => return .var name $ (← read).bindCtx.length + i
+        | none   => match (← read).constMap.find?' name with
           | some const => do
             let (const, constCid) ← processYatimaConst const
             let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
               addToEnv $ .univ_cache univCid univ
-            -- is it referencing a mutual definition?
-            return .const const.name constCid univsCids
-          | none => throw s!"Unknown constant '{nam}'"
+            return .const name constCid univsCids
+          | none => throw s!"Unknown constant '{name}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
-    | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName nam $ toYatimaExpr recr bod)
-    | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr recr dom) <*> (withName nam $ toYatimaExpr recr img)
-    | .letE nam typ exp bod _ => .letE nam <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (withName nam $ toYatimaExpr recr bod)
+    | .lam name typ bod _ => .lam name typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName name $ toYatimaExpr recr bod)
+    | .forallE name dom img _ => .pi name dom.binderInfo <$> (toYatimaExpr recr dom) <*> (withName name $ toYatimaExpr recr img)
+    | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (withName name $ toYatimaExpr recr bod)
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr recr e
     | .proj _ idx exp _ => .proj idx <$> toYatimaExpr recr exp
@@ -279,11 +283,10 @@ mutual
       -- figure out if we're in mutual definition
       match (← read).cycles.find? struct.name with 
       | some mutualNames =>
-        let mutualDefs ← mutualNames.mapM fun name => do 
+        let mutualDefs ← mutualNames.mapM fun name => do
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn
-          -- there shouldn't be anything else other than definitions here, so:
-          | _ => unreachable!
+          | _ => throw "Non-def constant found in a mutual block of definitions"
         let (mutualDefs, mutualNames) ← sortDefs mutualDefs
         let mut i := 0
         for name in mutualNames do
@@ -314,9 +317,9 @@ mutual
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       let ctors : List (Name × Lean.Expr) ← struct.ctors.mapM
-        fun nam => do match (← read).constMap.find?' nam with
-          | some leanConst => return (nam, leanConst.type)
-          | none => throw s!"Unknown constant '{nam}'"
+        fun name => do match (← read).constMap.find?' name with
+          | some leanConst => return (name, leanConst.type)
+          | none => throw s!"Unknown constant '{name}'"
       let ctors : List (Name × ExprCid) ← ctors.mapM
         fun (nam, typ) => do
          let type ← toYatimaExpr (some struct.name) typ
@@ -367,32 +370,32 @@ mutual
         kind := struct.kind }
 
   /-- 
-  Process a Lean constant into a Yatima constant, 
-  returning both the Yatima constant and its cid. 
+  Process a Lean constant into a Yatima constant, returning both the Yatima
+  constant and its cid.
   
-  Different behavior is taken if the input `leanConst`
-  is in a mutual block, since `toYatimaConst` returns
-  the constant of the entire block (see `toYatimaConst`).
-  We avoid returning the entire block and return the 
-  `mutDef` corresponding the input.
+  Different behavior is taken if the input `leanConst` is in a mutual block,
+  since `toYatimaConst` returns the constant of the entire block (see
+  `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
+  corresponding the input.
 
-  Side effects: caches any new processed values
-  in `cache`, `expr_cache`, and `const_cache`.
+  Side effects: caches any new processed values in `cache`, `expr_cache`, and
+  `const_cache`.
   -/
-  partial def processYatimaConst (leanConst: Lean.ConstantInfo) : CompileM $ Const × ConstCid := do
+  partial def processYatimaConst (leanConst: Lean.ConstantInfo) :
+      CompileM $ Const × ConstCid := do
     match (← get).cache.find? leanConst.name with
-    | none => 
+    | none =>
+      let name := leanConst.name
       let const ← toYatimaConst leanConst
       let constCid ← constToCid const
       addToEnv $ .const_cache constCid const
       set { ← get with cache := (← get).cache.insert const.name const }
-      match (← get).mutIdx.find? leanConst.name with 
-      | some i => do 
-        let mutConst := .mutDef ⟨constCid, leanConst.name, i⟩
+      match (← get).mutIdx.find? name with
+      | some i => do
+        let mutConst := .mutDef ⟨constCid, name, i⟩
         let mutCid ← constToCid mutConst
         addToEnv $ .const_cache mutCid mutConst
-        set { ← get with cache := 
-          (← get).cache.insert leanConst.name mutConst } 
+        set { ← get with cache := (← get).cache.insert name mutConst }
         pure (mutConst, mutCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
@@ -450,14 +453,16 @@ mutual
       let ts ← cmpExpr names tx ty
       return concatOrds [ compare nx ny , ts ]
 
-  partial def cmpDef (names : List Lean.Name) (x: Lean.DefinitionVal) (y: Lean.DefinitionVal) : CompileM Ordering := do
+  partial def cmpDef
+    (names : List Lean.Name) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+      CompileM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
     let ts ← cmpExpr names x.type y.type
     let vs ← cmpExpr names x.value y.value
     return concatOrds [ls, ts, vs]
 
   partial def sortDefs (ds: List Lean.DefinitionVal) : 
-      CompileM (List Lean.DefinitionVal × List Lean.Name) := do 
+      CompileM (List Lean.DefinitionVal × List Lean.Name) := do
     let names : List Lean.Name := ds.map (·.name)
     let res ← sortByM (cmpDef names) ds
     pure (res, res.map (·.name))
@@ -468,16 +473,15 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if name.toString.startsWith "QQQ" || name.toString.startsWith "WWW" then
-      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-      if printLean then
-        dbg_trace "------- Lean constant -------"
-        dbg_trace s!"{printLeanConst const}"
-      let (const, constCid) ← processYatimaConst const
-      if printYatima then
-        dbg_trace "------ Yatima constant ------"
-        dbg_trace s!"{← printYatimaConst const}"
-  printInfo
+    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+    if printLean then
+      dbg_trace "------- Lean constant -------"
+      dbg_trace s!"{printLeanConst const}"
+    let (const, constCid) ← processYatimaConst const
+    if printYatima then
+      dbg_trace "------ Yatima constant ------"
+      dbg_trace s!"{← printYatimaConst const}"
+  printCompilationStats
   return (← get).env
 
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
@@ -495,7 +499,6 @@ def extractEnv
     let nss : List (List $ Lean.Name × List Lean.Name) :=
       vss.map fun vs => 
         vs.map fun v => (v, vs)
-    dbg_trace s!"SCC size: {nss.length}"
     CompileM.run 
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default 
