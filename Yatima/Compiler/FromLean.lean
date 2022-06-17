@@ -1,3 +1,4 @@
+import Yatima.Graph.Graph
 import Yatima.Compiler.Printing
 import Yatima.Compiler.Utils
 import Yatima.ToIpld
@@ -71,23 +72,26 @@ mutual
 
   def separateExpr (e : Expr) : CompileM (ExprAnon × ExprMeta) :=
     match e with
-    | .var nam n => return (.var n, .var nam)
+    | .var name n => return (.var n, .var name)
     | .sort u    => return (.sort u.anon, .sort u.meta)
-    | .const nam c ls =>
-      return (.const c.anon $ ls.map (·.anon), .const nam c.meta $ ls.map (·.meta))
+    | .const name c ls =>
+      return (.const c.anon $ ls.map (·.anon),
+        .const name c.meta $ ls.map (·.meta))
     | .app fnc arg => do
       let fncCid ← exprToCid fnc
       let argCid ← exprToCid arg
       return (.app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta)
-    | .lam nam bnd typ bod => do
+    | .lam name bnd typ bod => do
       let typCid ← exprToCid typ
       let bodCid ← exprToCid bod
-      return (.lam typCid.anon bodCid.anon, .lam nam bnd typCid.meta bodCid.meta)
-    | .pi nam bnd dom img => do 
+      return (.lam typCid.anon bodCid.anon,
+        .lam name bnd typCid.meta bodCid.meta)
+    | .pi name bnd dom img => do
       let domCid ← exprToCid dom
       let imgCid ← exprToCid img
-      return (.pi domCid.anon imgCid.anon, .pi nam bnd domCid.meta imgCid.meta)
-    | .letE nam typ exp bod => do
+      return (.pi domCid.anon imgCid.anon,
+        .pi name bnd domCid.meta imgCid.meta)
+    | .letE name typ exp bod => do
       let typCid ← exprToCid typ
       let expCid ← exprToCid exp
       let bodCid ← exprToCid bod
@@ -97,9 +101,9 @@ mutual
       )
     | .lit lit => return (.lit lit, .lit)
     | .lty lty => return (.lty lty, .lty)
-    | .fix nam exp => do
+    | .fix name exp => do
       let expCid ← exprToCid exp
-      return (.fix expCid.anon, .fix nam expCid.meta)
+      return (.fix expCid.anon, .fix name expCid.meta)
     | .proj idx exp => do
       let expCid ← exprToCid exp
       return (.proj idx expCid.anon, .proj idx expCid.meta)
@@ -146,22 +150,50 @@ def toYatimaUniv : Lean.Level → CompileM Univ
     let univBCid ← univToCid univB
     addToEnv $ .univ_cache univBCid univB
     return .imax univACid univBCid
-  | .param nam _ => do
+  | .param name _ => do
     let lvls := (← read).univCtx
-    match lvls.indexOf nam with
-    | some n => return .param nam n
-    | none   => throw s!"'{nam}' not found in '{lvls}'"
+    match lvls.indexOf name with
+    | some n => return .param name n
+    | none   => throw s!"'{name}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
+
+def concatOrds : List Ordering -> Ordering :=
+  List.foldl (fun x y => x * y) .eq
+
+def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
+  match x, y with
+  | .mvar .., _ => throw "Unfilled level metavariable"
+  | _, .mvar .. => throw "Unfilled level metavariable"
+  | .zero _, .zero _ => return .eq
+  | .zero _, _ => return .lt
+  | _, .zero _  => return .gt
+  | .succ x _, .succ y _ => cmpLevel x y
+  | .succ x _, _ => return .lt
+  | _, .succ x _ => return .gt
+  | .max lx ly _, .max rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
+  | .max _ _ _, _ => return .lt
+  | _, .max _ _ _ => return .gt
+  | .imax lx ly _, .imax rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
+  | .imax _ _ _, _ => return .lt
+  | _, .imax _ _ _ => return .gt
+  | .param x _, .param y _ => do
+    let lvls := (← read).univCtx
+    match (lvls.indexOf x), (lvls.indexOf y) with
+      | some xi, some yi => return (compare xi yi)
+      | none, _   => throw s!"'{x}' not found in '{lvls}'"
+      | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
 mutual
 
-  partial def toYatimaRecursorRule (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) : CompileM RecursorRule := do
+  partial def toYatimaRecursorRule
+    (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) :
+      CompileM RecursorRule := do
     let rhs ← toYatimaExpr (some name) rules.rhs
     let rhsCid ← exprToCid rhs
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
-  partial def toYatimaExpr (recr: Option Name): Lean.Expr → CompileM Expr
+  partial def toYatimaExpr (recr : Option Name) : Lean.Expr → CompileM Expr
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
@@ -172,35 +204,48 @@ mutual
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
-    | .const nam lvls _ =>
-      if recr == some nam then
-        return .var nam (← read).bindCtx.length
-      else do
-        match (← read).constMap.find?' nam with
-          | some leanConst => do
-            let const ← processYatimaConst leanConst
-            let constId ← constToCid const
-            addToEnv $ .const_cache constId const
+    | .const name lvls _ => do
+      if recr == some name then
+        return .var name (← read).bindCtx.length
+      else match (← read).order.indexOf name with
+        | some i => return .var name $ (← read).bindCtx.length + i
+        | none   => match (← read).constMap.find?' name with
+          | some const => do
+            let (const, constCid) ← processYatimaConst const
             let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
               addToEnv $ .univ_cache univCid univ
-            return .const nam constId univsCids
-          | none => throw s!"Unknown constant '{nam}'"
+            return .const name constCid univsCids
+          | none => throw s!"Unknown constant '{name}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
-    | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (bind nam $ toYatimaExpr recr bod)
-    | .forallE nam dom img _ => .pi nam dom.binderInfo <$> (toYatimaExpr recr dom) <*> (bind nam $ toYatimaExpr recr img)
-    | .letE nam typ exp bod _ => .letE nam <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (bind nam $ toYatimaExpr recr bod)
+    | .lam name typ bod _ => .lam name typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName name $ toYatimaExpr recr bod)
+    | .forallE name dom img _ => .pi name dom.binderInfo <$> (toYatimaExpr recr dom) <*> (withName name $ toYatimaExpr recr img)
+    | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (withName name $ toYatimaExpr recr bod)
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr recr e
     | .proj _ idx exp _ => .proj idx <$> toYatimaExpr recr exp
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaConst (const: Lean.ConstantInfo) : CompileM Const :=
-    withReader (fun e => ⟨e.constMap, const.levelParams, []⟩) $
+  partial def toYatimaDef (defn : Lean.DefinitionVal) : CompileM Definition := do
+    let type ← toYatimaExpr none defn.type
+    let typeCid ← exprToCid type
+    addToEnv $ .expr_cache typeCid type
+    let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
+    let valueCid ← exprToCid value
+    addToEnv $ .expr_cache valueCid value
+    return {
+      name   := defn.name
+      lvls   := defn.levelParams.map .ofLeanName
+      type   := typeCid
+      value  := valueCid
+      safety := defn.safety }
+
+  partial def toYatimaConst (const : Lean.ConstantInfo) :
+      CompileM Const := withResetCompileEnv const.levelParams do
     match const with
-    | .axiomInfo struct => do
+    | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -209,7 +254,7 @@ mutual
         lvls := struct.levelParams.map .ofLeanName
         type := typeCid
         safe := not struct.isUnsafe }
-    | .thmInfo struct => do
+    | .thmInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -221,7 +266,7 @@ mutual
         lvls  := struct.levelParams.map .ofLeanName
         type  := typeCid
         value := valueCid }
-    | .opaqueInfo struct => do
+    | .opaqueInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -234,46 +279,47 @@ mutual
         type  := typeCid
         value := valueCid
         safe  := not struct.isUnsafe }
-    | .defnInfo struct => do
-      let type ← toYatimaExpr none struct.type
-      let typeCid ← exprToCid type
-      addToEnv $ .expr_cache typeCid type
-      let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
-      let valueCid ← exprToCid value
-      addToEnv $ .expr_cache valueCid value
-      return .definition {
-        name   := struct.name
-        lvls   := struct.levelParams.map .ofLeanName
-        type   := typeCid
-        value  := valueCid
-        safety := struct.safety }
-    | .ctorInfo struct => do
+    | .defnInfo struct =>
+      -- figure out if we're in mutual definition
+      match (← read).cycles.find? struct.name with 
+      | some mutualNames =>
+        let mutualDefs ← mutualNames.mapM fun name => do
+          match (← read).constMap.find? name with 
+          | some (.defnInfo defn) => pure defn
+          | _ => throw "Non-def constant found in a mutual block of definitions"
+        let (mutualDefs, mutualNames) ← sortDefs mutualDefs
+        let mut i := 0
+        for name in mutualNames do
+          set { ← get with mutIdx := (← get).mutIdx.insert name i }
+          i := i + 1
+        let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
+        return .mutBlock ⟨definitions⟩
+      | none => return .definition $ ← toYatimaDef struct
+    | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       match (← read).constMap.find? struct.induct with
       | some leanConst =>
-        let const ← processYatimaConst leanConst
-        let constId ← constToCid const
-        addToEnv $ .const_cache constId const
+        let (const, constCid) ← processYatimaConst leanConst
         return .constructor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
           type := typeCid
-          ind  := constId
+          ind  := constCid
           idx  := struct.cidx
           params := struct.numParams
           fields := struct.numFields
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{struct.induct}'"
-    | .inductInfo struct => do
+    | .inductInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       let ctors : List (Name × Lean.Expr) ← struct.ctors.mapM
-        fun nam => do match (← read).constMap.find?' nam with
-          | some leanConst => return (nam, leanConst.type)
-          | none => throw s!"Unknown constant '{nam}'"
+        fun name => do match (← read).constMap.find?' name with
+          | some leanConst => return (name, leanConst.type)
+          | none => throw s!"Unknown constant '{name}'"
       let ctors : List (Name × ExprCid) ← ctors.mapM
         fun (nam, typ) => do
          let type ← toYatimaExpr (some struct.name) typ
@@ -291,23 +337,21 @@ mutual
         refl := struct.isReflexive
         nest := struct.isNested
         safe := not struct.isUnsafe }
-    | .recInfo struct => do
+    | .recInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
       let inductName := struct.getInduct
       match (← read).constMap.find? inductName with
       | some leanConst =>
-        let const ← processYatimaConst leanConst
-        let constId ← constToCid const
-        addToEnv $ .const_cache constId const
-        let rules ← struct.rules.mapM $ toYatimaRecursorRule constId struct.name
+        let (const, cid) ← processYatimaConst leanConst
+        let rules ← struct.rules.mapM $ toYatimaRecursorRule cid struct.name
         return .recursor {
           name := struct.name
           lvls := struct.levelParams.map .ofLeanName
           type := typeCid
           params := struct.numParams
-          ind := constId
+          ind := cid
           motives := struct.numMotives
           indices := struct.numIndices
           minors := struct.numMinors
@@ -315,7 +359,7 @@ mutual
           k := struct.k
           safe := not struct.isUnsafe }
       | none => throw s!"Unknown constant '{inductName}'"
-    | .quotInfo struct => do
+    | .quotInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToEnv $ .expr_cache typeCid type
@@ -325,123 +369,119 @@ mutual
         type := typeCid
         kind := struct.kind }
 
-  partial def processYatimaConst (const: Lean.ConstantInfo) : CompileM Const := do
-    let name : Name := const.name
-    let cache := (← get).cache
-    match cache.find? name with
+  /-- 
+  Process a Lean constant into a Yatima constant, returning both the Yatima
+  constant and its cid.
+  
+  Different behavior is taken if the input `leanConst` is in a mutual block,
+  since `toYatimaConst` returns the constant of the entire block (see
+  `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
+  corresponding the input.
+
+  Side effects: caches any new processed values in `cache`, `expr_cache`, and
+  `const_cache`.
+  -/
+  partial def processYatimaConst (leanConst: Lean.ConstantInfo) :
+      CompileM $ Const × ConstCid := do
+    match (← get).cache.find? leanConst.name with
     | none =>
-      let const ← toYatimaConst const
-      set { ← get with cache := cache.insert name const }
-      pure const
-    | some const => pure const
+      let name := leanConst.name
+      let const ← toYatimaConst leanConst
+      let constCid ← constToCid const
+      addToEnv $ .const_cache constCid const
+      set { ← get with cache := (← get).cache.insert const.name const }
+      match (← get).mutIdx.find? name with
+      | some i => do
+        let mutConst := .mutDef ⟨constCid, name, i⟩
+        let mutCid ← constToCid mutConst
+        addToEnv $ .const_cache mutCid mutConst
+        set { ← get with cache := (← get).cache.insert name mutConst }
+        pure (mutConst, mutCid)
+      | none => pure (const, constCid)
+    | some const => pure (const, ← constToCid const)
+  
+  partial def cmpExpr (names : List Lean.Name) :
+      Lean.Expr → Lean.Expr → CompileM Ordering
+    | .mvar .., _ => throw "Unfilled expr metavariable"
+    | _, .mvar .. => throw "Unfilled expr metavariable"
+    | .fvar .., _ => throw "expr free variable"
+    | _, .fvar .. => throw "expr free metavariable"
+    | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
+    | .mdata _ x _, y  => cmpExpr names x y
+    | x, .mdata _ y _  => cmpExpr names x y
+    | .bvar x _, .bvar y _ => return (compare x y)
+    | .bvar _ _, _ => return .lt
+    | _, .bvar _ _ => return .gt
+    | .sort x _, .sort y _ => cmpLevel x y
+    | .sort _ _, _ => return .lt
+    | _, .sort _ _ => return .gt
+    | .const x xls _, .const y yls _ => do
+      let univs ← concatOrds <$> (List.zip xls yls).mapM (fun (x,y) => cmpLevel x y)
+      if univs != .eq then return univs
+      match names.contains x, names.contains y with
+      | true, true => return .eq
+      | false, true => return .gt
+      | true, false => return .lt
+      | false, false => do
+        match (← read).constMap.find?' x, (← read).constMap.find?' y with
+        | some xConst, some yConst => do
+          let xCid ← processYatimaConst xConst >>= constToCid ∘ Prod.fst
+          let yCid ← processYatimaConst yConst >>= constToCid ∘ Prod.fst
+          return (compare xCid yCid)
+        | none, some _ => throw s!"Unknown constant '{x}'"
+        | some _, none => throw s!"Unknown constant '{y}'"
+        | _, _ => throw s!"Unknown constants '{x}, {y}'"
+    | .const _ _ _, _ => return .lt
+    | _, .const _ _ _ => return .gt
+    | .app xf xa _, .app yf ya _ => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
+    | .app _ _ _, _ => return .lt
+    | _, .app _ _ _ => return .gt
+    | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+    | .lam _ _ _ _, _ => return .lt
+    | _, .lam _ _ _ _ => return .gt
+    | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+    | .forallE _ _ _ _, _ => return .lt
+    | _, .forallE _ _ _ _ => return .gt
+    | .letE _ xt xv xb _, .letE _ yt yv yb _ => (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
+    | .letE _ _ _ _ _, _ => return .lt
+    | _, .letE _ _ _ _ _ => return .gt
+    | .lit x _, .lit y _ =>
+      return if x < y then .lt else if x == y then .eq else .gt
+    | .lit _ _, _ => return .lt
+    | _, .lit _ _ => return .gt
+    | .proj _ nx tx _, .proj _ ny ty _ => do
+      let ts ← cmpExpr names tx ty
+      return concatOrds [ compare nx ny , ts ]
+
+  partial def cmpDef
+    (names : List Lean.Name) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+      CompileM Ordering := do
+    let ls := compare x.levelParams.length y.levelParams.length
+    let ts ← cmpExpr names x.type y.type
+    let vs ← cmpExpr names x.value y.value
+    return concatOrds [ls, ts, vs]
+
+  partial def sortDefs (ds: List Lean.DefinitionVal) : 
+      CompileM (List Lean.DefinitionVal × List Lean.Name) := do
+    let names : List Lean.Name := ds.map (·.name)
+    let res ← sortByM (cmpDef names) ds
+    pure (res, res.map (·.name))
 
 end
-
-def concatOrds : List Ordering -> Ordering :=
-  List.foldl (fun x y => x * y) .eq
-
-def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
-  match x, y with
-  | .mvar .., _ => throw "Unfilled level metavariable"
-  | _, .mvar .. => throw "Unfilled level metavariable"
-  | .zero _, .zero _ => return .eq
-  | .zero _, _ => return .lt
-  | _, .zero _  => return .gt
-  | .succ x _, .succ y _ => cmpLevel x y
-  | .succ x _, _ => return .lt
-  | _, .succ x _ => return .gt
-  | .max lx ly _, .max rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel rx ry
-  | .max _ _ _, _ => return .lt
-  | _, .max _ _ _ => return .gt
-  | .imax lx ly _, .imax rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel rx ry
-  | .imax _ _ _, _ => return .lt
-  | _, .imax _ _ _ => return .gt
-  | .param x _, .param y _ => do
-    let lvls := (← read).univCtx
-    match (lvls.indexOf x), (lvls.indexOf y) with
-      | some xi, some yi => return (compare xi yi)
-      | none, _   => throw s!"'{x}' not found in '{lvls}'"
-      | _, none   => throw s!"'{y}' not found in '{lvls}'"
-
-partial def cmpExpr (names : List Lean.Name) (x : Lean.Expr) (y : Lean.Expr) : CompileM Ordering := do
-  match x, y with
-  | .mvar .., _ => throw "Unfilled expr metavariable"
-  | _, .mvar .. => throw "Unfilled expr metavariable"
-  | .fvar .., _ => throw "expr free variable"
-  | _, .fvar .. => throw "expr free metavariable"
-  | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
-  | .mdata _ x _, y  => cmpExpr names x y
-  | x, .mdata _ y _  => cmpExpr names x y
-  | .bvar x _, .bvar y _ => return (compare x y)
-  | .bvar _ _, _ => return .lt
-  | _, .bvar _ _ => return .gt
-  | .sort x _, .sort y _ => cmpLevel x y
-  | .sort _ _, _ => return .lt
-  | _, .sort _ _ => return .gt
-  | .const x xls _, .const y yls _ => do
-    let univs ← concatOrds <$> (List.mapM (fun (x,y) => cmpLevel x y) (List.zip xls yls))
-    if univs != .eq then return univs
-    match names.contains x, names.contains y with
-    | true, true => return .eq
-    | false, true => return .gt
-    | true, false => return .lt
-    | false, false => do
-      match (← read).constMap.find?' x, (← read).constMap.find?' y with
-      | some x_const, some y_const => do
-        let xCid ← processYatimaConst x_const >>= constToCid
-        let yCid ← processYatimaConst y_const >>= constToCid
-        return (compare xCid yCid)
-      | none, some _ => throw s!"Unknown constant '{x}'"
-      | some _, none => throw s!"Unknown constant '{y}'"
-      | _, _ => throw s!"Unknown constants '{x}, {y}'"
-  | .const _ _ _, _ => return .lt
-  | _, .const _ _ _ => return .gt
-  | .app xf xa _, .app yf ya _ => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
-  | .app _ _ _, _ => return .lt
-  | _, .app _ _ _ => return .gt
-  | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
-  | .lam _ _ _ _, _ => return .lt
-  | _, .lam _ _ _ _ => return .gt
-  | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
-  | .forallE _ _ _ _, _ => return .lt
-  | _, .forallE _ _ _ _ => return .gt
-  | .letE _ xt xv xb _, .letE _ yt yv yb _ => (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
-  | .letE _ _ _ _ _, _ => return .lt
-  | _, .letE _ _ _ _ _ => return .gt
-  | .lit x _, .lit y _ =>
-    return if x < y then .lt else if x == y then .eq else .gt
-  | .lit _ _, _ => return .lt
-  | _, .lit _ _ => return .gt
-  | .proj _ nx tx _, .proj _ ny ty _ => do
-    let ts ← cmpExpr names tx ty
-    return concatOrds [ compare nx ny , ts ]
-
-def cmpDef (names : List Lean.Name) (x: Lean.DefinitionVal) (y: Lean.DefinitionVal) : CompileM Ordering := do
-  let ls := compare x.levelParams.length y.levelParams.length
-  let ts ← cmpExpr names x.type y.type
-  let vs ← cmpExpr names x.value y.value
-  return concatOrds [ls, ts, vs]
-
-def sortDefs (ds: List Lean.DefinitionVal): CompileM (List Lean.DefinitionVal) :=
-  let names : List Lean.Name := ds.map (·.name)
-  sortByM (cmpDef names) ds
 
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    let env ← read
-    let cache := (← get).cache
-    let dbg := printLean || printYatima
-    if dbg then dbg_trace s!"\nProcessing: {name}"
+    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
     if printLean then
       dbg_trace "------- Lean constant -------"
       dbg_trace s!"{printLeanConst const}"
-    let const ← toYatimaConst const
+    let (const, constCid) ← processYatimaConst const
     if printYatima then
       dbg_trace "------ Yatima constant ------"
       dbg_trace s!"{← printYatimaConst const}"
-    addToEnv $ .const_cache (← constToCid const) const
+  printCompilationStats
   return (← get).env
 
 def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
@@ -453,6 +493,16 @@ def extractEnv
   (printYatima : Bool)
     : Except String Env :=
   let map := filterUnsafeConstants constMap
-  CompileM.run ⟨map, [], []⟩ default (buildEnv map printLean printYatima)
+  let g : Graph := Lean.referenceMap map
+  match g.scc? with
+  | .ok vss =>
+    let nss : List (List $ Lean.Name × List Lean.Name) :=
+      vss.map fun vs => 
+        vs.map fun v => (v, vs)
+    CompileM.run 
+      ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
+      default 
+      (buildEnv map printLean printYatima)
+  | .error e => throw e
 
 end Yatima.Compiler

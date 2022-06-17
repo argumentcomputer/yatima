@@ -43,7 +43,7 @@ mutual
   | [] => List.cons (as [a]) <$> sequencesM cmp []
 end
 
-def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) := do
+def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) :=
   sequencesM cmp xs >>= mergeAllM cmp
 
 instance : HMul Ordering Ordering Ordering where
@@ -51,5 +51,14 @@ instance : HMul Ordering Ordering Ordering where
   | .gt, _ => .gt
   | .lt, _ => .lt
   | .eq, x => x
+
+def printCompilationStats : CompileM Unit := do
+  dbg_trace "\n\nInfo:"
+  dbg_trace s!"`univ_cache` size: {(← get).env.univ_cache.size}"
+  dbg_trace s!"`expr_cache` size: {(← get).env.expr_cache.size}"
+  dbg_trace s!"`const_cache` size: {(← get).env.const_cache.size}"
+  dbg_trace s!"`constMap` size: {(← read).constMap.size}"
+  dbg_trace s!"`cache` size: {(← get).cache.size}"
+  dbg_trace s!"`cache`: {(← get).cache.toList.map fun (n, c) => (n, c.ctorName)}"
 
 end Yatima.Compiler

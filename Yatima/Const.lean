@@ -290,15 +290,27 @@ def Const.toMeta : Const → ConstMeta
   | .mutDef x => .mutDef ⟨x.block.meta, x.name⟩
 
 def Const.name : Const → Name
-  | .axiom a => a.name
-  | .theorem t => t.name
-  | .inductive i => i.name
-  | .opaque o => o.name
-  | .definition d => d.name
+  | .axiom       a => a.name
+  | .theorem     t => t.name
+  | .inductive   i => i.name
+  | .opaque      o => o.name
+  | .definition  d => d.name
   | .constructor c => c.name
   | .recursor r => r.name
   | .quotient q => q.name
-  | .mutBlock x => sorry -- TODO
+  | .mutBlock x => s!"mutual {x.defs.map (·.name)}" -- TODO
   | .mutDef x => x.name
+
+def Const.ctorName : Const → String
+  | .axiom a => "axiom"
+  | .theorem t => "theorem"
+  | .inductive i => "inductive"
+  | .opaque o => "opaque"
+  | .definition d => "definition"
+  | .constructor c => "constructor"
+  | .recursor r => "recursor"
+  | .quotient q => "quotient"
+  | .mutBlock x => "mutBlock"
+  | .mutDef x => "mutDef"
 
 end Yatima

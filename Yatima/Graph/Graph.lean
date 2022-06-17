@@ -24,7 +24,7 @@ def eraseDup [BEq α] : List α → List α
 
 def splitAtP [BEq α] (p : α → Bool) (l : List α) : List α × List α :=
   match l.dropWhile p with 
-  | [] => panic! "shouldnt happen" --
+  | [] => unreachable!
   | a::as => ⟨l.takeWhile p ++ [a], as⟩
 
 end List
@@ -38,10 +38,11 @@ instance : Ord Name :=
 
 abbrev ReferenceMap := RBMap Name (List Name) Ord.compare
 
-def ReferenceMap.empty := @RBMap.empty Name (List Name) Ord.compare
+def ReferenceMap.empty : ReferenceMap :=
+  .empty
 
 instance : Inhabited ReferenceMap := 
-  { default := ReferenceMap.empty }
+  { default := .empty }
 
 mutual 
 
@@ -72,7 +73,7 @@ mutual
     | .ctorInfo   val => 
       val.induct :: getExprRefs val.type
     | .inductInfo val => 
-      getExprRefs val.type ++ val.ctors ++ val.all
+      getExprRefs val.type ++ val.all
     | .recInfo    val => 
       getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
                   ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
@@ -216,6 +217,14 @@ def getInfo (v : Vertex) : sccM NodeInfo := do
 def setInfo (v : Vertex) (info : NodeInfo) : sccM Unit := do
   set { ← get with info := (← get).info.insert v info }
 
+/--  
+`strongConnect v` returns all the strongly connected components
+of the graph `G` (encoded in the `ReaderT` of the `sccM` monad)
+that can be found by depth first searching from `v`.
+
+Note that `G` is not necessarily simple, i.e. it may have self loops,
+and we consider those singletons as strongly connected to itself.
+-/
 partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do 
   let idx := (← get).index
   set ({ info := (← get).info.insert v ⟨idx, idx, true⟩, 
@@ -227,28 +236,31 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
               | none => throw s!"Vertex {v} not found in graph"
   
   let mut sccs := []
+  let mut vll := idx 
   for w in edges do 
     match (← get).info.find? w with 
     | some ⟨widx, wlowlink, won⟩ => do 
-      if won then 
-        let ⟨vidx, vlowlink, von⟩ ← getInfo v
-        setInfo v ⟨vidx, min vlowlink widx, von⟩
+      if won then
+        vll := min vll widx
     | none => do
       sccs := (← strongConnect w) ++ sccs
-      let ⟨vidx, vlowlink, von⟩ ← getInfo v 
       let ⟨_, wlowlink, _⟩ ← getInfo w
-      setInfo v ⟨vidx, min vlowlink wlowlink, von⟩
+      vll := min vll wlowlink
 
-  let ⟨vidx, vlowlink, von⟩ ← getInfo v
+  setInfo v ⟨idx, vll, true⟩
   
-  if vidx == vlowlink then do
+  if idx == vll then do
     let s := (← get).stack
     let (scc, s) := s.splitAtP fun w => w != v 
     scc.forM fun w => do 
       let ⟨idx, lowlink, on⟩ ← getInfo w
       setInfo w ⟨idx, lowlink, false⟩
     set { ← get with stack := s } 
-    pure $ scc::sccs
+    -- if `scc` has length 1, check if `v` has a self-loop
+    if scc.length >= 2 || scc.length == 1 && edges.contains v then 
+      pure $ scc::sccs
+    else
+      pure $ sccs
   else pure []
 
 def run : sccM $ List $ List Vertex := do 
@@ -258,19 +270,19 @@ def run : sccM $ List $ List Vertex := do
     | none => 
     match ← strongConnect v with 
       | [] => pure $ acc
-      | as => pure $ as.filter (fun x => x.length != 1) ++ acc
+      | as => pure $ as ++ acc
   ) []
 
 end sccM
 
 def scc? (g : Graph) : Except String $ List $ List Vertex :=
   match EStateM.run (ReaderT.run sccM.run g) default with 
-  | .ok res state => .ok res 
+  | .ok  res _ => .ok res 
   | .error e _ => .error e
 
 def scc! (g : Graph) : List $ List Vertex :=
   match EStateM.run (ReaderT.run sccM.run g) default with 
-  | .ok res state => res 
+  | .ok  res _ => res 
   | .error e _ => panic! e
 
 end Graph
