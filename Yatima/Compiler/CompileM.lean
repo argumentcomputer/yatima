@@ -7,19 +7,20 @@ namespace Yatima.Compiler
 
 open Std (RBMap) in
 structure CompileState where
-  env   : Yatima.Env
-  cache : RBMap Name Const Ord.compare
+  env    : Yatima.Env
+  cache  : RBMap Name Const Ord.compare
+  mutIdx : RBMap Lean.Name Nat compare
 
 instance : Inhabited CompileState where
-  default := ⟨default, .empty⟩
+  default := ⟨default, .empty, .empty⟩
 
-open Std (RBMap HashMap) in
+open Std (RBMap) in
 structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
   cycles   : RBMap Lean.Name (List Lean.Name) compare
-  mutOrder : List Lean.Name
+  order    : List Lean.Name
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -31,7 +32,7 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Exc
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles, e.mutOrder⟩
+    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles, e.order⟩
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=

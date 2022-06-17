@@ -202,18 +202,25 @@ mutual
     | .const nam lvls _ => do
       if recr == some nam then
         return .var nam (← read).bindCtx.length
-      else match (← read).mutOrder.indexOf nam with
-        | some idx => return .var nam $ (← read).bindCtx.length + idx
-        | none => match (← read).constMap.find?' nam with
-          | some leanConst => do
-            let const ← processYatimaConst leanConst
+      else match (← read).order.indexOf nam with
+        | some i => return .var nam $ (← read).bindCtx.length + i
+        | none   => match (← read).constMap.find?' nam with
+          | some const => do
+            let const ← processYatimaConst const
             let constId ← constToCid const
             addToEnv $ .const_cache constId const
             let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
               addToEnv $ .univ_cache univCid univ
-            return .const nam constId univsCids
+            -- is it referencing a mutual definition?
+            match (← get).mutIdx.find? nam with
+            | some i =>
+              let const : Const := .mutDef ⟨constId, nam, i⟩
+              let constId ← constToCid const
+              addToEnv $ .const_cache constId const
+              return .const const.name constId univsCids
+            | none   => return .const nam constId univsCids
           | none => throw s!"Unknown constant '{nam}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
     | .lam nam typ bod _ => .lam nam typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName nam $ toYatimaExpr recr bod)
@@ -229,8 +236,6 @@ mutual
     let type ← toYatimaExpr none defn.type
     let typeCid ← exprToCid type
     addToEnv $ .expr_cache typeCid type
-    if (← read).mutOrder != [] then
-      dbg_trace s!"Mutuals: {(← read).mutOrder}"
     let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
     let valueCid ← exprToCid value
     addToEnv $ .expr_cache valueCid value
@@ -288,6 +293,10 @@ mutual
           -- there shouldn't be anything else other than definitions here, so:
           | _ => unreachable!
         let (mutualDefs, mutualNames) ← sortDefs mutualDefs
+        let mut i := 0
+        for name in mutualNames do
+          set { ← get with mutIdx := (← get).mutIdx.insert name i }
+          i := i + 1
         let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
         return .mutBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef struct
