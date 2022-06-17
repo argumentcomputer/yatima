@@ -188,7 +188,7 @@ mutual
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
-  partial def toYatimaExpr (recr: Option Name): Lean.Expr → CompileM Expr
+  partial def toYatimaExpr (recr: Option Name) : Lean.Expr → CompileM Expr
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
@@ -199,10 +199,15 @@ mutual
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
-    | .const nam lvls _ =>
+    | .const nam lvls _ => do 
       -- todo: also handle the case when `nam` is in a cycle
       if recr == some nam then
         return .var nam (← read).bindCtx.length
+      else if (← read).order.contains nam then
+        let idx ← match (← read).order.indexOf nam with 
+          | some n => pure n 
+          | none => throw s!"Recursion expected: {nam} should be in {(← read).order}"
+        return .var nam ((← read).bindCtx.length + idx)
       else do
         match (← read).constMap.find?' nam with
           | some leanConst => do
@@ -230,6 +235,8 @@ mutual
     let typeCid ← exprToCid type
     addToEnv $ .expr_cache typeCid type
     -- todo: check if defn.name is in a cycle (via `CompileEnv.order`)
+    
+    dbg_trace s!"Mutuals: {(← read).order}"
     let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
     let valueCid ← exprToCid value
     addToEnv $ .expr_cache valueCid value
@@ -286,9 +293,9 @@ mutual
           | some (.defnInfo defn) => pure defn
           -- there shouldn't be anything else other than definitions here, so:
           | _ => unreachable!
-        let mutualDefs ← sortDefs mutualDefs
+        let (mutualDefs, mutualNames) ← sortDefs mutualDefs
         -- todo: fill this sorry with a hashmap of each name to its position in the cycle, starting from 0
-        let definitions ← withOrder sorry $ mutualDefs.mapM toYatimaDef
+        let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
         return .mutBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef struct
     | .ctorInfo struct =>
@@ -442,9 +449,11 @@ mutual
     let vs ← cmpExpr names x.value y.value
     return concatOrds [ls, ts, vs]
 
-  partial def sortDefs (ds: List Lean.DefinitionVal): CompileM (List Lean.DefinitionVal) :=
+  partial def sortDefs (ds: List Lean.DefinitionVal) : 
+      CompileM (List Lean.DefinitionVal × List Lean.Name) := do 
     let names : List Lean.Name := ds.map (·.name)
-    sortByM (cmpDef names) ds
+    let res ← sortByM (cmpDef names) ds
+    pure (res, res.map (·.name))
 
 end
 
@@ -484,7 +493,7 @@ def extractEnv
         vs.map fun v => (v, vs)
     dbg_trace nss
     CompileM.run 
-      ⟨map, [], [], Std.RBMap.ofList nss.join, .empty⟩
+      ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default 
       (buildEnv map printLean printYatima)
   | .error e => throw e

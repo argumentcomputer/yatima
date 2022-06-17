@@ -19,7 +19,7 @@ structure CompileEnv where
   univCtx  : List Lean.Name
   bindCtx  : List Name
   cycles   : RBMap Lean.Name (List Lean.Name) compare
-  order    : HashMap Lean.Name Nat
+  order    : List Lean.Name
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -38,7 +38,7 @@ def withLevelsAndResetBindCtx (levels : List Lean.Name) :
   -- todo: maybe we want to reset `order` here as well
   withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, e.order⟩
 
-def withOrder (order : Std.HashMap Lean.Name Nat) : CompileM α → CompileM α :=
+def withOrder (order : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, e.cycles, order⟩
 
 end Yatima.Compiler
