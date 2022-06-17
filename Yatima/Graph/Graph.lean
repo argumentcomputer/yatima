@@ -236,22 +236,20 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
               | none => throw s!"Vertex {v} not found in graph"
   
   let mut sccs := []
-
+  let mut vll := idx 
   for w in edges do 
     match (← get).info.find? w with 
     | some ⟨widx, wlowlink, won⟩ => do 
-      if won then 
-        let ⟨vidx, vlowlink, von⟩ ← getInfo v
-        setInfo v ⟨vidx, min vlowlink widx, von⟩
+      if won then
+        vll := min vll widx
     | none => do
       sccs := (← strongConnect w) ++ sccs
-      let ⟨vidx, vlowlink, von⟩ ← getInfo v 
       let ⟨_, wlowlink, _⟩ ← getInfo w
-      setInfo v ⟨vidx, min vlowlink wlowlink, von⟩
+      vll := min vll wlowlink
 
-  let ⟨vidx, vlowlink, von⟩ ← getInfo v
+  setInfo v ⟨idx, vll, true⟩
   
-  if vidx == vlowlink then do
+  if idx == vll then do
     let s := (← get).stack
     let (scc, s) := s.splitAtP fun w => w != v 
     scc.forM fun w => do 
