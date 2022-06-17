@@ -458,15 +458,16 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-    if printLean then
-      dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst const}"
-    let const ← processYatimaConst const
-    if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst const}"
-    addToEnv $ .const_cache (← constToCid const) const
+    if name.toString.startsWith "QQQ" || name.toString.startsWith "WWW" then
+      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+      if printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let const ← processYatimaConst const
+      if printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
+      addToEnv $ .const_cache (← constToCid const) const
   printInfo
   return (← get).env
 
@@ -485,7 +486,7 @@ def extractEnv
     let nss : List (List $ Lean.Name × List Lean.Name) :=
       vss.map fun vs => 
         vs.map fun v => (v, vs)
-    dbg_trace nss
+    dbg_trace s!"SCC size: {nss.length}"
     CompileM.run 
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default 
