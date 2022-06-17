@@ -188,7 +188,7 @@ mutual
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
-  partial def toYatimaExpr (recr: Option Name) : Lean.Expr → CompileM Expr
+  partial def toYatimaExpr (recr : Option Name) : Lean.Expr → CompileM Expr
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
@@ -199,17 +199,12 @@ mutual
       let univCid ← univToCid univ
       addToEnv $ .univ_cache univCid univ
       return .sort univCid
-    | .const nam lvls _ => do 
-      -- todo: also handle the case when `nam` is in a cycle
+    | .const nam lvls _ => do
       if recr == some nam then
         return .var nam (← read).bindCtx.length
-      else if (← read).order.contains nam then
-        let idx ← match (← read).order.indexOf nam with 
-          | some n => pure n 
-          | none => throw s!"Recursion expected: {nam} should be in {(← read).order}"
-        return .var nam ((← read).bindCtx.length + idx)
-      else do
-        match (← read).constMap.find?' nam with
+      else match (← read).mutOrder.indexOf nam with
+        | some idx => return .var nam $ (← read).bindCtx.length + idx
+        | none => match (← read).constMap.find?' nam with
           | some leanConst => do
             let const ← processYatimaConst leanConst
             let constId ← constToCid const
@@ -234,8 +229,8 @@ mutual
     let type ← toYatimaExpr none defn.type
     let typeCid ← exprToCid type
     addToEnv $ .expr_cache typeCid type
-    if (← read).order != [] then
-      dbg_trace s!"Mutuals: {(← read).order}"
+    if (← read).mutOrder != [] then
+      dbg_trace s!"Mutuals: {(← read).mutOrder}"
     let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
     let valueCid ← exprToCid value
     addToEnv $ .expr_cache valueCid value
@@ -246,8 +241,8 @@ mutual
       value  := valueCid
       safety := defn.safety }
 
-  partial def toYatimaConst (const: Lean.ConstantInfo) :
-      CompileM Const := withLevelsAndResetBindCtx const.levelParams do
+  partial def toYatimaConst (const : Lean.ConstantInfo) :
+      CompileM Const := withResetCompileEnv const.levelParams do
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
@@ -293,7 +288,6 @@ mutual
           -- there shouldn't be anything else other than definitions here, so:
           | _ => unreachable!
         let (mutualDefs, mutualNames) ← sortDefs mutualDefs
-        -- todo: fill this sorry with a hashmap of each name to its position in the cycle, starting from 0
         let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
         return .mutBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef struct
@@ -379,16 +373,13 @@ mutual
     let name : Name := const.name
     match (← get).cache.find? name with
     | none =>
-      -- dbg_trace s!"[NOT IN CACHE YET] processing {name}"
       let const ← toYatimaConst const
       set { ← get with cache := (← get).cache.insert name const }
       pure const
-    | some const =>
-      -- dbg_trace s!"[ALREADY IN CACHE] processing {name}"
-      pure const
+    | some const => pure const
   
-  partial def cmpExpr (names : List Lean.Name) (x : Lean.Expr) (y : Lean.Expr) : CompileM Ordering := do
-    match x, y with
+  partial def cmpExpr (names : List Lean.Name) :
+      Lean.Expr → Lean.Expr → CompileM Ordering
     | .mvar .., _ => throw "Unfilled expr metavariable"
     | _, .mvar .. => throw "Unfilled expr metavariable"
     | .fvar .., _ => throw "expr free variable"
@@ -458,15 +449,16 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-    if printLean then
-      dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst const}"
-    let const ← processYatimaConst const
-    if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst const}"
-    addToEnv $ .const_cache (← constToCid const) const
+    if name.toString.startsWith "QQQ" || name.toString.startsWith "WWW" then
+      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+      if printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let const ← processYatimaConst const
+      if printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
+      addToEnv $ .const_cache (← constToCid const) const
   printInfo
   return (← get).env
 

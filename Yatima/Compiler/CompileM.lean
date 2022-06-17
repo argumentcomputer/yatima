@@ -19,7 +19,7 @@ structure CompileEnv where
   univCtx  : List Lean.Name
   bindCtx  : List Name
   cycles   : RBMap Lean.Name (List Lean.Name) compare
-  order    : List Lean.Name
+  mutOrder : List Lean.Name
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -31,12 +31,11 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Exc
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles, e.order⟩
+    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles, e.mutOrder⟩
 
-def withLevelsAndResetBindCtx (levels : List Lean.Name) :
+def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  -- todo: maybe we want to reset `order` here as well
-  withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, e.order⟩
+  withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, []⟩
 
 def withOrder (order : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, e.cycles, order⟩
