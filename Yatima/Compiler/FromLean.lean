@@ -89,13 +89,13 @@ mutual
       let domCid ← exprToCid dom
       let imgCid ← exprToCid img
       return (.pi domCid.anon imgCid.anon, .pi nam bnd domCid.meta imgCid.meta)
-    | .letE nam typ exp bod => do
+    | .letE name typ exp bod => do
       let typCid ← exprToCid typ
       let expCid ← exprToCid exp
       let bodCid ← exprToCid bod
       return (
         .letE typCid.anon expCid.anon bodCid.anon, 
-        .letE typCid.meta expCid.meta bodCid.meta
+        .letE name typCid.meta expCid.meta bodCid.meta
       )
     | .lit lit => return (.lit lit, .lit)
     | .lty lty => return (.lty lty, .lty)

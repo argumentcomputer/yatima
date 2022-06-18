@@ -10,7 +10,6 @@ structure Context where
 inductive CheckError where
 | notPi : CheckError
 | notTyp : CheckError
-| notSameBinder : CheckError
 | valueMismatch : CheckError
 | cannotInferFix : CheckError
 | cannotInferLam : CheckError
@@ -24,10 +23,9 @@ def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : CheckM α) : CheckM α 
 mutual
   partial def check (term : Expr) (type : Value) : CheckM Unit :=
     match term with
-    | .lam _ lam_name lam_info lam_dom bod =>
+    | .lam _ lam_name _ lam_dom bod =>
       match type with
-      | .pi _ pi_info dom img env =>
-        if lam_info != pi_info then throw .notSameBinder else do
+      | .pi _ _ dom img env => do
         -- TODO check that `lam_dom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
@@ -108,6 +106,7 @@ mutual
       let univs := (← read).env.univs
       let env := { exprs := [], univs := List.map (instBulkReduce univs) const_univs }
       pure $ eval (getConstType k) env
+    | .proj .. => panic! "TODO"
 end
 
 end Yatima.Typechecker

@@ -15,14 +15,14 @@ def isUnit (type : Value) : Bool :=
 
 def applyType (type : Value) (args : List (Thunk Value)) : Value :=
   match type, args with
-  | .pi _ info dom img env, arg :: args =>
+  | .pi _ _ dom img env, arg :: args =>
     applyType (eval img (extEnv env arg)) args
   | type, [] => type
   | _, _ => panic! "Cannot apply argument list to type. Implementation broken."
 
 partial def isProp (lvl : Nat) (type : Value) : Bool :=
   match type with
-  | .pi name info dom img env =>
+  | .pi name _ dom img env =>
     -- A pi type is a proposition if and only if its image is a proposition
     isProp (lvl + 1) (eval img (extVar env name lvl dom))
   | .app neu args =>
@@ -46,8 +46,7 @@ mutual
     | .lit lit, .lit lit' => lit == lit'
     | .lty lty, .lty lty' => lty == lty'
     | .sort u, .sort u' => equalUniv u u'
-    | .pi name info dom img env, .pi name' info' dom' img' env' =>
-      info != info' &&
+    | .pi name _ dom img env, .pi name' _ dom' img' env' =>
       -- For equality we don't need to know the universe levels, only the "shape" of the type.
       -- If we did have to know the universe level, then we probably would have to cache it
       -- so that we wouldn't need to infer the type just to get the level.
@@ -56,8 +55,7 @@ mutual
       let img := eval img (extVar env name lvl dom)
       let img' := eval img' (extVar env name' lvl dom)
       equal (lvl + 1) img img' type
-    | .lam name info bod env, .lam name' info' bod' env' =>
-      info != info' &&
+    | .lam name _ bod env, .lam name' _ bod' env' =>
       match type with
       | .pi pi_name _ dom img pi_env =>
         let bod := eval bod (extVar env name lvl dom)

@@ -101,7 +101,7 @@ def exprMetaToIpld : ExprMeta → Ipld
   | .app f a      => .array #[.number EXPRMETA, .number 3, f, a]
   | .lam i n t b  => .array #[.number EXPRMETA, .number 4, i, n, t, b]
   | .pi i n t b   => .array #[.number EXPRMETA, .number 5, i, n, t, b]
-  | .letE n t v   => .array #[.number EXPRMETA, .number 6, n, t, v]
+  | .letE n t v b  => .array #[.number EXPRMETA, .number 6, n, t, v, b]
   | .lit          => .array #[.number EXPRMETA, .number 7]
   | .lty          => .array #[.number EXPRMETA, .number 8]
   | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]

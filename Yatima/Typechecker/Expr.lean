@@ -3,8 +3,6 @@ import Yatima.Const
 
 namespace Yatima.Typechecker
 
-abbrev Hash := Nat
-
 structure Axiom (Expr : Type) where
   name : Name
   lvls : List Name
@@ -69,7 +67,7 @@ structure Recursor (Expr : Type) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List (Hash × (RecursorRule Expr))
+  rules   : List (ConstAnonCid × (RecursorRule Expr))
   k       : Bool
   safe    : Bool
 
@@ -81,27 +79,27 @@ structure Quotient (Expr : Type) where
 
 mutual
 inductive Const
-  | «axiom»     : Hash → (Axiom Expr) → Const
-  | «theorem»   : Hash → (Theorem Expr) → Const
-  | «inductive» : Hash → (Inductive Expr) → Const
-  | opaque      : Hash → (Opaque Expr) → Const
-  | definition  : Hash → (Definition Expr) → Const
-  | constructor : Hash → (Constructor Expr) → Const
-  | recursor    : Hash → (Recursor Expr) → Const
-  | quotient    : Hash → (Quotient Expr) → Const
+  | «axiom»     : ConstAnonCid → (Axiom Expr) → Const
+  | «theorem»   : ConstAnonCid → (Theorem Expr) → Const
+  | «inductive» : ConstAnonCid → (Inductive Expr) → Const
+  | opaque      : ConstAnonCid → (Opaque Expr) → Const
+  | definition  : ConstAnonCid → (Definition Expr) → Const
+  | constructor : ConstAnonCid → (Constructor Expr) → Const
+  | recursor    : ConstAnonCid → (Recursor Expr) → Const
+  | quotient    : ConstAnonCid → (Quotient Expr) → Const
 
 inductive Expr
-  | var   : Hash → Name → Nat → Expr
-  | sort  : Hash → Univ → Expr
-  | const : Hash → Name → Const → List Univ → Expr
-  | app   : Hash → Expr → Expr → Expr
-  | lam   : Hash → Name → BinderInfo → Expr → Expr → Expr
-  | pi    : Hash → Name → BinderInfo → Expr → Expr → Expr
-  | letE  : Hash → Name → Expr → Expr → Expr → Expr
-  | lit   : Hash → Literal → Expr
-  | lty   : Hash → LitType → Expr
-  | fix   : Hash → Name → Expr → Expr
-  | proj  : Hash → Nat → Expr → Expr
+  | var   : ExprAnonCid → Name → Nat → Expr
+  | sort  : ExprAnonCid → Univ → Expr
+  | const : ExprAnonCid → Name → Const → List Univ → Expr
+  | app   : ExprAnonCid → Expr → Expr → Expr
+  | lam   : ExprAnonCid → Name → BinderInfo → Expr → Expr → Expr
+  | pi    : ExprAnonCid → Name → BinderInfo → Expr → Expr → Expr
+  | letE  : ExprAnonCid → Name → Expr → Expr → Expr → Expr
+  | lit   : ExprAnonCid → Literal → Expr
+  | lty   : ExprAnonCid → LitType → Expr
+  | fix   : ExprAnonCid → Name → Expr → Expr
+  | proj  : ExprAnonCid → Nat → Expr → Expr
   deriving Inhabited
 end
 
@@ -116,7 +114,7 @@ def getConstType (k : Const) : Expr :=
   | .recursor _ x => x.type
   | .quotient _ x => x.type
 
-def getConstHash (k : Const) : Hash :=
+def getConstHash (k : Const) : ConstAnonCid :=
   match k with
   | .«axiom» h _ => h
   | .«theorem» h _ => h
