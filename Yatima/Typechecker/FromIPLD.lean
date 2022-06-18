@@ -3,21 +3,7 @@ import Yatima.Typechecker.Expr
 
 namespace Yatima.Typechecker
 
-open Std (RBMap)
--- structure CompileState where
---   env   : Yatima.Env
---   cache : RBMap Name Const Ord.compare
-
--- instance : Inhabited CompileState where
---   default := ⟨default, .empty⟩
-
--- structure CompileEnv where
---   constMap    : Lean.ConstMap
---   bindCtx     : List Name
---   printLean   : Bool
---   printYatima : Bool
---   deriving Inhabited
--- abbrev ConvM := ReaderT Context <| StateT ConstMap Id
+-- Conversion monad
 inductive ConvError where
 | cannotFindAnon : ConvError
 | cannotFindMeta : ConvError
@@ -27,28 +13,54 @@ deriving Inhabited
 
 abbrev ConvM := ReaderT Env <| ExceptT ConvError Id
 
-def findAnon (anonCid : ExprAnonCid) : ConvM ExprAnon := do
+-- Auxiliary functions
+def findExprAnon (anonCid : ExprAnonCid) : ConvM ExprAnon := do
   match (← read).expr_anon.find? anonCid with
   | .some expr => pure expr
   | .none => throw .cannotFindAnon
 
-def findMeta (metaCid : ExprMetaCid) : ConvM ExprMeta := do
+def findExprMeta (metaCid : ExprMetaCid) : ConvM ExprMeta := do
   match (← read).expr_meta.find? metaCid with
   | .some expr => pure expr
   | .none => throw .cannotFindMeta
 
-def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : ConvM Const := do
-  throw .todo
+def findUnivAnon (anonCid : UnivAnonCid) : ConvM UnivAnon := do
+  match (← read).univ_anon.find? anonCid with
+  | .some univ => pure univ
+  | .none => throw .cannotFindAnon
 
-def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM Univ := do
-  throw .todo
+def findUnivMeta (metaCid : UnivMetaCid) : ConvM UnivMeta := do
+  match (← read).univ_meta.find? metaCid with
+  | .some univ => pure univ
+  | .none => throw .cannotFindMeta
 
-def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMetaCid) : ConvM (List Univ) := do
+-- Conversion functions
+partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM Univ := do
+  let anon ← findUnivAnon anonCid
+  let meta ← findUnivMeta metaCid
+  match (anon, meta) with
+  | (.zero, .zero) => pure $ .zero
+  | (.succ univAnon, .succ univMeta) => pure $ .succ (← univFromIpld univAnon univMeta)
+  | (.max univAnon₁ univAnon₂, .max univMeta₁ univMeta₂) =>
+    pure $ .max (← univFromIpld univAnon₁ univMeta₂) (← univFromIpld univAnon₁ univMeta₂)
+  | (.imax univAnon₁ univAnon₂, .imax univMeta₁ univMeta₂) =>
+    pure $ .imax (← univFromIpld univAnon₁ univMeta₂) (← univFromIpld univAnon₁ univMeta₂)
+  | (.param idx, .param nam) => pure $ .var nam idx
+  | _ => throw .anonMetaMismatch
+
+partial def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMetaCid) : ConvM (List Univ) := do
+  match (anonCids, metaCids) with
+  | (anonCid :: anonCids, metaCid :: metaCids) =>
+    pure $ (← univFromIpld anonCid metaCid) :: (← univsFromIpld anonCids metaCids)
+  | ([], []) => pure []
+  | _ => throw .anonMetaMismatch
+
+partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : ConvM Const := do
   throw .todo
 
 partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM Expr := do
-  let anon ← findAnon anonCid
-  let meta ← findMeta metaCid
+  let anon ← findExprAnon anonCid
+  let meta ← findExprMeta metaCid
   match (anon, meta) with
   | (.var idx, .var name) => pure $ .var anonCid name idx
   | (.sort uAnonCid, .sort uMetaCid) => pure $ .sort anonCid (← univFromIpld uAnonCid uMetaCid)
