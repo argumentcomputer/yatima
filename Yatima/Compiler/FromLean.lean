@@ -385,17 +385,16 @@ mutual
       CompileM $ Const × ConstCid := do
     match (← get).cache.find? leanConst.name with
     | none =>
-      let name := leanConst.name
       let const ← toYatimaConst leanConst
       let constCid ← constToCid const
       addToEnv $ .const_cache constCid const
       set { ← get with cache := (← get).cache.insert const.name const }
-      match (← get).mutIdx.find? name with
+      match (← get).mutIdx.find? leanConst.name with
       | some i => do
-        let mutConst := .mutDef ⟨constCid, name, i⟩
+        let mutConst := .mutDef ⟨constCid, leanConst.name, i⟩
         let mutCid ← constToCid mutConst
         addToEnv $ .const_cache mutCid mutConst
-        set { ← get with cache := (← get).cache.insert name mutConst }
+        set { ← get with cache := (← get).cache.insert leanConst.name mutConst }
         pure (mutConst, mutCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
@@ -405,7 +404,7 @@ mutual
     | .mvar .., _ => throw "Unfilled expr metavariable"
     | _, .mvar .. => throw "Unfilled expr metavariable"
     | .fvar .., _ => throw "expr free variable"
-    | _, .fvar .. => throw "expr free metavariable"
+    | _, .fvar .. => throw "expr free variable"
     | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
     | .mdata _ x _, y  => cmpExpr names x y
     | x, .mdata _ y _  => cmpExpr names x y
@@ -473,14 +472,15 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-    if printLean then
-      dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst const}"
-    let (const, constCid) ← processYatimaConst const
-    if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst const}"
+    if name.toString.startsWith "hA" || name.toString.startsWith "hB" then 
+      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+      if printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let (const, constCid) ← processYatimaConst const
+      if printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
   printCompilationStats
   return (← get).env
 
