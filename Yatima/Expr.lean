@@ -55,7 +55,7 @@ inductive ExprMeta
   | app   : ExprMetaCid → ExprMetaCid → ExprMeta
   | lam   : Name → BinderInfo → ExprMetaCid → ExprMetaCid → ExprMeta
   | pi    : Name → BinderInfo → ExprMetaCid → ExprMetaCid → ExprMeta
-  | letE  : ExprMetaCid → ExprMetaCid → ExprMetaCid → ExprMeta
+  | letE  : Name → ExprMetaCid → ExprMetaCid → ExprMetaCid → ExprMeta
   | lit   : ExprMeta
   | lty   : ExprMeta
   | fix   : Name → ExprMetaCid → ExprMeta
