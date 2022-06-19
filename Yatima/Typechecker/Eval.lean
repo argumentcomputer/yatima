@@ -29,8 +29,8 @@ partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value 
       else
         match arg.get with
         | .app (Neutral.const _ (.constructor hash ctor) _) args' =>
-          match List.find? (fun r => r.fst == hash) recur.rules with
-          | some (_, rule) =>
+          match List.find? (fun r => r.ctor == hash) recur.rules with
+          | some rule =>
             let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
             eval rule.rhs {exprs, univs}
           -- Since we assume expressions are previously type checked, we know that this constructor

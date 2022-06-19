@@ -54,6 +54,7 @@ structure Constructor (Expr : Type) where
   safe   : Bool
 
 structure RecursorRule (Expr : Type) where
+  ctor   : ConstAnonCid
   fields : Nat
   rhs    : Expr
 
@@ -67,7 +68,7 @@ structure Recursor (Expr : Type) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List (ConstAnonCid × (RecursorRule Expr))
+  rules   : List (RecursorRule Expr)
   k       : Bool
   safe    : Bool
 
