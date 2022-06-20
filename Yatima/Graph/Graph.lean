@@ -42,50 +42,42 @@ def ReferenceMap.empty : ReferenceMap :=
   .empty
 
 instance : Inhabited ReferenceMap := 
-  { default := .empty }
+  { default := .empty } 
 
-mutual 
+def getExprRefs : Expr → List Name
+  | .mdata _ exp _ => getExprRefs exp
+  | .const name _ _ => [name]
+  | .app func arg _ => 
+    getExprRefs func ++  getExprRefs arg
+  | .lam name type body _ => 
+    getExprRefs type ++  getExprRefs body
+  | .forallE name type body _ => 
+    getExprRefs type ++  getExprRefs body
+  | .letE  name type body exp _ => 
+    getExprRefs type ++  getExprRefs body ++ getExprRefs exp
+  | .proj name idx exp _ => getExprRefs exp
+  | _ => []
 
-  partial def getExprRefs (expr : Expr) : List Name :=
-    match expr with 
-    | .mdata _ exp _ => getExprRefs exp
-    | .const name _ _ => [name]
-    | .app func arg _ => 
-      getExprRefs func ++  getExprRefs arg
-    | .lam name type body _ => 
-      getExprRefs type ++  getExprRefs body
-    | .forallE name type body _ => 
-      getExprRefs type ++  getExprRefs body
-    | .letE  name type body exp _ => 
-      getExprRefs type ++  getExprRefs body ++ getExprRefs exp
-    | .proj name idx exp _ => getExprRefs exp
-    | _ => []
-
-  partial def getConstRefs (const : ConstantInfo) : List Name :=
-    match const with 
-    | .axiomInfo  val => getExprRefs val.type
-    | .defnInfo   val => 
-      getExprRefs val.type ++ getExprRefs val.value
-    | .thmInfo    val => 
-      getExprRefs val.type ++ getExprRefs val.value
-    | .opaqueInfo val => 
-      getExprRefs val.type ++ getExprRefs val.value
-    | .ctorInfo   val => 
-      val.induct :: getExprRefs val.type
-    | .inductInfo val => 
-      getExprRefs val.type ++ val.all
-    | .recInfo    val => 
-      getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
-                  ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
-    | .quotInfo   val => getExprRefs val.type
-
-end
+def getConstRefs : ConstantInfo → List Name
+  | .defnInfo val => getExprRefs val.type ++ getExprRefs val.value
+  | _             => []
+  -- | .axiomInfo  val => getExprRefs val.type
+  -- | .thmInfo    val => 
+  --   getExprRefs val.type ++ getExprRefs val.value
+  -- | .opaqueInfo val => 
+  --   getExprRefs val.type ++ getExprRefs val.value
+  -- | .ctorInfo   val => 
+  --   val.induct :: getExprRefs val.type
+  -- | .inductInfo val => 
+  --   getExprRefs val.type ++ val.all
+  -- | .recInfo    val => 
+  --   getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
+  --               ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
+  -- | .quotInfo   val => getExprRefs val.type
 
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
-  SMap.fold 
-    (fun acc name const => acc.insert name $ List.eraseDup $ getConstRefs const) 
-    ReferenceMap.empty 
-    constMap
+  constMap.fold (init := .empty)
+    fun acc name const => acc.insert name $ (getConstRefs const).eraseDup
 
 instance : ToString ReferenceMap := 
  { toString := fun refs => toString refs.toList }

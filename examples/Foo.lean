@@ -1,15 +1,10 @@
 prelude
 
-def id (A : Type) (x : A) : A := x
+-- inductive BLA
+--   | nil
+--   | bla : BLA → BLA → BLA
 
-inductive Unit where
-| unit
-
-inductive Bar
-  | hi | bye
-
-def bar := Bar.hi
-
-inductive MyNat
-| zero : MyNat
-| succ : MyNat → MyNat
+mutual
+inductive BLE | bli : BLI → BLE
+inductive BLI | ble : BLE → BLI
+end

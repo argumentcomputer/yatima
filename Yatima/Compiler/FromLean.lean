@@ -322,10 +322,10 @@ mutual
           | none => throw s!"Unknown constant '{name}'"
       let ctors : List (Name × ExprCid) ← ctors.mapM
         fun (nam, typ) => do
-         let type ← toYatimaExpr (some struct.name) typ
-         let typeCid ← exprToCid type
-         addToEnv $ .expr_cache typeCid type
-         return (nam, typeCid)
+          let type ← toYatimaExpr (some struct.name) typ
+          let typeCid ← exprToCid type
+          addToEnv $ .expr_cache typeCid type
+          return (nam, typeCid)
       return .inductive {
         name := struct.name
         lvls := struct.levelParams.map .ofLeanName
@@ -381,12 +381,12 @@ mutual
   Side effects: caches any new processed values in `cache`, `expr_cache`, and
   `const_cache`.
   -/
-  partial def processYatimaConst (leanConst: Lean.ConstantInfo) :
+  partial def processYatimaConst (const : Lean.ConstantInfo) :
       CompileM $ Const × ConstCid := do
-    match (← get).cache.find? leanConst.name with
+    match (← get).cache.find? const.name with
     | none =>
-      let name := leanConst.name
-      let const ← toYatimaConst leanConst
+      let name := const.name
+      let const ← toYatimaConst const
       let constCid ← constToCid const
       addToEnv $ .const_cache constCid const
       set { ← get with cache := (← get).cache.insert const.name const }
@@ -499,7 +499,7 @@ def extractEnv
     let nss : List (List $ Lean.Name × List Lean.Name) :=
       vss.map fun vs => 
         vs.map fun v => (v, vs)
-    CompileM.run 
+    CompileM.run
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default 
       (buildEnv map printLean printYatima)
