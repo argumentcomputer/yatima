@@ -47,7 +47,7 @@ partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value 
       | Value.lam _ _ bod lam_env => eval bod (extEnv lam_env arg_thunk)
       | Value.app var@(Neutral.fvar ..) args => Value.app var (arg_thunk :: args)
       | Value.app (Neutral.const name k k_univs) args => applyConst name k k_univs arg_thunk args
-      -- Since terms are typed checked we know that any other case is impossible
+      -- Since terms are well-typed we know that any other case is impossible
       | _ => panic! "Impossible eval case"
     | .lam _ name info _ bod => Value.lam name info bod env
     | .var _ _ idx =>
@@ -66,7 +66,16 @@ partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value 
     | .sort _ univ => Value.sort (instBulkReduce env.univs univ)
     | .lit _ lit => Value.lit lit
     | .lty _ lty => Value.lty lty
-    | .proj .. => panic! "TODO"
+    | .proj _ idx expr =>
+      let val := eval expr env
+      match val with
+      | .app (.const _ (.constructor _ ctor) _) args =>
+        -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
+        -- and, furthermore, that the index is in range of `args`
+        let idx := ctor.params + idx
+        (List.get! args idx).get
+      | .app neu args => .proj idx neu args
+      | _ => panic! "Impossible case on projections"
 end
 
 end Yatima.Typechecker

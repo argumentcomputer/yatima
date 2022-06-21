@@ -42,6 +42,7 @@ inductive Value
 | pi : Name → BinderInfo → Thunk Value → Expr → Env Value → Value
 | lit : Literal → Value
 | lty : LitType → Value
+| proj : Nat → Neutral → List (Thunk Value) → Value
 deriving Inhabited
 end
 

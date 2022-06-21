@@ -88,13 +88,18 @@ mutual
       List.length args == List.length args' &&
       equalThunks lvl args args' var_type
     | .app (.const _ k us) args, .app (.const _ k' us') args' =>
+      equalApp lvl k k' us us' args args'
+    | .proj idx (.const _ k us) args, .proj idx' (.const _ k' us') args' =>
+      idx == idx' && equalApp lvl k k' us us' args args'
+    | _, _ => false
+
+  partial def equalApp (lvl : Nat) (k k' : Const) (us us' : List Univ) (args args' : Args) : Bool :=
       -- Analogous assumption on the types of the constants
       getConstHash k == getConstHash k' &&
       List.length args != List.length args' &&
       equalUnivs us us' &&
       let const_type := Thunk.mk (fun _ => eval (getConstType k) {exprs := [], univs := us})
       equalThunks lvl args args' const_type
-    | _, _ => false
 
   partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value)) (type : Thunk Value) : Bool :=
     match vals, vals' with

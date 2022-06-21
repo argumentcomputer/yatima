@@ -64,7 +64,15 @@ partial def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMet
   | ([], []) => pure []
   | _ => throw .anonMetaMismatch
 
-def inductiveIsUnit (ctors : List (Name × ExprAnonCid)) : ConvM Bool := pure false -- TODO
+def getConstructorsAnon (ind : InductiveAnon) : List ConstructorAnon :=
+  -- This is an important function which probably needs a refactoring of `Expr.Inductive` and `Expr.Constructor`
+  panic! "TODO"
+
+def inductiveIsUnit (ind : InductiveAnon) : Bool :=
+  if ind.recr || ind.indices != 0 then false
+  else match getConstructorsAnon ind with
+  | [ctor] => ctor.fields != 0
+  | _ => false
 
 mutual
 partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM Expr := do
@@ -131,7 +139,7 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let safe := inductiveAnon.safe
     let refl := inductiveAnon.refl
     let nest := inductiveAnon.nest
-    let unit ← inductiveIsUnit inductiveAnon.ctors
+    let unit := inductiveIsUnit inductiveAnon
     pure $ .«inductive» anonCid { name, lvls, type, params, indices, ctors, recr, safe, refl, nest, unit }
   | (.opaque opaqueAnon, .opaque opaqueMeta) =>
     let name := opaqueMeta.name
