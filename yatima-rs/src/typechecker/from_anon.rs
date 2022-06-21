@@ -18,6 +18,16 @@ pub struct ConversionEnv {
   pub consts: BTreeMap<ConstAnonCid, Rc<Const>>,
 }
 
+impl ConversionEnv {
+  pub fn new() -> Self {
+    ConversionEnv {
+      univs: BTreeMap::new(),
+      exprs: BTreeMap::new(),
+      consts: BTreeMap::new(),
+    }
+  }
+}
+
 pub fn expr_from_anon(expr_cid: &ExprAnonCid, cid_env: &Env, conv_env: &mut ConversionEnv) -> Rc<Expr> {
   match conv_env.exprs.get(expr_cid) {
     Some(expr) => return expr.clone(),

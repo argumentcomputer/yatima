@@ -482,7 +482,7 @@ impl ExprAnon {
 }
 
 #[cfg(test)]
- pub mod tests {
+pub mod tests {
   use crate::test::frequency;
   use crate::parse::utils::{
       BindCtx,

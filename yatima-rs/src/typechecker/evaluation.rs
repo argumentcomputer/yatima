@@ -155,3 +155,50 @@ pub fn apply_const(
   args.push_front(arg);
   Value::App(Neutral::Const(cnst, univs), args)
 }
+
+#[cfg(test)]
+pub mod tests {
+  use crate::parse::utils::{
+    BindCtx,
+    GlobalCtx,
+    UnivCtx,
+  };
+
+  use crate::parse::{
+    expr::parse_expr,
+    span::Span,
+    error::ParseError,
+  };
+
+  use nom::IResult;
+
+  use crate::expression::Expr as YExpr;
+  use crate::environment::Env as YEnv;
+
+  use im::{
+    OrdMap,
+    Vector,
+  };
+
+  use crate::typechecker::from_anon::{expr_from_anon, ConversionEnv};
+
+  use super::*;
+
+  pub fn to_expr(i: &str, env : Rc<RefCell<YEnv>>) -> ExprPtr {
+    let yexpr = parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env.clone()) (Span::new(i),).unwrap().1;
+    let myenv = &mut *env.borrow_mut();
+    let yexpr = &yexpr.store(myenv).unwrap().anon;
+    expr_from_anon(yexpr, myenv, &mut ConversionEnv::new())
+  }
+
+  #[test]
+  fn test_app_lam() {
+    let env = Rc::new(RefCell::new(YEnv::new()));
+    let act = eval(to_expr("((λ (a: Sort 1) => a) Sort 0)", env.clone()), Env::new());
+    let exp = eval(to_expr("Sort 0", env.clone()), Env::new());
+
+    print!("{:?}\n{:?}", act, exp);
+
+    assert!(act == exp);
+  }
+}

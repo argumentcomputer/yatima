@@ -32,6 +32,15 @@ pub struct Env {
   pub univs: Vector<UnivPtr>,
 }
 
+impl Env {
+  pub fn new() -> Self {
+    Env {
+      exprs: Vector::new(),
+      univs: Vector::new(),
+    }
+  }
+}
+
 // Thunks are either values or unevaluated expressions. Whenever we "force" a
 // thunk (i.e. evaluate it in case it is not yet a value), we should update
 // it to the result of the evaluation, so that we don't duplicate work
