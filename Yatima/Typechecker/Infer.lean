@@ -14,6 +14,8 @@ inductive CheckError where
 | cannotInferFix : CheckError
 | cannotInferLam : CheckError
 | typNotStructure : CheckError
+| projEscapesProp : CheckError
+| impossible : CheckError
 deriving Inhabited
 
 abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
@@ -121,17 +123,22 @@ mutual
       | .app (.const _ (.«inductive» _ ind) univs) params =>
         let ctor ← checkStructure ind
         if ind.params != params.length then throw .valueMismatch else
-        -- TODO? Might also have to check if the projection will not yield a type from a proposition
-        let ctorType := eval ctor.type { exprs := [], univs := List.map (instBulkReduce (← read).env.univs) univs }
-        let mut typ := applyType ctorType params
+        let mut ctorType := applyType (eval ctor.type { exprs := [], univs := List.map (instBulkReduce (← read).env.univs) univs }) params
         for i in [:idx] do
-          match typ with
+          match ctorType with
           | .pi _ _ _ img pi_env =>
             let env := (← read).env
             let proj := Thunk.mk (fun _ => eval (Expr.proj nam i expr) env)
-            typ := eval img { env with exprs := proj :: env.exprs }
+            ctorType := eval img { env with exprs := proj :: env.exprs }
           | _ => pure ()
-        pure typ
+        match ctorType with
+        | .pi _ _ dom _ _  =>
+          let lvl := (← read).lvl
+          let typ := dom.get
+          if isProp lvl exprTyp && !(isProp lvl typ)
+          then throw .projEscapesProp
+          else pure typ
+        | _ => throw .impossible
       | _ => throw .typNotStructure
 end
 
