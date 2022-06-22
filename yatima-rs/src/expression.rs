@@ -13,7 +13,7 @@ use crate::{
     UnivMetaCid,
   },
   name::Name,
-  nat::Nat, typechecker::check::infer,
+  nat::Nat, typechecker::check::infer, universe::Univ,
 };
 use serde::{
   Deserialize,
@@ -256,7 +256,14 @@ impl Expr {
 
     // Basic logic around parantheses, makes sure we don't do atoms.
     fn parens(env: &Env, ind: bool, expr: &Expr) -> String {
-      if is_atom(expr) {
+      let mut is_prop = false;
+      if let Expr::Sort(univcid) = expr {
+        let univ = env.get_univ_cache(univcid).unwrap();
+        is_prop = matches!(univ, Univ::Zero)
+      }
+
+      if is_atom(expr) || is_prop
+      {
         expr.pretty(env, ind)
       }
       else {
@@ -306,7 +313,11 @@ impl Expr {
         name.to_string()
       },
       Expr::Sort(cid) => {
-        format!("Sort {}", env.get_univ_cache(cid).unwrap().pretty(ind))
+        let univ = env.get_univ_cache(cid).unwrap();
+        if *univ == Univ::Zero {
+          return "Prop".to_string();
+        }
+        format!("Sort {}", univ.pretty(ind))
       },
       Expr::Const(name, _, univs) => {
         let univs: Vec<String> = univs.iter().map(

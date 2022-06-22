@@ -217,7 +217,12 @@ pub fn parse_expr_sort(
   env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
-    let (i, _) = tag("Sort")(from)?;
+    let (i, res) = opt(tag("Prop"))(from)?;
+    if let Some(_) = res {
+      let (i, cid) = store_univ(env_ctx.clone(), Univ::Zero, i)?;
+      return Ok((i, Expr::Sort(cid)))
+    }
+    let (i, _) = tag("Sort")(i)?;
     let (i, _) = parse_space(i)?;
     let (i, u) = parse_univ(univ_ctx.clone())(i)?;
     let (i, cid) = store_univ(env_ctx.clone(), u, i)?;
