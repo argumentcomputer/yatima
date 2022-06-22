@@ -156,6 +156,55 @@ pub fn apply_const(
   Value::App(Neutral::Const(cnst, univs), args)
 }
 
+fn shift_env(env : Env) -> Env {
+  Env {
+    exprs: env.exprs.iter().map(|expr| {
+      match &*expr.borrow() {
+        Thunk::Res(Value::App(Neutral::FVar(idx), args)) => 
+          Rc::new(RefCell::new(Thunk::Res(
+            Value::App(Neutral::FVar(idx + 1), args.clone())
+          ))),
+        _ => expr.clone(),
+      }
+    }).collect(),
+    univs : env.univs
+  }
+}
+
+pub fn read_back(val : Value) -> Expr {
+  match val {
+    Value::Sort(univ) => Expr::Sort(univ),
+    Value::App(neu, args) => {
+      args.iter().fold(read_back_neutral(neu),
+        |acc, arg|
+          Expr::App(
+            Rc::new(acc),
+            Rc::new(read_back(force(arg)))
+          )
+      )
+    }
+    Value::Lam(bin, body, env) => {
+      let mut lam_env = shift_env(env);
+      let arg = Rc::new(RefCell::new(Thunk::Res(Value::App(Neutral::FVar(0), Vector::new()))));
+      lam_env.exprs.push_front(arg);
+      // binder types are irrelevant to reduction and so are lost on evaluation;
+      // arbitrarily fill these in with `Sort 0`
+      Expr::Lam(bin, Rc::new(Expr::Sort(Rc::new(Univ::Zero))), Rc::new(read_back(eval(body, lam_env))))
+    },
+    Value::Pi(bin, dom, cod, env) => todo!(),
+    Value::Lit(lit) => todo!(),
+    Value::Lty(lty) => todo!(),
+  }
+}
+
+pub fn read_back_neutral(neu : Neutral) -> Expr {
+  match neu {
+    Neutral::FVar(idx) => Expr::Var(idx),
+    Neutral::Const(cnst, univs) => Expr::Const(cnst, univs.iter().map(|lvl| lvl.clone()).collect())
+  }
+
+}
+
 #[cfg(test)]
 pub mod tests {
   use crate::parse::utils::{
@@ -170,8 +219,6 @@ pub mod tests {
     error::ParseError,
   };
 
-  use nom::IResult;
-
   use crate::expression::Expr as YExpr;
   use crate::environment::Env as YEnv;
 
@@ -185,7 +232,7 @@ pub mod tests {
   use super::*;
 
   pub fn to_expr(i: &str, env : Rc<RefCell<YEnv>>) -> ExprPtr {
-    let yexpr = parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env.clone()) (Span::new(i),).unwrap().1;
+    let yexpr : YExpr = parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env.clone()) (Span::new(i),).unwrap().1;
     let myenv = &mut *env.borrow_mut();
     let yexpr = &yexpr.store(myenv).unwrap().anon;
     expr_from_anon(yexpr, myenv, &mut ConversionEnv::new())
@@ -196,8 +243,6 @@ pub mod tests {
     let env = Rc::new(RefCell::new(YEnv::new()));
     let act = eval(to_expr("((λ (a: Sort 1) => a) Sort 0)", env.clone()), Env::new());
     let exp = eval(to_expr("Sort 0", env.clone()), Env::new());
-
-    print!("{:?}\n{:?}", act, exp);
 
     assert!(act == exp);
   }
