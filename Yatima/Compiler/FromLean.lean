@@ -1,6 +1,7 @@
 import Yatima.Graph.Graph
 import Yatima.Compiler.Printing
 import Yatima.Compiler.Utils
+import Yatima.Compiler.Filtering
 import Yatima.ToIpld
 
 import Lean
@@ -484,15 +485,12 @@ def buildEnv (constMap : Lean.ConstMap)
   printCompilationStats
   return (← get).env
 
-def filterUnsafeConstants (cs : Lean.ConstMap) : Lean.ConstMap :=
-  Lean.List.toSMap $ cs.toList.filter fun (_, c) => !c.isUnsafe
-
 def extractEnv
-  (constMap : Lean.ConstMap)
+  (map : Lean.ConstMap)
   (printLean : Bool)
   (printYatima : Bool)
     : Except String Env :=
-  let map := filterUnsafeConstants constMap
+  let map := filterConstants map
   let g : Graph := Lean.referenceMap map
   match g.scc? with
   | .ok vss =>
