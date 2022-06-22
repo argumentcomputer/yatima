@@ -2,6 +2,7 @@ import Lean
 import Yatima.Compiler.FromLean
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.FromIPLD
+import Yatima.Typechecker.Debug
 
 def List.pop : (l : List α) → l ≠ [] → α × List α
   | a :: as, _ => (a, as)
