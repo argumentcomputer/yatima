@@ -474,14 +474,15 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-    if printLean then
-      dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst const}"
-    let (const, constCid) ← processYatimaConst const
-    if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst const}"
+    if name == `min._at.List.minimum?._spec_1 then
+      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+      if printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let (const, constCid) ← processYatimaConst const
+      if printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
   printCompilationStats
   return (← get).env
 
