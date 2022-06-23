@@ -1,15 +1,15 @@
-prelude
+namespace terrible
+mutual
+  def A : Nat → Nat
+  | 0 => 0
+  | n + 1 => B n + C n + 1
 
-def id (A : Type) (x : A) : A := x
-
-inductive Unit where
-| unit
-
-inductive Bar
-  | hi | bye
-
-def bar := Bar.hi
-
-inductive MyNat
-| zero : MyNat
-| succ : MyNat → MyNat
+  def B : Nat → Nat
+  | 0 => 0
+  | n + 1 => C n + 2
+  
+  def C : Nat → Nat
+  | 0 => 0
+  | n + 1 => B n + A n + 1
+end
+end terrible

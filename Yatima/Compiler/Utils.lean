@@ -32,14 +32,14 @@ mutual
   | b::bs => do
     if (← cmp a b) == .gt
     then descendingM cmp b (a::as) bs
-    else List.cons (a::as) <$> sequencesM cmp bs
+    else List.cons (a::as) <$> sequencesM cmp (b::bs)
   | [] => List.cons (a::as) <$> sequencesM cmp []
 
   partial def ascendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α → List α) : List α → μ (List (List α))
   | b::bs => do
     if (← cmp a b) != .gt
     then ascendingM cmp b (fun ys => as (a :: ys)) bs
-    else List.cons (as [a]) <$> sequencesM cmp bs
+    else List.cons (as [a]) <$> sequencesM cmp (b::bs)
   | [] => List.cons (as [a]) <$> sequencesM cmp []
 end
 

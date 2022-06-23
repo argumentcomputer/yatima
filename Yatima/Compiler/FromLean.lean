@@ -245,6 +245,7 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
+    dbg_trace s!"call {const.name}"
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
@@ -406,7 +407,7 @@ mutual
     | .mvar .., _ => throw "Unfilled expr metavariable"
     | _, .mvar .. => throw "Unfilled expr metavariable"
     | .fvar .., _ => throw "expr free variable"
-    | _, .fvar .. => throw "expr free metavariable"
+    | _, .fvar .. => throw "expr free variable"
     | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
     | .mdata _ x _, y  => cmpExpr names x y
     | x, .mdata _ y _  => cmpExpr names x y
@@ -470,18 +471,65 @@ mutual
 
 end
 
+def weakCmpExpr : Lean.Expr → Lean.Expr → CompileM Ordering
+  | .mvar .., .mvar .. => throw "Unfilled expr metavariable"
+  | .fvar .., .fvar .. => throw "expr free variable"
+  | .mdata _ x _, .mdata _ y _  => weakCmpExpr x y
+  | .bvar x _, .bvar y _ => 
+    if x != y then 
+      throw "Expected isomorhpic ASTs in weak comparsion, found unequal bound variables"
+    else 
+      pure .eq
+  | .sort x _, .sort y _ => do
+    if (← cmpLevel x y) != .eq then 
+      throw "Expected isomorhpic ASTs in weak comparsion, found unequal universe levels"
+    else 
+      pure .eq
+  | .const x xls _, .const y yls _ =>
+    -- TODO
+    throw ""
+  | .app xf xa _, .app yf ya _ => (· * ·) <$> weakCmpExpr xf yf <*> weakCmpExpr xa ya
+  | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xb yb
+  | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xb yb
+  | .letE _ xt xv xb _, .letE _ yt yv yb _ => 
+    (· * · * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xv yv <*> weakCmpExpr xb yb
+  | .lit x _, .lit y _ =>
+    if x != y then 
+      throw "Expected isomorhpic ASTs in weak comparsion, found unequal literals"
+    else 
+      pure .eq
+  | .proj _ nx tx _, .proj _ ny ty _ =>
+    if nx != ny then 
+      throw "Expected isomorhpic ASTs in weak comparsion, found unequal projection indices"
+    else 
+      weakCmpExpr tx ty 
+  | _, _ => throw s!"Expected isomorhpic ASTs in weak comparsion, found unequal `expr` nodes"
+
+def weakCmpDef (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Ordering := do 
+    let ls := compare x.levelParams.length y.levelParams.length
+    let ts ← cmpExpr names x.type y.type
+    let vs ← cmpExpr names x.value y.value
+    return concatOrds [ls, ts, vs]
+
+
+def weakEq (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Bool := do 
+  match (← weakCmpDef x y )with 
+  | .eq => pure true 
+  | _ => pure false
+
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-    if printLean then
-      dbg_trace "------- Lean constant -------"
-      dbg_trace s!"{printLeanConst const}"
-    let (const, constCid) ← processYatimaConst const
-    if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{← printYatimaConst const}"
+    if name.toString.startsWith "terrible" then 
+      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+      if printLean then
+        dbg_trace "------- Lean constant -------"
+        dbg_trace s!"{printLeanConst const}"
+      let (const, constCid) ← processYatimaConst const
+      if printYatima then
+        dbg_trace "------ Yatima constant ------"
+        dbg_trace s!"{← printYatimaConst const}"
   printCompilationStats
   return (← get).env
 
