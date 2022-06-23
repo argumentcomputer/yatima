@@ -401,7 +401,7 @@ mutual
         pure (mutConst, mutCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
-  
+
   partial def cmpExpr (names : List Lean.Name) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | .mvar .., _ => throw "Unfilled expr metavariable"
@@ -477,12 +477,12 @@ def weakCmpExpr : Lean.Expr → Lean.Expr → CompileM Ordering
   | .mdata _ x _, .mdata _ y _  => weakCmpExpr x y
   | .bvar x _, .bvar y _ => 
     if x != y then 
-      throw "Expected isomorhpic ASTs in weak comparsion, found unequal bound variables"
+      throw "Expected isomorphic ASTs in weak comparsion, found unequal bound variables"
     else 
       pure .eq
   | .sort x _, .sort y _ => do
     if (← cmpLevel x y) != .eq then 
-      throw "Expected isomorhpic ASTs in weak comparsion, found unequal universe levels"
+      throw "Expected isomorphic ASTs in weak comparsion, found unequal universe levels"
     else 
       pure .eq
   | .const x xls _, .const y yls _ =>
@@ -495,20 +495,20 @@ def weakCmpExpr : Lean.Expr → Lean.Expr → CompileM Ordering
     (· * · * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xv yv <*> weakCmpExpr xb yb
   | .lit x _, .lit y _ =>
     if x != y then 
-      throw "Expected isomorhpic ASTs in weak comparsion, found unequal literals"
+      throw "Expected isomorphic ASTs in weak comparsion, found unequal literals"
     else 
       pure .eq
   | .proj _ nx tx _, .proj _ ny ty _ =>
     if nx != ny then 
-      throw "Expected isomorhpic ASTs in weak comparsion, found unequal projection indices"
+      throw "Expected isomorphic ASTs in weak comparsion, found unequal projection indices"
     else 
       weakCmpExpr tx ty 
-  | _, _ => throw s!"Expected isomorhpic ASTs in weak comparsion, found unequal `expr` nodes"
+  | _, _ => throw s!"Expected isomorphic ASTs in weak comparsion, found unequal `expr` nodes"
 
 def weakCmpDef (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Ordering := do 
   let ls := compare x.levelParams.length y.levelParams.length
   if ls != .eq then 
-    throw "Expected isomorhpic ASTs in weak comparsion, found unequal universe levels"
+    throw "Expected isomorphic ASTs in weak comparsion, found unequal universe levels"
   let ts ← weakCmpExpr x.type y.type
   let vs ← weakCmpExpr x.value y.value
   return concatOrds [ts, vs]
@@ -522,34 +522,38 @@ open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if name.toString.startsWith "terrible" then 
-      if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
-      if printLean then
-        dbg_trace "------- Lean constant -------"
-        dbg_trace s!"{printLeanConst const}"
-      let (const, constCid) ← processYatimaConst const
-      if printYatima then
-        dbg_trace "------ Yatima constant ------"
-        dbg_trace s!"{← printYatimaConst const}"
+    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+    if printLean then
+      dbg_trace "------- Lean constant -------"
+      dbg_trace s!"{printLeanConst const}"
+    let (const, constCid) ← processYatimaConst const
+    if printYatima then
+      dbg_trace "------ Yatima constant ------"
+      dbg_trace s!"{constCid.anon.data} {constCid.meta.data}"
+      dbg_trace s!"{← printYatimaConst const}"
   printCompilationStats
   return (← get).env
 
 def extractEnv
-  (map : Lean.ConstMap)
+  (map map₀ : Lean.ConstMap)
   (printLean : Bool)
   (printYatima : Bool)
     : Except String Env :=
-  let map := filterConstants map
+  let map  := filterConstants map
+  let map₀ := filterConstants map₀
+  let delta : Lean.ConstMap := map.fold
+    (init := Lean.SMap.empty) fun acc n c =>
+      if map₀.contains n then acc else acc.insert n c
   let g : Graph := Lean.referenceMap map
   match g.scc? with
   | .ok vss =>
     let nss : List (List $ Lean.Name × List Lean.Name) :=
       vss.map fun vs => 
         vs.map fun v => (v, vs)
-    CompileM.run 
+    CompileM.run
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
-      default 
-      (buildEnv map printLean printYatima)
+      default
+      (buildEnv delta printLean printYatima)
   | .error e => throw e
 
 end Yatima.Compiler

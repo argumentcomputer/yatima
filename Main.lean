@@ -14,15 +14,16 @@ def main (args : List String) : IO UInt32 := do
         let (fileName, args) := args.pop h
         let input ← IO.FS.readFile ⟨fileName⟩
         Lean.initSearchPath $ ← Lean.findSysroot
-        let (env, ok) ← Lean.Elab.runFrontend input .empty fileName `main
+        let (env, ok) ← Lean.Elab.runFrontend input .empty fileName default
         if ok then
-          match extractEnv env.constants
+          let (env₀, _) ← Lean.Elab.runFrontend default .empty default default
+          match extractEnv env.constants env₀.constants
             (args.contains "-pl") (args.contains "-py") with
           | .ok env =>
             -- todo: compile to .ya
             return 0
           | .error e =>
-            IO.println e
+            IO.eprintln e
             return 1
         else
           IO.eprintln s!"Lean frontend failed on file {fileName}"
