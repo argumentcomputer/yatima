@@ -506,11 +506,12 @@ def weakCmpExpr : Lean.Expr → Lean.Expr → CompileM Ordering
   | _, _ => throw s!"Expected isomorhpic ASTs in weak comparsion, found unequal `expr` nodes"
 
 def weakCmpDef (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Ordering := do 
-    let ls := compare x.levelParams.length y.levelParams.length
-    let ts ← cmpExpr names x.type y.type
-    let vs ← cmpExpr names x.value y.value
-    return concatOrds [ls, ts, vs]
-
+  let ls := compare x.levelParams.length y.levelParams.length
+  if ls != .eq then 
+    throw "Expected isomorhpic ASTs in weak comparsion, found unequal universe levels"
+  let ts ← weakCmpExpr x.type y.type
+  let vs ← weakCmpExpr x.value y.value
+  return concatOrds [ts, vs]
 
 def weakEq (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Bool := do 
   match (← weakCmpDef x y )with 
