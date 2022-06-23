@@ -486,12 +486,15 @@ def buildEnv (constMap : Lean.ConstMap)
   return (← get).env
 
 def extractEnv
-  (delta : Lean.ConstMap)
-  (map : Lean.ConstMap)
+  (map map₀ : Lean.ConstMap)
   (printLean : Bool)
   (printYatima : Bool)
     : Except String Env :=
-  let map := filterConstants map
+  let map  := filterConstants map
+  let map₀ := filterConstants map₀
+  let delta : Lean.ConstMap := map.fold
+    (init := Lean.SMap.empty) fun acc n c =>
+      if map₀.contains n then acc else acc.insert n c
   let g : Graph := Lean.referenceMap map
   match g.scc? with
   | .ok vss =>
@@ -501,7 +504,7 @@ def extractEnv
     CompileM.run 
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default 
-      (buildEnv (filterConstants delta) printLean printYatima)
+      (buildEnv delta printLean printYatima)
   | .error e => throw e
 
 end Yatima.Compiler

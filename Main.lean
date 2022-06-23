@@ -17,10 +17,7 @@ def main (args : List String) : IO UInt32 := do
         let (env, ok) ← Lean.Elab.runFrontend input .empty fileName default
         if ok then
           let (env₀, _) ← Lean.Elab.runFrontend default .empty default default
-          let delta : Lean.ConstMap := env.constants.fold
-            (init := Lean.SMap.empty) fun acc n c =>
-              if env₀.contains n then acc else acc.insert n c
-          match extractEnv delta env.constants
+          match extractEnv env.constants env₀.constants
             (args.contains "-pl") (args.contains "-py") with
           | .ok env =>
             -- todo: compile to .ya
