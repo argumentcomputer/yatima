@@ -261,7 +261,7 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
       pure $ scc::sccs
     else
       pure $ sccs
-  else pure []
+  else pure sccs
 
 def run : sccM $ List $ List Vertex := do 
   (← read).vertices.foldlM (fun acc v => do

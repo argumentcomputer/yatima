@@ -1,36 +1,19 @@
 mutual
-  unsafe def A : Nat → Nat
+  unsafe def Y4 : Nat → Nat
   | 0 => 0
-  | n + 1 => B n + E n + C n + 1
+  | n + 1 => Z4 n + Y5 n + Y5 n + 1
 
-  unsafe def C : Nat → Nat
+  unsafe def Y5 : Nat → Nat
   | 0 => 0
-  | n + 1 => B n + F n + A n + 1
+  | n + 1 => Z4 n + Y4 n + Y4 n + 1
 
-  unsafe def B : Nat → Nat
+  unsafe def Z4 : Nat → Nat
   | 0 => 0
-  | n + 1 => C n + 2
+  | n + 1 => Y4 n + Z5 n + Z5 n + 2
 
-  unsafe def E : Nat → Nat 
-  | 0 => 0 
-  | n + 1 => B n + A n + F n + 1
-
-  unsafe def F : Nat → Nat 
-  | 0 => 0 
-  | n + 1 => B n + C n + E n + 1
-
-  unsafe def G : Nat → Nat 
+  unsafe def Z5 : Nat → Nat
   | 0 => 0
-  | n + 1 => B n + F n + H n + 2
+  | n + 1 => Y4 n + Z4 n + Z4 n + 2
+end 
 
-  unsafe def H : Nat → Nat 
-  | 0 => 0
-  | n + 1 => B n + E n + G n + 2
-end
-
--- B, E, F, C, A
---XB, WE, ZA, YC, UF
-
-
--- [B, [E, F, C, A], [G, H]]
--- [c_0], ..., [n_0, ..., n_k], ..., [m_0, ..., m_j], ... [c_i]]
+-- N4: bagcyb6egbqlca4om5ee23kuyb6s5fmcv5cmp3rzbojecquqqjtmgzh7ue56lpcxe
