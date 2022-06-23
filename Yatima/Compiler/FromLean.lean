@@ -486,6 +486,7 @@ def buildEnv (constMap : Lean.ConstMap)
   return (← get).env
 
 def extractEnv
+  (delta : Lean.ConstMap)
   (map : Lean.ConstMap)
   (printLean : Bool)
   (printYatima : Bool)
@@ -500,7 +501,7 @@ def extractEnv
     CompileM.run 
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default 
-      (buildEnv map printLean printYatima)
+      (buildEnv (filterConstants delta) printLean printYatima)
   | .error e => throw e
 
 end Yatima.Compiler
