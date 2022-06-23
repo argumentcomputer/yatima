@@ -156,55 +156,6 @@ pub fn apply_const(
   Value::App(Neutral::Const(cnst, univs), args)
 }
 
-fn shift_env(env : Env) -> Env {
-  Env {
-    exprs: env.exprs.iter().map(|expr| {
-      match &*expr.borrow() {
-        Thunk::Res(Value::App(Neutral::FVar(idx), args)) => 
-          Rc::new(RefCell::new(Thunk::Res(
-            Value::App(Neutral::FVar(idx + 1), args.clone())
-          ))),
-        _ => expr.clone(),
-      }
-    }).collect(),
-    univs : env.univs
-  }
-}
-
-pub fn read_back(val : Value) -> Expr {
-  match val {
-    Value::Sort(univ) => Expr::Sort(univ),
-    Value::App(neu, args) => {
-      args.iter().fold(read_back_neutral(neu),
-        |acc, arg|
-          Expr::App(
-            Rc::new(acc),
-            Rc::new(read_back(force(arg)))
-          )
-      )
-    }
-    Value::Lam(bin, body, env) => {
-      let mut lam_env = shift_env(env);
-      let arg = Rc::new(RefCell::new(Thunk::Res(Value::App(Neutral::FVar(0), Vector::new()))));
-      lam_env.exprs.push_front(arg);
-      // binder types are irrelevant to reduction and so are lost on evaluation;
-      // arbitrarily fill these in with `Sort 0`
-      Expr::Lam(bin, Rc::new(Expr::Sort(Rc::new(Univ::Zero))), Rc::new(read_back(eval(body, lam_env))))
-    },
-    Value::Pi(bin, dom, cod, env) => todo!(),
-    Value::Lit(lit) => todo!(),
-    Value::Lty(lty) => todo!(),
-  }
-}
-
-pub fn read_back_neutral(neu : Neutral) -> Expr {
-  match neu {
-    Neutral::FVar(idx) => Expr::Var(idx),
-    Neutral::Const(cnst, univs) => Expr::Const(cnst, univs.iter().map(|lvl| lvl.clone()).collect())
-  }
-
-}
-
 #[cfg(test)]
 pub mod tests {
   use crate::parse::utils::{
@@ -214,7 +165,7 @@ pub mod tests {
   };
 
   use crate::parse::{
-    expr::parse_expr,
+    expr::parse_expr_apps,
     span::Span,
     error::ParseError,
   };
@@ -231,19 +182,101 @@ pub mod tests {
 
   use super::*;
 
+  fn read_back_neutral(neu : Neutral) -> Expr {
+    match neu {
+      Neutral::FVar(idx) => Expr::Var(idx),
+      Neutral::Const(cnst, univs) => Expr::Const(cnst, univs.iter().map(|lvl| lvl.clone()).collect())
+    }
+  }
+
+  fn shift_env(env : Env) -> Env {
+    Env {
+      exprs: env.exprs.iter().map(|expr| {
+        match &*expr.borrow() {
+          Thunk::Res(Value::App(Neutral::FVar(idx), args)) => 
+            Rc::new(RefCell::new(Thunk::Res(
+              Value::App(Neutral::FVar(idx + 1), args.clone())
+            ))),
+          _ => expr.clone(),
+        }
+      }).collect(),
+      univs : env.univs
+    }
+  }
+
+  pub fn read_back(val : Value) -> Expr {
+    match val {
+      Value::Sort(univ) => Expr::Sort(univ),
+      Value::App(neu, args) => {
+        args.iter().rev().fold(read_back_neutral(neu),
+          |acc, arg|
+            Expr::App(
+              Rc::new(acc),
+              Rc::new(read_back(force(arg)))
+            )
+        )
+      }
+      Value::Lam(bin, body, env) => {
+        // any neutral fvars in the environment are now additionally nested,
+        // and so must have their de bruijn indices incremented
+        let mut lam_env = shift_env(env);
+        // add a new free variable for this lambda's argument
+        let arg = Rc::new(RefCell::new(Thunk::Res(Value::App(Neutral::FVar(0), Vector::new()))));
+        lam_env.exprs.push_front(arg);
+        // binder types are irrelevant to reduction and so are lost on evaluation;
+        // arbitrarily fill these in with `Sort 0`
+        Expr::Lam(bin, Rc::new(Expr::Sort(Rc::new(Univ::Zero))), Rc::new(read_back(eval(body, lam_env))))
+      },
+      Value::Pi(bin, dom, cod, env) => {
+        let mut pi_env = shift_env(env);
+        let arg = Rc::new(RefCell::new(Thunk::Res(Value::App(Neutral::FVar(0), Vector::new()))));
+        pi_env.exprs.push_front(arg);
+        Expr::Pi(bin, Rc::new(read_back(force(&dom))), Rc::new(read_back(eval(cod, pi_env))))
+      },
+      Value::Lit(lit) => todo!(),
+      Value::Lty(lty) => todo!(),
+    }
+  }
+
   pub fn to_expr(i: &str, env : Rc<RefCell<YEnv>>) -> ExprPtr {
-    let yexpr : YExpr = parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env.clone()) (Span::new(i),).unwrap().1;
+    let yexpr : YExpr = parse_expr_apps(Vector::new(), Vector::new(), OrdMap::new(), env.clone()) (Span::new(i),).unwrap().1;
     let myenv = &mut *env.borrow_mut();
     let yexpr = &yexpr.store(myenv).unwrap().anon;
     expr_from_anon(yexpr, myenv, &mut ConversionEnv::new())
   }
 
+  // Test equivalence of of the reduction of `inp` and the expected reduction `red`
+  // w.r.t. their anonymous expressions.
+  fn check_reduce(inp: &str, red: &str) {
+    let env = Rc::new(RefCell::new(YEnv::new()));
+    let act = read_back(eval(to_expr(inp, env.clone()), Env::new()));
+    let exp = to_expr(red, env.clone());
+
+    println!("Actual reduction:\t{:?}\nExpected reduction:\t{:?}", act, exp);
+    assert!(act == *exp);
+  }
+
+  fn check_read_back(inp: &str) {
+    check_reduce(inp, inp);
+  }
+
+  #[test]
+  fn test_read_back() {
+    check_read_back("Π (x : Prop) (y : Prop) → x");
+    check_read_back("λ (x : Prop) (y : Prop) => x");
+    check_read_back("λ (x : Prop) (y : Prop) => Π (a : Prop) (b : Prop) → a b x y");
+    check_read_back("λ (f : Prop) (x : Prop) => f x");
+  }
+
+  #[test]
+  fn test_lam() {
+    check_reduce("λ (a: Prop) => a", "λ (a: Prop) => a");
+  }
+
   #[test]
   fn test_app_lam() {
-    let env = Rc::new(RefCell::new(YEnv::new()));
-    let act = eval(to_expr("((λ (a: Sort 1) => a) Sort 0)", env.clone()), Env::new());
-    let exp = eval(to_expr("Sort 0", env.clone()), Env::new());
-
-    assert!(act == exp);
+    check_reduce("(λ (a: Sort 1) => a) Prop", "Prop");
+    check_reduce("(λ (a: Sort 1) (b: Sort 2) => a) Prop (Sort 1)", "Prop");
+    check_reduce("(λ (a: Sort 1) (b: Sort 2) => b) Prop (Sort 1)", "Sort 1");
   }
 }
