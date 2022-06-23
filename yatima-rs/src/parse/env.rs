@@ -12,13 +12,13 @@ use crate::parse::{
 
 use nom::IResult;
 
-/// Parses each constant, storing them in the provided environment context.
-pub fn parse_env(
-  global_ctx: GlobalCtx,
+/// Parses each constant, storing them in the provided environment context
+/// and updating the given global context accordingly.
+pub fn parse_env<'a, 'b>(
+  global_ctx: &'b mut GlobalCtx,
   env_ctx: EnvCtx,
-) -> impl Fn(Span) -> IResult<Span, (), ParseError<Span>> {
+) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, (), ParseError<Span<'a>>> + 'b { 
   move |i: Span| {
-    let mut global_ctx = global_ctx.clone();
     let mut i = i.clone();
     loop {
       (i, _) = parse_space(i)?;
@@ -53,7 +53,7 @@ pub mod tests {
     let s = x.pretty(false).unwrap();
     println!("input: \n{s}");
     let y = Rc::new(RefCell::new(Env::new()));
-    let res = parse_env(OrdMap::new(), y.clone())(Span::new(&s));
+    let res = parse_env(&mut OrdMap::new(), y.clone())(Span::new(&s));
     match res {
       Ok((_, _)) => {
         let y =  y.try_borrow().unwrap().clone();
