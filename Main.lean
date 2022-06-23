@@ -14,15 +14,19 @@ def main (args : List String) : IO UInt32 := do
         let (fileName, args) := args.pop h
         let input ← IO.FS.readFile ⟨fileName⟩
         Lean.initSearchPath $ ← Lean.findSysroot
-        let (env, ok) ← Lean.Elab.runFrontend input .empty fileName `main
+        let (env, ok) ← Lean.Elab.runFrontend input .empty fileName default
         if ok then
-          match extractEnv env.constants
+          let (env₀, _) ← Lean.Elab.runFrontend default .empty default default
+          let delta : Lean.ConstMap := env.constants.fold
+            (init := Lean.SMap.empty) fun acc n c =>
+              if env₀.contains n then acc else acc.insert n c
+          match extractEnv delta env.constants
             (args.contains "-pl") (args.contains "-py") with
           | .ok env =>
             -- todo: compile to .ya
             return 0
           | .error e =>
-            IO.println e
+            IO.eprintln e
             return 1
         else
           IO.eprintln s!"Lean frontend failed on file {fileName}"
