@@ -291,12 +291,14 @@ mutual
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn
           | _ => throw "Non-def constant found in a mutual block of definitions"
-        let (mutualDefs, mutualNames) ← sortDefs mutualDefs
+        let mutualDefs ← sortDefs [mutualDefs]
         let mut i := 0
-        for name in mutualNames do
-          set { ← get with mutIdx := (← get).mutIdx.insert name i }
+        for ds in mutualDefs do
+          for d in ds do 
+            set { ← get with mutIdx := (← get).mutIdx.insert d.name i }
           i := i + 1
-        let definitions ← withOrder mutualNames $ mutualDefs.mapM $ toYatimaDef true
+        let definitions ← withOrder mutualNames $ 
+          mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
@@ -403,8 +405,8 @@ mutual
         pure (mutConst, mutCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
-
-  partial def cmpExpr (names : List Lean.Name) :
+ 
+  partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | .mvar .., _ => throw "Unfilled expr metavariable"
     | _, .mvar .. => throw "Unfilled expr metavariable"
@@ -422,15 +424,15 @@ mutual
     | .const x xls _, .const y yls _ => do
       let univs ← concatOrds <$> (List.zip xls yls).mapM (fun (x,y) => cmpLevel x y)
       if univs != .eq then return univs
-      match names.contains x, names.contains y with
-      | true, true => return .eq
-      | false, true => return .gt
-      | true, false => return .lt
-      | false, false => do
+      match names.find? x, names.find? y with
+      | some nx, some ny => return compare nx ny
+      | none, some ny => return .gt
+      | some nx, none => return .lt
+      | none, none => do
         match (← read).constMap.find?' x, (← read).constMap.find?' y with
         | some xConst, some yConst => do
-          let xCid ← processYatimaConst xConst >>= constToCid ∘ Prod.fst
-          let yCid ← processYatimaConst yConst >>= constToCid ∘ Prod.fst
+          let xCid := (← processYatimaConst xConst).snd
+          let yCid := (← processYatimaConst yConst).snd
           return (compare xCid yCid)
         | none, some _ => throw s!"Unknown constant '{x}'"
         | some _, none => throw s!"Unknown constant '{y}'"
@@ -458,7 +460,7 @@ mutual
       return concatOrds [ compare nx ny , ts ]
 
   partial def cmpDef
-    (names : List Lean.Name) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+    (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
     let ts ← cmpExpr names x.type y.type
@@ -466,21 +468,31 @@ mutual
     return concatOrds [ls, ts, vs]
 
   partial def eqDef
-    (names : List Lean.Name) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+    (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Bool := do
     match (← cmpDef names x y )with 
       | .eq => pure true 
       | _ => pure false
 
-  partial def sortDefs (ds: List Lean.DefinitionVal) : 
-      CompileM (List Lean.DefinitionVal × List Lean.Name) := do
-    let names : List Lean.Name := ds.map (·.name)
-    let res ← groupByM (eqDef names) $ (← sortByM (cmpDef names) ds)
-
-    -- start iterating 
+  partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
+      CompileM (List (List Lean.DefinitionVal)) := do
+    dbg_trace s!"call sortDefs: {dss.map fun ds => ds.map (·.name)}"
+    let enum (ll : List (List Lean.DefinitionVal)) := 
+      Std.RBMap.ofList $ (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
+    let names := enum dss
+    let newDss ← (← dss.mapM fun ds => 
+      match ds with 
+      | [] => throw "bruh what"
+      | [d] => return [[d]]
+      | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM -- could be one step
+    let newNames := enum newDss
     
-    let res := res.join
-    pure (res, res.map (·.name))
+    let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
+    let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
+    if normDss== normNewDss then 
+      return newDss
+    else 
+      sortDefs newDss
 
 end
 
