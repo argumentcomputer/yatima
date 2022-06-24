@@ -6,8 +6,27 @@ namespace Yatima.LeanTypesUtils
 
 open Lean
 
-instance : Ord Name :=
- { compare := fun x y => compare x.hash y.hash }
+def compareNames : Name → Name → Ordering
+  | .anonymous, .anonymous => .eq
+  | .num namₗ nₗ _, .num namᵣ nᵣ _ =>
+    if nₗ < nᵣ then .lt
+    else
+      if nₗ > nᵣ then .gt
+      else compareNames namₗ namᵣ
+  | .str namₗ sₗ _, .str namᵣ sᵣ _ =>
+    if sₗ < sᵣ then .lt
+    else
+      if sₗ > sᵣ then .gt
+      else compareNames namₗ namᵣ
+  | .anonymous, .num .. => .lt
+  | .anonymous, .str .. => .lt
+  | .num .., .str .. => .lt
+  | .num .., .anonymous => .gt
+  | .str .., .anonymous => .gt
+  | .str .., .num .. => .gt
+
+instance : Ord Name where
+  compare := compareNames
 
 open Utils (RBSet)
 
