@@ -46,6 +46,16 @@ end
 def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) :=
   sequencesM cmp xs >>= mergeAllM cmp
 
+def groupByMAux [Monad μ] (eq : α → α → μ Bool) : List α → List (List α) → μ (List (List α))
+  | a::as, (ag::g)::gs => do match (← eq a ag) with
+    | true  => groupByMAux eq as ((a::ag::g)::gs)
+    | false => groupByMAux eq as ([a]::(ag::g).reverse::gs)
+  | _, gs => return gs.reverse
+
+def groupByM [Monad μ] (p : α → α → μ Bool) : List α → μ (List (List α))
+  | []    => return []
+  | a::as => groupByMAux p as [[a]]
+
 instance : HMul Ordering Ordering Ordering where
   hMul
   | .gt, _ => .gt

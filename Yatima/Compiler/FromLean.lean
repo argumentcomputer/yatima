@@ -229,11 +229,13 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaDef (defn : Lean.DefinitionVal) : CompileM Definition := do
+  partial def toYatimaDef (isMut : Bool) (defn : Lean.DefinitionVal)  : CompileM Definition := do
     let type ← toYatimaExpr none defn.type
     let typeCid ← exprToCid type
     addToEnv $ .expr_cache typeCid type
-    let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
+    let value := 
+      if isMut then ← toYatimaExpr none defn.value 
+      else ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
     let valueCid ← exprToCid value
     addToEnv $ .expr_cache valueCid value
     return {
@@ -294,9 +296,9 @@ mutual
         for name in mutualNames do
           set { ← get with mutIdx := (← get).mutIdx.insert name i }
           i := i + 1
-        let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
+        let definitions ← withOrder mutualNames $ mutualDefs.mapM $ toYatimaDef true
         return .mutBlock ⟨definitions⟩
-      | none => return .definition $ ← toYatimaDef struct
+      | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
@@ -463,10 +465,21 @@ mutual
     let vs ← cmpExpr names x.value y.value
     return concatOrds [ls, ts, vs]
 
+  partial def eqDef
+    (names : List Lean.Name) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+      CompileM Bool := do
+    match (← cmpDef names x y )with 
+      | .eq => pure true 
+      | _ => pure false
+
   partial def sortDefs (ds: List Lean.DefinitionVal) : 
       CompileM (List Lean.DefinitionVal × List Lean.Name) := do
     let names : List Lean.Name := ds.map (·.name)
-    let res ← sortByM (cmpDef names) ds
+    let res ← groupByM (eqDef names) $ (← sortByM (cmpDef names) ds)
+
+    -- start iterating 
+    
+    let res := res.join
     pure (res, res.map (·.name))
 
 end
@@ -486,6 +499,7 @@ def weakCmpExpr : Lean.Expr → Lean.Expr → CompileM Ordering
     else 
       pure .eq
   | .const x xls _, .const y yls _ =>
+
     -- TODO
     throw ""
   | .app xf xa _, .app yf ya _ => (· * ·) <$> weakCmpExpr xf yf <*> weakCmpExpr xa ya
