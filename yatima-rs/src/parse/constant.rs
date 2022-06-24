@@ -56,6 +56,7 @@ use crate::{
       parse_name,
       parse_nat,
       parse_space,
+      parse_space1,
       parse_u8,
       store_expr,
       BindCtx,
@@ -139,7 +140,7 @@ pub fn parse_const_axiom(
     let (i, _) = parse_space(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
-    let (upto, typ) = parse_expr(
+    let (upto, typ) = parse_expr_apps(
       Vector::from(lvl.clone()),
       Vector::new(),
       global_ctx.clone(),
@@ -188,7 +189,7 @@ pub fn parse_const_opaque(
 ) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
   move |from: Span| {
     let (i, safe) = alt((
-      value(false, terminated(tag("unsafe"), parse_space)),
+      value(false, terminated(tag("unsafe"), parse_space1)),
       success(true),
     ))(from)?;
     let (i, _) = tag("opaque")(i)?;
@@ -225,8 +226,8 @@ pub fn parse_const_def(
 ) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
   move |from: Span| {
     let (i, safe) = alt((
-      value(DefSafety::Unsafe, terminated(tag("unsafe"), parse_space)),
-      value(DefSafety::Partial, terminated(tag("partial"), parse_space)),
+      value(DefSafety::Unsafe, terminated(tag("unsafe"), parse_space1)),
+      value(DefSafety::Partial, terminated(tag("partial"), parse_space1)),
       success(DefSafety::Safe),
     ))(from)?;
     let (i, _) = tag("def")(i)?;
@@ -274,7 +275,7 @@ struct InductiveDecl {
 }
 
 // TODO: tentative
-pub fn parse_const_inductive_decl(
+fn parse_const_inductive_decl(
   global_ctx: GlobalCtx,
   env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, InductiveDecl, ParseError<Span>> {
@@ -307,23 +308,33 @@ pub fn parse_const_inductive_decl(
     let (i, _) = parse_space(i)?;
     let (i, _) = tag(":")(i)?;
     let (i, _) = parse_space(i)?;
-    let bind_ctx: Vector<Name> =
-      params.iter().map(|(_, n, _)| n.clone()).collect();
 
+    let mut ctor_bind_ctx = Vector::new();
     // the inductive type name is an implicitly bound variable
     // within each constructor declaration; this is replaced
     // with a reference to the inductive type constant when generating
     // the constructor constant
-    let mut ctor_bind_ctx = bind_ctx.clone();
-    ctor_bind_ctx.push_back(name.clone());
+    ctor_bind_ctx.push_front(name.clone());
 
-    let (i, indices) = parse_binders0(
+    let mut bind_ctx = Vector::new();
+
+    for (_, n, _) in params.iter() {
+      ctor_bind_ctx.push_front(n.clone());
+      bind_ctx.push_front(n.clone());
+    }
+
+    let (i, parsed_indices) = opt(parse_binders0(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
-      vec!['-'],
-    )(i)?;
+      vec!['-', '→'],
+    ))(i)?;
+    let indices = 
+      match parsed_indices {
+        Some(i) => i,
+        None => Vec::new()
+      };
 
     let mut bind_ctx = bind_ctx;
     for (_, n, _) in indices.iter() {
@@ -332,14 +343,15 @@ pub fn parse_const_inductive_decl(
     let (i, _) = parse_space(i)?;
 
     let (i, _) = if indices.len() != 0 {
-      let (i, _) = tag("->")(i)?;
+      let (i, _) = alt((tag("->"), tag("→")))(i)?;
       let (i, _) = parse_space(i)?;
       Ok((i, ()))
     }
     else {
       Ok((i, ()))
     }?;
-    let (i, typ) = parse_expr(
+
+    let (i, typ) = parse_expr_apps(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
@@ -373,6 +385,54 @@ pub fn parse_const_inductive_decl(
       ctors,
       recr: rec.is_some(),
       safe,
+    }))
+  }
+}
+
+pub fn inductive_decl_to_const_inductive(
+  env: &mut Env,
+  typ: &Expr,
+  ctors: &Vec<(Name, Expr)>
+) -> Result<(ExprCid, Vec<(Name, ExprCid)>), EnvError> {
+  let typcid = typ.clone().store(env)?;
+  let constcids = ctors.iter().fold(Ok(Vec::new()),
+    |acc, (name, expr)| {
+      let mut cids = acc?;
+      let cid = expr.clone().store(env)?;
+      cids.push((name.clone(), cid));
+      Ok(cids)
+    })?;
+    Ok((typcid, constcids))
+}
+
+pub fn parse_const_inductive(
+  global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
+) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
+  move |from: Span| {
+    let (i, ind) = parse_const_inductive_decl(global_ctx.clone(), env_ctx.clone())(from)?;
+    let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+      Err::Error(ParseError::new(
+        i,
+        ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+      ))
+    })?;
+
+    let (typcid, ctorcids) = inductive_decl_to_const_inductive(&mut env, &ind.typ, &ind.ctors).map_err(|e| {
+      Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+    })?;
+
+    Ok((i, Const::Inductive {
+      name: ind.name,
+      lvl: ind.lvl,
+      typ: typcid,
+      params: ind.params.len(),
+      indices: ind.indices.len(),
+      ctors: ctorcids,
+      recr: ind.recr,
+      safe: ind.safe,
+      nest: false,
+      refl: false,
     }))
   }
 }
@@ -424,6 +484,37 @@ pub fn parse_const_inductive_ctor(
   }
 }
 
+/// Parses each term variant
+pub fn parse_const(
+  global_ctx: GlobalCtx,
+  env_ctx: EnvCtx,
+) -> impl Fn(Span) -> IResult<Span, Const, ParseError<Span>> {
+  move |i: Span| {
+    alt((
+      parse_const_inductive(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_def(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_opaque(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_theorem(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+      parse_const_axiom(
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
+    ))(i)
+  }
+}
+
 #[cfg(test)]
 pub mod tests {
   use alloc::rc::Rc;
@@ -432,6 +523,8 @@ pub mod tests {
     Code,
     MultihashDigest,
   };
+
+  use crate::constant::tests::ConstEnv;
 
   #[test]
   fn test_parse_levels() {
@@ -575,19 +668,7 @@ pub mod tests {
     });
   }
 
-  fn dummy_const_cid(ind: u8) -> ConstCid {
-    let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[ind]));
-    let meta: ConstMetaCid = ConstMetaCid::new(Code::Sha3_256.digest(&[ind]));
-    ConstCid { anon, meta }
-  }
-
-  fn dummy_global_ctx() -> GlobalCtx {
-    OrdMap::from(vec![
-      (Name::from("Nat"), dummy_const_cid(0)),
-      (Name::from("Nat.zero"), dummy_const_cid(1)),
-      (Name::from("Nat.succ"), dummy_const_cid(2))
-    ])
-  }
+  use crate::expression::tests::{dummy_global_ctx, dummy_const_cid};
 
   #[test]
   fn test_parse_inductive_decl() {
@@ -596,9 +677,9 @@ pub mod tests {
       parse_const_inductive_decl(dummy_global_ctx(), env_ctx)(Span::new(i))
     }
 
-    let nat = Expr::Const(Name::from("Nat"), dummy_const_cid(0), vec![]);
-    let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(1), vec![]);
-    let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(2), vec![]);
+    let nat = Expr::Const(Name::from("Nat"), dummy_const_cid(1), vec![]);
+    let nat_zero = Expr::Const(Name::from("Nat.zero"), dummy_const_cid(2), vec![]);
+    let nat_succ = Expr::Const(Name::from("Nat.succ"), dummy_const_cid(3), vec![]);
 
     //TODO(rish) clean up notation (comma at the end),
     //also split this big test up into its unit test components
@@ -650,5 +731,23 @@ pub mod tests {
         ),
       ]
     });
+  }
+
+  #[quickcheck]
+  fn prop_const_parse_print(x: ConstEnv) -> bool {
+    let s = x.cnst.pretty(&x.env, false).unwrap();
+    println!("input: \t\t{s}");
+    let res_env = Rc::new(RefCell::new(Env::new()));
+    let res = parse_const(dummy_global_ctx(), res_env.clone())(Span::new(&s));
+    match res {
+      Ok((_, y)) => {
+        println!("re-parsed: \t{}", y.pretty(&*res_env.borrow(), false).unwrap());
+        x.cnst == y
+      }
+      Err(e) => {
+        println!("err: {:?}", e);
+        false
+      }
+    }
   }
 }

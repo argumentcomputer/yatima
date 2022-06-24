@@ -85,8 +85,8 @@ pub enum Const {
   Inductive {
     uvars: Nat,
     typ: ExprPtr,
-    params: Nat,
-    indices: Nat,
+    params: usize,
+    indices: usize,
     ctors: Vec<(Name, Rc<Expr>)>,
     recr: bool,
     safe: bool,
