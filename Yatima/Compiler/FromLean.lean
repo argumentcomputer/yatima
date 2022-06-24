@@ -495,8 +495,8 @@ def buildEnv (constMap : Lean.ConstMap)
   return (← get).env
 
 open Yatima.LeanTypesUtils (filterConstants) in
-def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool)
-    : Except String Env :=
+def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
+    Except String Env :=
   let map  := filterConstants map
   let map₀ := filterConstants map₀
   let delta : Lean.ConstMap := map.fold
