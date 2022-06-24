@@ -1,42 +1,13 @@
-import Yatima.Graph.Tree
-
-namespace Std.RBMap
-
-def findM {ordering : α → α → Ordering} [Monad m] [MonadExcept ε m] 
-  (rbmap : RBMap α β ordering) (a : α) (e : ε) : m β :=
-  match rbmap.find? a with 
-  | some b => pure b
-  | none => throw e
-
-instance [ToString α] [ToString β] {ordering : α → α → Ordering} : 
-  ToString (RBMap α β ordering) :=
-  { toString := fun rbmap => s!"{rbmap.toList}" }
-
-end Std.RBMap 
-
-namespace List
-
-def eraseDup [BEq α] : List α → List α
-  | [] => []
-  | x::xs => 
-    let exs := eraseDup xs
-    if exs.contains x then exs else x::exs
-
-def splitAtP [BEq α] (p : α → Bool) (l : List α) : List α × List α :=
-  match l.dropWhile p with 
-  | [] => unreachable!
-  | a::as => ⟨l.takeWhile p ++ [a], as⟩
-
-end List
+import Lean
+import Std
+import Yatima.Utils
+import Yatima.Compiler.LeanTypesUtils
 
 namespace Lean
 
 open Std (RBMap)
 
-instance : Ord Name :=
- { compare := fun x y => compare (toString x) (toString y) }
-
-abbrev ReferenceMap := RBMap Name (List Name) Ord.compare
+abbrev ReferenceMap := RBMap Name (List Name) compare
 
 def ReferenceMap.empty : ReferenceMap :=
   .empty
@@ -44,48 +15,10 @@ def ReferenceMap.empty : ReferenceMap :=
 instance : Inhabited ReferenceMap := 
   { default := .empty }
 
-mutual 
-
-  partial def getExprRefs (expr : Expr) : List Name :=
-    match expr with 
-    | .mdata _ exp _ => getExprRefs exp
-    | .const name _ _ => [name]
-    | .app func arg _ => 
-      getExprRefs func ++  getExprRefs arg
-    | .lam name type body _ => 
-      getExprRefs type ++  getExprRefs body
-    | .forallE name type body _ => 
-      getExprRefs type ++  getExprRefs body
-    | .letE  name type body exp _ => 
-      getExprRefs type ++  getExprRefs body ++ getExprRefs exp
-    | .proj name idx exp _ => getExprRefs exp
-    | _ => []
-
-  partial def getConstRefs (const : ConstantInfo) : List Name :=
-    match const with 
-    | .axiomInfo  val => getExprRefs val.type
-    | .defnInfo   val => 
-      getExprRefs val.type ++ getExprRefs val.value
-    | .thmInfo    val => 
-      getExprRefs val.type ++ getExprRefs val.value
-    | .opaqueInfo val => 
-      getExprRefs val.type ++ getExprRefs val.value
-    | .ctorInfo   val => 
-      val.induct :: getExprRefs val.type
-    | .inductInfo val => 
-      getExprRefs val.type ++ val.all
-    | .recInfo    val => 
-      getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
-                  ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
-    | .quotInfo   val => getExprRefs val.type
-
-end
-
+open Yatima.LeanTypesUtils (getConstRefs) in
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
-  SMap.fold 
-    (fun acc name const => acc.insert name $ List.eraseDup $ getConstRefs const) 
-    ReferenceMap.empty 
-    constMap
+  constMap.fold (init := .empty)
+    fun acc name const => acc.insert name (getConstRefs const).eraseDup
 
 instance : ToString ReferenceMap := 
  { toString := fun refs => toString refs.toList }
@@ -148,6 +81,8 @@ structure dfsState where
   visited : RBMap Name Bool compare
 
 abbrev dfsM := ReaderT Graph $ EStateM String dfsState
+
+open Yatima.Utils (Tree)
 
 partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
   match (← get).visited.find? v with
@@ -264,14 +199,14 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
   else pure []
 
 def run : sccM $ List $ List Vertex := do 
-  (← read).vertices.foldlM (fun acc v => do
+  (← read).vertices.foldlM (init := []) (fun acc v => do
     match (← get).info.find? v with 
     | some ⟨idx, _, _⟩ => pure acc 
     | none => 
     match ← strongConnect v with 
       | [] => pure $ acc
       | as => pure $ as ++ acc
-  ) []
+  )
 
 end sccM
 

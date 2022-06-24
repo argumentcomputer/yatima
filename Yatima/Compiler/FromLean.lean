@@ -1,7 +1,7 @@
-import Yatima.Graph.Graph
+import Yatima.Compiler.Graph
 import Yatima.Compiler.Printing
-import Yatima.Compiler.Utils
-import Yatima.Compiler.Filtering
+import Yatima.Compiler.LeanTypesUtils
+import Yatima.Utils
 import Yatima.ToIpld
 
 import Lean
@@ -465,10 +465,19 @@ mutual
   partial def sortDefs (ds: List Lean.DefinitionVal) : 
       CompileM (List Lean.DefinitionVal × List Lean.Name) := do
     let names : List Lean.Name := ds.map (·.name)
-    let res ← sortByM (cmpDef names) ds
+    let res ← Utils.sortByM (cmpDef names) ds
     pure (res, res.map (·.name))
 
 end
+
+def printCompilationStats : CompileM Unit := do
+  dbg_trace "\n\nCompilation stats:"
+  dbg_trace s!"univ_cache size: {(← get).env.univ_cache.size}"
+  dbg_trace s!"expr_cache size: {(← get).env.expr_cache.size}"
+  dbg_trace s!"const_cache size: {(← get).env.const_cache.size}"
+  dbg_trace s!"constMap size: {(← read).constMap.size}"
+  dbg_trace s!"cache size: {(← get).cache.size}"
+  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c) => (n, c.ctorName)}"
 
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
@@ -485,16 +494,16 @@ def buildEnv (constMap : Lean.ConstMap)
   printCompilationStats
   return (← get).env
 
-def extractEnv
-  (map map₀ : Lean.ConstMap)
-  (printLean : Bool)
-  (printYatima : Bool)
+open Yatima.LeanTypesUtils (filterConstants) in
+def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool)
     : Except String Env :=
   let map  := filterConstants map
   let map₀ := filterConstants map₀
   let delta : Lean.ConstMap := map.fold
     (init := Lean.SMap.empty) fun acc n c =>
-      if map₀.contains n then acc else acc.insert n c
+      match map₀.find? n with
+      | some c' => if c == c' then acc else acc.insert n c
+      | none    => acc.insert n c
   let g : Graph := Lean.referenceMap map
   match g.scc? with
   | .ok vss =>
