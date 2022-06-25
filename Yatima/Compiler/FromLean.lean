@@ -474,75 +474,28 @@ mutual
       | .eq => pure true 
       | _ => pure false
 
+  /--  -/
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
       CompileM (List (List Lean.DefinitionVal)) := do
-    dbg_trace s!"call sortDefs: {dss.map fun ds => ds.map (·.name)}"
     let enum (ll : List (List Lean.DefinitionVal)) := 
       Std.RBMap.ofList $ (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
     let names := enum dss
     let newDss ← (← dss.mapM fun ds => 
       match ds with 
-      | [] => throw "bruh what"
+      | [] => unreachable! -- should never occur
       | [d] => return [[d]]
-      | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM -- could be one step
+      | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
     let newNames := enum newDss
     
+    -- must normalize, see comments
     let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
     let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
-    if normDss== normNewDss then 
+    if normDss == normNewDss then 
       return newDss
     else 
       sortDefs newDss
 
 end
-
-def weakCmpExpr : Lean.Expr → Lean.Expr → CompileM Ordering
-  | .mvar .., .mvar .. => throw "Unfilled expr metavariable"
-  | .fvar .., .fvar .. => throw "expr free variable"
-  | .mdata _ x _, .mdata _ y _  => weakCmpExpr x y
-  | .bvar x _, .bvar y _ => 
-    if x != y then 
-      throw "Expected isomorphic ASTs in weak comparsion, found unequal bound variables"
-    else 
-      pure .eq
-  | .sort x _, .sort y _ => do
-    if (← cmpLevel x y) != .eq then 
-      throw "Expected isomorphic ASTs in weak comparsion, found unequal universe levels"
-    else 
-      pure .eq
-  | .const x xls _, .const y yls _ =>
-
-    -- TODO
-    throw ""
-  | .app xf xa _, .app yf ya _ => (· * ·) <$> weakCmpExpr xf yf <*> weakCmpExpr xa ya
-  | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xb yb
-  | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xb yb
-  | .letE _ xt xv xb _, .letE _ yt yv yb _ => 
-    (· * · * ·) <$> weakCmpExpr xt yt <*> weakCmpExpr xv yv <*> weakCmpExpr xb yb
-  | .lit x _, .lit y _ =>
-    if x != y then 
-      throw "Expected isomorphic ASTs in weak comparsion, found unequal literals"
-    else 
-      pure .eq
-  | .proj _ nx tx _, .proj _ ny ty _ =>
-    if nx != ny then 
-      throw "Expected isomorphic ASTs in weak comparsion, found unequal projection indices"
-    else 
-      weakCmpExpr tx ty 
-  | _, _ => throw s!"Expected isomorphic ASTs in weak comparsion, found unequal `expr` nodes"
-
-def weakCmpDef (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Ordering := do 
-  let ls := compare x.levelParams.length y.levelParams.length
-  if ls != .eq then 
-    throw "Expected isomorphic ASTs in weak comparsion, found unequal universe levels"
-  let ts ← weakCmpExpr x.type y.type
-  let vs ← weakCmpExpr x.value y.value
-  return concatOrds [ts, vs]
-
-def weakEq (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Bool := do 
-  match (← weakCmpDef x y )with 
-  | .eq => pure true 
-  | _ => pure false
 
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
