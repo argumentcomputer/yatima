@@ -1,89 +1,184 @@
-import Yatima.Compiler.CompileM
-import Yatima.Graph.Graph
+import Lean
+import Yatima.ForStdLib
 
-namespace Yatima.Compiler
+namespace Lean
 
-instance : HMul Ordering Ordering Ordering where
-  hMul
-  | .gt, _ => .gt
-  | .lt, _ => .lt
-  | .eq, x => x
+def compareNames : Name → Name → Ordering
+  | .anonymous, .anonymous => .eq
+  | .num namₗ nₗ _, .num namᵣ nᵣ _ =>
+    if nₗ < nᵣ then .lt
+    else
+      if nₗ > nᵣ then .gt
+      else compareNames namₗ namᵣ
+  | .str namₗ sₗ _, .str namᵣ sᵣ _ =>
+    if sₗ < sᵣ then .lt
+    else
+      if sₗ > sᵣ then .gt
+      else compareNames namₗ namᵣ
+  | .anonymous, .num .. => .lt
+  | .anonymous, .str .. => .lt
+  | .num .., .str .. => .lt
+  | .num .., .anonymous => .gt
+  | .str .., .anonymous => .gt
+  | .str .., .num .. => .gt
 
-def printCompilationStats : CompileM Unit := do
-  dbg_trace "\n\nInfo:"
-  dbg_trace s!"`univ_cache` size: {(← get).env.univ_cache.size}"
-  dbg_trace s!"`expr_cache` size: {(← get).env.expr_cache.size}"
-  dbg_trace s!"`const_cache` size: {(← get).env.const_cache.size}"
-  dbg_trace s!"`constMap` size: {(← read).constMap.size}"
-  dbg_trace s!"`cache` size: {(← get).cache.size}"
-  dbg_trace s!"`cache`: {(← get).cache.toList.map fun (n, c) => (n, c.ctorName)}"
+instance : Ord Name where
+  compare := compareNames
 
-end Yatima.Compiler
+open YatimaStdLib (RBSet)
 
-namespace List
+def getExprRefs : Expr → List Name 
+  | .mdata _ exp _ => getExprRefs exp
+  | .const name _ _ => [name]
+  | .app func arg _ => 
+    getExprRefs func ++  getExprRefs arg
+  | .lam name type body _ => 
+    getExprRefs type ++  getExprRefs body
+  | .forallE name type body _ => 
+    getExprRefs type ++  getExprRefs body
+  | .letE  name type body exp _ => 
+    getExprRefs type ++  getExprRefs body ++ getExprRefs exp
+  | .proj name idx exp _ => getExprRefs exp
+  | _ => []
 
-/- mergesort implementation based on https://hackage.haskell.org/package/base-4.16.1.0/docs/src/Data-OldList.html#sort -/
+def getConstRefs : ConstantInfo → List Name
+  | .axiomInfo  val => getExprRefs val.type
+  | .defnInfo   val => 
+    getExprRefs val.type ++ getExprRefs val.value
+  | .thmInfo    val => 
+    getExprRefs val.type ++ getExprRefs val.value
+  | .opaqueInfo val => 
+    getExprRefs val.type ++ getExprRefs val.value
+  | .ctorInfo   val => val.induct :: getExprRefs val.type
+  | .inductInfo val => 
+    getExprRefs val.type ++ val.all
+  | .recInfo    val => 
+    getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
+                ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
+  | .quotInfo   val => getExprRefs val.type
 
-partial def mergeM [Monad μ] (cmp: α → α → μ Ordering) : List α → List α → μ (List α)
-| as@(a::as'), bs@(b::bs') => do
-  if (← cmp a b) == Ordering.gt
-  then List.cons b <$> mergeM cmp as bs'
-  else List.cons a <$> mergeM cmp as' bs
-| [], bs => return bs
-| as, [] => return as
+def getOpenReferencesInExpr (map : ConstMap) (mem : RBSet Name) :
+    Expr → RBSet Name
+  | .app e₁ e₂ .. =>
+    getOpenReferencesInExpr map mem e₁ ⋃ₛ getOpenReferencesInExpr map mem e₂
+  | .lam _ e₁ e₂ .. =>
+    getOpenReferencesInExpr map mem e₁ ⋃ₛ getOpenReferencesInExpr map mem e₂
+  | .forallE _ e₁ e₂ .. =>
+    getOpenReferencesInExpr map mem e₁ ⋃ₛ getOpenReferencesInExpr map mem e₂
+  | .letE _ e₁ e₂ e₃ .. =>
+    getOpenReferencesInExpr map mem e₁
+      ⋃ₛ getOpenReferencesInExpr map mem e₂
+      ⋃ₛ getOpenReferencesInExpr map mem e₃
+  | .mdata _ e ..  => getOpenReferencesInExpr map mem e
+  | .proj n _ e .. =>
+    getOpenReferencesInExpr map (if map.contains n then mem else mem.insert n) e
+  | .const n .. => if map.contains n then mem else mem.insert n
+  | _ => mem
 
-def mergePairsM [Monad μ] (cmp: α → α → μ Ordering) : List (List α) → μ (List (List α))
-| a::b::xs => List.cons <$> (mergeM cmp a b) <*> mergePairsM cmp xs
-| xs => return xs
+def getOpenReferencesInConst (map : Lean.ConstMap) : Lean.ConstantInfo → RBSet Lean.Name
+  | .axiomInfo struct => getOpenReferencesInExpr map .empty struct.type
+  | .thmInfo struct =>
+      getOpenReferencesInExpr
+        map (getOpenReferencesInExpr map .empty struct.type) struct.value
+  | .opaqueInfo struct =>
+      getOpenReferencesInExpr
+        map (getOpenReferencesInExpr map .empty struct.type) struct.value
+  | .defnInfo struct =>
+      getOpenReferencesInExpr
+        map (getOpenReferencesInExpr map .empty struct.type) struct.value
+  | .ctorInfo struct => getOpenReferencesInExpr map .empty struct.type
+  | .inductInfo struct => getOpenReferencesInExpr map .empty struct.type
+  | .recInfo struct =>
+    struct.rules.foldl
+      (init := getOpenReferencesInExpr map .empty struct.type)
+      fun acc r => getOpenReferencesInExpr map acc r.rhs
+  | .quotInfo struct => getOpenReferencesInExpr map .empty struct.type
 
-partial def mergeAllM [Monad μ] (cmp: α → α → μ Ordering) : List (List α) → μ (List α)
-| [x] => return x
-| xs => mergePairsM cmp xs >>= mergeAllM cmp
+def hasOpenReferenceInExpr (openReferences : RBSet Name) : Lean.Expr → Bool
+  | .app e₁ e₂ .. =>
+    hasOpenReferenceInExpr openReferences e₁
+      || hasOpenReferenceInExpr openReferences e₂
+  | .lam _ e₁ e₂ .. =>
+    hasOpenReferenceInExpr openReferences e₁
+      || hasOpenReferenceInExpr openReferences e₂
+  | .forallE _ e₁ e₂ .. =>
+    hasOpenReferenceInExpr openReferences e₁
+      || hasOpenReferenceInExpr openReferences e₂
+  | .letE _ e₁ e₂ e₃ .. =>
+    hasOpenReferenceInExpr openReferences e₁
+      || hasOpenReferenceInExpr openReferences e₂
+      || hasOpenReferenceInExpr openReferences e₃
+  | .mdata _ e ..  => hasOpenReferenceInExpr openReferences e
+  | .proj n _ e .. =>
+    openReferences.contains n
+      || hasOpenReferenceInExpr openReferences e
+  | .const n .. => openReferences.contains n
+  | _ => false
 
-mutual 
-  partial def sequencesM [Monad μ] (cmp : α → α → μ Ordering) : List α → μ (List (List α))
-  | a::b::xs => do
-    if (← cmp a b) == .gt
-    then descendingM cmp b [a] xs 
-    else ascendingM cmp b (fun ys => a :: ys) xs
-  | xs => return [xs]
+def hasOpenReferenceInConst (openReferences : RBSet Name) :
+    Lean.ConstantInfo → Bool
+  | .axiomInfo struct => hasOpenReferenceInExpr openReferences struct.type
+  | .thmInfo struct =>
+    hasOpenReferenceInExpr openReferences struct.type
+      || hasOpenReferenceInExpr openReferences struct.value
+  | .opaqueInfo struct =>
+    hasOpenReferenceInExpr openReferences struct.type
+      || hasOpenReferenceInExpr openReferences struct.value
+  | .defnInfo struct =>
+    hasOpenReferenceInExpr openReferences struct.type
+      || hasOpenReferenceInExpr openReferences struct.value
+  | .ctorInfo struct => hasOpenReferenceInExpr openReferences struct.type
+  | .inductInfo struct => hasOpenReferenceInExpr openReferences struct.type
+  | .recInfo struct =>
+    struct.rules.foldl
+      (init := hasOpenReferenceInExpr openReferences struct.type)
+      fun acc r => acc || hasOpenReferenceInExpr openReferences struct.type
+  | .quotInfo struct => hasOpenReferenceInExpr openReferences struct.type
 
-  partial def descendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α) : List α → μ (List (List α))
-  | b::bs => do
-    if (← cmp a b) == .gt
-    then descendingM cmp b (a::as) bs
-    else List.cons (a::as) <$> sequencesM cmp (b::bs)
-  | [] => List.cons (a::as) <$> sequencesM cmp []
+def filterConstants (cs : ConstMap) : ConstMap :=
+  let openReferences : RBSet Name := cs.fold (init := .empty)
+    fun acc _ c => acc ⋃ₛ getOpenReferencesInConst cs c
+  Lean.List.toSMap $ cs.toList.filter fun (n, c) =>
+    (!openReferences.contains n) && (!hasOpenReferenceInConst openReferences c)
 
-  partial def ascendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α → List α) : List α → μ (List (List α))
-  | b::bs => do
-    if (← cmp a b) != .gt
-    then ascendingM cmp b (fun ys => as (a :: ys)) bs
-    else List.cons (as [a]) <$> sequencesM cmp (b::bs)
-  | [] => List.cons (as [a]) <$> sequencesM cmp []
-end
+instance : BEq ReducibilityHints where beq
+  | .opaque,    .opaque    => true
+  | .abbrev,    .abbrev    => true
+  | .regular l, .regular r => l == r
+  | _,          _          => false
 
-def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) :=
-  sequencesM cmp xs >>= mergeAllM cmp
+instance : BEq QuotKind where beq
+  | .type, .type => true
+  | .ctor, .ctor => true
+  | .lift, .lift => true
+  | .ind,  .ind  => true
+  | _,     _     => false
 
-def sortBy (cmp : α -> α -> Ordering) (xs: List α) : List α := 
-  Id.run do sortByM (cmp <$> · <*> ·) xs
+instance : BEq RecursorRule where beq
+  | ⟨cₗ, nₗ, rₗ⟩, ⟨cᵣ, nᵣ, rᵣ⟩ => cₗ == cᵣ && nₗ == nᵣ && rₗ == rᵣ
 
-def sort [Ord α] (xs: List α) : List α := 
-  sortBy compare xs
+instance : BEq ConstantInfo where
+  beq (l r : ConstantInfo) : Bool :=
+  l.name == r.name && l.levelParams == r.levelParams && l.type == r.type
+    && match l, r with
+  | .axiomInfo  l, .axiomInfo  r => l.isUnsafe == r.isUnsafe
+  | .thmInfo    l, .thmInfo    r => l.value == r.value
+  | .opaqueInfo l, .opaqueInfo r =>
+    l.isUnsafe == r.isUnsafe && l.value == r.value
+  | .defnInfo   l, .defnInfo   r =>
+    l.value == r.value && l.safety == r.safety && l.hints == r.hints
+  | .ctorInfo   l, .ctorInfo   r =>
+    l.induct == r.induct && l.cidx == r.cidx && l.numParams == r.numParams
+      && l.numFields == r.numFields && l.isUnsafe == r.isUnsafe
+  | .inductInfo l, .inductInfo r =>
+    l.numParams == r.numParams && l.numIndices == r.numIndices && l.all == r.all
+      && l.ctors == r.ctors && l.isRec == r.isRec && l.isUnsafe == r.isUnsafe
+      && l.isReflexive == r.isReflexive && l.isNested == r.isNested
+  | .recInfo    l, .recInfo    r =>
+    l.all == r.all && l.numParams == r.numParams && l.numIndices == r.numIndices
+      && l.numMotives == r.numMotives && l.numMinors == r.numMinors
+      && l.rules == r.rules && l.k == r.k && l.isUnsafe == r.isUnsafe
+  | .quotInfo   l, .quotInfo   r => l.kind == r.kind
+  | _, _ => false
 
-def groupByMAux [Monad μ] (eq : α → α → μ Bool) : List α → List (List α) → μ (List (List α))
-  | a::as, (ag::g)::gs => do match (← eq a ag) with
-    | true  => groupByMAux eq as ((a::ag::g)::gs)
-    | false => groupByMAux eq as ([a]::(ag::g).reverse::gs)
-  | _, gs => return gs.reverse
-
-def groupByM [Monad μ] (p : α → α → μ Bool) : List α → μ (List (List α))
-  | []    => return []
-  | a::as => groupByMAux p as [[a]]
-
-def joinM [Monad μ] : List (List α) → μ (List α)
-  | []      => return []
-  | a :: as => do return a ++ (← joinM as)
-
-end List 
+end Lean

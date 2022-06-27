@@ -1,7 +1,4 @@
-import Yatima.Graph.Graph
 import Yatima.Compiler.Printing
-import Yatima.Compiler.Utils
-import Yatima.Compiler.Filtering
 import Yatima.ToIpld
 
 import Lean
@@ -158,6 +155,12 @@ def toYatimaUniv : Lean.Level → CompileM Univ
     | none   => throw s!"'{name}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
 
+instance : HMul Ordering Ordering Ordering where
+  hMul
+  | .gt, _ => .gt
+  | .lt, _ => .lt
+  | .eq, x => x
+
 def concatOrds : List Ordering -> Ordering :=
   List.foldl (fun x y => x * y) .eq
 
@@ -247,7 +250,6 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
-    dbg_trace s!"call {const.name}"
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
@@ -497,32 +499,44 @@ mutual
 
 end
 
+def printCompilationStats : CompileM Unit := do
+  dbg_trace "\nCompilation stats:"
+  dbg_trace s!"univ_cache size: {(← get).env.univ_cache.size}"
+  dbg_trace s!"expr_cache size: {(← get).env.expr_cache.size}"
+  dbg_trace s!"const_cache size: {(← get).env.const_cache.size}"
+  dbg_trace s!"constMap size: {(← read).constMap.size}"
+  dbg_trace s!"cache size: {(← get).cache.size}"
+  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c) => (n, c.ctorName)}"
+
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
     (printLean : Bool) (printYatima : Bool) : CompileM Env := do
   constMap.forM fun name const => do
-    if printLean || printYatima then dbg_trace s!"\nProcessing: {name}"
+    if printLean || printYatima then
+      dbg_trace "\n========================================="
+      dbg_trace s!"Processing: {name}"
+      dbg_trace "========================================="
     if printLean then
-      dbg_trace "------- Lean constant -------"
+      dbg_trace "------------- Lean constant -------------"
       dbg_trace s!"{printLeanConst const}"
     let (const, constCid) ← processYatimaConst const
     if printYatima then
-      dbg_trace "------ Yatima constant ------"
-      dbg_trace s!"{constCid.anon.data} {constCid.meta.data}"
+      dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst const}"
+      dbg_trace s!"Anon CID: {constCid.anon.data}"
+      dbg_trace s!"Meta CID: {constCid.meta.data}"
   printCompilationStats
   return (← get).env
 
-def extractEnv
-  (map map₀ : Lean.ConstMap)
-  (printLean : Bool)
-  (printYatima : Bool)
-    : Except String Env :=
-  let map  := filterConstants map
-  let map₀ := filterConstants map₀
+def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
+    Except String Env :=
+  let map  := Lean.filterConstants map
+  let map₀ := Lean.filterConstants map₀
   let delta : Lean.ConstMap := map.fold
     (init := Lean.SMap.empty) fun acc n c =>
-      if map₀.contains n then acc else acc.insert n c
+      match map₀.find? n with
+      | some c' => if c == c' then acc else acc.insert n c
+      | none    => acc.insert n c
   let g : Graph := Lean.referenceMap map
   match g.scc? with
   | .ok vss =>
@@ -534,5 +548,17 @@ def extractEnv
       default
       (buildEnv delta printLean printYatima)
   | .error e => throw e
+
+def runFrontend (code fileName : String) (printLean printYatima : Bool) :
+    IO $ Except String Env := do
+  Lean.initSearchPath $ ← Lean.findSysroot
+  let (env, ok) ← Lean.Elab.runFrontend code .empty fileName default
+  if ok then
+    let (env₀, _) ← Lean.Elab.runFrontend default .empty default default
+    match extractEnv env.constants env₀.constants printLean printYatima with
+    | .ok env => return .ok env
+    | .error e => return .error e
+  else
+    return .error s!"Lean frontend failed on file {fileName}"
 
 end Yatima.Compiler
