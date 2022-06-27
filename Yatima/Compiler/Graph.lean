@@ -77,9 +77,9 @@ open Std in
 def inDegrees' (g : Graph) : RBMap Name Nat compare :=
   g.transposeG.outDegrees
 
-/-- Don't use this, it will recompute `g.inDegrees` every time, yuck! -/
-def inDegree (g : Graph) (v : Vertex) : Option Nat :=
-  g.inDegrees.find? v
+-- /-- Don't use this, it will recompute `g.inDegrees` every time, yuck! -/
+-- def inDegree (g : Graph) (v : Vertex) : Option Nat :=
+--   g.inDegrees.find? v
 
 structure dfsState where 
   visited : RBMap Name Bool compare

@@ -8,6 +8,9 @@ namespace Yatima.Compiler
 instance : Coe Lean.Name Name where
   coe := .ofLeanName
 
+instance : Coe (List Lean.Name) (List Name) where
+  coe l := l.map .ofLeanName
+
 instance : Coe Lean.BinderInfo BinderInfo where coe
   | .default        => .default
   | .auxDecl        => .auxDecl
@@ -183,9 +186,9 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   | .param x _, .param y _ => do
     let lvls := (← read).univCtx
     match (lvls.indexOf x), (lvls.indexOf y) with
-      | some xi, some yi => return (compare xi yi)
-      | none, _   => throw s!"'{x}' not found in '{lvls}'"
-      | _, none   => throw s!"'{y}' not found in '{lvls}'"
+    | some xi, some yi => return (compare xi yi)
+    | none, _   => throw s!"'{x}' not found in '{lvls}'"
+    | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
 mutual
 
@@ -400,13 +403,12 @@ mutual
       addToStore $ .const_cache constCid const
       set { ← get with cache := (← get).cache.insert const.name const }
       match (← get).mutIdx.find? name with
-      | some i => sorry
-        --do
-        --let mutConst := .mutDef ⟨name, const.lvls, constCid, name, i⟩
-        --let mutCid ← constToCid mutConst
-        --addToStore $ .const_cache mutCid mutConst
-        --set { ← get with cache := (← get).cache.insert name mutConst }
-        --pure (mutConst, mutCid)
+      | some i =>
+        let mutConst := .mutDef ⟨name, (← read).univCtx, sorry, constCid, i⟩
+        let mutCid ← constToCid mutConst
+        addToStore $ .const_cache mutCid mutConst
+        set { ← get with cache := (← get).cache.insert name mutConst }
+        pure (mutConst, mutCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
  

@@ -482,25 +482,25 @@ def Const.name : Const → Name
   | .theorem     t => t.name
   | .opaque      o => o.name
   | .definition  d => d.name
-  | .indBlock    i =>  s!"mutual inductives {i.map (·.name)}" -- TODO
+  | .indBlock    i => s!"mutual inductives {i.map (·.name)}" -- TODO
   | .inductive   i => i.name
   | .constructor c => c.name
-  | .recursor r => r.name
-  | .quotient q => q.name
-  | .mutDefBlock x => s!"mutual definitions {x.defs.map fun ds => ds.map (·.name)}" -- TODO
-  | .mutDef x => x.name
+  | .recursor    r => r.name
+  | .quotient    q => q.name
+  | .mutDefBlock b => s!"mutual definitions {b.defs.map fun ds => ds.map (·.name)}" -- TODO
+  | .mutDef      d => d.name
 
 def Const.ctorName : Const → String
-  | .axiom a => "axiom"
-  | .theorem t => "theorem"
-  | .opaque o => "opaque"
-  | .definition d => "definition"
-  | .inductive i => "inductive"
-  | .indBlock i => "indBlock"
-  | .constructor c => "constructor"
-  | .recursor r => "recursor"
-  | .quotient q => "quotient"
-  | .mutDefBlock x => "mutDefBlock"
-  | .mutDef x => "mutDef"
+  | .axiom       _ => "axiom"
+  | .theorem     _ => "theorem"
+  | .opaque      _ => "opaque"
+  | .definition  _ => "definition"
+  | .inductive   _ => "inductive"
+  | .indBlock    _ => "indBlock"
+  | .constructor _ => "constructor"
+  | .recursor    _ => "recursor"
+  | .quotient    _ => "quotient"
+  | .mutDefBlock _ => "mutDefBlock"
+  | .mutDef      _ => "mutDef"
 
 end Yatima
