@@ -1,13 +1,13 @@
 import Lean
 import Std
-import Yatima.Env
+import Yatima.Store
 import Yatima.Graph.Graph
 
 namespace Yatima.Compiler
 
 open Std (RBMap) in
 structure CompileState where
-  env    : Yatima.Env
+  store  : Yatima.Store
   cache  : RBMap Name Const Ord.compare
   mutIdx : RBMap Lean.Name Nat compare
 
@@ -25,9 +25,9 @@ structure CompileEnv where
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
-def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Except String Env :=
+def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Except String Store:=
   match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ ste  => .ok ste.env
+  | .ok _ ste  => .ok ste.store
   | .error e _ => .error e
 
 def withName (name : Name) : CompileM α → CompileM α :=

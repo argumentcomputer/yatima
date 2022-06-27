@@ -34,4 +34,11 @@ deriving BEq, Ord
 
 structure EnvCid where data : Cid deriving BEq
 
+instance : ToString UnivAnonCid where toString a := toString a.data
+instance : ToString UnivMetaCid where toString a := toString a.data
+instance : ToString ExprAnonCid where toString a := toString a.data
+instance : ToString ExprMetaCid where toString a := toString a.data
+instance : ToString ConstAnonCid where toString a := toString a.data
+instance : ToString ConstMetaCid where toString a := toString a.data
+
 end Yatima
