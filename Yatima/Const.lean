@@ -78,13 +78,13 @@ structure DefinitionMeta where
   value : ExprMetaCid
 
 structure MutualDefinitionBlock where
-  defs : List Definition
+  defs : List $ List Definition
 
 structure MutualDefinitionBlockAnon where
   defs : List DefinitionAnon
 
 structure MutualDefinitionBlockMeta where
-  defs : List DefinitionMeta
+  defs : List $ List DefinitionMeta
 
 structure MutualDefinition where
   block : ConstCid
@@ -270,7 +270,10 @@ def Const.toAnon : Const → ConstAnon
     r.indices, r.motives, r.minors,
     r.rules.map fun rl => ⟨rl.ctor.anon, rl.fields, rl.rhs.anon⟩, r.k, r.safe⟩
   | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
-  | .mutBlock x => .mutBlock ⟨List.map Definition.toAnon x.defs⟩
+  | .mutBlock x => .mutBlock ⟨(x.defs.map fun ds => 
+      match ds.head? with 
+      | some d => [d] 
+      | none => []).join.map Definition.toAnon⟩
   | .mutDef x => .mutDef ⟨x.block.anon, x.idx⟩
 
 def Definition.toMeta (d: Definition) : DefinitionMeta :=
@@ -286,7 +289,7 @@ def Const.toMeta : Const → ConstMeta
   | .recursor r => .recursor ⟨r.name, r.lvls, r.type.meta, r.ind.meta,
     r.rules.map fun rl => ⟨rl.ctor.meta, rl.rhs.meta⟩⟩
   | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
-  | .mutBlock x => .mutBlock ⟨List.map Definition.toMeta x.defs⟩
+  | .mutBlock x => .mutBlock ⟨x.defs.map fun ds => ds.map Definition.toMeta⟩
   | .mutDef x => .mutDef ⟨x.block.meta, x.name⟩
 
 def Const.name : Const → Name
@@ -298,7 +301,7 @@ def Const.name : Const → Name
   | .constructor c => c.name
   | .recursor r => r.name
   | .quotient q => q.name
-  | .mutBlock x => s!"mutual {x.defs.map (·.name)}" -- TODO
+  | .mutBlock x => s!"mutual {x.defs.map fun ds => ds.map (·.name)}" -- TODO
   | .mutDef x => x.name
 
 def Const.ctorName : Const → String

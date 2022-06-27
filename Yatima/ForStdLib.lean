@@ -1,55 +1,6 @@
 import Std
 
-namespace Yatima.Utils
-/- mergesort implementation based on https://hackage.haskell.org/package/base-4.16.1.0/docs/src/Data-OldList.html#sort -/
-
-partial def mergeM [Monad μ] (cmp: α → α → μ Ordering) : List α → List α → μ (List α)
-| as@(a::as'), bs@(b::bs') => do
-  if (← cmp a b) == Ordering.gt
-  then List.cons b <$> mergeM cmp as bs'
-  else List.cons a <$> mergeM cmp as' bs
-| [], bs => return bs
-| as, [] => return as
-
-def mergePairsM [Monad μ] (cmp: α → α → μ Ordering) : List (List α) → μ (List (List α))
-| a::b::xs => List.cons <$> (mergeM cmp a b) <*> mergePairsM cmp xs
-| xs => return xs
-
-partial def mergeAllM [Monad μ] (cmp: α → α → μ Ordering) : List (List α) → μ (List α)
-| [x] => return x
-| xs => mergePairsM cmp xs >>= mergeAllM cmp
-
-mutual 
-  partial def sequencesM [Monad μ] (cmp : α → α → μ Ordering) : List α → μ (List (List α))
-  | a::b::xs => do
-    if (← cmp a b) == .gt
-    then descendingM cmp b [a] xs 
-    else ascendingM cmp b (fun ys => a :: ys) xs
-  | xs => return [xs]
-
-  partial def descendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α) : List α → μ (List (List α))
-  | b::bs => do
-    if (← cmp a b) == .gt
-    then descendingM cmp b (a::as) bs
-    else List.cons (a::as) <$> sequencesM cmp bs
-  | [] => List.cons (a::as) <$> sequencesM cmp []
-
-  partial def ascendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α → List α) : List α → μ (List (List α))
-  | b::bs => do
-    if (← cmp a b) != .gt
-    then ascendingM cmp b (fun ys => as (a :: ys)) bs
-    else List.cons (as [a]) <$> sequencesM cmp bs
-  | [] => List.cons (as [a]) <$> sequencesM cmp []
-end
-
-def sortByM [Monad μ] (cmp: α -> α -> μ Ordering) (xs: List α) : μ (List α) :=
-  sequencesM cmp xs >>= mergeAllM cmp
-
-instance : HMul Ordering Ordering Ordering where
-  hMul
-  | .gt, _ => .gt
-  | .lt, _ => .lt
-  | .eq, x => x
+namespace YatimaStdLib
 
 abbrev RBSet (α : Type u) [ord : Ord α] := Std.RBMap α Unit ord.compare
 
@@ -150,7 +101,7 @@ end
 
 end Tree
 
-end Yatima.Utils
+end YatimaStdLib
 
 namespace Std.RBMap
 
@@ -178,5 +129,68 @@ def splitAtP [BEq α] (p : α → Bool) (l : List α) : List α × List α :=
   match l.dropWhile p with 
   | [] => unreachable!
   | a::as => ⟨l.takeWhile p ++ [a], as⟩
+
+partial def mergeM [Monad μ] (cmp: α → α → μ Ordering) : List α → List α → μ (List α)
+  | as@(a::as'), bs@(b::bs') => do
+    if (← cmp a b) == Ordering.gt
+    then List.cons b <$> mergeM cmp as bs'
+    else List.cons a <$> mergeM cmp as' bs
+  | [], bs => return bs
+  | as, [] => return as
+
+def mergePairsM [Monad μ] (cmp: α → α → μ Ordering) : List (List α) → μ (List (List α))
+  | a::b::xs => List.cons <$> (mergeM cmp a b) <*> mergePairsM cmp xs
+  | xs => return xs
+
+partial def mergeAllM [Monad μ] (cmp: α → α → μ Ordering) : List (List α) → μ (List α)
+  | [x] => return x
+  | xs => mergePairsM cmp xs >>= mergeAllM cmp
+
+mutual 
+  partial def sequencesM [Monad μ] (cmp : α → α → μ Ordering) : List α → μ (List (List α))
+    | a::b::xs => do
+      if (← cmp a b) == .gt
+      then descendingM cmp b [a] xs 
+      else ascendingM cmp b (fun ys => a :: ys) xs
+    | xs => return [xs]
+
+  partial def descendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α) : List α → μ (List (List α))
+    | b::bs => do
+      if (← cmp a b) == .gt
+      then descendingM cmp b (a::as) bs
+      else List.cons (a::as) <$> sequencesM cmp (b::bs)
+    | [] => List.cons (a::as) <$> sequencesM cmp []
+
+  partial def ascendingM [Monad μ] (cmp : α → α → μ Ordering) (a : α) (as : List α → List α) : List α → μ (List (List α))
+    | b::bs => do
+      if (← cmp a b) != .gt
+      then ascendingM cmp b (fun ys => as (a :: ys)) bs
+      else List.cons (as [a]) <$> sequencesM cmp (b::bs)
+    | [] => List.cons (as [a]) <$> sequencesM cmp []
+
+end
+
+def sortByM [Monad μ] (xs: List α) (cmp: α -> α -> μ Ordering) : μ (List α) :=
+  sequencesM cmp xs >>= mergeAllM cmp
+
+def sortBy (cmp : α -> α -> Ordering) (xs: List α) : List α := 
+  Id.run do xs.sortByM (cmp <$> · <*> ·)
+
+def sort [Ord α] (xs: List α) : List α := 
+  sortBy compare xs
+
+def groupByMAux [Monad μ] (eq : α → α → μ Bool) : List α → List (List α) → μ (List (List α))
+  | a::as, (ag::g)::gs => do match (← eq a ag) with
+    | true  => groupByMAux eq as ((a::ag::g)::gs)
+    | false => groupByMAux eq as ([a]::(ag::g).reverse::gs)
+  | _, gs => return gs.reverse
+
+def groupByM [Monad μ] (p : α → α → μ Bool) : List α → μ (List (List α))
+  | []    => return []
+  | a::as => groupByMAux p as [[a]]
+
+def joinM [Monad μ] : List (List α) → μ (List α)
+  | []      => return []
+  | a :: as => do return a ++ (← joinM as)
 
 end List

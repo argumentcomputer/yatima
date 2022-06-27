@@ -109,7 +109,7 @@ mutual
       return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
     | .mutBlock mutBlock => do
-      let defStrings ← mutBlock.defs.mapM printDefinition
+      let defStrings ← mutBlock.defs.join.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
     | .mutDef mutDef =>
       return s!"mut {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"

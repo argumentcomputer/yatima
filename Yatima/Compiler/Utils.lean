@@ -1,8 +1,8 @@
 import Lean
-import Yatima.Utils
+import Yatima.ForStdLib
 import Std
 
-namespace Yatima.LeanTypesUtils
+namespace Yatima.Compiler.Utils
 
 open Lean
 
@@ -28,7 +28,7 @@ def compareNames : Name → Name → Ordering
 instance : Ord Name where
   compare := compareNames
 
-open Utils (RBSet)
+open YatimaStdLib (RBSet)
 
 def getExprRefs : Expr → List Name 
   | .mdata _ exp _ => getExprRefs exp
@@ -184,4 +184,4 @@ instance : BEq ConstantInfo where
   | .quotInfo   l, .quotInfo   r => l.kind == r.kind
   | _, _ => false
 
-end Yatima.LeanTypesUtils
+end Yatima.Compiler.Utils

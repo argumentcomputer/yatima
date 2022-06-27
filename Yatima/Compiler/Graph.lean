@@ -1,7 +1,15 @@
 import Lean
 import Std
-import Yatima.Utils
-import Yatima.Compiler.LeanTypesUtils
+import Yatima.ForStdLib
+import Yatima.Compiler.Utils
+
+/-
+This graph API needs work beforing being factored out because it's specific to
+Lean types.
+
+Another point: we'll soon drop the need for this API once we migrate to an
+updated toolchain.
+-/
 
 namespace Lean
 
@@ -15,7 +23,7 @@ def ReferenceMap.empty : ReferenceMap :=
 instance : Inhabited ReferenceMap := 
   { default := .empty }
 
-open Yatima.LeanTypesUtils (getConstRefs) in
+open Yatima.Compiler.Utils (getConstRefs) in
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
   constMap.fold (init := .empty)
     fun acc name const => acc.insert name (getConstRefs const).eraseDup
@@ -82,7 +90,7 @@ structure dfsState where
 
 abbrev dfsM := ReaderT Graph $ EStateM String dfsState
 
-open Yatima.Utils (Tree)
+open YatimaStdLib (Tree)
 
 partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
   match (← get).visited.find? v with
@@ -196,7 +204,7 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
       pure $ scc::sccs
     else
       pure $ sccs
-  else pure []
+  else pure sccs
 
 def run : sccM $ List $ List Vertex := do 
   (← read).vertices.foldlM (init := []) (fun acc v => do
