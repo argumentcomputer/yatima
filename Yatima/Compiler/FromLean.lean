@@ -229,11 +229,13 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaDef (defn : Lean.DefinitionVal) : CompileM Definition := do
+  partial def toYatimaDef (isMut : Bool) (defn : Lean.DefinitionVal)  : CompileM Definition := do
     let type ← toYatimaExpr none defn.type
     let typeCid ← exprToCid type
     addToEnv $ .expr_cache typeCid type
-    let value ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
+    let value := 
+      if isMut then ← toYatimaExpr none defn.value 
+      else ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
     let valueCid ← exprToCid value
     addToEnv $ .expr_cache valueCid value
     return {
@@ -245,6 +247,7 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
+    dbg_trace s!"call {const.name}"
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr none struct.type
@@ -288,14 +291,16 @@ mutual
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn
           | _ => throw "Non-def constant found in a mutual block of definitions"
-        let (mutualDefs, mutualNames) ← sortDefs mutualDefs
+        let mutualDefs ← sortDefs [mutualDefs]
         let mut i := 0
-        for name in mutualNames do
-          set { ← get with mutIdx := (← get).mutIdx.insert name i }
+        for ds in mutualDefs do
+          for d in ds do 
+            set { ← get with mutIdx := (← get).mutIdx.insert d.name i }
           i := i + 1
-        let definitions ← withOrder mutualNames $ mutualDefs.mapM toYatimaDef
+        let definitions ← withOrder mutualNames $ 
+          mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutBlock ⟨definitions⟩
-      | none => return .definition $ ← toYatimaDef struct
+      | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
@@ -400,13 +405,13 @@ mutual
         pure (mutConst, mutCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
-  
-  partial def cmpExpr (names : List Lean.Name) :
+ 
+  partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | .mvar .., _ => throw "Unfilled expr metavariable"
     | _, .mvar .. => throw "Unfilled expr metavariable"
     | .fvar .., _ => throw "expr free variable"
-    | _, .fvar .. => throw "expr free metavariable"
+    | _, .fvar .. => throw "expr free variable"
     | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
     | .mdata _ x _, y  => cmpExpr names x y
     | x, .mdata _ y _  => cmpExpr names x y
@@ -419,15 +424,15 @@ mutual
     | .const x xls _, .const y yls _ => do
       let univs ← concatOrds <$> (List.zip xls yls).mapM (fun (x,y) => cmpLevel x y)
       if univs != .eq then return univs
-      match names.contains x, names.contains y with
-      | true, true => return .eq
-      | false, true => return .gt
-      | true, false => return .lt
-      | false, false => do
+      match names.find? x, names.find? y with
+      | some nx, some ny => return compare nx ny
+      | none, some ny => return .gt
+      | some nx, none => return .lt
+      | none, none => do
         match (← read).constMap.find?' x, (← read).constMap.find?' y with
         | some xConst, some yConst => do
-          let xCid ← processYatimaConst xConst >>= constToCid ∘ Prod.fst
-          let yCid ← processYatimaConst yConst >>= constToCid ∘ Prod.fst
+          let xCid := (← processYatimaConst xConst).snd
+          let yCid := (← processYatimaConst yConst).snd
           return (compare xCid yCid)
         | none, some _ => throw s!"Unknown constant '{x}'"
         | some _, none => throw s!"Unknown constant '{y}'"
@@ -455,18 +460,40 @@ mutual
       return concatOrds [ compare nx ny , ts ]
 
   partial def cmpDef
-    (names : List Lean.Name) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+    (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
     let ts ← cmpExpr names x.type y.type
     let vs ← cmpExpr names x.value y.value
     return concatOrds [ls, ts, vs]
 
-  partial def sortDefs (ds: List Lean.DefinitionVal) : 
-      CompileM (List Lean.DefinitionVal × List Lean.Name) := do
-    let names : List Lean.Name := ds.map (·.name)
-    let res ← sortByM (cmpDef names) ds
-    pure (res, res.map (·.name))
+  partial def eqDef
+    (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+      CompileM Bool := do
+    match (← cmpDef names x y )with 
+      | .eq => pure true 
+      | _ => pure false
+
+  /--  -/
+  partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
+      CompileM (List (List Lean.DefinitionVal)) := do
+    let enum (ll : List (List Lean.DefinitionVal)) := 
+      Std.RBMap.ofList $ (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
+    let names := enum dss
+    let newDss ← (← dss.mapM fun ds => 
+      match ds with 
+      | [] => unreachable! -- should never occur
+      | [d] => return [[d]]
+      | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
+    let newNames := enum newDss
+    
+    -- must normalize, see comments
+    let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
+    let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
+    if normDss == normNewDss then 
+      return newDss
+    else 
+      sortDefs newDss
 
 end
 
@@ -481,6 +508,7 @@ def buildEnv (constMap : Lean.ConstMap)
     let (const, constCid) ← processYatimaConst const
     if printYatima then
       dbg_trace "------ Yatima constant ------"
+      dbg_trace s!"{constCid.anon.data} {constCid.meta.data}"
       dbg_trace s!"{← printYatimaConst const}"
   printCompilationStats
   return (← get).env
@@ -501,9 +529,9 @@ def extractEnv
     let nss : List (List $ Lean.Name × List Lean.Name) :=
       vss.map fun vs => 
         vs.map fun v => (v, vs)
-    CompileM.run 
+    CompileM.run
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
-      default 
+      default
       (buildEnv delta printLean printYatima)
   | .error e => throw e
 
