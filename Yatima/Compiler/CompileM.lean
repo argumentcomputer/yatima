@@ -1,5 +1,3 @@
-import Lean
-import Std
 import Yatima.Env
 import Yatima.Compiler.Graph
 
@@ -25,7 +23,8 @@ structure CompileEnv where
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
-def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Except String Env :=
+def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
+    Except String Env :=
   match EStateM.run (ReaderT.run m env) ste with
   | .ok _ ste  => .ok ste.env
   | .error e _ => .error e

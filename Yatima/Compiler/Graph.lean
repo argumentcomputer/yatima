@@ -1,6 +1,3 @@
-import Lean
-import Std
-import Yatima.ForStdLib
 import Yatima.Compiler.Utils
 
 /-
@@ -23,10 +20,9 @@ def ReferenceMap.empty : ReferenceMap :=
 instance : Inhabited ReferenceMap := 
   { default := .empty }
 
-open Lean (getConstRefs) in
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
   constMap.fold (init := .empty)
-    fun acc name const => acc.insert name (getConstRefs const).eraseDup
+    fun acc name const => acc.insert name (Lean.getConstRefs const).eraseDup
 
 instance : ToString ReferenceMap := 
  { toString := fun refs => toString refs.toList }
@@ -207,14 +203,13 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
   else pure sccs
 
 def run : sccM $ List $ List Vertex := do 
-  (← read).vertices.foldlM (init := []) (fun acc v => do
+  (← read).vertices.foldlM (init := []) $ fun acc v => do
     match (← get).info.find? v with 
     | some ⟨idx, _, _⟩ => pure acc 
     | none => 
     match ← strongConnect v with 
       | [] => pure $ acc
       | as => pure $ as ++ acc
-  )
 
 end sccM
 

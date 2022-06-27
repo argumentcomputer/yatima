@@ -1,6 +1,5 @@
 import Lean
 import Yatima.ForStdLib
-import Std
 
 namespace Lean
 

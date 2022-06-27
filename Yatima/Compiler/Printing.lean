@@ -1,4 +1,3 @@
-import Lean
 import Yatima.Compiler.CompileM
 
 def printIsSafe (x: Bool) : String :=
@@ -8,7 +7,7 @@ namespace Yatima.Compiler.PrintYatima
 
 open Yatima.Compiler.CompileM
 
-def printDefSafety : Yatima.DefinitionSafety -> String
+def printDefSafety : Yatima.DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
   | .partial => "partial "

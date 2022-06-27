@@ -1,7 +1,4 @@
-import Yatima.Compiler.Graph
 import Yatima.Compiler.Printing
-import Yatima.Compiler.Utils
-import Yatima.ForStdLib
 import Yatima.ToIpld
 
 import Lean
