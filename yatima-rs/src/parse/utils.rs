@@ -15,7 +15,11 @@ use crate::{
     ExprCid,
     UnivCid,
   },
-  expression::Expr,
+  constant::Const,
+  expression::{
+    Expr,
+    BinderInfo,
+  },
   name::Name,
   nat::Nat,
   universe::Univ,
@@ -331,4 +335,59 @@ pub fn store_expr(
     Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
   })?;
   Ok((i, expr))
+}
+
+pub fn store_const(
+  env_ctx: EnvCtx,
+  cnst: Const,
+  i: Span,
+) -> IResult<Span, ConstCid, ParseError<Span>> {
+  let mut env = env_ctx.try_borrow_mut().map_err(|e| {
+    Err::Error(ParseError::new(
+      i,
+      ParseErrorKind::EnvBorrowMut(format!("{}", e)),
+    ))
+  })?;
+  let cnstcid = cnst.store(env.deref_mut()).map_err(|e| {
+    Err::Error(ParseError::new(i, ParseErrorKind::Env(format!("{:?}", e))))
+  })?;
+  Ok((i, cnstcid))
+}
+
+/// The input `Vector : ∀ (A: Type) -> ∀ (n: Nat) -> Sort 0` with depth 1 returns:
+///   - string: `(A: Type)` 
+///   - type: `∀ (n: Nat) -> Sort 0`
+/// This is useful for printing defs
+/// sort of the inverse of parse_bound_expressions?
+/// Note that this doesn't fail -- it just stops parsing if it hits a non-pi expr
+pub fn get_binders<'a>(expr: &'a Expr, depth: Option<usize>) -> (Vec<((Name, BinderInfo), Expr)>, &'a Expr) {
+
+  let mut ret = Vec::new();
+  let mut expr = expr;
+  let mut curr_depth = 0;
+
+  loop {
+    if let Some(d) = depth { if curr_depth == d { break } }
+    match &expr {
+      Expr::Pi(name, bi, typ, rem_expr) => {
+        ret.push(((name.clone(), *bi), *typ.clone()));
+        expr = rem_expr;
+      },
+      _ => break
+    }
+
+    curr_depth = curr_depth + 1;
+  }
+
+  (ret, expr)
+}
+
+// This feels slightly hacky
+pub fn with_binders(var: String, bi: &BinderInfo) -> String {
+  match bi {
+    BinderInfo::Default => format!("({})", var),
+    BinderInfo::Implicit => format!("{{{}}}", var),
+    BinderInfo::InstImplicit => format!("[{}]", var),
+    BinderInfo::StrictImplicit => format!("{{{{{}}}}}", var),
+  }
 }

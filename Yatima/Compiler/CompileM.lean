@@ -1,14 +1,12 @@
-import Lean
-import Std
 import Yatima.Store
-import Yatima.Graph.Graph
+import Yatima.Compiler.Graph
 
 namespace Yatima.Compiler
 
 open Std (RBMap) in
 structure CompileState where
   store  : Yatima.Store
-  cache  : RBMap Name Const Ord.compare
+  cache  : RBMap Name Const compare
   mutIdx : RBMap Lean.Name Nat compare
 
 instance : Inhabited CompileState where
@@ -19,13 +17,14 @@ structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  cycles   : RBMap Lean.Name (List Lean.Name) compare
+  cycles   : Lean.ReferenceMap
   order    : List Lean.Name
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
-def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) : Except String Store:=
+def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
+    Except String Store :=
   match EStateM.run (ReaderT.run m env) ste with
   | .ok _ ste  => .ok ste.store
   | .error e _ => .error e

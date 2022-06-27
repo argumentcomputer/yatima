@@ -69,3 +69,33 @@ impl<'de> Deserialize<'de> for Name {
     Ok(Name { inner: Rc::from(string.as_str()) })
   }
 }
+
+#[cfg(test)]
+pub mod tests {
+
+  use super::*;
+  use quickcheck::{
+    Arbitrary,
+    Gen,
+  };
+
+  use crate::parse::utils::reserved_symbols;
+
+  pub fn arbitrary_ascii_name(g: &mut Gen, len: usize) -> Name {
+    let mut s: String;
+    
+    loop {
+      s = String::new();
+      while s.len() < len {
+        let i = (u32::arbitrary(g) % 26) + 97;
+        let c = unsafe { char::from_u32_unchecked(i) };
+        s.push(c)
+      }
+      if !reserved_symbols().contains(&s) {
+        break;
+      }
+    }
+
+    Name::from(format!("{}", s))
+  }
+}

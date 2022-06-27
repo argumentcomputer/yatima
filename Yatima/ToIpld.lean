@@ -153,7 +153,7 @@ def constAnonToIpld : ConstAnon → Ipld
   | .constructor ⟨l, t, b, i, j⟩  => .array #[.number CONSTANON, .number 6, l, t, b, i, j]
   | .recursor ⟨l, t, b, i, j, i'⟩ => .array #[.number CONSTANON, .number 7, l, t, b, i, j, i']
   | .quotient ⟨l, t, k⟩           => .array #[.number CONSTANON, .number 8, l, t, k]
-  | .mutDefBlock ds               => .array #[.number CONSTANON, .number 9, ds]
+  | .mutDefBlock ds               => .array #[.number CONSTANON, .number 9, sorry]
   | .mutDef ⟨l, t, b, i⟩          => .array #[.number CONSTANON, .number 10, l, t, b, i]
 
 def constMetaToIpld : ConstMeta → Ipld
@@ -166,7 +166,7 @@ def constMetaToIpld : ConstMeta → Ipld
   | .constructor ⟨n, l, t, b⟩ => .array #[.number CONSTMETA, .number 6, n, l, t, b]
   | .recursor ⟨n, l, t, b⟩    => .array #[.number CONSTMETA, .number 7, n, l, t, b]
   | .quotient ⟨n, l, t⟩       => .array #[.number CONSTMETA, .number 8, n, l, t]
-  | .mutDefBlock ds           => .array #[.number CONSTMETA, .number 9, ds]
+  | .mutDefBlock ds           => .array #[.number CONSTMETA, .number 9, sorry]
   | .mutDef ⟨n, l, t, b⟩      => .array #[.number CONSTMETA, .number 10, n, l, t, b]
 
 def univAnonToCid (univAnon : UnivAnon) : UnivAnonCid :=

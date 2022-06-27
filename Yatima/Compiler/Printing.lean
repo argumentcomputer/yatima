@@ -1,4 +1,3 @@
-import Lean
 import Yatima.Compiler.CompileM
 import Yatima.Cid
 
@@ -9,7 +8,7 @@ namespace Yatima.Compiler.PrintYatima
 
 open Yatima.Compiler.CompileM
 
-def printDefSafety : Yatima.DefinitionSafety -> String
+def printDefSafety : Yatima.DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
   | .partial => "partial "
@@ -130,7 +129,7 @@ mutual
       return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
     | .mutDefBlock ds => do
-      let defStrings ← ds.mapM printDefinition
+      let defStrings ← ds.defs.join.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
     | .mutDef mutDef =>
       return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"

@@ -34,6 +34,7 @@ use crate::{
       parse_name,
       parse_nat,
       parse_space,
+      parse_space1,
       parse_u8,
       store_univ,
       BindCtx,
@@ -216,7 +217,12 @@ pub fn parse_expr_sort(
   env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
-    let (i, _) = tag("Sort")(from)?;
+    let (i, res) = opt(tag("Prop"))(from)?;
+    if let Some(_) = res {
+      let (i, cid) = store_univ(env_ctx.clone(), Univ::Zero, i)?;
+      return Ok((i, Expr::Sort(cid)))
+    }
+    let (i, _) = tag("Sort")(i)?;
     let (i, _) = parse_space(i)?;
     let (i, u) = parse_univ(univ_ctx.clone())(i)?;
     let (i, cid) = store_univ(env_ctx.clone(), u, i)?;
@@ -226,26 +232,38 @@ pub fn parse_expr_sort(
 
 /// Parse the termination marker of an application sequence
 pub fn parse_app_end(i: Span) -> IResult<Span, (), ParseError<Span>> {
-  let (i, _) = alt((
-    peek(tag("def")),
-    peek(tag("inductive")),
-    peek(tag("axiom")),
-    peek(tag("theorem")),
-    peek(tag("opaque")),
-    peek(tag("unsafe")),
-    peek(tag("partial")),
-    peek(tag("where")),
-    peek(tag(":=")),
-    peek(tag("->")),
-    peek(tag("in")),
-    peek(tag(")")),
-    peek(tag("{")),
-    peek(tag("}")),
-    peek(tag("[")),
-    peek(tag("]")),
-    peek(tag(",")),
-    peek(eof),
-  ))(i)?;
+  let (i, _) = peek(
+    alt((
+      eof,
+      tag(":="),
+      tag("->"),
+      tag("→"),
+      tag(")"),
+      tag("{"),
+      tag("}"),
+      tag("["),
+      tag("]"),
+      tag(","),
+      preceded(
+        alt((
+          tag("def"),
+          tag("inductive"),
+          tag("axiom"),
+          tag("theorem"),
+          tag("opaque"),
+          tag("unsafe"),
+          tag("partial"),
+          tag("where"),
+          tag("in"),
+        )),
+        alt((
+          eof,
+          tag(" "),
+          tag("\n"),
+        ))
+      )
+    ))
+  )(i)?;
   Ok((i, ()))
 }
 
@@ -301,9 +319,9 @@ pub fn parse_binder(
   move |i: Span| {
     let (i, bind) = alt((
       value(BinderInfo::Default, tag("(")),
-      value(BinderInfo::StrictImplict, tag("{{")),
+      value(BinderInfo::StrictImplicit, tag("{{")),
       value(BinderInfo::Implicit, tag("{")),
-      value(BinderInfo::InstImplict, tag("[")),
+      value(BinderInfo::InstImplicit, tag("[")),
     ))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, ns) = many1(terminated(parse_name, parse_space))(i)?;
@@ -317,9 +335,9 @@ pub fn parse_binder(
     )(i)?;
     let close = match bind {
       BinderInfo::Default => ")",
-      BinderInfo::StrictImplict => "}}",
+      BinderInfo::StrictImplicit => "}}",
       BinderInfo::Implicit => "}",
-      BinderInfo::InstImplict => "]",
+      BinderInfo::InstImplicit => "]",
     };
     let (i, _) = tag(close)(i)?;
     let mut res = Vec::new();
@@ -462,16 +480,16 @@ pub fn parse_expr_pi(
   env_ctx: EnvCtx,
 ) -> impl Fn(Span) -> IResult<Span, Expr, ParseError<Span>> {
   move |from: Span| {
-    let (i, _) = alt((tag("∀"), tag("forall")))(from)?;
+    let (i, _) = alt((tag("∀"), tag("Π"), tag("forall")))(from)?;
     let (i, _) = parse_space(i)?;
     let (i, bs) = parse_binders1(
       univ_ctx.clone(),
       bind_ctx.clone(),
       global_ctx.clone(),
       env_ctx.clone(),
-      vec!['-'],
+      vec!['-', '→'],
     )(i)?;
-    let (i, _) = tag("->")(i)?;
+    let (i, _) = alt((tag("→"), tag("->")))(i)?;
     let (i, _) = parse_space(i)?;
     let mut body_bind_ctx = bind_ctx.clone();
     for (_, n, _) in bs.clone().iter() {
@@ -626,7 +644,7 @@ pub fn parse_expr_let(
   move |from: Span| {
     let (i, _) = tag("let")(from)?;
     let (i, _) = parse_space(i)?;
-    let (i, rec) = opt(tag("rec"))(i)?;
+    let (i, rec) = opt(preceded(tag("rec"), parse_space1))(i)?;
     let (i, _) = parse_space(i)?;
     let (i, nam) = parse_name(i)?;
     let rec = rec.map(|_| nam.clone());
@@ -686,6 +704,12 @@ pub fn parse_expr(
       parse_expr_lit(),
       parse_expr_lty(),
       parse_expr_sort(univ_ctx.clone(), env_ctx.clone()),
+      parse_expr_let(
+        univ_ctx.clone(),
+        bind_ctx.clone(),
+        global_ctx.clone(),
+        env_ctx.clone(),
+      ),
       parse_expr_const(
         univ_ctx.clone(),
         bind_ctx.clone(),
@@ -713,6 +737,12 @@ pub mod tests {
     Code,
     MultihashDigest,
   };
+
+  use crate::expression::tests::{dummy_univ_ctx, dummy_global_ctx, dummy_const_cid};
+
+  use crate::expression::tests::ExprEnv;
+
+  use rand::Rng;
 
   use super::*;
 
@@ -797,16 +827,6 @@ pub mod tests {
     );
   }
 
-  fn dummy_const_cid() -> ConstCid {
-    let anon: ConstAnonCid = ConstAnonCid::new(Code::Sha3_256.digest(&[0]));
-    let meta: ConstMetaCid = ConstMetaCid::new(Code::Sha3_256.digest(&[0]));
-    ConstCid { anon, meta }
-  }
-
-  fn dummy_global_ctx() -> GlobalCtx {
-    OrdMap::from(vec![(Name::from("foo"), dummy_const_cid())])
-  }
-
   #[test]
   fn test_parse_const() {
     let env_ctx = Rc::new(RefCell::new(Env::new()));
@@ -828,26 +848,26 @@ pub mod tests {
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
     let res = test(env_ctx.clone(), vec![], vec![], "foo");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
     let res = test(env_ctx.clone(), vec![], vec!["foo"], "foo.{}");
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
     let res = test(env_ctx.clone(), vec!["u", "v"], vec![], "foo.{u v}");
     println!("{:?}", res);
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![
         Univ::Param("u".into(), 0u64.into()).cid(&mut Env::new()).unwrap(),
         Univ::Param("v".into(), 1u64.into()).cid(&mut Env::new()).unwrap()
       ])
@@ -863,7 +883,7 @@ pub mod tests {
     assert!(res.is_ok());
     assert_eq!(
       res.unwrap().1,
-      Expr::Const("foo".into(), dummy_const_cid(), vec![])
+      Expr::Const("foo".into(), dummy_const_cid(0), vec![])
     );
   }
   #[test]
@@ -1078,6 +1098,20 @@ pub mod tests {
     println!("{:?}", res);
     assert!(res.is_ok());
   }
+
+  #[test]
+  fn test_parse_let() {
+    let env_ctx = Rc::new(RefCell::new(Env::new()));
+    fn test(env_ctx: EnvCtx, i: &str) -> IResult<Span, Expr, ParseError<Span>> {
+      parse_expr(Vector::new(), Vector::new(), OrdMap::new(), env_ctx)(
+        Span::new(i),
+      )
+    }
+    let res = test(env_ctx.clone(), "let recname : Sort 0 := #Str in recname");
+    print!("{:?}", res);
+    assert!(res.is_ok());
+  }
+
   #[test]
   fn test_parse_lam() {
     fn test(i: &str) -> IResult<Span, Expr, ParseError<Span>> {
@@ -1091,6 +1125,13 @@ pub mod tests {
     assert!(res.is_ok());
     let res = test(
       "λ [X: Sort 0] {X: Sort 0} (A: Sort 0) (x : A) => A",
+    );
+    assert!(res.is_ok());
+
+    //"in" (and other reserved keywords) should not be considered
+    //the end of an application sequence unless followed by a space/newline/EOF
+    let res = test(
+      "λ [test: λ (inname : Sort 0) => inname inname] => Sort 0"
     );
     assert!(res.is_ok());
   }
@@ -1180,5 +1221,22 @@ pub mod tests {
         )
       )
     );
+  }
+
+  #[quickcheck]
+  fn prop_expr_parse_print(x: ExprEnv) -> bool {
+    let s = x.expr.pretty(&x.env, false);
+    println!("input: \t\t{s}");
+    let res = parse_expr_apps(dummy_univ_ctx(), Vector::new(), dummy_global_ctx(), Rc::new(RefCell::new(Env::new())))(Span::new(&s));
+    match res {
+      Ok((_, y)) => {
+        println!("re-parsed: \t{}", y.pretty(&x.env, false));
+        x.expr == y
+      }
+      Err(e) => {
+        println!("err: {:?}", e);
+        false
+      }
+    }
   }
 }
