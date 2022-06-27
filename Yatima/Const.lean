@@ -111,25 +111,46 @@ structure ConstructorInfoMeta where
   name   : Name
   type   : ExprMetaCid
 
+structure RecursorExternalRule where
+  ctor : ConstCid
+  fields: Nat
+  rhs:   ExprCid
+
+structure RecursorExternalRuleAnon where
+  ctor : ConstAnonCid
+  fields: Nat
+  rhs:   ExprAnonCid
+
+structure RecursorExternalRuleMeta where
+  ctor : ConstMetaCid
+  rhs:   ExprMetaCid
+
 structure RecursorInfo where
   name    : Name
   type    : ExprCid
   motives : Nat
   minors  : Nat
-  rules   : List ExprCid
+  -- internal rules are the list of `rhs` expresssions zipped against the
+  -- `InductiveInfo.ctors` list in the same inductive which contains this
+  -- `RecursorInfo`
+  internalRules : List ExprCid
+  -- external rules are for inductives outside the current `InductiveInfo`
+  externalRules : List RecursorExternalRule
   k       : Bool
 
 structure RecursorInfoAnon where
   type    : ExprAnonCid
   motives : Nat
   minors  : Nat
-  rules   : List ExprAnonCid
+  internalRules : List ExprAnonCid
+  externalRules : List RecursorExternalRuleAnon
   k       : Bool
 
 structure RecursorInfoMeta where
   name    : Name
   type    : ExprMetaCid
-  rules   : List ExprMetaCid
+  internalRules : List ExprMetaCid
+  externalRules : List RecursorExternalRuleMeta
 
 structure InductiveInfo where
   name    : Name
@@ -288,8 +309,11 @@ def Definition.toAnon (d: Definition) : DefinitionAnon :=
 def ConstructorInfo.toAnon (x: ConstructorInfo) : ConstructorInfoAnon :=
   ⟨x.type.anon, x.params, x.fields⟩
 
+def RecursorExternalRule.toAnon (x: RecursorExternalRule) : RecursorExternalRuleAnon :=
+  ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
+
 def RecursorInfo.toAnon (x: RecursorInfo) : RecursorInfoAnon :=
-  ⟨x.type.anon, x.motives, x.minors, x.rules.map (·.anon), x.k⟩
+  ⟨x.type.anon, x.motives, x.minors, x.internalRules.map (·.anon), x.externalRules.map RecursorExternalRule.toAnon, x.k⟩
 
 def InductiveInfo.toAnon (x: InductiveInfo) : InductiveInfoAnon :=
   ⟨x.lvls.length, x.type.anon, x.params, x.indices, x.ctors.map (·.toAnon), x.recrs.map (·.toAnon), x.recr, x.safe, x.refl, x.nest⟩
@@ -313,8 +337,11 @@ def Definition.toMeta (d: Definition) : DefinitionMeta :=
 def ConstructorInfo.toMeta (x: ConstructorInfo) : ConstructorInfoMeta :=
   ⟨x.name, x.type.meta⟩
 
+def RecursorExternalRule.toMeta (x: RecursorExternalRule) : RecursorExternalRuleMeta :=
+  ⟨x.ctor.meta, x.rhs.meta⟩
+
 def RecursorInfo.toMeta (x: RecursorInfo) : RecursorInfoMeta :=
-  ⟨x.name, x.type.meta, x.rules.map (·.meta)⟩
+  ⟨x.name, x.type.meta, x.internalRules.map (·.meta), x.externalRules.map RecursorExternalRule.toMeta⟩
 
 def InductiveInfo.toMeta (x: InductiveInfo) : InductiveInfoMeta :=
   ⟨x.name, x.lvls, x.type.meta, x.ctors.map (·.toMeta), x.recrs.map (·.toMeta)⟩
