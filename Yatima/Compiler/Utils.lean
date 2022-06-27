@@ -2,9 +2,7 @@ import Lean
 import Yatima.ForStdLib
 import Std
 
-namespace Yatima.Compiler.Utils
-
-open Lean
+namespace Lean
 
 def compareNames : Name → Name → Ordering
   | .anonymous, .anonymous => .eq
@@ -184,4 +182,4 @@ instance : BEq ConstantInfo where
   | .quotInfo   l, .quotInfo   r => l.kind == r.kind
   | _, _ => false
 
-end Yatima.Compiler.Utils
+end Lean

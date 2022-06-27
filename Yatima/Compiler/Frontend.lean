@@ -531,11 +531,10 @@ def buildEnv (constMap : Lean.ConstMap)
   printCompilationStats
   return (← get).env
 
-open Utils (filterConstants) in
 def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
     Except String Env :=
-  let map  := filterConstants map
-  let map₀ := filterConstants map₀
+  let map  := Lean.filterConstants map
+  let map₀ := Lean.filterConstants map₀
   let delta : Lean.ConstMap := map.fold
     (init := Lean.SMap.empty) fun acc n c =>
       match map₀.find? n with

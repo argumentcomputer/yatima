@@ -23,7 +23,7 @@ def ReferenceMap.empty : ReferenceMap :=
 instance : Inhabited ReferenceMap := 
   { default := .empty }
 
-open Yatima.Compiler.Utils (getConstRefs) in
+open Lean (getConstRefs) in
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
   constMap.fold (init := .empty)
     fun acc name const => acc.insert name (getConstRefs const).eraseDup
