@@ -477,6 +477,19 @@ def Const.toMeta : Const → ConstMeta
   | .mutDefBlock ds => .mutDefBlock ⟨ds.defs.map fun ds => ds.map Definition.toMeta⟩
   | .mutDef x => .mutDef ⟨x.name, x.lvls, x.type.meta, x.block.meta⟩
 
+def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
+  | .axiom       x => some (x.lvls, x.type)
+  | .theorem     x => some (x.lvls, x.type)
+  | .opaque      x => some (x.lvls, x.type)
+  | .definition  x => some (x.lvls, x.type)
+  | .indBlock    _ => none
+  | .inductive   x => some (x.lvls, x.type)
+  | .constructor x => some (x.lvls, x.type)
+  | .recursor    x => some (x.lvls, x.type)
+  | .quotient    x => some (x.lvls, x.type)
+  | .mutDefBlock _ => none
+  | .mutDef      x => some (x.lvls, x.type)
+
 def Const.name : Const → Name
   | .axiom       a => a.name
   | .theorem     t => t.name

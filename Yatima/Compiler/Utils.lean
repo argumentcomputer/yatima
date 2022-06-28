@@ -25,7 +25,15 @@ def compareNames : Name → Name → Ordering
 instance : Ord Name where
   compare := compareNames
 
-open YatimaStdLib (RBSet)
+def ConstantInfo.ctorName : ConstantInfo → String
+  | axiomInfo  _ => "axiom"
+  | defnInfo   _ => "definition"
+  | thmInfo    _ => "theorem"
+  | opaqueInfo _ => "opaque"
+  | quotInfo   _ => "quotient"
+  | inductInfo _ => "inductive"
+  | ctorInfo   _ => "constructor"
+  | recInfo    _ => "recursor"
 
 def getExprRefs : Expr → List Name 
   | .mdata _ exp _ => getExprRefs exp
@@ -56,6 +64,10 @@ def getConstRefs : ConstantInfo → List Name
     getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
                 ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
   | .quotInfo   val => getExprRefs val.type
+
+section OpenReferences
+
+open YatimaStdLib (RBSet)
 
 def getOpenReferencesInExpr (map : ConstMap) (mem : RBSet Name) :
     Expr → RBSet Name
@@ -140,6 +152,8 @@ def filterConstants (cs : ConstMap) : ConstMap :=
     fun acc _ c => acc ⋃ₛ getOpenReferencesInConst cs c
   Lean.List.toSMap $ cs.toList.filter fun (n, c) =>
     (!openReferences.contains n) && (!hasOpenReferenceInConst openReferences c)
+
+end OpenReferences
 
 instance : BEq ReducibilityHints where beq
   | .opaque,    .opaque    => true

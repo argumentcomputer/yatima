@@ -308,23 +308,26 @@ mutual
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutDefBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef false struct 
-    | .ctorInfo struct => sorry
-      --let type ← toYatimaExpr none struct.type
-      --let typeCid ← exprToCid type
-      --addToStore $ .expr_cache typeCid type
-      --match (← read).constMap.find? struct.induct with
-      --| some leanConst =>
-      --  let (const, constCid) ← processYatimaConst leanConst
-      --  return .constructor {
-      --    name := struct.name
-      --    lvls := struct.levelParams.map .ofLeanName
-      --    type := typeCid
-      --    ind  := constCid
-      --    idx  := struct.cidx
-      --    params := struct.numParams
-      --    fields := struct.numFields
-      --    safe := not struct.isUnsafe }
-      --| none => throw s!"Unknown constant '{struct.induct}'"
+    | .ctorInfo struct =>
+      let type ← toYatimaExpr none struct.type
+      let typeCid ← exprToCid type
+      addToStore $ .expr_cache typeCid type
+      match (← read).constMap.find? struct.induct with
+      | some const@(.inductInfo ind) =>
+        let name := struct.name
+        match ind.ctors.indexOf name with
+        | some idx =>
+          let (const, constCid) ← processYatimaConst const
+          return .constructor {
+            name  := name
+            lvls  := struct.levelParams.map .ofLeanName
+            type  := typeCid
+            block := constCid
+            ind   := idx
+            idx   := struct.cidx }
+        | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Was expecting 'inductive' but got '{const.ctorName}'"
+      | none => throw s!"Unknown constant '{struct.induct}'"
     | .inductInfo struct => sorry
       --let type ← toYatimaExpr none struct.type
       --let typeCid ← exprToCid type
@@ -404,11 +407,14 @@ mutual
       set { ← get with cache := (← get).cache.insert const.name const }
       match (← get).mutIdx.find? name with
       | some i =>
-        let mutConst := .mutDef ⟨name, (← read).univCtx, sorry, constCid, i⟩
-        let mutCid ← constToCid mutConst
-        addToStore $ .const_cache mutCid mutConst
-        set { ← get with cache := (← get).cache.insert name mutConst }
-        pure (mutConst, mutCid)
+        match const.lvlsAndType with
+        | some (lvls, type) =>
+          let mutConst := .mutDef ⟨name, lvls, type, constCid, i⟩
+          let mutCid ← constToCid mutConst
+          addToStore $ .const_cache mutCid mutConst
+          set { ← get with cache := (← get).cache.insert name mutConst }
+          pure (mutConst, mutCid)
+        |none => throw "invalid nested mutual block"
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
  
