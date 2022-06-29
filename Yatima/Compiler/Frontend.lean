@@ -657,8 +657,8 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
         vs.map fun v => (v, vs)
     CompileM.run
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
-      default 
-      (buildStore map printLean printYatima)
+      default
+      (buildStore delta printLean printYatima)
   | .error e => throw e
 
 def runFrontend (code fileName : String) (printLean printYatima : Bool) :
