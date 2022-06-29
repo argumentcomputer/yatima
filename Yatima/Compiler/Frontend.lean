@@ -190,6 +190,17 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
+def findRecursor (recName : Name) (indInfos : List InductiveInfo) :
+    Option (Nat × Nat × Bool) := Id.run do
+  for (i, indInfo) in indInfos.enum do
+    for (j, intRec) in indInfo.internalRecrs.enum do
+      if recName == intRec.name then
+        return (i, j, true)
+    for (j, extRec) in indInfo.externalRecrs.enum do
+      if recName == extRec.name then
+        return (i, j, false)
+  return none
+
 mutual
 
   partial def toYatimaRecursorRule
@@ -248,7 +259,7 @@ mutual
     addToStore $ .expr_cache valueCid value
     return {
       name   := defn.name
-      lvls   := defn.levelParams.map .ofLeanName
+      lvls   := defn.levelParams
       type   := typeCid
       value  := valueCid
       safety := defn.safety }
@@ -262,7 +273,7 @@ mutual
       addToStore $ .expr_cache typeCid type
       return .axiom {
         name := struct.name
-        lvls := struct.levelParams.map .ofLeanName
+        lvls := struct.levelParams
         type := typeCid
         safe := not struct.isUnsafe }
     | .thmInfo struct =>
@@ -274,7 +285,7 @@ mutual
       addToStore $ .expr_cache valueCid value
       return .theorem {
         name  := struct.name
-        lvls  := struct.levelParams.map .ofLeanName
+        lvls  := struct.levelParams
         type  := typeCid
         value := valueCid }
     | .opaqueInfo struct =>
@@ -286,7 +297,7 @@ mutual
       addToStore $ .expr_cache valueCid value
       return .opaque {
         name  := struct.name
-        lvls  := struct.levelParams.map .ofLeanName
+        lvls  := struct.levelParams
         type  := typeCid
         value := valueCid
         safe  := not struct.isUnsafe }
@@ -299,11 +310,9 @@ mutual
           | some (.defnInfo defn) => pure defn
           | _ => throw "Non-def constant found in a mutual block of definitions"
         let mutualDefs ← sortDefs [mutualDefs]
-        let mut i := 0
-        for ds in mutualDefs do
+        for (i, ds) in mutualDefs.enum do
           for d in ds do 
             set { ← get with mutIdx := (← get).mutIdx.insert d.name i }
-          i := i + 1
         let definitions ← withOrder mutualNames $ 
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutDefBlock ⟨definitions⟩
@@ -320,13 +329,13 @@ mutual
           let (const, constCid) ← processYatimaConst const
           return .constructor {
             name  := name
-            lvls  := struct.levelParams.map .ofLeanName
+            lvls  := struct.levelParams
             type  := typeCid
             block := constCid
             ind   := idx
             idx   := struct.cidx }
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
-      | some const => throw s!"Invalid constant kind for '{const.name}'. Was expecting 'inductive' but got '{const.ctorName}'"
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{struct.induct}'"
     | .inductInfo struct => sorry
       --let type ← toYatimaExpr none struct.type
@@ -344,7 +353,7 @@ mutual
       --    return (nam, typeCid)
       --return .inductive {
       --  name := struct.name
-      --  lvls := struct.levelParams.map .ofLeanName
+      --  lvls := struct.levelParams
       --  type := typeCid
       --  params := struct.numParams
       --  indices := struct.numIndices
@@ -353,34 +362,36 @@ mutual
       --  refl := struct.isReflexive
       --  nest := struct.isNested
       --  safe := not struct.isUnsafe }
-    | .recInfo struct => sorry
-      --let type ← toYatimaExpr none struct.type
-      --let typeCid ← exprToCid type
-      --addToStore $ .expr_cache typeCid type
-      --let inductName := struct.getInduct
-      --match (← read).constMap.find? inductName with
-      --| some leanConst =>
-      --  let (const, cid) ← processYatimaConst leanConst
-      --  let rules ← struct.rules.mapM $ toYatimaRecursorRule cid struct.name
-      --  return .recursor {
-      --    name := struct.name
-      --    lvls := struct.levelParams.map .ofLeanName
-      --    type := typeCid
-      --    ind := cid
-      --    motives := struct.numMotives
-      --    indices := struct.numIndices
-      --    minors := struct.numMinors
-      --    rules := rules
-      --    k := struct.k
-      --    safe := not struct.isUnsafe }
-      --| none => throw s!"Unknown constant '{inductName}'"
+    | .recInfo struct =>
+      let type ← toYatimaExpr none struct.type
+      let typeCid ← exprToCid type
+      addToStore $ .expr_cache typeCid type
+      let inductName := struct.getInduct
+      match (← read).constMap.find? inductName with
+      | some const =>
+        let (const, constCid) ← processYatimaConst const
+        match const with
+        | .indBlock indInfos =>
+          match findRecursor struct.name indInfos with
+          | some (ind, idx, intern) =>
+            return .recursor {
+              name   := struct.name
+              lvls   := struct.levelParams
+              type   := typeCid
+              block  := constCid
+              ind    := ind
+              idx    := idx
+              intern := intern }
+          | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
+        | _ => throw s!"Invalid compilation of '{const.name}'. Expected 'indBlock' but got '{const.ctorName}'"
+      | none => throw s!"Unknown constant '{inductName}'"
     | .quotInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       return .quotient {
         name := struct.name
-        lvls := struct.levelParams.map .ofLeanName
+        lvls := struct.levelParams
         type := typeCid
         kind := struct.kind }
 
@@ -414,7 +425,7 @@ mutual
           addToStore $ .const_cache mutCid mutConst
           set { ← get with cache := (← get).cache.insert name mutConst }
           pure (mutConst, mutCid)
-        |none => throw "invalid nested mutual block"
+        | none => throw "Invalid nested mutual block"
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
  

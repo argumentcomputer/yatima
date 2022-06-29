@@ -201,7 +201,7 @@ structure InductiveInfo where
   type    : ExprCid
   params  : Nat
   indices : Nat
-  ctors : List ConstructorInfo
+  ctors   : List ConstructorInfo
   internalRecrs : List InternalRecursorInfo
   externalRecrs : List ExternalRecursorInfo
   recr    : Bool
@@ -355,39 +355,33 @@ def Definition.toAnon (d: Definition) : DefinitionAnon :=
 def ConstructorInfo.toAnon (x: ConstructorInfo) : ConstructorInfoAnon :=
   ⟨x.type.anon, x.params, x.fields⟩
 
-def ExternalRecursorRule.toAnon
-  (x: ExternalRecursorRule)
-  : ExternalRecursorRuleAnon :=
+def ExternalRecursorRule.toAnon (x: ExternalRecursorRule) :
+    ExternalRecursorRuleAnon :=
   ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
 
-def InternalRecursorRule.toAnon
-  (x: InternalRecursorRule)
-  : InternalRecursorRuleAnon :=
+def InternalRecursorRule.toAnon (x: InternalRecursorRule) :
+    InternalRecursorRuleAnon :=
   ⟨x.ctor, x.fields, x.rhs.anon⟩
 
-def ExternalRecursorInfo.toAnon
-  (x: ExternalRecursorInfo)
-  : ExternalRecursorInfoAnon :=
-  ⟨x.type.anon
+def ExternalRecursorInfo.toAnon (x: ExternalRecursorInfo) :
+    ExternalRecursorInfoAnon :=
+  ⟨ x.type.anon
   , x.params
   , x.indices
   , x.motives
   , x.minors
   , x.rules.map ExternalRecursorRule.toAnon
-  , x.k
-  ⟩
+  , x.k ⟩
 
-def InternalRecursorInfo.toAnon
-  (x: InternalRecursorInfo)
-  : InternalRecursorInfoAnon :=
+def InternalRecursorInfo.toAnon (x: InternalRecursorInfo) :
+    InternalRecursorInfoAnon :=
   ⟨ x.type.anon
   , x.params
   , x.indices
   , x.motives
   , x.minors
   , x.rules.map InternalRecursorRule.toAnon
-  , x.k
-  ⟩
+  , x.k ⟩
 
 def InductiveInfo.toAnon (x: InductiveInfo) : InductiveInfoAnon :=
   ⟨ x.lvls.length
@@ -399,7 +393,7 @@ def InductiveInfo.toAnon (x: InductiveInfo) : InductiveInfoAnon :=
   , x.externalRecrs.map ExternalRecursorInfo.toAnon
   , x.recr
   , x.safe
-  , x.refl⟩
+  , x.refl ⟩
 
 def Const.toAnon : Const → ConstAnon
   | .axiom a => .axiom ⟨a.lvls.length, a.type.anon, a.safe⟩
@@ -413,15 +407,14 @@ def Const.toAnon : Const → ConstAnon
     , c.type.anon
     , c.block.anon
     , c.ind
-    , c.idx⟩
+    , c.idx ⟩
   | .recursor r => .recursor
     ⟨ r.lvls.length
     , r.type.anon
     , r.block.anon
     , r.ind
     , r.idx
-    , r.intern
-    ⟩
+    , r.intern ⟩
   | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
   | .mutDefBlock ds => .mutDefBlock ⟨(ds.defs.map fun ds => 
       match ds.head? with 
@@ -435,24 +428,20 @@ def Definition.toMeta (d: Definition) : DefinitionMeta :=
 def ConstructorInfo.toMeta (x: ConstructorInfo) : ConstructorInfoMeta :=
   ⟨x.name, x.type.meta⟩
 
-def ExternalRecursorRule.toMeta
-  (x: ExternalRecursorRule)
-  : ExternalRecursorRuleMeta :=
+def ExternalRecursorRule.toMeta (x: ExternalRecursorRule) :
+    ExternalRecursorRuleMeta :=
   ⟨x.ctor.meta, x.rhs.meta⟩
 
-def InternalRecursorRule.toMeta
-  (x: InternalRecursorRule)
-  : InternalRecursorRuleMeta :=
+def InternalRecursorRule.toMeta (x: InternalRecursorRule) :
+    InternalRecursorRuleMeta :=
   ⟨x.rhs.meta⟩
 
-def ExternalRecursorInfo.toMeta
-  (x: ExternalRecursorInfo)
-  : ExternalRecursorInfoMeta :=
+def ExternalRecursorInfo.toMeta (x: ExternalRecursorInfo) :
+    ExternalRecursorInfoMeta :=
   ⟨x.name, x.type.meta, x.rules.map ExternalRecursorRule.toMeta⟩
 
-def InternalRecursorInfo.toMeta
-  (x: InternalRecursorInfo)
-  : InternalRecursorInfoMeta :=
+def InternalRecursorInfo.toMeta (x: InternalRecursorInfo) :
+    InternalRecursorInfoMeta :=
   ⟨x.name, x.type.meta, x.rules.map InternalRecursorRule.toMeta⟩
 
 def InductiveInfo.toMeta (x: InductiveInfo) : InductiveInfoMeta :=
@@ -461,8 +450,7 @@ def InductiveInfo.toMeta (x: InductiveInfo) : InductiveInfoMeta :=
   , x.type.meta
   , x.ctors.map (·.toMeta)
   , x.internalRecrs.map InternalRecursorInfo.toMeta
-  , x.externalRecrs.map ExternalRecursorInfo.toMeta
-  ⟩
+  , x.externalRecrs.map ExternalRecursorInfo.toMeta ⟩
 
 def Const.toMeta : Const → ConstMeta
   | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
