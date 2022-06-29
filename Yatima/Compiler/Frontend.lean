@@ -321,7 +321,7 @@ mutual
     let ctors : List ConstructorInfo ← ind.ctors.mapM
       fun name => do match (← read).constMap.find?' name with
         | some (.ctorInfo ctor) =>
-          let type ← toYatimaExpr none ctor.type
+          let type ← Expr.fix ind.name <$> toYatimaExpr (some ind.name) ctor.type
           let typeCid ← exprToCid type
           addToStore $ .expr_cache typeCid type
           return {

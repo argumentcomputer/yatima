@@ -1,13 +1,11 @@
--- inductive BLA
---   | nil
---   | bla : BLA → BLA → BLA
+inductive BLA
+  | nil
+  | bla : BLA → BLA → BLA
 
 -- mutual
 -- inductive BLE | bli : BLI → BLE
 -- inductive BLI | ble : BLE → BLI
 -- end
-
-def q := 1
 
 -- mutual
 --   unsafe def A : Nat → Nat
