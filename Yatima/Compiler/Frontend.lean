@@ -333,10 +333,13 @@ mutual
         | none => throw s!"Unknown constant '{name}'"
     let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
       fun c => match c with | .recInfo _ => true | _ => false
+    dbg_trace ind.name
     let (internalLeanRecs, externalLeanRecs) : -- reverses again
       (List Lean.ConstantInfo × List Lean.ConstantInfo) :=
         leanRecs.foldl (init := ([], [])) fun (accI, accE) r =>
-          if ind.all.contains r.name then (r :: accI, accE) else (accI, accE)
+          if ind.all.contains r.name
+            then (r :: accI, accE)
+            else (accI, r :: accE)
     return {
       name := ind.name
       lvls := ind.levelParams
@@ -349,6 +352,15 @@ mutual
       recr := ind.isRec
       refl := ind.isReflexive
       safe := not ind.isUnsafe }
+
+  partial def buildInductiveInfoList (ind : Lean.InductiveVal) :
+      CompileM $ List InductiveInfo := do
+    let indInfos : List InductiveInfo ← ind.all.mapM fun name => do
+      match (← read).constMap.find? name with
+      | some (.inductInfo ind) => toYatimaInductiveInfo ind
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+      | none => throw s!"Unknown constant '{name}'"
+    return indInfos
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
@@ -424,11 +436,7 @@ mutual
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{struct.induct}'"
     | .inductInfo struct =>
-      let indInfos : List InductiveInfo ← struct.all.mapM fun name => do
-        match (← read).constMap.find? name with
-        | some (.inductInfo ind) => toYatimaInductiveInfo ind
-        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-        | none   => throw s!"Unknown constant '{name}'"
+      let indInfos ← buildInductiveInfoList struct
       let indBlock : Const := .indBlock indInfos
       let indBlockCid ← constToCid indBlock
       addToStore $ .const_cache indBlockCid indBlock
@@ -459,22 +467,23 @@ mutual
       addToStore $ .expr_cache typeCid type
       let inductName := struct.getInduct
       match (← read).constMap.find? inductName with
-      | some const =>
-        let (const, constCid) ← processYatimaConst const
-        match const with
-        | .indBlock indInfos =>
-          match findRecursorIn struct.name indInfos with
-          | some (ind, idx, intern) =>
-            return .recursor {
-              name   := struct.name
-              lvls   := struct.levelParams
-              type   := typeCid
-              block  := constCid
-              ind    := ind
-              idx    := idx
-              intern := intern }
-          | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
-        | _ => throw s!"Invalid compilation of '{const.name}'. Expected 'indBlock' but got '{const.ctorName}'"
+      | some (.inductInfo ind) =>
+        let indInfos ← buildInductiveInfoList ind
+        let indBlock : Const := .indBlock indInfos
+        let indBlockCid ← constToCid indBlock
+        addToStore $ .const_cache indBlockCid indBlock
+        match findRecursorIn struct.name indInfos with
+        | some (ind, idx, intern) =>
+          return .recursor {
+            name   := struct.name
+            lvls   := struct.levelParams
+            type   := typeCid
+            block  := indBlockCid
+            ind    := ind
+            idx    := idx
+            intern := intern }
+        | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{inductName}'"
     | .quotInfo struct =>
       let type ← toYatimaExpr none struct.type
