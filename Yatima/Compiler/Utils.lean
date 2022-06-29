@@ -65,6 +65,13 @@ def getConstRefs : ConstantInfo → List Name
                 ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
   | .quotInfo   val => getExprRefs val.type
 
+def ConstMap.childrenOfWith (map : ConstMap) (name : Name)
+    (p : ConstantInfo → Bool) : List ConstantInfo :=
+  map.fold (init := []) fun acc n c => match n with
+  | .str n ..
+  | .num n .. => if n == name && p c then c :: acc else acc
+  | _ => acc
+
 section OpenReferences
 
 open YatimaStdLib (RBSet)

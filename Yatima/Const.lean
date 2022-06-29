@@ -466,30 +466,30 @@ def Const.toMeta : Const → ConstMeta
   | .mutDef x => .mutDef ⟨x.name, x.lvls, x.type.meta, x.block.meta⟩
 
 def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
-  | .axiom       x => some (x.lvls, x.type)
-  | .theorem     x => some (x.lvls, x.type)
-  | .opaque      x => some (x.lvls, x.type)
-  | .definition  x => some (x.lvls, x.type)
-  | .indBlock    _ => none
-  | .inductive   x => some (x.lvls, x.type)
-  | .constructor x => some (x.lvls, x.type)
-  | .recursor    x => some (x.lvls, x.type)
-  | .quotient    x => some (x.lvls, x.type)
-  | .mutDefBlock _ => none
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .definition  x
+  | .inductive   x
+  | .constructor x
+  | .recursor    x
+  | .quotient    x
   | .mutDef      x => some (x.lvls, x.type)
+  | .mutDefBlock _ => none
+  | .indBlock    _ => none
 
 def Const.name : Const → Name
-  | .axiom       a => a.name
-  | .theorem     t => t.name
-  | .opaque      o => o.name
-  | .definition  d => d.name
-  | .indBlock    i => s!"mutual inductives {i.map (·.name)}" -- TODO
-  | .inductive   i => i.name
-  | .constructor c => c.name
-  | .recursor    r => r.name
-  | .quotient    q => q.name
-  | .mutDefBlock b => s!"mutual definitions {b.defs.map fun ds => ds.map (·.name)}" -- TODO
-  | .mutDef      d => d.name
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .definition  x
+  | .inductive   x
+  | .constructor x
+  | .recursor    x
+  | .quotient    x
+  | .mutDef      x => x.name
+  | .indBlock    x => s!"mutual inductives {x.map (·.name)}" -- TODO
+  | .mutDefBlock x => s!"mutual definitions {x.defs.map fun ds => ds.map (·.name)}" -- TODO
 
 def Const.ctorName : Const → String
   | .axiom       _ => "axiom"

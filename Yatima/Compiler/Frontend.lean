@@ -190,7 +190,7 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
-def findRecursor (recName : Name) (indInfos : List InductiveInfo) :
+def findRecursorIn (recName : Name) (indInfos : List InductiveInfo) :
     Option (Nat × Nat × Bool) := Id.run do
   for (i, indInfo) in indInfos.enum do
     for (j, intRec) in indInfo.internalRecrs.enum do
@@ -263,6 +263,45 @@ mutual
       type   := typeCid
       value  := valueCid
       safety := defn.safety }
+
+  -- partial def toYatimaInternalRecursorInfo (rec : Lean.Recur)
+
+  partial def toYatimaInductiveInfo (ind : Lean.InductiveVal) :
+      CompileM InductiveInfo := do
+    let type ← toYatimaExpr none ind.type
+    let typeCid ← exprToCid type
+    addToStore $ .expr_cache typeCid type
+    let ctors : List ConstructorInfo ← ind.ctors.mapM
+      fun name => do match (← read).constMap.find?' name with
+        | some (.ctorInfo ctor) =>
+          let type ← toYatimaExpr (some ind.name) ctor.type
+          let typeCid ← exprToCid type
+          addToStore $ .expr_cache typeCid type
+          return {
+            name   := ctor.name
+            type   := typeCid
+            params := ctor.numParams
+            fields := ctor.numFields }
+        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected constructor but got '{const.ctorName}'"
+        | none => throw s!"Unknown constant '{name}'"
+    let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
+      fun c => match c with | .recInfo _ => true | _ => false
+    let (internalLeanRecs, externalLeanRecs) : -- reverses again
+      (List Lean.ConstantInfo × List Lean.ConstantInfo) :=
+        leanRecs.foldl (init := ([], [])) fun (accI, accE) r =>
+          if ind.all.contains r.name then (r :: accI, accE) else (accI, accE)
+    return {
+      name := ind.name
+      lvls := ind.levelParams
+      type := typeCid
+      params := ind.numParams
+      indices := ind.numIndices
+      ctors := ctors
+      internalRecrs := sorry
+      externalRecrs := sorry
+      recr := ind.isRec
+      refl := ind.isReflexive
+      safe := not ind.isUnsafe }
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
@@ -337,7 +376,13 @@ mutual
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{struct.induct}'"
-    | .inductInfo struct => sorry
+    | .inductInfo struct =>
+      let indInfos : List InductiveInfo ← struct.all.mapM fun name => do
+        match (← read).constMap.find? name with
+        | some const@(.inductInfo ind) => toYatimaInductiveInfo ind
+        | some _ => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+        | none   => throw s!"Unknown constant '{name}'"
+      let indBlock : Const := .indBlock indInfos
       --let type ← toYatimaExpr none struct.type
       --let typeCid ← exprToCid type
       --addToStore $ .expr_cache typeCid type
@@ -362,6 +407,7 @@ mutual
       --  refl := struct.isReflexive
       --  nest := struct.isNested
       --  safe := not struct.isUnsafe }
+      sorry
     | .recInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
@@ -372,7 +418,7 @@ mutual
         let (const, constCid) ← processYatimaConst const
         match const with
         | .indBlock indInfos =>
-          match findRecursor struct.name indInfos with
+          match findRecursorIn struct.name indInfos with
           | some (ind, idx, intern) =>
             return .recursor {
               name   := struct.name
