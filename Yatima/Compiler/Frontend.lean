@@ -203,14 +203,47 @@ def findRecursorIn (recName : Name) (indInfos : List InductiveInfo) :
 
 mutual
 
-  partial def toYatimaRecursorRule
-    (ctorCid : ConstCid) (name: Lean.Name) (rules : Lean.RecursorRule) :
-      CompileM RecursorRule := do
-    let rhs ← toYatimaExpr (some name) rules.rhs
-    let rhsCid ← exprToCid rhs
-    addToStore $ .expr_cache rhsCid rhs
-    sorry
-    -- return ⟨ctorCid, rules.nfields, rhsCid⟩
+  partial def toYatimaInternalRecRule (rule : Lean.RecursorRule) :
+      CompileM InternalRecursorRule := sorry
+
+  partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
+      CompileM ExternalRecursorRule := sorry
+
+  partial def toYatimaInternalRec (name: Lean.Name) :
+      Lean.ConstantInfo → CompileM InternalRecursorInfo
+    | .recInfo rec => do
+      let type ← toYatimaExpr none rec.type
+      let typeCid ← exprToCid type
+      addToStore $ .expr_cache typeCid type
+      let rules ← rec.rules.mapM toYatimaInternalRecRule
+      return {
+        name := rec.name
+        type := typeCid
+        params := rec.numParams
+        indices := rec.numIndices
+        motives := rec.numMotives
+        minors := rec.numMinors
+        rules := rules
+        k := rec.k }
+    | _ => throw ""
+
+  partial def toYatimaExternalRec (name: Lean.Name) :
+      Lean.ConstantInfo → CompileM ExternalRecursorInfo
+    | .recInfo rec => do
+      let type ← toYatimaExpr none rec.type
+      let typeCid ← exprToCid type
+      addToStore $ .expr_cache typeCid type
+      let rules ← rec.rules.mapM toYatimaExternalRecRule
+      return {
+        name := rec.name
+        type := typeCid
+        params := rec.numParams
+        indices := rec.numIndices
+        motives := rec.numMotives
+        minors := rec.numMinors
+        rules := rules
+        k := rec.k }
+    | _ => throw ""
 
   partial def toYatimaExpr (recr : Option Name) : Lean.Expr → CompileM Expr
     | .bvar idx _ => do
@@ -264,8 +297,6 @@ mutual
       value  := valueCid
       safety := defn.safety }
 
-  -- partial def toYatimaInternalRecursorInfo (rec : Lean.Recur)
-
   partial def toYatimaInductiveInfo (ind : Lean.InductiveVal) :
       CompileM InductiveInfo := do
     let type ← toYatimaExpr none ind.type
@@ -297,8 +328,8 @@ mutual
       params := ind.numParams
       indices := ind.numIndices
       ctors := ctors
-      internalRecrs := sorry
-      externalRecrs := sorry
+      internalRecrs := ← internalLeanRecs.mapM $ toYatimaInternalRec ind.name
+      externalRecrs := ← externalLeanRecs.mapM $ toYatimaExternalRec ind.name
       recr := ind.isRec
       refl := ind.isReflexive
       safe := not ind.isUnsafe }
@@ -379,35 +410,33 @@ mutual
     | .inductInfo struct =>
       let indInfos : List InductiveInfo ← struct.all.mapM fun name => do
         match (← read).constMap.find? name with
-        | some const@(.inductInfo ind) => toYatimaInductiveInfo ind
-        | some _ => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+        | some (.inductInfo ind) => toYatimaInductiveInfo ind
+        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
         | none   => throw s!"Unknown constant '{name}'"
       let indBlock : Const := .indBlock indInfos
-      --let type ← toYatimaExpr none struct.type
-      --let typeCid ← exprToCid type
-      --addToStore $ .expr_cache typeCid type
-      --let ctors : List (Name × Lean.Expr) ← struct.ctors.mapM
-      --  fun name => do match (← read).constMap.find?' name with
-      --    | some leanConst => return (name, leanConst.type)
-      --    | none => throw s!"Unknown constant '{name}'"
-      --let ctors : List (Name × ExprCid) ← ctors.mapM
-      --  fun (nam, typ) => do
-      --    let type ← toYatimaExpr (some struct.name) typ
-      --    let typeCid ← exprToCid type
-      --    addToStore $ .expr_cache typeCid type
-      --    return (nam, typeCid)
-      --return .inductive {
-      --  name := struct.name
-      --  lvls := struct.levelParams
-      --  type := typeCid
-      --  params := struct.numParams
-      --  indices := struct.numIndices
-      --  ctors := ctors
-      --  recr := struct.isRec
-      --  refl := struct.isReflexive
-      --  nest := struct.isNested
-      --  safe := not struct.isUnsafe }
-      sorry
+      let indBlockCid ← constToCid indBlock
+      addToStore $ .const_cache indBlockCid indBlock
+      let mut ind : Option Const := none
+      for (idx, name) in struct.all.enum do
+        match (← read).constMap.find? name with
+        | some const => 
+          let type ← toYatimaExpr none const.type
+          let typeCid ← exprToCid type
+          addToStore $ .expr_cache typeCid type
+          let const := Const.inductive {
+            name := name
+            lvls := const.levelParams
+            type := typeCid
+            block := indBlockCid
+            ind := idx }
+          let constCid ← constToCid const
+          addToStore $ .const_cache constCid const
+          set { ← get with cache := (← get).cache.insert name const }
+          if name == struct.name then ind := some const
+        | none   => throw s!"Unknown constant '{name}'"
+      match ind with
+      | some ind' => return ind'
+      | none => throw s!"Constant for '{struct.name}' wasn't compiled"
     | .recInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
