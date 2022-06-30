@@ -166,92 +166,73 @@ inductive ScalarCont (f : Type) [Field f]
 
 namespace ScalarCont
 
-def getCids {f} [Field f] (ptrs : Array (ScalarPtr f)) (cont : ScalarContPtr f) : Option ((Array Cid) × Cid) :=
+private def getCids {f} [Field f] (ptrs : Array (ScalarPtr f)) (cont : ScalarContPtr f) : Option (Array Cid) :=
   let contCid? := cont.serialize
   let ptrCids? := ptrs.sequenceMap (ScalarPtr.serialize) 
   match ptrCids?, contCid? with
-    | some cs, some c => some (cs, c)
+    | some cs, some c => some $ cs.push c
     | _, _            => none
 
-private def mkSerdeStructure (contName : String) 
-                             (ptrNames : Array String)
-                             (ptrs : Array Ipld)
-                             (cont : Cid) 
-                             (op1? : Option Op1)
-                             (op2? : Option Op2)
-                             (rel2? : Option Rel2) : Ipld :=
-  let kvs := ptrNames.zip ptrs
-  let kvs := kvs.push ("continuation", .link cont)
-  let kvs := match op1? with
-    | none => kvs
-    | some op1 => kvs.push ("operator", op1.serialize)
-  let kvs := match op2? with
-    | none => kvs
-    | some op2 => kvs.push ("operator", op2.serialize)
-  let kvs := match rel2? with
-    | none => kvs
-    | some rel2 => kvs.push ("operator", rel2.serialize)
-  .mkObject [(contName, .mkObject kvs.toList)]
-
-private def ipldStructure (cids? : Option (Array Cid × Cid))
-                          (contName : String)
-                          (ptrNames : Array String)
-                          (op1? : Option Op1 := none)
-                          (op2? : Option Op2 := none)
-                          (rel2? : Option Rel2 := none) : Ipld :=
-  match cids? with
-    | none => .null
-    | some (cs, c) => 
-      let is : Array Ipld := cs.map .link
-      mkSerdeStructure contName ptrNames is c op1? op2? rel2?
+private def serializeCids (cids? : Option $ Array Cid)
+                          (op1? : Option $ Op1 := none)
+                          (op2? : Option $ Op2 := none)
+                          (rel2? : Option $ Rel2 := none) : Ipld := match cids? with
+  | some cids => 
+    let op := match op1?, op2?, rel2? with
+      | some op1, _, _ => op1.serialize
+      | _, some op2, _ => op2.serialize
+      | _, _ , some rel2 => rel2.serialize
+      | _, _, _ => Ipld.null
+  .array <| cids.map .link ++ #[op]
+  | none => Ipld.null
 
 def serialize (f : Type) [Field f] : ScalarCont f → Ipld
-  | outermost => .string "Outermost"
-  | error     => .string "Error"
-  | dummy     => .string "Dummy"
-  | terminal  => .string "Terminal"
+  | outermost => .array #[.number 0]
   | call ptr1 ptr2 cont => 
     let cids? := getCids #[ptr1, ptr2] cont
-    ipldStructure cids? "Call" #["unevaled_arg", "saved_env"]
+    .array #[.number 1, serializeCids cids?]
   | call2 ptr1 ptr2 cont =>
     let cids? := getCids #[ptr1, ptr2] cont
-    ipldStructure cids? "Call2" #["unevaled_arg", "saved_env"] 
+    .array #[.number 2, serializeCids cids?]
   | tail ptr1 cont =>
     let cids? := getCids #[ptr1] cont
-    ipldStructure cids? "Tail" #["saved_env"]
+    .array #[.number 3, serializeCids cids?]
+  | error     => .array #[.number 4]
   | lookup ptr1 cont =>
     let cids? := getCids #[ptr1] cont
-    ipldStructure cids? "Lookup" #["saved_env"]
+    .array #[.number 5, serializeCids cids?]
   | unOp op1 cont => 
     match cont.serialize with 
       | none => Ipld.null
-      | some c =>  let o := .mkObject [("operator", op1.serialize), ("continuation", .link c)]
-         .mkObject [("Unop", o)]
+      | some c =>  let o := .array #[op1.serialize , .link c]
+         .array #[.number 6, o]
   | binOp op2 ptr1 ptr2 cont =>
     let cids? := getCids #[ptr1, ptr2] cont
-    ipldStructure cids? "Binop" #["saved_env", "unevaled_args"] (op2? := some op2)
+    .array #[.number 7, serializeCids cids? (op2? := some op2)]
   | binOp2 op2 ptr1 cont =>
     let cids? := getCids #[ptr1] cont
-    ipldStructure cids? "Binop2" #["evaled_arg"] (op2? := some op2)
+    .array #[.number 8, serializeCids cids? (op2? := some op2)]
   | relOp rel2 ptr1 ptr2 cont =>
     let cids? := getCids #[ptr1, ptr2] cont
-    ipldStructure cids? "Relop" #["saved_env", "unevaled_args"] (rel2? := some rel2)
+    .array #[.number 9, serializeCids cids? (rel2? := some rel2)]
   | relOp2 rel2 ptr1 cont =>
     let cids? := getCids #[ptr1] cont
-    ipldStructure cids? "Relop2" #["evaled_arg"] (rel2? := some rel2)
+    .array #[.number 10, serializeCids cids? (rel2? := some rel2)]
   | ifE ptr1 cont =>
     let cids? := getCids #[ptr1] cont
-    ipldStructure cids? "If" #["unevaled_args"]
+    .array #[.number 11, serializeCids cids?]
   | letE ptr1 ptr2 ptr3 cont =>
     let cids? := getCids #[ptr1, ptr2, ptr3] cont
-    ipldStructure cids? "Let" #["var", "body", "saved_env"]
+    .array #[.number 12, serializeCids cids?]
   | letRec ptr1 ptr2 ptr3 cont =>
     let cids? := getCids #[ptr1, ptr2, ptr3] cont
-    ipldStructure cids? "LetRec" #["var", "body", "saved_env"]
+    .array #[.number 13, serializeCids cids?]
   | emit cont => 
     match cont.serialize with
       | none => .null
-      | some c => .mkObject [("Emit", .link c)]
+      | some c => .array #[.number 14, .array #[.link c]]
+  | dummy     => .array #[.number 15]
+  | terminal  => .array #[.number 16]
 
 end ScalarCont
 
@@ -264,8 +245,7 @@ namespace ScalarThunk
 def serialize {f} [Field f] (thunk : ScalarThunk f) : Ipld := 
   match thunk.value.serialize, thunk.cont.serialize with
     | some cid1, some cid2 => 
-      let kvs : Ipld := .mkObject [("value", .link cid1), ("continuation", .link cid2)]
-      .mkObject [("ScalarThunk", kvs)]
+      .array $ #[cid1, cid2].map .link
     | _, _ => Ipld.null
 
 end ScalarThunk
@@ -273,6 +253,7 @@ end ScalarThunk
 inductive ScalarExpr (f : Type) [Field f]
   | nil   : ScalarExpr  f
   | cons  : ScalarPtr f → ScalarPtr f → ScalarExpr f
+  | comm : f → ScalarPtr f → ScalarExpr f
   | sym   : String → ScalarExpr f
   -- lam <arg> <body> <closed_env>
   | lam   : ScalarPtr f → ScalarPtr f → ScalarPtr f → ScalarExpr f
@@ -284,41 +265,56 @@ inductive ScalarExpr (f : Type) [Field f]
 namespace ScalarExpr
 
 def serialize {f} [Field f] : ScalarExpr f → Ipld
-  | nil => .string "Nil"
+  | nil => .array #[.number 0]
   | cons ptr1 ptr2 => 
     match ptr1.serialize, ptr2.serialize with
       | some cid1, some cid2 => 
-        .mkObject [("Cons", .array #[.link cid1, .link cid2])]
+        .array #[.number 1, .array $ #[cid1, cid2].map .link]
       | _, _ => .null
-  | sym s => .mkObject [("Sym", .string s)]
+  | comm a ptr => 
+    let bs : ByteArray := Field.serialize a
+    match ptr.serialize with
+      | some cid => 
+        .array #[.number 2, .array $ #[.bytes bs, .link cid]]
+      | none => Ipld.null
+  | sym s => .array #[.number 3, .string s]
   | lam ptr1 ptr2 ptr3 =>
     match ptr1.serialize, ptr2.serialize, ptr3.serialize with
       | some cid1, some cid2, some cid3 =>
-        let kvs := .mkObject [("arg", .link cid1), ("body", .link cid2), ("closed_env", .link cid3)]
-        .mkObject [("Fun", kvs)]
+        .array #[.number 4, .array $ #[cid1, cid2, cid3].map .link]
       | _, _, _ => .null
   | num a => 
     let bs : ByteArray := Field.serialize a 
-    .mkObject [("Num", .bytes bs)]
-  | str s => .mkObject [("Str", .string s)]
-  | thunk sth => .mkObject [("Thunk", sth.serialize)]
-  | char c => .mkObject [("Char", .string s!"{c}")]
+    .array #[.number 5, .bytes bs]
+  | str s => .array #[.number 6, .string s]
+  | thunk sth => .array #[.number 7, sth.serialize]
+  | char c => .array #[.number 8, .string s!"{c}"]
 
 end ScalarExpr
 
 instance [Field f] : Inhabited $ ScalarExpr f where
   default := .nil
 
-open Std in
+open Std
 structure ScalarStore [Field f] where
   scalarMap : RBMap (ScalarPtr f) (Option $ ScalarExpr f) compare
   scalarContMap : RBMap (ScalarContPtr f) (Option $ ScalarCont f) compare
 
 namespace ScalarStore
 
--- def serialize {f} [Field f] (store : ScalarStore f) : Ipld := 
---   let scMapList := store.scalarMap.toList
---   let scContMapList := store.scalarMap.toList
+private def serExprAux {α} {f} [Field f] (ser : α → Option Cid) (p : α × Option (ScalarExpr f)) : Ipld := 
+  match ser p.fst, p.snd with
+    | some cid, some exp => .array #[.link cid, exp.serialize]
+    | _, _ => .null
+
+private def serContAux {α} {f} [Field f] (ser : α → Option Cid) (p : α × Option (ScalarCont f)) : Ipld := .null
+
+def serialize {f} [Field f] (store : ScalarStore f) : Ipld := 
+  let scMapList := store.scalarMap.toList
+  let ptrIpldList : List Ipld := scMapList.map (serExprAux (ScalarPtr.serialize))
+  let scContMapList := store.scalarContMap.toList
+  let contIpldList : List Ipld := scContMapList.map (serContAux (ScalarContPtr.serialize))
+  .array #[.array ptrIpldList.toArray, .array contIpldList.toArray]
 
 end ScalarStore
 
