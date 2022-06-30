@@ -416,21 +416,26 @@ mutual
         return .mutDefBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
-      let type ← toYatimaExpr none struct.type
+      let type ← Expr.fix struct.induct <$> toYatimaExpr (some struct.induct) struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       match (← read).constMap.find? struct.induct with
       | some const@(.inductInfo ind) =>
         let name := struct.name
+        let indidx := match ind.all.indexOf ind.name with
+          | some i => i
+          | none => unreachable!
         match ind.ctors.indexOf name with
         | some idx =>
-          let (const, constCid) ← processYatimaConst const
+          let indInfos ← buildInductiveInfoList ind
+          let indBlock : Const := .indBlock indInfos
+          let indBlockCid ← constToCid indBlock
           return .constructor {
             name  := name
             lvls  := struct.levelParams
             type  := typeCid
-            block := constCid
-            ind   := idx
+            block := indBlockCid
+            ind   := indidx
             idx   := struct.cidx }
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
