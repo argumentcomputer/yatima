@@ -15,10 +15,10 @@ instance : Inhabited CompileState where
 open Std (RBMap) in
 structure CompileEnv where
   constMap : Lean.ConstMap
+  cycles   : Lean.ReferenceMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  cycles   : Lean.ReferenceMap
-  order    : List Lean.Name
+  recrCtx  : List Lean.Name
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -31,16 +31,16 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.cycles, e.order⟩
+    ⟨e.constMap, e.cycles, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, levels, [], e.cycles, []⟩
+  withReader $ fun e => ⟨e.constMap, e.cycles, levels, [], []⟩
 
-def withOrder (order : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, e.cycles, order⟩
+def withRecrs (recrCtx : List Lean.Name) : CompileM α → CompileM α :=
+  withReader $ fun e => ⟨e.constMap, e.cycles, e.univCtx, e.bindCtx, recrCtx⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.cycles, e.order⟩
+  withReader $ fun e => ⟨e.constMap, e.cycles, lvls, e.bindCtx, e.recrCtx⟩
 
 end Yatima.Compiler

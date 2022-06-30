@@ -275,7 +275,7 @@ mutual
       addToStore $ .univ_cache univCid univ
       return .sort univCid
     | .const name lvls _ => do
-      match (← read).order.indexOf name with
+      match (← read).recrCtx.indexOf name with
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
           | some const => do
@@ -303,8 +303,7 @@ mutual
     addToStore $ .expr_cache typeCid type
     let value ←
       if isMutual then toYatimaExpr defn.value 
-      else 
-        withOrder [defn.name] do
+      else withRecrs [defn.name] $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
     addToStore $ .expr_cache valueCid value
@@ -369,7 +368,7 @@ mutual
         funList := (funList.append ind.ctors).append leanRecs
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{indName}'"
-    withOrder (ind.all.append funList) do
+    withRecrs (ind.all.append funList) do
     let indInfos : List InductiveInfo ← ind.all.mapM fun name => do
       match (← read).constMap.find? name with
       | some (.inductInfo ind) => toYatimaInductiveInfo ind
@@ -393,7 +392,7 @@ mutual
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      withOrder [struct.name] do
+      withRecrs [struct.name] do
         let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
         let valueCid ← exprToCid value
         addToStore $ .expr_cache valueCid value
@@ -406,7 +405,7 @@ mutual
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      withOrder [struct.name] do
+      withRecrs [struct.name] do
         let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
         let valueCid ← exprToCid value
         addToStore $ .expr_cache valueCid value
@@ -428,7 +427,7 @@ mutual
         for (i, ds) in mutualDefs.enum do
           for d in ds do 
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
-        let definitions ← withOrder mutualNames $ 
+        let definitions ← withRecrs mutualNames $ 
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutDefBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef false struct 
@@ -687,7 +686,7 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
       vss.map fun vs => 
         vs.map fun v => (v, vs)
     CompileM.run
-      ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
+      ⟨map, Std.RBMap.ofList nss.join, [], [], []⟩
       default
       (buildStore delta printLean printYatima)
   | .error e => throw e

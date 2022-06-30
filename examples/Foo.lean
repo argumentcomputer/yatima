@@ -15,6 +15,15 @@ inductive BLEH
   | bloh : BLO → BLEH
 
 mutual
+  inductive Tree (A : Type) where
+    | branch : (a : A) → (trees : TreeList A) → Tree A
+
+  inductive TreeList (A : Type) where
+    | nil : TreeList A
+    | cons : (t : Tree A) → (ts : TreeList A) → TreeList A
+end
+
+mutual
   unsafe def A : Nat → Nat
   | 0 => 0
   | n + 1 => B n + E n + C n + 1
