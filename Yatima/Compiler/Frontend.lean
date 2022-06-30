@@ -205,28 +205,28 @@ mutual
 
   partial def toYatimaInternalRecRule
     (ctors : List Lean.Name) (rule : Lean.RecursorRule) :
-      CompileM InternalRecursorRule := do
+      CompileM RecursorRule := do
     match ctors.indexOf rule.ctor with
     | some idx =>
       let type ← toYatimaExpr rule.rhs
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      return { ctor := idx, fields := rule.nfields, rhs := typeCid }
+      return { ctor := .inl idx, fields := rule.nfields, rhs := typeCid }
     | none => throw s!"'{rule.ctor}' not found in '{ctors}'"
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
-      CompileM ExternalRecursorRule := do
+      CompileM RecursorRule := do
     let type ← toYatimaExpr rule.rhs
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
     match (← read).constMap.find?' rule.ctor with
     | some const =>
       let (_, ctorCid) ← processYatimaConst const
-      return { ctor := ctorCid, fields := rule.nfields, rhs := typeCid }
+      return { ctor := .inr ctorCid, fields := rule.nfields, rhs := typeCid }
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
-  partial def toYatimaInternalRec (ctors : List Lean.Name) (name: Lean.Name) :
-      Lean.ConstantInfo → CompileM InternalRecursorInfo
+  partial def toYatimaRec (ctors : List Lean.Name) (name: Lean.Name) :
+      Lean.ConstantInfo → CompileM RecursorInfo
     | .recInfo rec => do
       withLevels rec.levelParams do
         let type ← Expr.fix name <$> toYatimaExpr rec.type
@@ -236,32 +236,7 @@ mutual
           if ctors.contains r.ctor then
             toYatimaInternalRecRule ctors r
           else
-            sorry
-        -- let (internalRules, externalRules)  ←
-        --   rec.rules.foldlM (init := ([], [])) fun (accI, accE) r =>
-        --     if ctors.contains r.ctor
-        --       then return (r :: accI, accE)
-        --       else return (accI, r :: accE)
-        -- let rules ← rec.rules.mapM $ toYatimaInternalRecRule ctors
-        return {
-          name := rec.name
-          type := typeCid
-          params := rec.numParams
-          indices := rec.numIndices
-          motives := rec.numMotives
-          minors := rec.numMinors
-          rules := rules
-          k := rec.k }
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
-
-  partial def toYatimaExternalRec (name: Lean.Name) :
-      Lean.ConstantInfo → CompileM ExternalRecursorInfo
-    | .recInfo rec => do
-      withLevels rec.levelParams do
-        let type ← Expr.fix name <$> toYatimaExpr rec.type
-        let typeCid ← exprToCid type
-        addToStore $ .expr_cache typeCid type
-        let rules ← rec.rules.mapM toYatimaExternalRecRule
+            toYatimaExternalRecRule r
         return {
           name := rec.name
           type := typeCid
@@ -360,8 +335,8 @@ mutual
       params := ind.numParams
       indices := ind.numIndices
       ctors := ctors
-      internalRecrs := ← internalLeanRecs.mapM $ toYatimaInternalRec ind.ctors ind.name
-      externalRecrs := ← externalLeanRecs.mapM $ toYatimaExternalRec ind.name
+      internalRecrs := ← internalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
+      externalRecrs := ← externalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
       recr := ind.isRec
       refl := ind.isReflexive
       safe := not ind.isUnsafe }
