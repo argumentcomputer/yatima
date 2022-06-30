@@ -228,7 +228,7 @@ mutual
   partial def toYatimaInternalRec (ctors : List Lean.Name) (name: Lean.Name) :
       Lean.ConstantInfo → CompileM InternalRecursorInfo
     | .recInfo rec => do
-      let type ← toYatimaExpr none rec.type
+      let type ← Expr.fix name <$> toYatimaExpr (some name) rec.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       let rules ← rec.rules.mapM $ toYatimaInternalRecRule ctors
@@ -246,7 +246,7 @@ mutual
   partial def toYatimaExternalRec (name: Lean.Name) :
       Lean.ConstantInfo → CompileM ExternalRecursorInfo
     | .recInfo rec => do
-      let type ← toYatimaExpr none rec.type
+      let type ← Expr.fix name <$> toYatimaExpr (some name) rec.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       let rules ← rec.rules.mapM toYatimaExternalRecRule
@@ -333,7 +333,6 @@ mutual
         | none => throw s!"Unknown constant '{name}'"
     let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
       fun c => match c with | .recInfo _ => true | _ => false
-    dbg_trace ind.name
     let (internalLeanRecs, externalLeanRecs) : -- reverses again
       (List Lean.ConstantInfo × List Lean.ConstantInfo) :=
         leanRecs.foldl (init := ([], [])) fun (accI, accE) r =>
