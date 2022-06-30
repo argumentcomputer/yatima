@@ -226,4 +226,3 @@ def scc! (g : Graph) : List $ List Vertex :=
   | .error e _ => panic! e
 
 end Graph
-#print List.indexOf
