@@ -7,6 +7,6 @@ package Yatima {
   binName := "yatima"
   dependencies := #[{
     name := `Ipld
-    src := Source.git "https://github.com/yatima-inc/Ipld.lean.git" "7e8ec7082e324bf0decdec24c278491d07bfd3e6"
+    src := Source.git "https://github.com/yatima-inc/Ipld.lean.git" "d0ff922f9a61f1e60cc312be46f11652c55b5147"
   }]
 }
