@@ -16,11 +16,23 @@ inductive BLEH
 
 mutual
   inductive Tree (A : Type) where
-  | branch : (a : A) → (trees : List (Tree A)) → Tree A
+    | branch : (a : A) → (trees : TreeList A) → Tree A
 
   inductive TreeList (A : Type) where
     | nil : TreeList A
     | cons : (t : Tree A) → (ts : TreeList A) → TreeList A
+end
+
+inductive Treew (A : Type) where
+  | branch : (a : A) → (trees : List (Treew A)) → Treew A
+
+mutual
+  inductive Treeq (A : Type) where
+    | branch : TreeListq A → (a : A) → (trees : List (Treeq A)) → Treeq A
+
+  inductive TreeListq (A : Type) where
+    | nil : TreeListq A
+    | cons : (t : Treeq A) → (ts : TreeListq A) → TreeListq A
 end
 
 -- mutual
