@@ -228,6 +228,7 @@ mutual
   partial def toYatimaInternalRec (ctors : List Lean.Name) (name: Lean.Name) :
       Lean.ConstantInfo → CompileM InternalRecursorInfo
     | .recInfo rec => do
+      withResetCompileEnv rec.levelParams do
       let type ← Expr.fix name <$> toYatimaExpr (some name) rec.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
@@ -246,6 +247,7 @@ mutual
   partial def toYatimaExternalRec (name: Lean.Name) :
       Lean.ConstantInfo → CompileM ExternalRecursorInfo
     | .recInfo rec => do
+      withResetCompileEnv rec.levelParams do
       let type ← Expr.fix name <$> toYatimaExpr (some name) rec.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
@@ -333,12 +335,15 @@ mutual
         | none => throw s!"Unknown constant '{name}'"
     let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
       fun c => match c with | .recInfo _ => true | _ => false
-    let (internalLeanRecs, externalLeanRecs) : -- reverses again
-      (List Lean.ConstantInfo × List Lean.ConstantInfo) :=
-        leanRecs.foldl (init := ([], [])) fun (accI, accE) r =>
-          if ind.all.contains r.name
-            then (r :: accI, accE)
-            else (accI, r :: accE)
+    let (internalLeanRecs, externalLeanRecs)  ←
+        leanRecs.foldlM (init := ([], [])) fun (accI, accE) r =>
+        match r with
+        | .recInfo rv => 
+          if ind.all == rv.all then 
+            return (r :: accI, accE)
+          else
+            return (accI, r :: accE)
+        | _ => throw s!"Non-recursor {r.name} extracted from children"
     return {
       name := ind.name
       lvls := ind.levelParams
@@ -421,9 +426,9 @@ mutual
       match (← read).constMap.find? struct.induct with
       | some const@(.inductInfo ind) =>
         let name := struct.name
-        let indidx := match ind.all.indexOf ind.name with
-          | some i => i
-          | none => unreachable!
+        let indidx ← (match ind.all.indexOf ind.name with
+          | some i => return i
+          | none => throw s!"Inductive not present in its mutual block")
         match ind.ctors.indexOf name with
         | some idx =>
           let indInfos ← buildInductiveInfoList ind
