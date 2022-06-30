@@ -16,39 +16,39 @@ inductive BLEH
 
 mutual
   inductive Tree (A : Type) where
-    | branch : (a : A) → (trees : TreeList A) → Tree A
+  | branch : (a : A) → (trees : List (Tree A)) → Tree A
 
   inductive TreeList (A : Type) where
     | nil : TreeList A
     | cons : (t : Tree A) → (ts : TreeList A) → TreeList A
 end
 
-mutual
-  unsafe def A : Nat → Nat
-  | 0 => 0
-  | n + 1 => B n + E n + C n + 1
+-- mutual
+--   unsafe def A : Nat → Nat
+--   | 0 => 0
+--   | n + 1 => B n + E n + C n + 1
 
-  unsafe def C : Nat → Nat
-  | 0 => 0
-  | n + 1 => B n + F n + A n + 1
+--   unsafe def C : Nat → Nat
+--   | 0 => 0
+--   | n + 1 => B n + F n + A n + 1
 
-  unsafe def B : Nat → Nat
-  | 0 => 0
-  | n + 1 => C n + 2
+--   unsafe def B : Nat → Nat
+--   | 0 => 0
+--   | n + 1 => C n + 2
 
-  unsafe def E : Nat → Nat 
-  | 0 => 0 
-  | n + 1 => B n + A n + F n + 1
+--   unsafe def E : Nat → Nat 
+--   | 0 => 0 
+--   | n + 1 => B n + A n + F n + 1
 
-  unsafe def F : Nat → Nat 
-  | 0 => 0 
-  | n + 1 => B n + C n + E n + 1
+--   unsafe def F : Nat → Nat 
+--   | 0 => 0 
+--   | n + 1 => B n + C n + E n + 1
 
-  unsafe def G : Nat → Nat 
-  | 0 => 0
-  | n + 1 => B n + F n + H n + 2
+--   unsafe def G : Nat → Nat 
+--   | 0 => 0
+--   | n + 1 => B n + F n + H n + 2
 
-  unsafe def H : Nat → Nat 
-  | 0 => 0
-  | n + 1 => B n + E n + G n + 2
-end
+--   unsafe def H : Nat → Nat 
+--   | 0 => 0
+--   | n + 1 => B n + E n + G n + 2
+-- end
