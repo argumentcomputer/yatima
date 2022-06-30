@@ -1,8 +1,23 @@
+/-
+The serialization comes an attempt to translate between the `Lurk` types and `Ipld`. 
+
+The translation comes as a composition of taking `Lurk` types (as defined in this file) to the `Serde` 
+[data model](https://serde.rs/data-model.html), and followed by a translation of the `Serde` to `Ipld` 
+[data model](https://ipld.io/docs/data-model/). 
+
+`Lurk` types to `serde` largely determined via metaprogramming using `derive`d attributes. These are
+all read off from <https://github.com/lurk-lang/lurk-rs/> 
+
+`Serde` to `Ipld` may be interpreted via the <https://github.com/ipld/libipld/blob/master/core/src/serde/ser.rs>
+description. Though in this file we use the scheme proposed in the following PR for `libipld`
+<https://github.com/ipld/libipld/pull/147>
+-/
 import Std.Data.RBMap
 import Ipld.Utils
 import Ipld.Cid
 import Ipld.Multihash
 import Ipld.Ipld
+
 
 /-- Not exactly
 https://github.com/multiformats/rust-multihash/blob/3a3dacf470dca2110e8ec111f5322ebb2c38bbb0/src/multihash.rs#L99
@@ -15,6 +30,11 @@ namespace Lurk
 
 /--
 This is an amalgam of 
+https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/field.rs#L8
+and
+https://github.com/zkcrypto/ff/blob/9b9a8d9c363ecbf7bb4c79998aaed32c1f8ce027/src/lib.rs#L130
+
+I believe `toTag`/`fromTag` are derivable from `toRepr`/`fromRepr` (and vice versa)?
 -/
 class Field (f : Type) where
   fromRepr : ByteArray → f
@@ -56,6 +76,10 @@ https://github.com/lurk-lang/lurk-rs/blob/be7e18f8e73bcd81ee0e63441fe3c023ffd94e
 -/
 def toMultiHash (x : f) : Multihash := wrap (hashCodec f) (toRepr x)
 
+/--
+https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/field.rs#L129
+Lurk field serialization is treated in terms of ByteArrays
+-/
 def serialize : f → ByteArray := toRepr
 
 end Field
@@ -69,7 +93,7 @@ def ScalarPtr.serialize {f : Type} [Field f] (ptr : ScalarPtr f) : Option Cid :=
     | none => none
     | some codec => some ⟨1, codec.toNat, digest⟩
 
--- TODO : Not sure this is right, but using the lexicographic order on pairs
+-- Not sure this is right, but using the lexicographic order on pairs
 -- <https://github.com/lurk-lang/lurk-rs/blob/0f9a0b3ab0c04e0b4aa34414c10f4495c6e47755/src/store.rs#L232>
 instance [Field f] : Ord (ScalarPtr f) where
   compare ptr1 ptr2 := match ptr1, ptr2 with
@@ -90,7 +114,7 @@ def ScalarContPtr.serialize {f : Type} [Field f] (ptr : ScalarContPtr f) : Optio
     | none => none
     | some codec => some ⟨1, codec.toNat, digest⟩
 
--- TODO : Not sure this is right, but using the lexicographic order on pairs
+-- Not sure this is right, but using the lexicographic order on pairs
 -- <https://github.com/lurk-lang/lurk-rs/blob/0f9a0b3ab0c04e0b4aa34414c10f4495c6e47755/src/store.rs#L315>
 instance [Field f] : Ord (ScalarContPtr f) where
   compare ptr1 ptr2 := match ptr1, ptr2 with
@@ -102,17 +126,18 @@ instance [Field f] : Ord (ScalarContPtr f) where
         | .lt => .lt
         | .eq => .eq
 
--- TODO: Fix this using the Repr serialization from `store.rs`
 inductive Op1 | car | cdr | atom | emit
 deriving Repr, BEq, Hashable
 
+-- The serialization is derived by the representation taken from the `serialize_repr` derive method and
+-- <https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/store.rs#L435>
 def Op1.serialize : Op1 → Ipld
   | car  => .number 0b0010000000000000
   | cdr  => .number 0b0010000000000001
   | atom => .number 0b0010000000000010
   | emit => .number 0b0010000000000011
 
--- TODO: Fix this using the Repr serialization from `store.rs`
+-- Same as above
 inductive Op2 | sum | diff | prod | quot | cons | begin
 deriving Repr, BEq, Hashable
 
@@ -124,7 +149,7 @@ def Op2.serialize : Op2 → Ipld
   | cons  => .number 0b0011000000000100
   | begin => .number 0b0011000000000101
 
--- TODO: Fix this using the Repr serialization from `store.rs`
+-- Same as above
 inductive Rel2 | eq | nEq
 deriving Repr, BEq, Hashable
 
@@ -132,6 +157,12 @@ def Rel2.serialize : Rel2 → Ipld
   | eq  => .number 0b0100000000000000
   | nEq => .number 0b0100000000000001
 
+
+/--
+The definition and serialization of continuations is determined from the `Serialize` derived attribute of 
+<https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/scalar_store.rs#L232>
+wherein each enum is a struct variant. 
+-/
 inductive ScalarCont (f : Type) [Field f] 
   | outermost
   -- call <unevaled_arg> <saved_env> <continuation>
@@ -236,6 +267,10 @@ def serialize (f : Type) [Field f] : ScalarCont f → Ipld
 
 end ScalarCont
 
+/--
+Definition and serialization taken from.
+https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/scalar_store.rs#L223
+-/
 structure ScalarThunk [Field f] where
   value : ScalarPtr f
   cont  : ScalarContPtr f
@@ -250,6 +285,12 @@ def serialize {f} [Field f] (thunk : ScalarThunk f) : Ipld :=
 
 end ScalarThunk
 
+/--
+Definition and serialization are taken from
+https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/scalar_store.rs#L153
+wherein `nil` is a unit-type enum variant, `cons`, `comm` are tuple variants, `sym`, `num`, `str`,
+`thunk`, and `char` are `lam` is a struct variant
+-/
 inductive ScalarExpr (f : Type) [Field f]
   | nil   : ScalarExpr  f
   | cons  : ScalarPtr f → ScalarPtr f → ScalarExpr f
@@ -296,6 +337,13 @@ instance [Field f] : Inhabited $ ScalarExpr f where
   default := .nil
 
 open Std
+
+/--
+Definition and serialization are taken from. 
+https://github.com/lurk-lang/lurk-rs/blob/f779b840c774056b8b7361eee8922046f16fcd07/src/scalar_store.rs#L12
+It should be noted that the serialization used here allows for keys that are not `String`s because of
+<https://github.com/ipld/libipld/pull/147>
+-/
 structure ScalarStore [Field f] where
   scalarMap : RBMap (ScalarPtr f) (Option $ ScalarExpr f) compare
   scalarContMap : RBMap (ScalarContPtr f) (Option $ ScalarCont f) compare
