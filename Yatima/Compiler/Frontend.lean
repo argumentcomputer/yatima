@@ -208,7 +208,7 @@ mutual
       CompileM InternalRecursorRule := do
     match ctors.indexOf rule.ctor with
     | some idx =>
-      let type ← toYatimaExpr none rule.rhs
+      let type ← toYatimaExpr rule.rhs
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       return { ctor := idx, fields := rule.nfields, rhs := typeCid }
@@ -216,7 +216,7 @@ mutual
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM ExternalRecursorRule := do
-    let type ← toYatimaExpr none rule.rhs
+    let type ← toYatimaExpr rule.rhs
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
     match (← read).constMap.find?' rule.ctor with
@@ -229,41 +229,43 @@ mutual
       Lean.ConstantInfo → CompileM InternalRecursorInfo
     | .recInfo rec => do
       withResetCompileEnv rec.levelParams do
-      let type ← Expr.fix name <$> toYatimaExpr (some name) rec.type
-      let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      let rules ← rec.rules.mapM $ toYatimaInternalRecRule ctors
-      return {
-        name := rec.name
-        type := typeCid
-        params := rec.numParams
-        indices := rec.numIndices
-        motives := rec.numMotives
-        minors := rec.numMinors
-        rules := rules
-        k := rec.k }
+      withOrder [name] do
+        let type ← Expr.fix name <$> toYatimaExpr rec.type
+        let typeCid ← exprToCid type
+        addToStore $ .expr_cache typeCid type
+        let rules ← rec.rules.mapM $ toYatimaInternalRecRule ctors
+        return {
+          name := rec.name
+          type := typeCid
+          params := rec.numParams
+          indices := rec.numIndices
+          motives := rec.numMotives
+          minors := rec.numMinors
+          rules := rules
+          k := rec.k }
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
   partial def toYatimaExternalRec (name: Lean.Name) :
       Lean.ConstantInfo → CompileM ExternalRecursorInfo
     | .recInfo rec => do
       withResetCompileEnv rec.levelParams do
-      let type ← Expr.fix name <$> toYatimaExpr (some name) rec.type
-      let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      let rules ← rec.rules.mapM toYatimaExternalRecRule
-      return {
-        name := rec.name
-        type := typeCid
-        params := rec.numParams
-        indices := rec.numIndices
-        motives := rec.numMotives
-        minors := rec.numMinors
-        rules := rules
-        k := rec.k }
+      withOrder [name] do
+        let type ← Expr.fix name <$> toYatimaExpr rec.type
+        let typeCid ← exprToCid type
+        addToStore $ .expr_cache typeCid type
+        let rules ← rec.rules.mapM toYatimaExternalRecRule
+        return {
+          name := rec.name
+          type := typeCid
+          params := rec.numParams
+          indices := rec.numIndices
+          motives := rec.numMotives
+          minors := rec.numMinors
+          rules := rules
+          k := rec.k }
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
-  partial def toYatimaExpr (recr : Option Name) : Lean.Expr → CompileM Expr
+  partial def toYatimaExpr : Lean.Expr → CompileM Expr
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
@@ -275,9 +277,7 @@ mutual
       addToStore $ .univ_cache univCid univ
       return .sort univCid
     | .const name lvls _ => do
-      if recr == some name then
-        return .var name (← read).bindCtx.length
-      else match (← read).order.indexOf name with
+      match (← read).order.indexOf name with
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
           | some const => do
@@ -288,24 +288,26 @@ mutual
               addToStore $ .univ_cache univCid univ
             return .const name constCid univsCids
           | none => throw s!"Unknown constant '{name}'"
-    | .app fnc arg _ => .app <$> (toYatimaExpr recr fnc) <*> (toYatimaExpr recr arg)
-    | .lam name typ bod _ => .lam name typ.binderInfo <$> (toYatimaExpr recr typ) <*> (withName name $ toYatimaExpr recr bod)
-    | .forallE name dom img _ => .pi name dom.binderInfo <$> (toYatimaExpr recr dom) <*> (withName name $ toYatimaExpr recr img)
-    | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr recr typ) <*> (toYatimaExpr recr exp) <*> (withName name $ toYatimaExpr recr bod)
+    | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
+    | .lam name typ bod _ => .lam name typ.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
+    | .forallE name dom img _ => .pi name dom.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
+    | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr typ) <*> (toYatimaExpr exp) <*> (withName name $ toYatimaExpr bod)
     | .lit lit _ => return .lit lit
-    | .mdata _ e _ => toYatimaExpr recr e
-    | .proj _ idx exp _ => .proj idx <$> toYatimaExpr recr exp
+    | .mdata _ e _ => toYatimaExpr e
+    | .proj _ idx exp _ => .proj idx <$> toYatimaExpr exp
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaDef (isMutual : Bool) (defn : Lean.DefinitionVal) :
       CompileM Definition := do
-    let type ← toYatimaExpr none defn.type
+    let type ← toYatimaExpr defn.type
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
-    let value := 
-      if isMutual then ← toYatimaExpr none defn.value 
-      else ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
+    let value ←
+      if isMutual then toYatimaExpr defn.value 
+      else 
+        withOrder [defn.name] do
+        Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
     addToStore $ .expr_cache valueCid value
     return {
@@ -317,13 +319,13 @@ mutual
 
   partial def toYatimaInductiveInfo (ind : Lean.InductiveVal) :
       CompileM InductiveInfo := do
-    let type ← toYatimaExpr none ind.type
+    let type ← toYatimaExpr ind.type
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
     let ctors : List ConstructorInfo ← ind.ctors.mapM
       fun name => do match (← read).constMap.find?' name with
-        | some (.ctorInfo ctor) =>
-          let type ← Expr.fix ind.name <$> toYatimaExpr (some ind.name) ctor.type
+        | some (.ctorInfo ctor) => withOrder [ind.name] do
+          let type ← Expr.fix ind.name <$> toYatimaExpr ctor.type
           let typeCid ← exprToCid type
           addToStore $ .expr_cache typeCid type
           return {
@@ -338,8 +340,8 @@ mutual
     let (internalLeanRecs, externalLeanRecs)  ←
         leanRecs.foldlM (init := ([], [])) fun (accI, accE) r =>
         match r with
-        | .recInfo rv => 
-          if ind.all == rv.all then 
+        | .recInfo rv =>
+          if ind.all == rv.all then
             return (r :: accI, accE)
           else
             return (accI, r :: accE)
@@ -368,9 +370,10 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
+    dbg_trace s!"Processing: {const.name}"
     match const with
     | .axiomInfo struct =>
-      let type ← toYatimaExpr none struct.type
+      let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       return .axiom {
@@ -379,30 +382,32 @@ mutual
         type := typeCid
         safe := not struct.isUnsafe }
     | .thmInfo struct =>
-      let type ← toYatimaExpr none struct.type
+      let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
-      let valueCid ← exprToCid value
-      addToStore $ .expr_cache valueCid value
-      return .theorem {
-        name  := struct.name
-        lvls  := struct.levelParams
-        type  := typeCid
-        value := valueCid }
+      withOrder [struct.name] do
+        let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
+        let valueCid ← exprToCid value
+        addToStore $ .expr_cache valueCid value
+        return .theorem {
+          name  := struct.name
+          lvls  := struct.levelParams
+          type  := typeCid
+          value := valueCid }
     | .opaqueInfo struct =>
-      let type ← toYatimaExpr none struct.type
+      let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      let value ← Expr.fix struct.name <$> toYatimaExpr (some struct.name) struct.value
-      let valueCid ← exprToCid value
-      addToStore $ .expr_cache valueCid value
-      return .opaque {
-        name  := struct.name
-        lvls  := struct.levelParams
-        type  := typeCid
-        value := valueCid
-        safe  := not struct.isUnsafe }
+      withOrder [struct.name] do
+        let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
+        let valueCid ← exprToCid value
+        addToStore $ .expr_cache valueCid value
+        return .opaque {
+          name  := struct.name
+          lvls  := struct.levelParams
+          type  := typeCid
+          value := valueCid
+          safe  := not struct.isUnsafe }
     | .defnInfo struct =>
       -- figure out if we're in mutual definition
       match (← read).cycles.find? struct.name with 
@@ -420,30 +425,31 @@ mutual
         return .mutDefBlock ⟨definitions⟩
       | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
-      let type ← Expr.fix struct.induct <$> toYatimaExpr (some struct.induct) struct.type
-      let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      match (← read).constMap.find? struct.induct with
-      | some const@(.inductInfo ind) =>
-        let name := struct.name
-        let indidx ← (match ind.all.indexOf ind.name with
-          | some i => return i
-          | none => throw s!"Inductive not present in its mutual block")
-        match ind.ctors.indexOf name with
-        | some idx =>
-          let indInfos ← buildInductiveInfoList ind
-          let indBlock : Const := .indBlock indInfos
-          let indBlockCid ← constToCid indBlock
-          return .constructor {
-            name  := name
-            lvls  := struct.levelParams
-            type  := typeCid
-            block := indBlockCid
-            ind   := indidx
-            idx   := struct.cidx }
-        | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
-      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-      | none => throw s!"Unknown constant '{struct.induct}'"
+      withOrder [struct.name] do
+        let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
+        let typeCid ← exprToCid type
+        addToStore $ .expr_cache typeCid type
+        match (← read).constMap.find? struct.induct with
+        | some const@(.inductInfo ind) =>
+          let name := struct.name
+          let indidx ← (match ind.all.indexOf ind.name with
+            | some i => return i
+            | none => throw s!"Inductive not present in its mutual block")
+          match ind.ctors.indexOf name with
+          | some idx =>
+            let indInfos ← buildInductiveInfoList ind
+            let indBlock : Const := .indBlock indInfos
+            let indBlockCid ← constToCid indBlock
+            return .constructor {
+              name  := name
+              lvls  := struct.levelParams
+              type  := typeCid
+              block := indBlockCid
+              ind   := indidx
+              idx   := struct.cidx }
+          | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
+        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+        | none => throw s!"Unknown constant '{struct.induct}'"
     | .inductInfo struct =>
       let indInfos ← buildInductiveInfoList struct
       let indBlock : Const := .indBlock indInfos
@@ -453,7 +459,7 @@ mutual
       for (idx, name) in struct.all.enum do
         match (← read).constMap.find? name with
         | some const => 
-          let type ← toYatimaExpr none const.type
+          let type ← toYatimaExpr const.type
           let typeCid ← exprToCid type
           addToStore $ .expr_cache typeCid type
           let const := Const.inductive {
@@ -471,7 +477,7 @@ mutual
       | some ind' => return ind'
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
     | .recInfo struct =>
-      let type ← toYatimaExpr none struct.type
+      let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       let inductName := struct.getInduct
@@ -495,7 +501,7 @@ mutual
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{inductName}'"
     | .quotInfo struct =>
-      let type ← toYatimaExpr none struct.type
+      let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
       return .quotient {
@@ -537,7 +543,7 @@ mutual
         | none => throw "Invalid nested mutual block"
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
- 
+
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | .mvar .., _ => throw "Unfilled expr metavariable"
