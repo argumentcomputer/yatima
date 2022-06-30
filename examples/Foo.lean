@@ -2,10 +2,17 @@ inductive BLA
   | nil
   | bla : BLA → BLA → BLA
 
+inductive BLAH | blah : BLA → BLAH
+
 mutual
 inductive BLE | bli : BLI → BLE
 inductive BLI | ble : BLE → BLI
+inductive BLO | blea : BLE → BLA → BLO
 end
+
+inductive BLEH
+  | bleh : BLE → BLEH
+  | bloh : BLO → BLEH
 
 mutual
   unsafe def A : Nat → Nat
