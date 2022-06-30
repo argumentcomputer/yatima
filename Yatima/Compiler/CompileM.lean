@@ -5,9 +5,9 @@ namespace Yatima.Compiler
 
 open Std (RBMap) in
 structure CompileState where
-  store  : Yatima.Store
-  cache  : RBMap Name Const compare
-  mutIdx : RBMap Lean.Name Nat compare
+  store     : Yatima.Store
+  cache     : RBMap Name Const compare
+  mutDefIdx : RBMap Lean.Name Nat compare
 
 instance : Inhabited CompileState where
   default := ⟨default, .empty, .empty⟩

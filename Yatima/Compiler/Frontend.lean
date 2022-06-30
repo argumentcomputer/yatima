@@ -427,7 +427,7 @@ mutual
         let mutualDefs ← sortDefs [mutualDefs]
         for (i, ds) in mutualDefs.enum do
           for d in ds do 
-            set { ← get with mutIdx := (← get).mutIdx.insert d.name i }
+            set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
         let definitions ← withOrder mutualNames $ 
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutDefBlock ⟨definitions⟩
@@ -538,7 +538,7 @@ mutual
       let constCid ← constToCid const
       addToStore $ .const_cache constCid const
       set { ← get with cache := (← get).cache.insert const.name const }
-      match (← get).mutIdx.find? name with
+      match (← get).mutDefIdx.find? name with
       | some i =>
         match const.lvlsAndType with
         | some (lvls, type) =>
@@ -547,7 +547,7 @@ mutual
           addToStore $ .const_cache mutCid mutConst
           set { ← get with cache := (← get).cache.insert name mutConst }
           pure (mutConst, mutCid)
-        | none => throw "Invalid nested mutual block"
+        | none => pure (const, constCid)
       | none => pure (const, constCid)
     | some const => pure (const, ← constToCid const)
 
@@ -623,7 +623,7 @@ mutual
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
       CompileM (List (List Lean.DefinitionVal)) := do
     let enum (ll : List (List Lean.DefinitionVal)) := 
-      Std.RBMap.ofList $ (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
+      Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
     let names := enum dss
     let newDss ← (← dss.mapM fun ds => 
       match ds with 
