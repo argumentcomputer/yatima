@@ -34,8 +34,8 @@ instance [Coe α Ipld] [Coe β Ipld] : Coe (α ⊕ β) Ipld where coe
   | .inr c => c
 
 instance [Coe α Ipld] : Coe (Option α) Ipld where coe
-  | none   => .array #[.number 0]
-  | some a => .array #[.number 1, a]
+  | none   => .null
+  | some a => a
 
 instance [Coe α Ipld] : Coe (List α) Ipld where
   coe l := .array ⟨List.map (fun (x : α) => x) l⟩
