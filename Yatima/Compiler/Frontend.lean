@@ -275,7 +275,6 @@ mutual
       addToStore $ .univ_cache univCid univ
       return .sort univCid
     | .const name lvls _ => do
-      --dbg_trace s!"Order: {(← read).order}\nName {name}"
       match (← read).order.indexOf name with
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
@@ -345,7 +344,6 @@ mutual
           else
             return (accI, r :: accE)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
-    --dbg_trace s!"recs: {internalLeanRecs.map (·.name)}, {externalLeanRecs.map (·.name)}"
     return {
       name := ind.name
       lvls := ind.levelParams
@@ -381,7 +379,6 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
-    --dbg_trace s!"Processing: {const.name}"
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr struct.type
