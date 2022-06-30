@@ -36,13 +36,13 @@ def get' {A: Type} : List A -> Nat -> Option A
 
 mutual
 
-  partial def printExternalRule (rule : ExternalRecursorRule) : CompileM String := do
-    let ctor ← getConst rule.ctor
+  partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
+    let ctor ← sorry --getConst rule.ctor TODO: needs a match on `rule.ctor` first
     let rhs ← getExpr rule.rhs ctor.name
     pure s!"{← printYatimaConst ctor} {rule.fields} {← printExpr rhs}"
 
-  partial def printExternalRules (rules : List ExternalRecursorRule) : CompileM String := do
-    let rules ← rules.mapM printExternalRule
+  partial def printExternalRules (rules : List RecursorRule) : CompileM String := do
+    let rules ← rules.mapM printRecursorRule
     pure $ "\n".intercalate rules
 
   partial def printCtors (ctors : List (Name × ExprCid)) : CompileM String := do

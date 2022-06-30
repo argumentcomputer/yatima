@@ -232,7 +232,17 @@ mutual
         let type ← Expr.fix name <$> toYatimaExpr rec.type
         let typeCid ← exprToCid type
         addToStore $ .expr_cache typeCid type
-        let rules ← rec.rules.mapM $ toYatimaInternalRecRule ctors
+        let rules ← rec.rules.mapM fun r =>
+          if ctors.contains r.ctor then
+            toYatimaInternalRecRule ctors r
+          else
+            sorry
+        -- let (internalRules, externalRules)  ←
+        --   rec.rules.foldlM (init := ([], [])) fun (accI, accE) r =>
+        --     if ctors.contains r.ctor
+        --       then return (r :: accI, accE)
+        --       else return (accI, r :: accE)
+        -- let rules ← rec.rules.mapM $ toYatimaInternalRecRule ctors
         return {
           name := rec.name
           type := typeCid

@@ -29,10 +29,18 @@ instance : Coe ExprMetaCid  Ipld where coe u := .link u.data
 instance : Coe ConstAnonCid Ipld where coe u := .link u.data
 instance : Coe ConstMetaCid Ipld where coe u := .link u.data
 
-instance (α : Type) [Coe α Ipld] : Coe (List α) Ipld where
+instance [Coe α Ipld] [Coe β Ipld] : Coe (α ⊕ β) Ipld where coe
+  | .inl i => i
+  | .inr c => c
+
+instance [Coe α Ipld] : Coe (Option α) Ipld where coe
+  | none   => .array #[.number 0]
+  | some a => .array #[.number 1, a]
+
+instance [Coe α Ipld] : Coe (List α) Ipld where
   coe l := .array ⟨List.map (fun (x : α) => x) l⟩
 
-instance (α β : Type) [Coe α Ipld] [Coe β Ipld] : Coe (α × β) Ipld where
+instance [Coe α Ipld] [Coe β Ipld] : Coe (α × β) Ipld where
   coe x := .array #[x.1, x.2]
 
 instance : Coe BinderInfo Ipld where coe
@@ -55,28 +63,16 @@ instance : Coe DefinitionSafety Ipld where coe
   | .unsafe  => .number 1
   | .partial => .number 2
 
-instance : Coe ExternalRecursorRuleAnon Ipld where coe
+instance : Coe RecursorRuleAnon Ipld where coe
   | .mk c f r => .array #[c, f, r]
 
-instance : Coe ExternalRecursorRuleMeta Ipld where coe
+instance : Coe RecursorRuleMeta Ipld where coe
   | .mk c r => .array #[c, r]
 
-instance : Coe ExternalRecursorInfoAnon Ipld where coe
+instance : Coe RecursorInfoAnon Ipld where coe
   | .mk t p i m m' rs k => .array #[t, p, i, m, m', rs, k]
 
-instance : Coe ExternalRecursorInfoMeta Ipld where coe
-  | .mk n t rs => .array #[n, t, rs]
-
-instance : Coe InternalRecursorRuleAnon Ipld where coe
-  | .mk c f r => .array #[c, f, r]
-
-instance : Coe InternalRecursorRuleMeta Ipld where coe
-  | .mk r => .array #[r]
-
-instance : Coe InternalRecursorInfoAnon Ipld where coe
-  | .mk t p i m m' rs k => .array #[t, p, i, m, m', rs, k]
-
-instance : Coe InternalRecursorInfoMeta Ipld where coe
+instance : Coe RecursorInfoMeta Ipld where coe
   | .mk n t rs => .array #[n, t, rs]
 
 instance : Coe ConstructorInfoAnon Ipld where coe
