@@ -40,4 +40,7 @@ def withResetCompileEnv (levels : List Lean.Name) :
 def withOrder (order : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, e.cycles, order⟩
 
+def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
+  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.cycles, e.order⟩
+
 end Yatima.Compiler
