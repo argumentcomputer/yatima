@@ -1,10 +1,10 @@
 import Lean
-import Yatima.Compiler.Frontend
+import Yatima.Tests.GenMutuals
 
 def List.pop : (l : List α) → l ≠ [] → α × List α
   | a :: as, _ => (a, as)
 
-open Yatima.Compiler in
+open Yatima.Compiler Std Lean SlimCheck Gen in
 def main (args : List String) : IO UInt32 := do
   if h : args ≠ [] then
     let (cmd, args) := args.pop h
@@ -21,9 +21,12 @@ def main (args : List String) : IO UInt32 := do
       else
         -- todo: print help
         return 0
-    | _ =>
+    | "help" =>
       -- todo: print help
       return 0
+    | "test" => 
+      return 0 
+    | _ => return 0
   else
     -- todo: print help
     return 0

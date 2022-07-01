@@ -6,7 +6,7 @@ namespace Yatima.Compiler
 open Std (RBMap) in
 structure CompileState where
   env    : Yatima.Env
-  cache  : RBMap Name Const compare
+  cache  : RBMap Name (Const × ConstCid) compare
   mutIdx : RBMap Lean.Name Nat compare
 
 instance : Inhabited CompileState where
@@ -24,9 +24,9 @@ structure CompileEnv where
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    Except String Env :=
+    Except String CompileState :=
   match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ ste  => .ok ste.env
+  | .ok _ ste  => .ok ste
   | .error e _ => .error e
 
 def withName (name : Name) : CompileM α → CompileM α :=

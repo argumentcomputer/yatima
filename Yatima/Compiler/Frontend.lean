@@ -150,7 +150,7 @@ def toYatimaUniv : Lean.Level → CompileM Univ
     return .imax univACid univBCid
   | .param name _ => do
     let lvls := (← read).univCtx
-    match lvls.indexOf name with
+    match lvls.indexOf? name with
     | some n => return .param name n
     | none   => throw s!"'{name}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
@@ -182,7 +182,7 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   | _, .imax _ _ _ => return .gt
   | .param x _, .param y _ => do
     let lvls := (← read).univCtx
-    match (lvls.indexOf x), (lvls.indexOf y) with
+    match (lvls.indexOf? x), (lvls.indexOf? y) with
       | some xi, some yi => return (compare xi yi)
       | none, _   => throw s!"'{x}' not found in '{lvls}'"
       | _, none   => throw s!"'{y}' not found in '{lvls}'"
@@ -197,7 +197,8 @@ mutual
     addToEnv $ .expr_cache rhsCid rhs
     return ⟨ctorCid, rules.nfields, rhsCid⟩
 
-  partial def toYatimaExpr (recr : Option Name) : Lean.Expr → CompileM Expr
+  partial def toYatimaExpr (recr : Option Lean.Name) (expr : Lean.Expr) : CompileM Expr :=
+    match expr with 
     | .bvar idx _ => do
       let name ← match (← read).bindCtx.get? idx with
       | some name => pure name
@@ -211,7 +212,7 @@ mutual
     | .const name lvls _ => do
       if recr == some name then
         return .var name (← read).bindCtx.length
-      else match (← read).order.indexOf name with
+      else match (← read).order.indexOf? name with
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
           | some const => do
@@ -232,13 +233,13 @@ mutual
     | .fvar .. => throw "Free variable found"
     | .mvar .. => throw "Metavariable found"
 
-  partial def toYatimaDef (isMut : Bool) (defn : Lean.DefinitionVal)  : CompileM Definition := do
+  partial def toYatimaDef (isMut : Bool) (defn : Lean.DefinitionVal) : CompileM Definition := do
     let type ← toYatimaExpr none defn.type
     let typeCid ← exprToCid type
     addToEnv $ .expr_cache typeCid type
-    let value := 
-      if isMut then ← toYatimaExpr none defn.value 
-      else ← Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
+    let value ← 
+      if isMut then toYatimaExpr none defn.value
+      else Expr.fix defn.name <$> toYatimaExpr (some defn.name) defn.value
     let valueCid ← exprToCid value
     addToEnv $ .expr_cache valueCid value
     return {
@@ -294,6 +295,7 @@ mutual
           | some (.defnInfo defn) => pure defn
           | _ => throw "Non-def constant found in a mutual block of definitions"
         let mutualDefs ← sortDefs [mutualDefs]
+        dbg_trace s!"sorted: {mutualDefs.map fun ds => ds.map (·.name)}"
         let mut i := 0
         for ds in mutualDefs do
           for d in ds do 
@@ -302,7 +304,8 @@ mutual
         let definitions ← withOrder mutualNames $ 
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutBlock ⟨definitions⟩
-      | none => return .definition $ ← toYatimaDef false struct 
+      | none => 
+        return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
       let type ← toYatimaExpr none struct.type
       let typeCid ← exprToCid type
@@ -397,16 +400,16 @@ mutual
       let const ← toYatimaConst leanConst
       let constCid ← constToCid const
       addToEnv $ .const_cache constCid const
-      set { ← get with cache := (← get).cache.insert const.name const }
+      set { ← get with cache := (← get).cache.insert const.name (const, constCid) }
       match (← get).mutIdx.find? name with
       | some i => do
         let mutConst := .mutDef ⟨constCid, name, i⟩
         let mutCid ← constToCid mutConst
         addToEnv $ .const_cache mutCid mutConst
-        set { ← get with cache := (← get).cache.insert name mutConst }
+        set { ← get with cache := (← get).cache.insert name (mutConst, mutCid) }
         pure (mutConst, mutCid)
       | none => pure (const, constCid)
-    | some const => pure (const, ← constToCid const)
+    | some (const, cid) => pure (const, cid)
  
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
@@ -506,7 +509,7 @@ def printCompilationStats : CompileM Unit := do
   dbg_trace s!"const_cache size: {(← get).env.const_cache.size}"
   dbg_trace s!"constMap size: {(← read).constMap.size}"
   dbg_trace s!"cache size: {(← get).cache.size}"
-  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c) => (n, c.ctorName)}"
+  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c, cid) => (n, c.ctorName)}"
 
 open PrintLean PrintYatima in
 def buildEnv (constMap : Lean.ConstMap)
@@ -529,7 +532,7 @@ def buildEnv (constMap : Lean.ConstMap)
   return (← get).env
 
 def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
-    Except String Env :=
+    Except String CompileState :=
   let map  := Lean.filterConstants map
   let map₀ := Lean.filterConstants map₀
   let delta : Lean.ConstMap := map.fold
@@ -541,8 +544,9 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
   match g.scc? with
   | .ok vss =>
     let nss : List (List $ Lean.Name × List Lean.Name) :=
-      vss.map fun vs => 
+      (vss.filter fun vs => vs.length != 1).map fun vs => 
         vs.map fun v => (v, vs)
+    dbg_trace s!"cycles: {nss}"
     CompileM.run
       ⟨map, [], [], Std.RBMap.ofList nss.join, []⟩
       default
@@ -550,13 +554,13 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
   | .error e => throw e
 
 def runFrontend (code fileName : String) (printLean printYatima : Bool) :
-    IO $ Except String Env := do
+    IO $ Except String CompileState := do
   Lean.initSearchPath $ ← Lean.findSysroot
   let (env, ok) ← Lean.Elab.runFrontend code .empty fileName default
   if ok then
     let (env₀, _) ← Lean.Elab.runFrontend default .empty default default
     match extractEnv env.constants env₀.constants printLean printYatima with
-    | .ok env => return .ok env
+    | .ok ste => return .ok ste
     | .error e => return .error e
   else
     return .error s!"Lean frontend failed on file {fileName}"
