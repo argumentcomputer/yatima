@@ -430,7 +430,7 @@ mutual
       match (← read).constMap.find? struct.induct with
       | some const@(.inductInfo ind) =>
         let name := struct.name
-        let indidx ← (match ind.all.indexOf ind.name with
+        let idx ← (match ind.all.indexOf ind.name with
           | some i => return i
           | none => throw s!"'{ind.name}' not found in '{ind.all}'")
         match ind.ctors.indexOf name with
@@ -443,8 +443,8 @@ mutual
             lvls  := struct.levelParams
             type  := typeCid
             block := indBlockCid
-            ind   := indidx
-            idx   := struct.cidx }
+            idx   := idx
+            cidx  := struct.cidx }
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{struct.induct}'"

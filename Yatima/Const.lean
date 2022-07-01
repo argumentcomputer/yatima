@@ -206,15 +206,15 @@ structure ConstructorProj where
   lvls    : List Name
   type    : ExprCid
   block   : ConstCid
-  ind     : Nat
   idx     : Nat
+  cidx    : Nat
 
 structure ConstructorProjAnon where
   lvls    : Nat
   type    : ExprAnonCid
   block   : ConstAnonCid
-  ind     : Nat
   idx     : Nat
+  cidx    : Nat
 
 structure ConstructorProjMeta where
   name    : Name
@@ -353,8 +353,8 @@ def Const.toAnon : Const → ConstAnon
     ⟨ c.lvls.length
     , c.type.anon
     , c.block.anon
-    , c.ind
-    , c.idx ⟩
+    , c.idx
+    , c.cidx ⟩
   | .recursorProj r => .recursorProj
     ⟨ r.lvls.length
     , r.type.anon

@@ -29,11 +29,6 @@ instance : ToString QuotKind where toString
   | .lift => "Quot.lift"
   | .ind  => "Quot.ind"
 
-def get' {A: Type} : List A -> Nat -> Option A
-| x::xs, 0 => some x
-| x::xs, n => get' xs (n - 1)
-| [], _ => none
-
 mutual
 
   partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
@@ -99,32 +94,30 @@ mutual
     | .definition defn => printDefinition defn
     | .inductiveProj ind => do
       let type ← getExpr ind.type ind.name
-      return s!"inductive {ind.name} {ind.lvls} : {← printExpr type} \n" ++ s!"{ind.block.anon}.{ind.block.meta}@{ind.ind}"
-    -- TODO: print actual ConstructorInfo
-    | .constructorProj ctor => do
-      let type ← getExpr ctor.type ctor.name
-      let ind ← getConst ctor.block
+      sorry
+      -- return s!"inductive {ind.name} {ind.lvls} : {← printExpr type} \n" ++ s!"{ind.block.anon}.{ind.block.meta}@{ind.ind}"
+    | .constructorProj proj => do
+      match ← getConst proj.block with
+      | .mutIndBlock is => match is.get? proj.idx with
+        | some i => match i.ctors.get? proj.cidx with
+          | some ctor =>
+            let type ← getExpr ctor.type ctor.name
+            return s!"{printIsSafe i.safe}constructor {ctor.name} {i.lvls} : {← printExpr type}"
+          | none => throw s!"malformed constructor projection '{proj.name}': cidx {proj.cidx} ≥ '{i.ctors.length}'"
+        | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{is.length}'"
+      | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
+    | .recursorProj proj => do
+      let type ← getExpr proj.type proj.name
+      let ind ← getConst proj.block
       let ind ← match ind with
-        | .mutIndBlock is => match get' is ctor.ind with 
-          | some i => pure i
-          | _ => throw s!"malformed constructor with `ind` field bigger than the block it points to"
-        | _ => throw s!"malformed constructor that does not point to an inductive block {ctor.block.anon}.{ctor.block.meta}"
-
-      return s!"{printIsSafe ind.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr type} :=\n" ++
-             s!"  {ind.name}@{ctor.idx}"
-    -- TODO: print actual RecursorInfo
-    | .recursorProj recr => do
-      let type ← getExpr recr.type recr.name
-      let ind ← getConst recr.block
-      let ind ← match ind with
-        | .mutIndBlock is => match get' is recr.ind with 
+        | .mutIndBlock is => match is.get? proj.ind with
           | some i => pure i
           | _ => throw s!"malformed recursor with `ind` field bigger than the block it points to"
-        | _ => throw s!"malformed recursor that does not point to an inductive block {recr.block.anon}.{recr.block.meta}"
+        | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
       -- TODO
       --let rules ← printRules recr.externalRules
-      return s!"{printIsSafe ind.safe}recursor {recr.name} {recr.lvls} : {← printExpr type} :=\n" ++
-             s!"  {ind.name}@{recr.idx}"
+      return s!"{printIsSafe ind.safe}recursor {proj.name} {proj.lvls} : {← printExpr type} :=\n" ++
+             s!"  {ind.name}@{proj.idx}"
     | .definitionProj mutDef =>
       return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
     | .mutDefBlock ds => do
