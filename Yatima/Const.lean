@@ -277,40 +277,40 @@ inductive Const
   | «axiom»     : Axiom → Const
   | «theorem»   : Theorem → Const
   | opaque      : Opaque → Const
+  | quotient    : Quotient → Const
   | definition  : Definition → Const
-  | indBlock    : List InductiveInfo → Const
   | «inductive» : Inductive → Const
   | constructor : Constructor → Const
   | recursor    : Recursor → Const
-  | quotient    : Quotient → Const
-  | mutDefBlock : MutualDefinitionBlock → Const
   | mutDef      : MutualDefinition → Const
+  | mutDefBlock : MutualDefinitionBlock → Const
+  | mutIndBlock : List InductiveInfo → Const
 
 inductive ConstAnon
   | «axiom»     : AxiomAnon → ConstAnon
   | «theorem»   : TheoremAnon → ConstAnon
   | opaque      : OpaqueAnon → ConstAnon
+  | quotient    : QuotientAnon → ConstAnon
   | definition  : DefinitionAnon → ConstAnon
-  | indBlock    : List InductiveInfoAnon → ConstAnon
   | «inductive» : InductiveAnon → ConstAnon
   | constructor : ConstructorAnon → ConstAnon
   | recursor    : RecursorAnon → ConstAnon
-  | quotient    : QuotientAnon → ConstAnon
-  | mutDefBlock : MutualDefinitionBlockAnon → ConstAnon
   | mutDef      : MutualDefinitionAnon → ConstAnon
+  | mutDefBlock : MutualDefinitionBlockAnon → ConstAnon
+  | mutIndBlock : List InductiveInfoAnon → ConstAnon
 
 inductive ConstMeta
   | «axiom»     : AxiomMeta → ConstMeta
   | «theorem»   : TheoremMeta → ConstMeta
   | opaque      : OpaqueMeta → ConstMeta
+  | quotient    : QuotientMeta → ConstMeta
   | definition  : DefinitionMeta → ConstMeta
-  | indBlock    : List InductiveInfoMeta → ConstMeta
   | «inductive» : InductiveMeta → ConstMeta
   | constructor : ConstructorMeta → ConstMeta
   | recursor    : RecursorMeta → ConstMeta
-  | quotient    : QuotientMeta → ConstMeta
-  | mutDefBlock : MutualDefinitionBlockMeta → ConstMeta
   | mutDef      : MutualDefinitionMeta → ConstMeta
+  | mutDefBlock : MutualDefinitionBlockMeta → ConstMeta
+  | mutIndBlock : List InductiveInfoMeta → ConstMeta
 
 def Definition.toAnon (d : Definition) : DefinitionAnon :=
   ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
@@ -348,8 +348,8 @@ def Const.toAnon : Const → ConstAnon
   | .axiom a => .axiom ⟨a.lvls.length, a.type.anon, a.safe⟩
   | .theorem t => .theorem ⟨t.lvls.length, t.type.anon, t.value.anon⟩
   | .opaque o => .opaque ⟨o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
+  | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
   | .definition d => .definition d.toAnon
-  | .indBlock is => .indBlock (is.map InductiveInfo.toAnon)
   | .inductive i => .inductive ⟨i.lvls.length, i.type.anon, i.block.anon, i.ind⟩
   | .constructor c => .constructor 
     ⟨ c.lvls.length
@@ -364,12 +364,12 @@ def Const.toAnon : Const → ConstAnon
     , r.ind
     , r.idx
     , r.intern ⟩
-  | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
+  | .mutDef x => .mutDef ⟨x.lvls.length, x.type.anon, x.block.anon, x.idx⟩
   | .mutDefBlock ds => .mutDefBlock ⟨(ds.defs.map fun ds => 
       match ds.head? with 
       | some d => [d] 
       | none => []).join.map Definition.toAnon⟩
-  | .mutDef x => .mutDef ⟨x.lvls.length, x.type.anon, x.block.anon, x.idx⟩
+  | .mutIndBlock is => .mutIndBlock (is.map InductiveInfo.toAnon)
 
 def Definition.toMeta (d: Definition) : DefinitionMeta :=
   ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
@@ -398,7 +398,7 @@ def Const.toMeta : Const → ConstMeta
   | .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
   | .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta⟩
   | .definition d => .definition d.toMeta
-  | .indBlock is => .indBlock (is.map InductiveInfo.toMeta)
+  | .mutIndBlock is => .mutIndBlock (is.map InductiveInfo.toMeta)
   | .inductive i => .inductive ⟨i.name, i.lvls, i.type.meta, i.block.meta⟩
   | .constructor c => .constructor ⟨c.name, c.lvls, c.type.meta, c.block.meta⟩
   | .recursor r => .recursor ⟨r.name, r.lvls, r.type.meta, r.block.meta⟩
@@ -410,14 +410,14 @@ def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
   | .axiom       x
   | .theorem     x
   | .opaque      x
+  | .quotient    x
   | .definition  x
   | .inductive   x
   | .constructor x
   | .recursor    x
-  | .quotient    x
   | .mutDef      x => some (x.lvls, x.type)
   | .mutDefBlock _ => none
-  | .indBlock    _ => none
+  | .mutIndBlock _ => none
 
 def Const.name : Const → Name
   | .axiom       x
@@ -429,20 +429,20 @@ def Const.name : Const → Name
   | .recursor    x
   | .quotient    x
   | .mutDef      x => x.name
-  | .indBlock    x => s!"mutual inductives {x.map (·.name)}" -- TODO
+  | .mutIndBlock x => s!"mutual inductives {x.map (·.name)}" -- TODO
   | .mutDefBlock x => s!"mutual definitions {x.defs.map fun ds => ds.map (·.name)}" -- TODO
 
 def Const.ctorName : Const → String
   | .axiom       _ => "axiom"
   | .theorem     _ => "theorem"
   | .opaque      _ => "opaque"
+  | .quotient    _ => "quotient"
   | .definition  _ => "definition"
   | .inductive   _ => "inductive"
-  | .indBlock    _ => "indBlock"
   | .constructor _ => "constructor"
   | .recursor    _ => "recursor"
-  | .quotient    _ => "quotient"
-  | .mutDefBlock _ => "mutDefBlock"
   | .mutDef      _ => "mutDef"
+  | .mutDefBlock _ => "mutDefBlock"
+  | .mutIndBlock _ => "indBlock"
 
 end Yatima

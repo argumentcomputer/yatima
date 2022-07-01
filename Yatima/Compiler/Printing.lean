@@ -87,24 +87,25 @@ mutual
       let value ← getExpr thm.value thm.name
       return s!"theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
              s!"  {← printExpr value}" 
-    -- TODO: print IndBlock
-    | .indBlock is => do
-      return s!"TODO"
-    | .inductive ind => do
-      let type ← getExpr ind.type ind.name
-      return s!"inductive {ind.name} {ind.lvls} : {← printExpr type} \n" ++ s!"{ind.block.anon}.{ind.block.meta}@{ind.ind}"
     | .opaque opaq => do
       let type ← getExpr opaq.type opaq.name
       let value ← getExpr opaq.value opaq.name
       return s!"{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
              s!"  {← printExpr value}"
+    | .quotient quot => do
+      let type ← getExpr quot.type quot.name
+      return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
+             s!"  {quot.kind}"
     | .definition defn => printDefinition defn
+    | .inductive ind => do
+      let type ← getExpr ind.type ind.name
+      return s!"inductive {ind.name} {ind.lvls} : {← printExpr type} \n" ++ s!"{ind.block.anon}.{ind.block.meta}@{ind.ind}"
     -- TODO: print actual ConstructorInfo
     | .constructor ctor => do
       let type ← getExpr ctor.type ctor.name
       let ind ← getConst ctor.block
       let ind ← match ind with
-        | .indBlock is => match get' is ctor.ind with 
+        | .mutIndBlock is => match get' is ctor.ind with 
           | some i => pure i
           | _ => throw s!"malformed constructor with `ind` field bigger than the block it points to"
         | _ => throw s!"malformed constructor that does not point to an inductive block {ctor.block.anon}.{ctor.block.meta}"
@@ -116,7 +117,7 @@ mutual
       let type ← getExpr recr.type recr.name
       let ind ← getConst recr.block
       let ind ← match ind with
-        | .indBlock is => match get' is recr.ind with 
+        | .mutIndBlock is => match get' is recr.ind with 
           | some i => pure i
           | _ => throw s!"malformed recursor with `ind` field bigger than the block it points to"
         | _ => throw s!"malformed recursor that does not point to an inductive block {recr.block.anon}.{recr.block.meta}"
@@ -124,15 +125,14 @@ mutual
       --let rules ← printRules recr.externalRules
       return s!"{printIsSafe ind.safe}recursor {recr.name} {recr.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.name}@{recr.idx}"
-    | .quotient quot => do
-      let type ← getExpr quot.type quot.name
-      return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
-             s!"  {quot.kind}"
+    | .mutDef mutDef =>
+      return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
     | .mutDefBlock ds => do
       let defStrings ← ds.defs.join.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
-    | .mutDef mutDef =>
-      return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
+    | .mutIndBlock is => do
+    -- TODO: print IndBlock
+      return s!"TODO"
 
 end
 

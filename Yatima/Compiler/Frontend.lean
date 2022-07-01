@@ -400,8 +400,16 @@ mutual
           type  := typeCid
           value := valueCid
           safe  := not struct.isUnsafe }
+    | .quotInfo struct =>
+      let type ← toYatimaExpr struct.type
+      let typeCid ← exprToCid type
+      addToStore $ .expr_cache typeCid type
+      return .quotient {
+        name := struct.name
+        lvls := struct.levelParams
+        type := typeCid
+        kind := struct.kind }
     | .defnInfo struct =>
-      -- figure out if we're in mutual definition
       match (← read).cycles.find? struct.name with 
       | some mutualNames =>
         let mutualDefs ← mutualNames.mapM fun name => do
@@ -429,7 +437,7 @@ mutual
         match ind.ctors.indexOf name with
         | some idx =>
           let indInfos ← buildInductiveInfoList ind
-          let indBlock : Const := .indBlock indInfos
+          let indBlock : Const := .mutIndBlock indInfos
           let indBlockCid ← constToCid indBlock
           return .constructor {
             name  := name
@@ -441,9 +449,33 @@ mutual
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{struct.induct}'"
+    | .recInfo struct =>
+      let type ← toYatimaExpr struct.type
+      let typeCid ← exprToCid type
+      addToStore $ .expr_cache typeCid type
+      let inductName := struct.getInduct
+      match (← read).constMap.find? inductName with
+      | some (.inductInfo ind) =>
+        let indInfos ← buildInductiveInfoList ind
+        let indBlock : Const := .mutIndBlock indInfos
+        let indBlockCid ← constToCid indBlock
+        addToStore $ .const_cache indBlockCid indBlock
+        match findRecursorIn struct.name indInfos with
+        | some (ind, idx, intern) =>
+          return .recursor {
+            name   := struct.name
+            lvls   := struct.levelParams
+            type   := typeCid
+            block  := indBlockCid
+            ind    := ind
+            idx    := idx
+            intern := intern }
+        | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+      | none => throw s!"Unknown constant '{inductName}'"
     | .inductInfo struct =>
       let indInfos ← buildInductiveInfoList struct
-      let indBlock : Const := .indBlock indInfos
+      let indBlock : Const := .mutIndBlock indInfos
       let indBlockCid ← constToCid indBlock
       addToStore $ .const_cache indBlockCid indBlock
       let mut ind : Option Const := none
@@ -467,39 +499,6 @@ mutual
       match ind with
       | some ind' => return ind'
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
-    | .recInfo struct =>
-      let type ← toYatimaExpr struct.type
-      let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      let inductName := struct.getInduct
-      match (← read).constMap.find? inductName with
-      | some (.inductInfo ind) =>
-        let indInfos ← buildInductiveInfoList ind
-        let indBlock : Const := .indBlock indInfos
-        let indBlockCid ← constToCid indBlock
-        addToStore $ .const_cache indBlockCid indBlock
-        match findRecursorIn struct.name indInfos with
-        | some (ind, idx, intern) =>
-          return .recursor {
-            name   := struct.name
-            lvls   := struct.levelParams
-            type   := typeCid
-            block  := indBlockCid
-            ind    := ind
-            idx    := idx
-            intern := intern }
-        | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
-      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-      | none => throw s!"Unknown constant '{inductName}'"
-    | .quotInfo struct =>
-      let type ← toYatimaExpr struct.type
-      let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      return .quotient {
-        name := struct.name
-        lvls := struct.levelParams
-        type := typeCid
-        kind := struct.kind }
 
   /-- 
   Process a Lean constant into a Yatima constant, returning both the Yatima
