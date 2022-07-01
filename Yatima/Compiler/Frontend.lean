@@ -549,12 +549,22 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
       (buildEnv delta printLean printYatima)
   | .error e => throw e
 
+def getImportedInitModules (env : Lean.Environment) : Array Lean.Name :=
+  env.header.moduleNames.filter fun name =>
+    match name with
+    | .str `Init .. => true
+    | .num `Init .. => true
+    | _             => false
+
 def runFrontend (code fileName : String) (printLean printYatima : Bool) :
     IO $ Except String Env := do
   Lean.initSearchPath $ ← Lean.findSysroot
   let (env, ok) ← Lean.Elab.runFrontend code .empty fileName default
   if ok then
-    let (env₀, _) ← Lean.Elab.runFrontend default .empty default default
+    let emptyFile := getImportedInitModules env |>.foldl (init := "")
+      fun acc m => s!"{acc}import {m}\n"
+    dbg_trace emptyFile
+    let (env₀, _) ← Lean.Elab.runFrontend default .empty emptyFile default
     match extractEnv env.constants env₀.constants printLean printYatima with
     | .ok env => return .ok env
     | .error e => return .error e
