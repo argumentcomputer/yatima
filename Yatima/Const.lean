@@ -397,14 +397,14 @@ def Const.toMeta : Const → ConstMeta
   | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
   | .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
   | .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta⟩
+  | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
   | .definition d => .definition d.toMeta
-  | .mutIndBlock is => .mutIndBlock (is.map InductiveInfo.toMeta)
   | .inductive i => .inductive ⟨i.name, i.lvls, i.type.meta, i.block.meta⟩
   | .constructor c => .constructor ⟨c.name, c.lvls, c.type.meta, c.block.meta⟩
   | .recursor r => .recursor ⟨r.name, r.lvls, r.type.meta, r.block.meta⟩
-  | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
-  | .mutDefBlock ds => .mutDefBlock ⟨ds.defs.map fun ds => ds.map Definition.toMeta⟩
   | .mutDef x => .mutDef ⟨x.name, x.lvls, x.type.meta, x.block.meta⟩
+  | .mutDefBlock ds => .mutDefBlock ⟨ds.defs.map fun ds => ds.map Definition.toMeta⟩
+  | .mutIndBlock is => .mutIndBlock (is.map InductiveInfo.toMeta)
 
 def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
   | .axiom       x
@@ -429,8 +429,8 @@ def Const.name : Const → Name
   | .recursor    x
   | .quotient    x
   | .mutDef      x => x.name
-  | .mutIndBlock x => s!"mutual inductives {x.map (·.name)}" -- TODO
   | .mutDefBlock x => s!"mutual definitions {x.defs.map fun ds => ds.map (·.name)}" -- TODO
+  | .mutIndBlock x => s!"mutual inductives {x.map (·.name)}" -- TODO
 
 def Const.ctorName : Const → String
   | .axiom       _ => "axiom"
