@@ -323,10 +323,9 @@ mutual
         leanRecs.foldlM (init := ([], [])) fun (accI, accE) r =>
         match r with
         | .recInfo rv =>
-          if ind.all == rv.all then
-            return (r :: accI, accE)
-          else
-            return (accI, r :: accE)
+          if ind.all == rv.all
+            then return (r :: accI, accE)
+            else return (accI, r :: accE)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     return {
       name     := ind.name
@@ -415,7 +414,7 @@ mutual
         let mutualDefs ← mutualNames.mapM fun name => do
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn
-          | _ => throw "Non-def constant found in a mutual block of definitions"
+          | _ => throw s!"Unknown definition '{name}'"
         let mutualDefs ← sortDefs [mutualDefs]
         for (i, ds) in mutualDefs.enum do
           for d in ds do 
@@ -433,7 +432,7 @@ mutual
         let name := struct.name
         let indidx ← (match ind.all.indexOf ind.name with
           | some i => return i
-          | none => throw s!"Inductive not present in its mutual block")
+          | none => throw s!"'{ind.name}' not found in '{ind.all}'")
         match ind.ctors.indexOf name with
         | some idx =>
           let indInfos ← buildInductiveInfoList ind
