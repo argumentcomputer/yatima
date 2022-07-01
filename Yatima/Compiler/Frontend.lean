@@ -190,13 +190,13 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
-def findRecursorIn (recName : Name) (indInfos : List InductiveInfo) :
+def findRecursorIn (recName : Name) (indInfos : List Inductive) :
     Option (Nat × Nat × Bool) := Id.run do
   for (i, indInfo) in indInfos.enum do
-    for (j, intRec) in indInfo.internalRecrs.enum do
+    for (j, intRec) in indInfo.intRecrs.enum do
       if recName == intRec.name then
         return (i, j, true)
-    for (j, extRec) in indInfo.externalRecrs.enum do
+    for (j, extRec) in indInfo.extRecrs.enum do
       if recName == extRec.name then
         return (i, j, false)
   return none
@@ -226,7 +226,7 @@ mutual
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
   partial def toYatimaRec (ctors : List Lean.Name) (name: Lean.Name) :
-      Lean.ConstantInfo → CompileM RecursorInfo
+      Lean.ConstantInfo → CompileM Recursor
     | .recInfo rec => do
       withLevels rec.levelParams do
         let type ← Expr.fix name <$> toYatimaExpr rec.type
@@ -238,14 +238,14 @@ mutual
           else
             toYatimaExternalRecRule r
         return {
-          name := rec.name
-          type := typeCid
-          params := rec.numParams
+          name    := rec.name
+          type    := typeCid
+          params  := rec.numParams
           indices := rec.numIndices
           motives := rec.numMotives
-          minors := rec.numMinors
-          rules := rules
-          k := rec.k }
+          minors  := rec.numMinors
+          rules   := rules
+          k       := rec.k }
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
   partial def toYatimaExpr : Lean.Expr → CompileM Expr
@@ -299,12 +299,12 @@ mutual
       value  := valueCid
       safety := defn.safety }
 
-  partial def toYatimaInductiveInfo (ind : Lean.InductiveVal) :
-      CompileM InductiveInfo := do
+  partial def toYatimaInductive (ind : Lean.InductiveVal) :
+      CompileM Inductive := do
     let type ← toYatimaExpr ind.type
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
-    let ctors : List ConstructorInfo ← ind.ctors.mapM
+    let ctors : List Constructor ← ind.ctors.mapM
       fun name => do match (← read).constMap.find?' name with
         | some (.ctorInfo ctor) =>
           let type ← Expr.fix ind.name <$> toYatimaExpr ctor.type
@@ -329,20 +329,20 @@ mutual
             return (accI, r :: accE)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     return {
-      name := ind.name
-      lvls := ind.levelParams
-      type := typeCid
-      params := ind.numParams
-      indices := ind.numIndices
-      ctors := ctors
-      internalRecrs := ← internalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
-      externalRecrs := ← externalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
-      recr := ind.isRec
-      refl := ind.isReflexive
-      safe := not ind.isUnsafe }
+      name     := ind.name
+      lvls     := ind.levelParams
+      type     := typeCid
+      params   := ind.numParams
+      indices  := ind.numIndices
+      ctors    := ctors
+      intRecrs := ← internalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
+      extRecrs := ← externalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
+      recr     := ind.isRec
+      refl     := ind.isReflexive
+      safe     := not ind.isUnsafe }
 
   partial def buildInductiveInfoList (ind : Lean.InductiveVal) :
-      CompileM $ List InductiveInfo := do
+      CompileM $ List Inductive := do
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match (← read).constMap.find? indName with
@@ -354,9 +354,9 @@ mutual
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{indName}'"
     withRecrs (ind.all.append funList) do
-    let indInfos : List InductiveInfo ← ind.all.mapM fun name => do
+    let indInfos : List Inductive ← ind.all.mapM fun name => do
       match (← read).constMap.find? name with
-      | some (.inductInfo ind) => toYatimaInductiveInfo ind
+      | some (.inductInfo ind) => toYatimaInductive ind
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{name}'"
     return indInfos
@@ -422,7 +422,7 @@ mutual
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
         let definitions ← withRecrs mutualNames $ 
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
-        return .mutDefBlock ⟨definitions⟩
+        return .mutDefBlock definitions
       | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
       let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
@@ -439,7 +439,7 @@ mutual
           let indInfos ← buildInductiveInfoList ind
           let indBlock : Const := .mutIndBlock indInfos
           let indBlockCid ← constToCid indBlock
-          return .constructor {
+          return .constructorProj {
             name  := name
             lvls  := struct.levelParams
             type  := typeCid
@@ -462,7 +462,7 @@ mutual
         addToStore $ .const_cache indBlockCid indBlock
         match findRecursorIn struct.name indInfos with
         | some (ind, idx, intern) =>
-          return .recursor {
+          return .recursorProj {
             name   := struct.name
             lvls   := struct.levelParams
             type   := typeCid
@@ -485,7 +485,7 @@ mutual
           let type ← toYatimaExpr const.type
           let typeCid ← exprToCid type
           addToStore $ .expr_cache typeCid type
-          let const := Const.inductive {
+          let const := .inductiveProj {
             name := name
             lvls := const.levelParams
             type := typeCid
@@ -493,7 +493,7 @@ mutual
             ind := idx }
           let constCid ← constToCid const
           addToStore $ .const_cache constCid const
-          set { ← get with cache := (← get).cache.insert name const }
+          set { ← get with cache := (← get).cache.insert name (const, constCid) }
           if name == struct.name then ind := some const
         | none   => throw s!"Unknown constant '{name}'"
       match ind with
@@ -520,19 +520,19 @@ mutual
       let const ← toYatimaConst const
       let constCid ← constToCid const
       addToStore $ .const_cache constCid const
-      set { ← get with cache := (← get).cache.insert const.name const }
+      set { ← get with cache := (← get).cache.insert const.name (const, constCid) }
       match (← get).mutDefIdx.find? name with
       | some i =>
         match const.lvlsAndType with
         | some (lvls, type) =>
-          let mutConst := .mutDef ⟨name, lvls, type, constCid, i⟩
+          let mutConst := .definitionProj ⟨name, lvls, type, constCid, i⟩
           let mutCid ← constToCid mutConst
           addToStore $ .const_cache mutCid mutConst
-          set { ← get with cache := (← get).cache.insert name mutConst }
+          set { ← get with cache := (← get).cache.insert name (mutConst, mutCid) }
           pure (mutConst, mutCid)
         | none => pure (const, constCid)
       | none => pure (const, constCid)
-    | some const => pure (const, ← constToCid const)
+    | some (const, constCid) => pure (const, constCid)
 
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
@@ -632,7 +632,7 @@ def printCompilationStats : CompileM Unit := do
   dbg_trace s!"const_cache size: {(← get).store.const_cache.size}"
   dbg_trace s!"constMap size: {(← read).constMap.size}"
   dbg_trace s!"cache size: {(← get).cache.size}"
-  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c) => (n, c.ctorName)}"
+  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c) => (n, c.1.ctorName)}"
 
 open PrintLean PrintYatima in
 def buildStore (constMap : Lean.ConstMap)

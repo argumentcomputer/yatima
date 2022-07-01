@@ -6,7 +6,7 @@ namespace Yatima.Compiler
 open Std (RBMap) in
 structure CompileState where
   store     : Yatima.Store
-  cache     : RBMap Name Const compare
+  cache     : RBMap Name (Const × ConstCid) compare
   mutDefIdx : RBMap Lean.Name Nat compare
 
 instance : Inhabited CompileState where

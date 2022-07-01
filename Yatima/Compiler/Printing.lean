@@ -97,11 +97,11 @@ mutual
       return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
     | .definition defn => printDefinition defn
-    | .inductive ind => do
+    | .inductiveProj ind => do
       let type ← getExpr ind.type ind.name
       return s!"inductive {ind.name} {ind.lvls} : {← printExpr type} \n" ++ s!"{ind.block.anon}.{ind.block.meta}@{ind.ind}"
     -- TODO: print actual ConstructorInfo
-    | .constructor ctor => do
+    | .constructorProj ctor => do
       let type ← getExpr ctor.type ctor.name
       let ind ← getConst ctor.block
       let ind ← match ind with
@@ -113,7 +113,7 @@ mutual
       return s!"{printIsSafe ind.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.name}@{ctor.idx}"
     -- TODO: print actual RecursorInfo
-    | .recursor recr => do
+    | .recursorProj recr => do
       let type ← getExpr recr.type recr.name
       let ind ← getConst recr.block
       let ind ← match ind with
@@ -125,10 +125,10 @@ mutual
       --let rules ← printRules recr.externalRules
       return s!"{printIsSafe ind.safe}recursor {recr.name} {recr.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.name}@{recr.idx}"
-    | .mutDef mutDef =>
+    | .definitionProj mutDef =>
       return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
     | .mutDefBlock ds => do
-      let defStrings ← ds.defs.join.mapM printDefinition
+      let defStrings ← ds.join.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
     | .mutIndBlock is => do
     -- TODO: print IndBlock
