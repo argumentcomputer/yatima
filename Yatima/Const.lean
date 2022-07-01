@@ -126,7 +126,7 @@ structure RecursorRule where
   rhs    : ExprCid
 
 structure RecursorRuleAnon where
-  ctor   : Sum Nat ConstAnonCid -- `Nat` for internal
+  ctor   : Nat ⊕ ConstAnonCid -- `Nat` for internal
   fields : Nat
   rhs    : ExprAnonCid
 
