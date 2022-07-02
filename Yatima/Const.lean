@@ -187,13 +187,13 @@ structure InductiveProj where
   lvls    : List Name
   type    : ExprCid
   block   : ConstCid
-  ind     : Nat
+  idx     : Nat
 
 structure InductiveProjAnon where
   lvls    : Nat
   type    : ExprAnonCid
   block   : ConstAnonCid
-  ind     : Nat
+  idx     : Nat
 
 structure InductiveProjMeta where
   name    : Name
@@ -227,16 +227,16 @@ structure RecursorProj where
   lvls    : List Name
   type    : ExprCid
   block   : ConstCid
-  ind     : Nat
   idx     : Nat
+  ridx    : Nat
   intern  : Bool
 
 structure RecursorProjAnon where
   lvls    : Nat
   type    : ExprAnonCid
   block   : ConstAnonCid
-  ind     : Nat
   idx     : Nat
+  ridx    : Nat
   intern  : Bool
 
 structure RecursorProjMeta where
@@ -348,7 +348,7 @@ def Const.toAnon : Const → ConstAnon
     ⟨ i.lvls.length
     , i.type.anon
     , i.block.anon
-    , i.ind ⟩
+    , i.idx ⟩
   | .constructorProj c => .constructorProj 
     ⟨ c.lvls.length
     , c.type.anon
@@ -359,8 +359,8 @@ def Const.toAnon : Const → ConstAnon
     ⟨ r.lvls.length
     , r.type.anon
     , r.block.anon
-    , r.ind
     , r.idx
+    , r.ridx
     , r.intern ⟩
   | .definitionProj x => .definitionProj
     ⟨ x.lvls.length
