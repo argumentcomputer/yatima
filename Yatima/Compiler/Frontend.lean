@@ -463,14 +463,14 @@ mutual
         let indBlockCid ← constToCid indBlock
         addToStore $ .const_cache indBlockCid indBlock
         match findRecursorIn struct.name indInfos with
-        | some (ind, idx, intern) =>
+        | some (idx, ridx, intern) =>
           return .recursorProj {
             name   := struct.name
             lvls   := struct.levelParams
             type   := typeCid
             block  := indBlockCid
-            ind    := ind
             idx    := idx
+            ridx   := ridx
             intern := intern }
         | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
@@ -492,7 +492,7 @@ mutual
             lvls := const.levelParams
             type := typeCid
             block := indBlockCid
-            ind := idx }
+            idx := idx }
           let constCid ← constToCid const
           addToStore $ .const_cache constCid const
           set { ← get with cache := (← get).cache.insert name (const, constCid) }

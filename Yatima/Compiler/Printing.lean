@@ -41,22 +41,28 @@ instance : ToString QuotKind where toString
 
 mutual
 
-  partial def printRecursorRule (cids? : Bool) (rule : RecursorRule) : 
-      CompileM String := do
-    let ctor ← sorry --getConst rule.ctor TODO: needs a match on `rule.ctor` first
+  partial def printRecursorRule (cids? : Bool) (rule : RecursorRule) : CompileM String := do
+    let ctor ← sorry
     let rhs ← getExpr rule.rhs ctor.name
-    pure s!"{← printYatimaConst cids? ctor} {rule.fields} {← printExpr rhs}"
+    return s!"{← printYatimaConst cids? ctor} {rule.fields} {← printExpr rhs}"
 
-  partial def printExternalRules (cids? : Bool) (rules : List RecursorRule) : 
-      CompileM String := do
+  partial def printRules (cids? : Bool) (rules : List RecursorRule) : CompileM String := do
     let rules ← rules.mapM $ printRecursorRule cids?
-    pure $ "\n".intercalate rules
+    return "\n".intercalate rules
 
-  partial def printCtors (ctors : List (Name × ExprCid)) : CompileM String := do
-    let ctors ← ctors.mapM fun (name, expr) => do
-      let ctor ← getExpr expr name
-      pure $ s!"| {name} : {← printExpr ctor}"
-    pure $ "\n".intercalate ctors
+  partial def printRecursor (recr : Recursor) : CompileM String := sorry
+
+  partial def printConstructors (ctors : List Constructor) : CompileM String := do
+    let ctors ← ctors.mapM fun ctor => do
+      pure s!"| {ctor.name} : {← printExpr (← getExpr ctor.type ctor.name)}"
+    return "\n".intercalate ctors
+
+  partial def printInductive (ind : Inductive) : CompileM String := do
+    let type ← getExpr ind.type ind.name
+    let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr type}"
+    let intRecrs := "\n".intercalate (← ind.intRecrs.mapM printRecursor)
+    let extRecrs := "\n".intercalate (← ind.extRecrs.mapM printRecursor)
+    return s!"{indHeader}\n{← printConstructors ind.ctors}\nInternal recursors:\n{intRecrs}\nExternal recursors:\n{extRecrs}"
 
   partial def printExpr : Expr → CompileM String
     | .var name idx => pure s!"{name}.{idx}"
@@ -108,39 +114,39 @@ mutual
       return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
     | .definition defn => printDefinition defn
-    | .inductiveProj ind => do
-      let type ← getExpr ind.type ind.name
-      return s!"{cid}inductive {ind.name} {ind.lvls} : {← printExpr type} \n"
-    | .constructorProj proj => do
-      match ← getConst proj.block with
-      | .mutIndBlock is => match is.get? proj.idx with
-        | some i => match i.ctors.get? proj.cidx with
+    | .inductiveProj proj => do match ← getConst proj.block with
+      | .mutIndBlock inds => match inds.get? proj.idx with
+        | some ind => printInductive ind
+        | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
+      | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
+    | .constructorProj proj => do match ← getConst proj.block with
+      | .mutIndBlock inds => match inds.get? proj.idx with
+        | some ind => match ind.ctors.get? proj.cidx with
           | some ctor =>
             let type ← getExpr ctor.type ctor.name
-            return s!"{cid}{printIsSafe i.safe}constructor {ctor.name} {i.lvls} : {← printExpr type}"
-          | none => throw s!"malformed constructor projection '{proj.name}': cidx {proj.cidx} ≥ '{i.ctors.length}'"
-        | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{is.length}'"
+            return s!"{printIsSafe ind.safe}constructor {ctor.name} {ind.lvls} : {← printExpr type}"
+          | none => throw s!"malformed constructor projection '{proj.name}': cidx {proj.cidx} ≥ '{ind.ctors.length}'"
+        | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
       | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
-    | .recursorProj proj => do
-      let type ← getExpr proj.type proj.name
-      let ind ← getConst proj.block
-      let ind ← match ind with
-        | .mutIndBlock is => match is.get? proj.ind with
-          | some i => pure i
-          | _ => throw s!"malformed recursor with `ind` field bigger than the block it points to"
-        | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
-      -- TODO
-      --let rules ← printRules recr.externalRules
-      return s!"{cid}{printIsSafe ind.safe}recursor {proj.name} {proj.lvls} : {← printExpr type} :=\n" ++
-             s!"  {ind.name}@{proj.idx}"
-    | .definitionProj mutDef =>
-      return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst cids? (← getConst mutDef.block)}"
-    | .mutDefBlock ds => do
-      let defStrings ← ds.join.mapM printDefinition
+    | .recursorProj proj => do match ← getConst proj.block with
+      | .mutIndBlock inds => match inds.get? proj.idx with
+        | some ind =>
+          let recrs := if proj.intern then ind.intRecrs else ind.extRecrs
+          match recrs.get? proj.ridx with
+          | some recr =>
+            let type ← getExpr recr.type recr.name
+            return s!"{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}"
+          | none => throw s!"malformed recursor projection '{proj.name}': ridx {proj.ridx} ≥ '{recrs.length}'"
+        | none => throw s!"malformed recursor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
+      | _ => throw s!"malformed recursor projection '{proj.name}': doesn't point to an inductive block"
+    | .definitionProj proj =>
+      return s!"mutdef {proj.name}@{proj.idx} {← printYatimaConst cids? (← getConst proj.block)}"
+    | .mutDefBlock dss => do
+      let defStrings ← dss.join.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
-    | .mutIndBlock is => do
-    -- TODO: print IndBlock
-      return s!"TODO"
+    | .mutIndBlock inds => do
+      let defStrings ← inds.mapM printInductive
+      return s!"mutual\n{"\n".intercalate defStrings}\nend"
 
 end
 
