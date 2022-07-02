@@ -3,7 +3,8 @@ import Yatima.Compiler.Graph
 
 namespace Yatima.Compiler
 
-open Std (RBMap) in
+open Std (RBMap)
+
 structure CompileState where
   store     : Yatima.Store
   cache     : RBMap Name (Const × ConstCid) compare
@@ -18,7 +19,7 @@ structure CompileEnv where
   cycles   : Lean.ReferenceMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  recrCtx  : List Lean.Name
+  recrCtx  : RBMap Lean.Name Nat compare
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -35,9 +36,10 @@ def withName (name : Name) : CompileM α → CompileM α :=
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, levels, [], []⟩
+  withReader $ fun e => ⟨e.constMap, e.cycles, levels, [], .empty⟩
 
-def withRecrs (recrCtx : List Lean.Name) : CompileM α → CompileM α :=
+def withRecrs (recrCtx : RBMap Lean.Name Nat compare) : 
+    CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.cycles, e.univCtx, e.bindCtx, recrCtx⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=

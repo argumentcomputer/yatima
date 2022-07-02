@@ -5,6 +5,8 @@ import Lean
 
 namespace Yatima.Compiler
 
+open Std (RBMap)
+
 instance : Coe Lean.Name Name where
   coe := .ofLeanName
 
@@ -260,7 +262,7 @@ mutual
       addToStore $ .univ_cache univCid univ
       return .sort univCid
     | .const name lvls _ => do
-      match (← read).recrCtx.indexOf name with
+      match (← read).recrCtx.find? name with
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
           | some const => do
@@ -272,8 +274,8 @@ mutual
             return .const name constCid univsCids
           | none => throw s!"Unknown constant '{name}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
-    | .lam name typ bod _ => .lam name typ.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
-    | .forallE name dom img _ => .pi name dom.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
+    | .lam name typ bod data => .lam name data.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
+    | .forallE name dom img data => .pi name data.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
     | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr typ) <*> (toYatimaExpr exp) <*> (withName name $ toYatimaExpr bod)
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr e
@@ -286,9 +288,9 @@ mutual
     let type ← toYatimaExpr defn.type
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
-    let value :=
-      if isMutual then ← toYatimaExpr defn.value 
-      else ← withRecrs [defn.name] $
+    let value ←
+      if isMutual then toYatimaExpr defn.value 
+      else withRecrs (RBMap.single defn.name 0) $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
     addToStore $ .expr_cache valueCid value
@@ -352,7 +354,7 @@ mutual
         funList := (funList.append ind.ctors).append leanRecs
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{indName}'"
-    withRecrs (ind.all.append funList) do
+    withRecrs (RBMap.enumList $ ind.all ++ funList) do
     let indInfos : List Inductive ← ind.all.mapM fun name => do
       match (← read).constMap.find? name with
       | some (.inductInfo ind) => toYatimaInductive ind
@@ -362,7 +364,6 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
-    dbg_trace s!"call: {const.name}"
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr struct.type
@@ -377,7 +378,7 @@ mutual
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      withRecrs [struct.name] do
+      withRecrs (RBMap.single struct.name 0) do
         let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
         let valueCid ← exprToCid value
         addToStore $ .expr_cache valueCid value
@@ -390,7 +391,7 @@ mutual
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
       addToStore $ .expr_cache typeCid type
-      withRecrs [struct.name] do
+      withRecrs (RBMap.single struct.name 0) do
         let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
         let valueCid ← exprToCid value
         addToStore $ .expr_cache valueCid value
@@ -417,10 +418,12 @@ mutual
           | some (.defnInfo defn) => pure defn
           | _ => throw s!"Unknown definition '{name}'"
         let mutualDefs ← sortDefs [mutualDefs]
+        let mut mutualIdxs : RBMap Lean.Name Nat compare := RBMap.empty
         for (i, ds) in mutualDefs.enum do
           for d in ds do 
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
-        let definitions ← withRecrs mutualNames $ 
+            mutualIdxs := mutualIdxs.insert d.name i
+        let definitions ← withRecrs mutualIdxs $ 
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
         return .mutDefBlock definitions
       | none => return .definition $ ← toYatimaDef false struct 
@@ -600,7 +603,7 @@ mutual
   partial def eqDef
     (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Bool := do
-    match (← cmpDef names x y )with 
+    match (← cmpDef names x y) with 
       | .eq => pure true 
       | _ => pure false
 
@@ -672,7 +675,7 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
       (vss.filter (·.length != 1)).map fun vs => 
           vs.map fun v => (v, vs)
     CompileM.run
-      ⟨map, Std.RBMap.ofList nss.join, [], [], []⟩
+      ⟨map, Std.RBMap.ofList nss.join, [], [], .empty⟩
       default
       (buildStore delta printLean printYatima)
   | .error e => throw e
