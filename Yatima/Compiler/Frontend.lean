@@ -286,9 +286,9 @@ mutual
     let type ← toYatimaExpr defn.type
     let typeCid ← exprToCid type
     addToStore $ .expr_cache typeCid type
-    let value ←
-      if isMutual then toYatimaExpr defn.value 
-      else withRecrs [defn.name] $
+    let value :=
+      if isMutual then ← toYatimaExpr defn.value 
+      else ← withRecrs [defn.name] $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
     addToStore $ .expr_cache valueCid value
@@ -362,6 +362,7 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM Const := withResetCompileEnv const.levelParams do
+    dbg_trace s!"call: {const.name}"
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr struct.type
@@ -434,7 +435,9 @@ mutual
           | some i => return i
           | none => throw s!"'{ind.name}' not found in '{ind.all}'")
         match ind.ctors.indexOf name with
-        | some idx =>
+        | some cidx =>
+          if cidx != struct.cidx then 
+            throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
           let indInfos ← buildInductiveInfoList ind
           let indBlock : Const := .mutIndBlock indInfos
           let indBlockCid ← constToCid indBlock
@@ -647,7 +650,7 @@ def buildStore (constMap : Lean.ConstMap)
     let (const, constCid) ← processYatimaConst const
     if printYatima then
       dbg_trace "------------ Yatima constant ------------"
-      dbg_trace s!"{← printYatimaConst const}"
+      dbg_trace s!"{← printYatimaConst true const}"
       dbg_trace s!"Anon CID: {constCid.anon.data}"
       dbg_trace s!"Meta CID: {constCid.meta.data}"
   printCompilationStats
@@ -666,8 +669,8 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
   match g.scc? with
   | .ok vss =>
     let nss : List (List $ Lean.Name × List Lean.Name) :=
-      vss.map fun vs => 
-        vs.map fun v => (v, vs)
+      (vss.filter (·.length != 1)).map fun vs => 
+          vs.map fun v => (v, vs)
     CompileM.run
       ⟨map, Std.RBMap.ofList nss.join, [], [], []⟩
       default

@@ -1,3 +1,5 @@
+prelude 
+
 inductive BLA
   | nil
   | bla : BLA → BLA → BLA
@@ -5,9 +7,9 @@ inductive BLA
 inductive BLAH | blah : BLA → BLAH
 
 mutual
-inductive BLE | bli : BLI → BLE
-inductive BLI | ble : BLE → BLI
-inductive BLO | blea : BLE → BLA → BLO
+  inductive BLE | bli : BLI → BLE
+  inductive BLI | ble : BLE → BLI
+  inductive BLO | blea : BLE → BLA → BLO
 end
 
 inductive BLEH
@@ -23,6 +25,10 @@ mutual
     | cons : (t : Tree A) → (ts : TreeList A) → TreeList A
 end
 
+inductive List (α : Type u) where 
+  | nil : List α
+  | cons (a : α) (as : List α) : List α
+
 inductive Treew (A : Type) where
   | branch : (a : A) → (trees : List (Treew A)) → Treew A
 
@@ -34,33 +40,3 @@ mutual
     | nil : TreeListq A
     | cons : (t : Treeq A) → (ts : TreeListq A) → TreeListq A
 end
-
--- mutual
---   unsafe def A : Nat → Nat
---   | 0 => 0
---   | n + 1 => B n + E n + C n + 1
-
---   unsafe def C : Nat → Nat
---   | 0 => 0
---   | n + 1 => B n + F n + A n + 1
-
---   unsafe def B : Nat → Nat
---   | 0 => 0
---   | n + 1 => C n + 2
-
---   unsafe def E : Nat → Nat 
---   | 0 => 0 
---   | n + 1 => B n + A n + F n + 1
-
---   unsafe def F : Nat → Nat 
---   | 0 => 0 
---   | n + 1 => B n + C n + E n + 1
-
---   unsafe def G : Nat → Nat 
---   | 0 => 0
---   | n + 1 => B n + F n + H n + 2
-
---   unsafe def H : Nat → Nat 
---   | 0 => 0
---   | n + 1 => B n + E n + G n + 2
--- end

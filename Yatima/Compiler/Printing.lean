@@ -13,6 +13,11 @@ def printDefSafety : Yatima.DefinitionSafety → String
   | .safe    => ""
   | .partial => "partial "
 
+def getCid (name : Name) : CompileM ConstCid := do
+  match (← get).cache.find? name with
+  | some (const, cid) => pure cid
+  | none => throw s!"Could not find cid of {name} in context"
+
 def getConst (constCid : ConstCid) : CompileM Const := do
   match (← get).store.const_cache.find? constCid with
   | some const => pure const
@@ -23,6 +28,11 @@ def getExpr (exprCid : ExprCid) (name : Name) : CompileM Expr := do
   | some expr => pure expr
   | none => throw s!"Could not find type of {name} in context"
 
+def printCid (name : Name) : CompileM String := do 
+  let cid ← getCid name 
+  pure $ s!"anon: {cid.anon.data}\n" ++
+         s!"meta: {cid.meta.data}\n"
+
 instance : ToString QuotKind where toString
   | .type => "Quot"
   | .ctor => "Quot.mk"
@@ -31,13 +41,15 @@ instance : ToString QuotKind where toString
 
 mutual
 
-  partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
+  partial def printRecursorRule (cids? : Bool) (rule : RecursorRule) : 
+      CompileM String := do
     let ctor ← sorry --getConst rule.ctor TODO: needs a match on `rule.ctor` first
     let rhs ← getExpr rule.rhs ctor.name
-    pure s!"{← printYatimaConst ctor} {rule.fields} {← printExpr rhs}"
+    pure s!"{← printYatimaConst cids? ctor} {rule.fields} {← printExpr rhs}"
 
-  partial def printExternalRules (rules : List RecursorRule) : CompileM String := do
-    let rules ← rules.mapM printRecursorRule
+  partial def printExternalRules (cids? : Bool) (rules : List RecursorRule) : 
+      CompileM String := do
+    let rules ← rules.mapM $ printRecursorRule cids?
     pure $ "\n".intercalate rules
 
   partial def printCtors (ctors : List (Name × ExprCid)) : CompileM String := do
@@ -73,36 +85,39 @@ mutual
     return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
            s!"  {← printExpr value}"
 
-  partial def printYatimaConst : Const → CompileM String
+  partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String := do
+    let cid := 
+      if cids? then ← printCid const.name 
+      else ""
+    match const with 
     | .axiom ax => do
       let type ← getExpr ax.type ax.name
-      return s!"{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
+      return s!"{cid}{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
     | .theorem thm => do
       let type ← getExpr thm.type thm.name
       let value ← getExpr thm.value thm.name
-      return s!"theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
+      return s!"{cid}theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
              s!"  {← printExpr value}" 
     | .opaque opaq => do
       let type ← getExpr opaq.type opaq.name
       let value ← getExpr opaq.value opaq.name
-      return s!"{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
+      return s!"{cid}{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
              s!"  {← printExpr value}"
     | .quotient quot => do
       let type ← getExpr quot.type quot.name
-      return s!"quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
+      return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
              s!"  {quot.kind}"
     | .definition defn => printDefinition defn
     | .inductiveProj ind => do
       let type ← getExpr ind.type ind.name
-      sorry
-      -- return s!"inductive {ind.name} {ind.lvls} : {← printExpr type} \n" ++ s!"{ind.block.anon}.{ind.block.meta}@{ind.ind}"
+      return s!"{cid}inductive {ind.name} {ind.lvls} : {← printExpr type} \n"
     | .constructorProj proj => do
       match ← getConst proj.block with
       | .mutIndBlock is => match is.get? proj.idx with
         | some i => match i.ctors.get? proj.cidx with
           | some ctor =>
             let type ← getExpr ctor.type ctor.name
-            return s!"{printIsSafe i.safe}constructor {ctor.name} {i.lvls} : {← printExpr type}"
+            return s!"{cid}{printIsSafe i.safe}constructor {ctor.name} {i.lvls} : {← printExpr type}"
           | none => throw s!"malformed constructor projection '{proj.name}': cidx {proj.cidx} ≥ '{i.ctors.length}'"
         | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{is.length}'"
       | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
@@ -116,10 +131,10 @@ mutual
         | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
       -- TODO
       --let rules ← printRules recr.externalRules
-      return s!"{printIsSafe ind.safe}recursor {proj.name} {proj.lvls} : {← printExpr type} :=\n" ++
+      return s!"{cid}{printIsSafe ind.safe}recursor {proj.name} {proj.lvls} : {← printExpr type} :=\n" ++
              s!"  {ind.name}@{proj.idx}"
     | .definitionProj mutDef =>
-      return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst (← getConst mutDef.block)}"
+      return s!"mutdef {mutDef.name}@{mutDef.idx} {← printYatimaConst cids? (← getConst mutDef.block)}"
     | .mutDefBlock ds => do
       let defStrings ← ds.join.mapM printDefinition
       return s!"mutual\n{"\n".intercalate defStrings}\nend"
