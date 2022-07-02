@@ -8,6 +8,14 @@ namespace Yatima.Compiler.PrintYatima
 
 open Yatima.Compiler.CompileM
 
+instance : ToString BinderInfo where 
+  toString bInfo := match bInfo with 
+  | .default => "default"
+  | .implicit => "implicit"
+  | .strictImplicit => "strict"
+  | .instImplicit => "inst"
+  | .auxDecl => "auxDecl"
+
 def printDefSafety : Yatima.DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
@@ -39,6 +47,109 @@ instance : ToString QuotKind where toString
   | .lift => "Quot.lift"
   | .ind  => "Quot.ind"
 
+def isAtom : Expr → Bool 
+  | .const .. | .var .. | .lit .. | .lty .. => true 
+  | _ => false
+
+def isBinder : Expr → Bool 
+  | .lam .. | .pi .. => true 
+  | _ => false
+
+def isProp (expr : Expr) : CompileM Bool := do
+  match expr with
+  | .sort cid =>
+    match (← get).store.univ_cache.find? cid with 
+    | some Univ.zero => return true
+    | _ => return false 
+  | _ => return false 
+
+def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
+  match bInfo with 
+  | .implicit => s!"\{{name} : {type}}"
+  | .strictImplicit => s!"⦃{name} : {type}⦄"
+  | .instImplicit => s!"[{name} : {type}]"
+  | _ => s!"({name} : {type})"
+
+mutual 
+  partial def printApp (func : Expr) (arg : Expr) : 
+      CompileM (String × List Name) := do 
+    match func, arg with 
+    | (.app func arg1), arg2 => 
+      let (app, bounds) ← printApp func arg1
+      let (arg2', bounds') ← printExprAux arg2
+      if isAtom arg2 || (← isProp arg2) then 
+        return (s!"{app} {arg2'}", bounds ++ bounds')
+      else  
+        return (s!"{app} ({arg2'})", bounds ++ bounds')
+    | func, arg =>
+      let (func', bounds) ← printExprAux func 
+      let (arg', bounds') ← printExprAux arg
+      let func' : CompileM String := do 
+        if isAtom func || (← isProp func) then return s!"{func'}"
+        else return s!"({func'})"
+      let arg' : CompileM String := do 
+        if isAtom arg || (← isProp arg) then return s!"{arg'}"
+        else return s!"({arg'})"
+      return (s!"{← func'} {← arg'}", bounds ++ bounds')
+
+  partial def printExprAux : Expr → CompileM (String × List Name)
+    | .var name idx => pure (s!"{name}", [name])
+    | .sort _ => pure ("Sort", [])
+    | .const name .. => pure (s!"{name}", [])
+    | .app func arg => do 
+      let (func, bound) ← printExprAux func
+      let (arg, bound') ← printExprAux arg
+      return (s!"({func} {arg})", bound ++ bound')
+    | .lam name bInfo type body => do 
+      let isBind := isBinder body
+      let (type, bound') ← printExprAux type
+      let (body, bound) ← printExprAux body
+      let name := 
+        if bound.contains name then name 
+        else "_"
+      let bddVar := printBinder name bInfo type
+      if body.startsWith "λ " && isBind then 
+        return (s!"λ {bddVar} {body.drop 2}", bound ++ bound')
+      else 
+        return (s!"λ {bddVar} => {body}", bound ++ bound')
+    | .pi name bInfo type body => do
+      dbg_trace s! "{bInfo}"
+      let isBind := isBinder body
+      let (type, bound') ← printExprAux type
+      let (body, bound) ← printExprAux body
+      let bddVar := if bound.contains name then  
+        s!"Π {printBinder name bInfo type},"
+      else s!"{type} →"
+      if isBind then 
+        if body.startsWith "Π " then 
+          return (s!"{bddVar.dropRight 1} {body.drop 2}", bound ++ bound') 
+        else 
+          return (s!"{bddVar} {body}", bound ++ bound')
+      else 
+        return (s!"{bddVar} {body}", bound ++ bound')
+    | .letE name type value body => do 
+      let (type, bound) ← printExprAux type
+      let (body, bound') ← printExprAux body
+      let (value, bound'') ← printExprAux value
+      return (s!"let {name} : {type} := {value} in {body}", bound ++ bound' ++ bound'')
+    | .lit lit => return match lit with
+      | .nat num => (s!"{num}", [])
+      | .str str => (str, [])
+    | .lty lty => return match lty with 
+      | .nat => ("Nat", [])
+      | .str => ("String", [])
+    | .fix name body => do
+      let (body, bound) ← printExprAux body
+      return (s!"μ {name} {body}", bound)
+    | .proj idx expr => do
+      let (expr, bound) ← printExprAux expr
+      return (s!"proj {idx} {expr}", bound)
+
+  partial def printExpr (expr : Expr) : CompileM String := do 
+    let (expr, _) ← printExprAux expr 
+    return expr
+end 
+
 mutual
 
   partial def printRecursorRule (cids? : Bool) (rule : RecursorRule) : CompileM String := do
@@ -63,27 +174,6 @@ mutual
     let intRecrs := "\n".intercalate (← ind.intRecrs.mapM printRecursor)
     let extRecrs := "\n".intercalate (← ind.extRecrs.mapM printRecursor)
     return s!"{indHeader}\n{← printConstructors ind.ctors}\nInternal recursors:\n{intRecrs}\nExternal recursors:\n{extRecrs}"
-
-  partial def printExpr : Expr → CompileM String
-    | .var name idx => pure s!"{name}.{idx}"
-    | .sort _ => pure "Sort"
-    | .const name .. => pure s!"{name}"
-    | .app func body =>
-      return s!"({← printExpr func} {← printExpr body})"
-    | .lam name _ type body =>
-      return s!"(λ {name} : {← printExpr type}, {← printExpr body})"
-    | .pi name _ type body =>
-      return s!"(Π {name} : {← printExpr type}, {← printExpr body})"
-    | .letE name type value body =>
-      return s!"(let {name} : {← printExpr type} := {← printExpr value} in {← printExpr body})" 
-    | .lit lit => return match lit with
-      | .nat num => s!"{num}"
-      | .str str => str
-    | .lty lty => return match lty with 
-      | .nat => "Nat"
-      | .str => "String"
-    | .fix name body => return s!"(μ {name} {← printExpr body})"
-    | .proj idx expr => return s!"(proj {idx} {← printExpr expr})"
 
   partial def printDefinition (defn : Definition) : CompileM String := do
     let type ← getExpr defn.type defn.name
