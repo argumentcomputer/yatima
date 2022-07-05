@@ -25,7 +25,15 @@ def compareNames : Name → Name → Ordering
 instance : Ord Name where
   compare := compareNames
 
-open Std (RBTree)
+def ConstantInfo.ctorName : ConstantInfo → String
+  | axiomInfo  _ => "axiom"
+  | defnInfo   _ => "definition"
+  | thmInfo    _ => "theorem"
+  | opaqueInfo _ => "opaque"
+  | quotInfo   _ => "quotient"
+  | inductInfo _ => "inductive"
+  | ctorInfo   _ => "constructor"
+  | recInfo    _ => "recursor"
 
 def getExprRefs : Expr → List Name 
   | .mdata _ exp _ => getExprRefs exp
@@ -57,7 +65,17 @@ def getConstRefs : ConstantInfo → List Name
                 ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
   | .quotInfo   val => getExprRefs val.type
 
-open Std (RBTree) in 
+def ConstMap.childrenOfWith (map : ConstMap) (name : Name)
+    (p : ConstantInfo → Bool) : List ConstantInfo :=
+  map.fold (init := []) fun acc n c => match n with
+  | .str n ..
+  | .num n .. => if n == name && p c then c :: acc else acc
+  | _ => acc
+
+section OpenReferences
+
+open Std (RBTree)
+
 def getOpenReferencesInExpr (map : ConstMap) (mem : RBTree Name compare) :
     Expr → RBTree Name compare
   | .app e₁ e₂ .. =>
@@ -140,6 +158,8 @@ def filterConstants (cs : ConstMap) : ConstMap :=
     fun acc _ c => acc.union (getOpenReferencesInConst cs c)
   Lean.List.toSMap $ cs.toList.filter fun (n, c) =>
     (!openReferences.contains n) && (!hasOpenReferenceInConst openReferences c)
+
+end OpenReferences
 
 instance : BEq ReducibilityHints where beq
   | .opaque,    .opaque    => true

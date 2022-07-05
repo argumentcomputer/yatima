@@ -1,51 +1,46 @@
-namespace Test0
-mutual
+import Yatima.Name
 
-  partial def D : Nat → Nat
-  | 0     => 0
-  | n + 1 => G n + D n + N n + 1
+def foo {α β γ : Type} : α → (β → γ) → α := fun a f => a
 
-  partial def G : Nat → Nat
-  | 0     => 0
-  | n + 1 => O n + D n + G n + 3
+inductive BLA
+  | nil
+  | bla : BLA → BLA → BLA
 
-  partial def I : Nat → Nat
-  | 0     => 0
-  | n + 1 => G n + D n + N n + 1
+inductive BLAH | blah : BLA → BLAH
 
-  partial def J : Nat → Nat
-  | 0     => 0
-  | n + 1 => J n + R n + 2
+-- mutual
+--   inductive BLE | bli : BLI → BLE
+--   inductive BLI | ble : BLE → BLI
+--   inductive BLO | blea : BLE → BLA → BLO
+-- end
 
-  partial def N : Nat → Nat
-  | 0     => 0
-  | n + 1 => J n + D n + 2
+-- inductive BLEH
+--   | bleh : BLE → BLEH
+--   | bloh : BLO → BLEH
 
-  partial def O : Nat → Nat
-  | 0     => 0
-  | n + 1 => N n + R n + 2
+-- mutual
+--   inductive Tree (A : Type) where
+--     | branch : (a : A) → (trees : TreeList A) → Tree A
 
-  partial def R : Nat → Nat
-  | 0     => 0
-  | n + 1 => G n + R n + N n + 1
+--   inductive TreeList (A : Type) where
+--     | nil : TreeList A
+--     | cons : (t : Tree A) → (ts : TreeList A) → TreeList A
+-- end
 
-end
+-- inductive List (α : Type u) where 
+--   | nil : List α
+--   | cons (a : α) (as : List α) : List α
 
-  partial def T : Nat → Nat
-  | 0     => 0
-  | n + 1 => G n + T n + O n + 1
+-- inductive Treew (A : Type) where
+--   | branch : (a : A) → (trees : List (Treew A)) → Treew A
 
-#print T._unsafe_rec
-end Test0
+-- mutual
+--   inductive Treeq (A : Type) where
+--     | branch : TreeListq A → (a : A) → (trees : List (Treeq A)) → Treeq A
 
--- [(0, [I, T, D, R]), (1, [J, N, O]), (2, [G])]
--- bagcyb6egbqlcadsnmcfwwzkkm2ih7se3gmhukhqiuhnwv2xb3crxkqe2q4pyfzsg
--- bagcyb6egbqlcadsnmcfwwzkkm2ih7se3gmhukhqiuhnwv2xb3crxkqe2q4pyfzsg
+--   inductive TreeListq (A : Type) where
+--     | nil : TreeListq A
+--     | cons : (t : Treeq A) → (ts : TreeListq A) → TreeListq A
+-- end
 
--- bagcyb6egbqlcbo46bdyn4ckfduo4tikzqibhtgnyc5qyurfsgqdzjpeq44zkpnjg
--- bagcyb6egbqlcbo46bdyn4ckfduo4tikzqibhtgnyc5qyurfsgqdzjpeq44zkpnjg
-
--- A: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
--- C: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
--- F: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
--- E: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
+-- #print TreeList.recOn
