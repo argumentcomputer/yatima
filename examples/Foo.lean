@@ -1,4 +1,4 @@
-prelude
+import Yatima.Name
 
 def foo {α β γ : Type} : α → (β → γ) → α := fun a f => a
 
