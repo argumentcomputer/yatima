@@ -15,7 +15,7 @@ def main (args : List String) : IO UInt32 := do
         match ← runFrontend (← IO.FS.readFile ⟨fileName⟩) fileName
           (args.contains "-pl") (args.contains "-py") with
         | .error err => IO.eprintln err; return 1
-        | .ok env =>
+        | .ok store =>
           -- todo: write to .ya
           return 0
       else
