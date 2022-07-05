@@ -99,16 +99,10 @@ def getIndices : Expr → List Nat
   | _ => [] -- All the rest of the cases are treated at once
 
 def getBVars : Expr → List Name
-  | var name _ => 
-    dbg_trace s!"leaf {name}"
-    [name]
+  | var name _ => [name]
   | app func input => getBVars func ++ getBVars input
-  | lam n _ type body => 
-    dbg_trace s!"lam {n}"
-    getBVars type ++ getBVars body
-  | pi n _ type body => 
-    dbg_trace s!"pi {n}"
-    getBVars type ++ getBVars body
+  | lam n _ type body => getBVars type ++ getBVars body
+  | pi n _ type body => getBVars type ++ getBVars body
   | letE _ type value body => getBVars type ++ getBVars value ++ getBVars body
   | fix _ body => getBVars body
   | proj _ body => getBVars body

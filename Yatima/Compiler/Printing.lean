@@ -88,15 +88,10 @@ def isBinder : Expr → Bool
   | .lam .. | .pi .. => true 
   | _ => false
 
-def isArrow (e : Expr) : Bool := 
-  dbg_trace s!"HELLLLO?"
-  match e with 
+def isArrow : Expr → Bool
   | .pi name bInfo type body =>
-    dbg_trace s!"bruh what {name}"
     !(body.getBVars.contains name) && bInfo == .default
-  | e => 
-    dbg_trace s!"bruh what {e.ctorType}"
-    false 
+  | e => false 
 
 def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
   match bInfo with 
@@ -107,13 +102,11 @@ def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
 
 mutual 
   partial def printApp (f : Expr) (arg : Expr) : CompileM String := do 
-    dbg_trace s!"call app"
     match f with 
     | .app .. => return s!"{← printExpr f} {← paren arg}"
     | _ => return s!"{← paren f} {← paren arg}"
   
   partial def printBinding (isPi : Bool) (e : Expr) : CompileM String := do
-    -- dbg_trace s!"call {e.name}, {isArrow e}"
     match e, isArrow e, isPi with 
     | .pi name bInfo type body, false, true
     | .lam name bInfo type body, _, false => 
@@ -137,11 +130,7 @@ mutual
       return s!"λ{← printBinding false (.lam name bInfo type body)}"
     | .pi name bInfo type body => do
       let huh? := isArrow body
-      dbg_trace s!"getBVars {name} {huh?}"
-      let arrow := (body.getBVars.contains name || name == "") && bInfo == .default
-      dbg_trace s!"call {name}, {arrow}"
-      if name == "t" then
-        throw ""
+      let arrow := (!body.getBVars.contains name || name == "") && bInfo == .default
       if !arrow then 
         return s!"Π{← printBinding true (.pi name bInfo type body)}"
       else 
@@ -160,7 +149,6 @@ mutual
 end 
 
 partial def printRecursorRule (ind : Inductive) (rule : RecursorRule) : CompileM String := do
-  dbg_trace s!"call rule: uwu"
   let ctor := do match rule.ctor with 
     | .inl idx => 
       match ind.ctors.get? idx with 
