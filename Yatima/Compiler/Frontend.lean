@@ -549,9 +549,19 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
       (buildEnv delta printLean printYatima)
   | .error e => throw e
 
+def getPaths : IO Lean.SearchPath := do
+  let out ← IO.Process.output {
+    cmd := "lake"
+    args := #["print-paths"]
+  }
+  let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
+  IO.println split
+  let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
+  return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
+
 def runFrontend (code fileName : String) (printLean printYatima : Bool) :
     IO $ Except String Env := do
-  Lean.initSearchPath $ ← Lean.findSysroot
+  Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
   let (env, ok) ← Lean.Elab.runFrontend code .empty fileName default
   if ok then
     let importFile := env.header.imports.map (·.module) |>.foldl
