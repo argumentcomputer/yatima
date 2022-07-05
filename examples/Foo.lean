@@ -1,37 +1,46 @@
 import Yatima.Name
 
-mutual
-  unsafe def A : Nat → Nat
-  | 0 => 0
-  | n + 1 => B n + E n + C n + 1
+def foo {α β γ : Type} : α → (β → γ) → α := fun a f => a
 
-  unsafe def C : Nat → Nat
-  | 0 => 0
-  | n + 1 => B n + F n + A n + 1
+inductive BLA
+  | nil
+  | bla : BLA → BLA → BLA
 
-  unsafe def B : Nat → Nat
-  | 0 => 0
-  | n + 1 => C n + 2
+inductive BLAH | blah : BLA → BLAH
 
-  unsafe def E : Nat → Nat 
-  | 0 => 0 
-  | n + 1 => B n + A n + F n + 1
+-- mutual
+--   inductive BLE | bli : BLI → BLE
+--   inductive BLI | ble : BLE → BLI
+--   inductive BLO | blea : BLE → BLA → BLO
+-- end
 
-  unsafe def F : Nat → Nat 
-  | 0 => 0 
-  | n + 1 => B n + C n + E n + 1
+-- inductive BLEH
+--   | bleh : BLE → BLEH
+--   | bloh : BLO → BLEH
 
-  unsafe def G : Nat → Nat 
-  | 0 => 0
-  | n + 1 => B n + F n + H n + 2
+-- mutual
+--   inductive Tree (A : Type) where
+--     | branch : (a : A) → (trees : TreeList A) → Tree A
 
-  unsafe def H : Nat → Nat 
-  | 0 => 0
-  | n + 1 => B n + E n + G n + 2
-end 
+--   inductive TreeList (A : Type) where
+--     | nil : TreeList A
+--     | cons : (t : Tree A) → (ts : TreeList A) → TreeList A
+-- end
 
+-- inductive List (α : Type u) where 
+--   | nil : List α
+--   | cons (a : α) (as : List α) : List α
 
--- A: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
--- C: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
--- F: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
--- E: bagcyb6egbqlcbb6kcu6vs3bema6tzlkeponxksunaj45aegt7i5ixaeh64ggg2wj
+-- inductive Treew (A : Type) where
+--   | branch : (a : A) → (trees : List (Treew A)) → Treew A
+
+-- mutual
+--   inductive Treeq (A : Type) where
+--     | branch : TreeListq A → (a : A) → (trees : List (Treeq A)) → Treeq A
+
+--   inductive TreeListq (A : Type) where
+--     | nil : TreeListq A
+--     | cons : (t : Treeq A) → (ts : TreeListq A) → TreeListq A
+-- end
+
+-- #print TreeList.recOn

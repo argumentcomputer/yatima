@@ -18,11 +18,11 @@ def ReferenceMap.empty : ReferenceMap :=
   .empty
 
 instance : Inhabited ReferenceMap := 
-  { default := .empty }
+  { default := .empty } 
 
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
   constMap.fold (init := .empty)
-    fun acc name const => acc.insert name (Lean.getConstRefs const).eraseDup
+    fun acc name const => acc.insert name $ (getConstRefs const).eraseDup
 
 instance : ToString ReferenceMap := 
  { toString := fun refs => toString refs.toList }
@@ -77,9 +77,9 @@ open Std in
 def inDegrees' (g : Graph) : RBMap Name Nat compare :=
   g.transposeG.outDegrees
 
-/-- Don't use this, it will recompute `g.inDegrees` every time, yuck! -/
-def inDegree (g : Graph) (v : Vertex) : Option Nat :=
-  g.inDegrees.find? v
+-- /-- Don't use this, it will recompute `g.inDegrees` every time, yuck! -/
+-- def inDegree (g : Graph) (v : Vertex) : Option Nat :=
+--   g.inDegrees.find? v
 
 structure dfsState where 
   visited : RBMap Name Bool compare
