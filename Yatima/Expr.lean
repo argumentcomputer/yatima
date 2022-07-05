@@ -64,6 +64,29 @@ inductive ExprMeta
 
 namespace Expr
 
+def name : Expr → Option Name 
+  | lam name .. => some name
+  | pi name .. => some name
+  | letE name .. => some name 
+  | _ => none
+
+def bInfo : Expr → Option BinderInfo 
+  | lam _ b _ _ => some b
+  | pi _ b _ _ => some b
+  | _ => none
+
+def type : Expr → Option Expr 
+  | lam _ _ t _ => some t
+  | pi _ _ t _ => some t
+  | letE _ t _ _ => some t 
+  | _ => none
+
+def body : Expr → Option Expr 
+  | lam _ _ _ b => some b
+  | pi _ _ _ b => some b
+  | letE _ _ _ b => some b 
+  | _ => none
+
 -- Get the list of de Bruijn indices of all the variables of a Yatima `Expr` (helpful for debugging later)
 def getIndices : Expr → List Nat
   | var _ idx => [idx]
@@ -72,7 +95,37 @@ def getIndices : Expr → List Nat
   | pi _ _ type body => getIndices type ++ getIndices body
   | letE _ type value body => getIndices type ++ getIndices value ++ getIndices body
   | fix _ body => getIndices body
+  | proj _ body => getIndices body 
   | _ => [] -- All the rest of the cases are treated at once
+
+def getBVars : Expr → List Name
+  | var name _ => 
+    dbg_trace s!"leaf {name}"
+    [name]
+  | app func input => getBVars func ++ getBVars input
+  | lam n _ type body => 
+    dbg_trace s!"lam {n}"
+    getBVars type ++ getBVars body
+  | pi n _ type body => 
+    dbg_trace s!"pi {n}"
+    getBVars type ++ getBVars body
+  | letE _ type value body => getBVars type ++ getBVars value ++ getBVars body
+  | fix _ body => getBVars body
+  | proj _ body => getBVars body
+  | _ => [] -- All the rest of the cases are treated at once
+
+def ctorType : Expr → String 
+  | var .. => "var"
+  | sort .. => "sort" 
+  | const .. => "const"
+  | app .. => "app"
+  | lam .. => "lam"
+  | pi .. => "pi"
+  | letE .. => "let"
+  | lit .. => "lit"
+  | lty .. => "lty"
+  | fix .. => "fix"
+  | proj .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
 def numBinders : Expr → Nat

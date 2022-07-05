@@ -2,13 +2,15 @@ prelude
 
 def foo {α β γ : Type} : α → (β → γ) → α := fun a f => a
 
-inductive BLA
-  | nil
-  | bla : BLA → BLA → BLA
+-- inductive BLA
+--   | nil
+--   | bla : BLA → BLA → BLA
 
 inductive BLAH | blah : BLA → BLAH
 
-#print BLAH.rec
+#print BLAH.recOn
+
+-- #print BLAH.rec
 
 -- mutual
 --   inductive BLE | bli : BLI → BLE
