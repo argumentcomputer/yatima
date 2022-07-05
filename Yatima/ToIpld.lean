@@ -29,10 +29,18 @@ instance : Coe ExprMetaCid  Ipld where coe u := .link u.data
 instance : Coe ConstAnonCid Ipld where coe u := .link u.data
 instance : Coe ConstMetaCid Ipld where coe u := .link u.data
 
-instance (α : Type) [Coe α Ipld] : Coe (List α) Ipld where
+instance [Coe α Ipld] [Coe β Ipld] : Coe (α ⊕ β) Ipld where coe
+  | .inl i => i
+  | .inr c => c
+
+instance [Coe α Ipld] : Coe (Option α) Ipld where coe
+  | none   => .null
+  | some a => a
+
+instance [Coe α Ipld] : Coe (List α) Ipld where
   coe l := .array ⟨List.map (fun (x : α) => x) l⟩
 
-instance (α β : Type) [Coe α Ipld] [Coe β Ipld] : Coe (α × β) Ipld where
+instance [Coe α Ipld] [Coe β Ipld] : Coe (α × β) Ipld where
   coe x := .array #[x.1, x.2]
 
 instance : Coe BinderInfo Ipld where coe
@@ -61,11 +69,35 @@ instance : Coe RecursorRuleAnon Ipld where coe
 instance : Coe RecursorRuleMeta Ipld where coe
   | .mk c r => .array #[c, r]
 
+instance : Coe RecursorAnon Ipld where coe
+  | .mk t p i m m' rs k => .array #[t, p, i, m, m', rs, k]
+
+instance : Coe RecursorMeta Ipld where coe
+  | .mk n t rs => .array #[n, t, rs]
+
+instance : Coe ConstructorAnon Ipld where coe
+  | .mk t p f => .array #[t, p, f]
+
+instance : Coe ConstructorMeta Ipld where coe
+  | .mk n t => .array #[n, t]
+
+instance : Coe InductiveAnon Ipld where coe
+  | .mk l t p i cs is es r s r' => .array #[l, t, p, i, cs, is, es, r, s, r']
+
+instance : Coe InductiveMeta Ipld where coe
+  | .mk n l t cs is es => .array #[n, l, t, cs, is, es]
+
 instance : Coe QuotKind Ipld where coe
   | .type => .number 0
   | .ctor => .number 1
   | .lift => .number 3
   | .ind  => .number 4
+
+instance : Coe DefinitionAnon Ipld where coe
+  | .mk n l t v => .array #[n, l, t, v]
+
+instance : Coe DefinitionMeta Ipld where coe
+  | .mk n l t v => .array #[n, l, t, v]
 
 def univAnonToIpld : UnivAnon → Ipld
   | .zero     => .array #[.number UNIVANON, .number 0]
@@ -101,31 +133,37 @@ def exprMetaToIpld : ExprMeta → Ipld
   | .app f a      => .array #[.number EXPRMETA, .number 3, f, a]
   | .lam i n t b  => .array #[.number EXPRMETA, .number 4, i, n, t, b]
   | .pi i n t b   => .array #[.number EXPRMETA, .number 5, i, n, t, b]
-  | .letE n t v b  => .array #[.number EXPRMETA, .number 6, n, t, v, b]
+  | .letE n t v b => .array #[.number EXPRMETA, .number 6, n, t, v, b]
   | .lit          => .array #[.number EXPRMETA, .number 7]
   | .lty          => .array #[.number EXPRMETA, .number 8]
   | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]
-  | .proj n e     => .array #[.number EXPRANON, .number 10, n, e]
+  | .proj n e     => .array #[.number EXPRMETA, .number 10, n, e]
 
 def constAnonToIpld : ConstAnon → Ipld
-  | .axiom ⟨l, t, s⟩         => .array #[.number CONSTANON, .number 0, l, t, s]
-  | .theorem ⟨l, t, v⟩       => .array #[.number CONSTANON, .number 1, l, t, v]
-  | .inductive ⟨l, t, p, i, c, r, s, rf, n⟩ => .array #[.number CONSTANON, .number 2, l, t, p, i, c, r, s, rf, n]
-  | .opaque ⟨l, t, v, s⟩     => .array #[.number CONSTANON, .number 3, l, t, v, s]
-  | .definition ⟨l, t, v, s⟩ => .array #[.number CONSTANON, .number 4, l, t, v, s]
-  | .constructor ⟨l, t, i, idx, p, f, s⟩ => .array #[.number CONSTANON, .number 5, l, t, i, idx, p, f, s]
-  | .recursor ⟨l, t, i, p, is, m, mi, r, k, s⟩ => .array #[.number CONSTANON, .number 6, l, t, i, p, is, m, mi, r, k, s]
-  | .quotient ⟨l, t, k⟩      => .array #[.number CONSTANON, .number 7, l, t, k]
+  | .axiom ⟨l, t, s⟩         => .array #[.number CONSTANON, .number 0,  l, t, s]
+  | .theorem ⟨l, t, v⟩       => .array #[.number CONSTANON, .number 1,  l, t, v]
+  | .opaque ⟨l, t, v, s⟩     => .array #[.number CONSTANON, .number 2,  l, t, v, s]
+  | .quotient ⟨l, t, k⟩      => .array #[.number CONSTANON, .number 3,  l, t, k]
+  | .definition ⟨n, l, t, v⟩ => .array #[.number CONSTANON, .number 4,  n, l, t, v]
+  | .inductiveProj ⟨l, t, b, i⟩       => .array #[.number CONSTANON, .number 5,  l, t, b, i]
+  | .constructorProj ⟨l, t, b, i, j⟩  => .array #[.number CONSTANON, .number 6,  l, t, b, i, j]
+  | .recursorProj ⟨l, t, b, i, j, i'⟩ => .array #[.number CONSTANON, .number 7,  l, t, b, i, j, i']
+  | .definitionProj ⟨l, t, b, i⟩      => .array #[.number CONSTANON, .number 8,  l, t, b, i]
+  | .mutDefBlock ds => .array #[.number CONSTANON, .number 9,  ds]
+  | .mutIndBlock is => .array #[.number CONSTANON, .number 10, is]
 
 def constMetaToIpld : ConstMeta → Ipld
-  | .axiom ⟨n, l, t⟩          => .array #[.number CONSTMETA, .number 0, n, l, t]
-  | .theorem ⟨n, l, t, v⟩     => .array #[.number CONSTMETA, .number 1, n, l, t, v]
-  | .inductive ⟨n, l, t, c⟩   => .array #[.number CONSTMETA, .number 2, n, l, t, c]
-  | .opaque ⟨n, l, t, v⟩      => .array #[.number CONSTMETA, .number 3, n, l, t, v]
-  | .definition ⟨n, l, t, v⟩  => .array #[.number CONSTMETA, .number 4, n, l, t, v]
-  | .constructor ⟨n, l, t, i⟩ => .array #[.number CONSTMETA, .number 5, n, l, t, i]
-  | .recursor ⟨n, l, t, i, r⟩ => .array #[.number CONSTMETA, .number 6, n, l, t, i, r]
-  | .quotient ⟨n, l, t⟩       => .array #[.number CONSTMETA, .number 7, n, l, t]
+  | .axiom ⟨n, l, t⟩         => .array #[.number CONSTMETA, .number 0,  n, l, t]
+  | .theorem ⟨n, l, t, v⟩    => .array #[.number CONSTMETA, .number 1,  n, l, t, v]
+  | .opaque ⟨n, l, t, v⟩     => .array #[.number CONSTMETA, .number 2,  n, l, t, v]
+  | .quotient ⟨n, l, t⟩      => .array #[.number CONSTMETA, .number 3,  n, l, t]
+  | .definition ⟨n, l, t, v⟩ => .array #[.number CONSTMETA, .number 4,  n, l, t, v]
+  | .inductiveProj ⟨n, l, t, b⟩   => .array #[.number CONSTMETA, .number 5,  n, l, t, b]
+  | .constructorProj ⟨n, l, t, b⟩ => .array #[.number CONSTMETA, .number 6,  n, l, t, b]
+  | .recursorProj ⟨n, l, t, b⟩    => .array #[.number CONSTMETA, .number 7,  n, l, t, b]
+  | .definitionProj ⟨n, l, t, b⟩  => .array #[.number CONSTMETA, .number 8,  n, l, t, b]
+  | .mutDefBlock ds => .array #[.number CONSTMETA, .number 9,  ds]
+  | .mutIndBlock is => .array #[.number CONSTMETA, .number 10, is]
 
 def univAnonToCid (univAnon : UnivAnon) : UnivAnonCid :=
   { data := ipldToCid UNIVANON.toNat (univAnonToIpld univAnon) }

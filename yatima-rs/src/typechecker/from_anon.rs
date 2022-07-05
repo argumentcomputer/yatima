@@ -113,8 +113,8 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
       Rc::new(Const::Inductive {
         uvars: lvl.clone(),
         typ,
-        params: params.clone(),
-        indices: indices.clone(),
+        params: *params,
+        indices: *indices,
         ctors: t_ctors,
         recr: *recr,
         safe: *safe,
@@ -138,8 +138,8 @@ pub fn const_from_anon(const_cid: &ConstAnonCid, cid_env: &Env, conv_env: &mut C
     ConstAnon::Recursor { lvl, ind, typ, params, indices, motives, minors, rules, k, safe } => {
       let ind = const_from_anon(ind, cid_env, conv_env);
       let typ = expr_from_anon(typ, cid_env, conv_env);
-      let params = TryFrom::try_from(params).unwrap();
-      let indices = TryFrom::try_from(indices).unwrap();
+      let params = TryFrom::try_from(*params).unwrap();
+      let indices = TryFrom::try_from(*indices).unwrap();
       let motives = TryFrom::try_from(motives).unwrap();
       let minors = TryFrom::try_from(minors).unwrap();
       let mut t_rules = HashMap::new();
