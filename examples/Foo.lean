@@ -1,3 +1,4 @@
+import Yatima.Name
 
 mutual
   unsafe def A : Nat → Nat
