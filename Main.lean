@@ -1,5 +1,6 @@
 import Lean
-import Yatima.Tests.GenMutuals
+import LSpec.SlimCheck.Testable
+import Yatima.Compiler.Frontend
 
 def List.pop : (l : List α) → l ≠ [] → α × List α
   | a :: as, _ => (a, as)
