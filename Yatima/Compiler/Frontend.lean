@@ -691,7 +691,7 @@ def getPaths : IO Lean.SearchPath := do
   return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
 
 def runFrontend (code fileName : String) (printLean printYatima : Bool) :
-    IO $ Except String Env := do
+    IO $ Except String Store := do
   Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
   let (env, ok) ← Lean.Elab.runFrontend code .empty fileName default
   if ok then
