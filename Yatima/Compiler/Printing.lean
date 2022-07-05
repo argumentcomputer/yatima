@@ -279,6 +279,7 @@ def printLeanConst : Lean.ConstantInfo -> String
     s!"  {val.induct} {val.cidx} {val.numParams} {val.numFields}"
   | .recInfo    val =>
     s!"{printIsSafe !val.isUnsafe}recursor {val.name} {val.levelParams} : {val.type} :=\n" ++
-    s!"  {val.all} {val.numParams} {val.numIndices} {val.numMotives} {val.numMinors} {val.rules} {val.k}"
+    s!"  {val.all} {val.numParams} {val.numIndices} {val.numMotives} {val.numMinors} {val.k}\n" ++ 
+    s!"Rules:\n" ++ "\n".intercalate (val.rules.map toString)
 
 end Yatima.Compiler.PrintLean

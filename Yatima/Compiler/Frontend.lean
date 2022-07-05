@@ -654,8 +654,6 @@ def buildStore (constMap : Lean.ConstMap)
     if printYatima then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true const}"
-      dbg_trace s!"Anon CID: {constCid.anon.data}"
-      dbg_trace s!"Meta CID: {constCid.meta.data}"
   printCompilationStats
   return (← get).store
 

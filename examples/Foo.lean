@@ -8,6 +8,8 @@ inductive BLA
 
 inductive BLAH | blah : BLA → BLAH
 
+#print BLAH.rec
+
 -- mutual
 --   inductive BLE | bli : BLI → BLE
 --   inductive BLI | ble : BLE → BLI
