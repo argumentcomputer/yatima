@@ -432,7 +432,6 @@ mutual
         let mut defn : Option Const := none
         
         for definition in definitions.join do
-          dbg_trace s!"MutDef: {definition.name}"
           let idx := match (← get).mutDefIdx.find? definition.name with
             | some i => i
             | none => unreachable!

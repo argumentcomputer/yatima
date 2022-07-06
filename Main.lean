@@ -1,5 +1,6 @@
 import Lean
 import Yatima.Compiler.Frontend
+import Yatima.Tests.CID
 
 def List.pop : (l : List α) → l ≠ [] → α × List α
   | a :: as, _ => (a, as)
@@ -21,6 +22,7 @@ def main (args : List String) : IO UInt32 := do
       else
         -- todo: print help
         return 0
+    | "test" => Yatima.Tests.CID
     | _ =>
       -- todo: print help
       return 0

@@ -4,6 +4,8 @@ import Yatima.Const
 
 open Std (RBMap)
 
+namespace Yatima.Tests
+
 /-- 
 Runs a `LSpec` test and pretty prints the results.
 -/
@@ -22,7 +24,6 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
 
   let names := groups.foldl (fun acc a => acc ++ a) []
 
-  dbg_trace s!"HERE"
   match ← Compiler.runFrontend (← IO.FS.readFile ⟨fileName⟩) fileName false false with
     | .error err => IO.eprintln err; return 1
     | .ok env => 
@@ -51,13 +52,13 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
               | none => unreachable!
 
             if aIdx = bIdx then
-              match my_lspec $ it "anon CID equality of equivalent anon data" aCid (shouldBe bCid) with
+              match my_lspec $ it s!"anon CID equality {a} and {b} of equivalent anon data" aCid (shouldBe bCid) with
               | .ok msg => IO.println msg
               | .error msg =>
                 IO.eprintln msg
                 errList := msg :: errList
             else
-              match my_lspec $ it "anon CID inequality of inequivalent anon data" aCid (shouldNotBe bCid) with
+              match my_lspec $ it s!"anon CID inequality {a} and {b} of inequivalent anon data" aCid (shouldNotBe bCid) with
               | .ok msg => IO.println msg
               | .error msg =>
                 IO.eprintln msg
@@ -69,5 +70,5 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
         IO.eprintln $ "\n".intercalate errList.reverse 
         return 1
 
-def main : IO UInt32 :=
+def CID : IO UInt32 :=
   cid_test "Fixtures/MutDefBlock.lean" [[`A, `C, `E, `F], [`B], [`G, `H]]
