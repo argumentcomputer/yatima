@@ -62,10 +62,10 @@ def buildCmd : Cli.Cmd := `[Cli|
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    l, log; "qqq"
+    l, log; "Flag to print compilation progress and stats"
 
   ARGS:
-    ...sources : String; "list of Lean files or directories"
+    ...sources : String; "List of Lean files or directories"
 ]
 
 def yatimaCmd : Cli.Cmd := `[Cli|
