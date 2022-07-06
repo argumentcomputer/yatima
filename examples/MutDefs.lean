@@ -35,5 +35,4 @@ end
   | 0     => 0
   | n + 1 => G n + T n + O n + 1
 
-#print N._unsafe_rec
 end Test0
