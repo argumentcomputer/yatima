@@ -1,25 +1,53 @@
-import Lean
-import Yatima.Compiler.Frontend
 import Cli
-
-open Cli
+import Yatima.Compiler.Frontend
 
 constant VERSION : String := "0.0.1"
 
+open System in
+partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
+    IO $ List FilePath := do
+  if ← fp.isDir then
+    let mut extra : List FilePath := []
+    for dirEntry in ← fp.readDir do
+      for innerFp in ← getFilePathsList dirEntry.path do
+        extra := extra.concat innerFp
+    return acc ++ extra
+  else
+    if (fp.extension.getD "") = "lean" then
+      return acc.concat fp
+    else
+      return acc
+
+def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
+  IO.println $ "\nCompilation stats:\n" ++
+    s!"univ_cache size: {stt.store.univ_cache.size}\n" ++
+    s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
+    s!"const_cache size: {stt.store.const_cache.size}\n" ++
+    s!"cache size: {stt.cache.size}\n" ++
+    s!"cache: {stt.cache.toList.map fun (n, c) => (n, c.1.ctorName)}"
+
 open Yatima.Compiler in
-def buildRun (p : Parsed) : IO UInt32 := do
+def buildRun (p : Cli.Parsed) : IO UInt32 := do
   let log : Bool := p.hasFlag "log"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
-    if h : args ≠ [] then
+    if !args.isEmpty then
       let mut stt : CompileState := default
+      let mut errMsg : Option String := none
       for arg in args do
-        -- check if arg is a folder or a lean file
-        -- if it's a lean file, compile it
-        -- if it's a folder, compile every lean file inside it
-        -- always pass the resulting state to the next compilation call
-        return 1 -- in case of error
-      return 0 -- compilation went fine
+        for filePath in ← getFilePathsList ⟨arg⟩ do
+          match ← runFrontend filePath log stt with
+          | .ok stt' => match stt.union stt' with
+            | .ok stt' => stt := stt'
+            | .error msg => errMsg := some msg; break
+          | .error msg => errMsg := some msg; break
+        if errMsg.isSome then break
+      match errMsg with
+      | some msg => return 1
+      | none => pure ()
+      if log then printCompilationStats stt
+      -- todo: make use of `stt.store`
+      return 0
     else
       IO.eprintln "No build argument was found."
       IO.eprintln "Run `yatima build -h` for further information."
@@ -29,18 +57,18 @@ def buildRun (p : Parsed) : IO UInt32 := do
     IO.eprintln "Run `yatima build -h` for further information."
     return 1
 
-def buildCmd : Cmd := `[Cli|
+def buildCmd : Cli.Cmd := `[Cli|
   build VIA buildRun; [VERSION]
-  "todo"
+  "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    l, log; "todo"
+    l, log; "qqq"
 
   ARGS:
-    ...sources : String; "todo"
+    ...sources : String; "list of Lean files or directories"
 ]
 
-def yatimaCmd : Cmd := `[Cli|
+def yatimaCmd : Cli.Cmd := `[Cli|
   yatima VIA fun _ => pure 0; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
@@ -50,32 +78,3 @@ def yatimaCmd : Cmd := `[Cli|
 
 def main (args : List String) : IO UInt32 :=
   yatimaCmd.validate args
-
-#exit
-
-def List.pop : (l : List α) → l ≠ [] → α × List α
-  | a :: as, _ => (a, as)
-
-open Yatima.Compiler in
-def main' (args : List String) : IO UInt32 := do
-  if h : args ≠ [] then
-    let (cmd, args) := args.pop h
-    match cmd with
-    | "build" =>
-      if h : args ≠ [] then
-        let (fileName, args) := args.pop h
-        match ← runFrontend (← IO.FS.readFile ⟨fileName⟩) fileName
-          (args.contains "-pl") (args.contains "-py") with
-        | .error err => IO.eprintln err; return 1
-        | .ok env =>
-          -- todo: write to .ya
-          return 0
-      else
-        -- todo: print help
-        return 0
-    | _ =>
-      -- todo: print help
-      return 0
-  else
-    -- todo: print help
-    return 0
