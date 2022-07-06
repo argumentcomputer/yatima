@@ -635,35 +635,26 @@ mutual
 
 end
 
-def printCompilationStats : CompileM Unit := do
-  dbg_trace "\nCompilation stats:"
-  dbg_trace s!"univ_cache size: {(← get).store.univ_cache.size}"
-  dbg_trace s!"expr_cache size: {(← get).store.expr_cache.size}"
-  dbg_trace s!"const_cache size: {(← get).store.const_cache.size}"
-  dbg_trace s!"constMap size: {(← read).constMap.size}"
-  dbg_trace s!"cache size: {(← get).cache.size}"
-  dbg_trace s!"cache: {(← get).cache.toList.map fun (n, c) => (n, c.1.ctorName)}"
-
 open PrintLean PrintYatima in
-def buildStore (constMap : Lean.ConstMap)
-    (printLean : Bool) (printYatima : Bool) : CompileM Store := do
+def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
   constMap.forM fun name const => do
-    if printLean || printYatima then
+    if log then
       dbg_trace "\n========================================="
       dbg_trace s!"Processing: {name}"
       dbg_trace "========================================="
-    if printLean then
+    if log then
       dbg_trace "------------- Lean constant -------------"
       dbg_trace s!"{printLeanConst const}"
     let (const, constCid) ← processYatimaConst const
-    if printYatima then
+    if log then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true const}"
-  printCompilationStats
+      dbg_trace s!"Anon CID: {constCid.anon.data}"
+      dbg_trace s!"Meta CID: {constCid.meta.data}"
   return (← get).store
 
-def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
-    Except String Store :=
+def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
+    Except String CompileState :=
   let map  := Lean.filterConstants map
   let map₀ := Lean.filterConstants map₀
   let delta : Lean.ConstMap := map.fold
@@ -676,11 +667,11 @@ def extractEnv (map map₀ : Lean.ConstMap) (printLean printYatima : Bool) :
   | .ok vss =>
     let nss : List (List $ Lean.Name × List Lean.Name) :=
       (vss.filter (·.length != 1)).map fun vs => 
-          vs.map fun v => (v, vs)
+        vs.map fun v => (v, vs)
     CompileM.run
       ⟨map, Std.RBMap.ofList nss.join, [], [], .empty⟩
-      default
-      (buildStore delta printLean printYatima)
+      stt
+      (buildStore delta log)
   | .error e => throw e
 
 def getPaths : IO Lean.SearchPath := do
@@ -693,19 +684,20 @@ def getPaths : IO Lean.SearchPath := do
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
 
-def runFrontend (code fileName : String) (printLean printYatima : Bool) :
-    IO $ Except String Store := do
+def runFrontend (filePath : System.FilePath) (log : Bool) (stt : CompileState) :
+    IO $ Except String CompileState := do
   Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
-  let (env, ok) ← Lean.Elab.runFrontend code .empty fileName default
+  let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
+    filePath.toString default
   if ok then
     let importFile := env.header.imports.map (·.module) |>.foldl
       (init := "prelude\n")
       fun acc m => s!"{acc}import {m}\n"
     let (env₀, _) ← Lean.Elab.runFrontend importFile .empty default default
-    match extractEnv env.constants env₀.constants printLean printYatima with
-    | .ok store => return .ok store
+    match extractEnv env.constants env₀.constants log stt with
+    | .ok  stt => return .ok stt
     | .error e => return .error e
   else
-    return .error s!"Lean frontend failed on file {fileName}"
+    return .error s!"Lean frontend failed on file {filePath}"
 
 end Yatima.Compiler
