@@ -10,24 +10,38 @@ structure CompileState where
   cache     : RBMap Name (Const × ConstCid) compare
   mutDefIdx : RBMap Lean.Name Nat compare
 
+def CompileState.union (s s' : CompileState) :
+    Except String CompileState := Id.run do
+  let mut cache := s.cache
+  for (n, c') in s'.cache do
+    match s.cache.find? n with
+    | some c₁ =>
+      if c₁.2 != c'.2 then return throw s!"Conflicting declarations for '{n}'"
+    | none => cache := cache.insert n c'
+  return .ok ⟨
+    s.store.union s'.store,
+    cache,
+    s'.mutDefIdx.fold (init := s.mutDefIdx) fun acc n i =>
+      acc.insert n i
+  ⟩
+
 instance : Inhabited CompileState where
   default := ⟨default, .empty, .empty⟩
 
-open Std (RBMap) in
 structure CompileEnv where
   constMap : Lean.ConstMap
   cycles   : Lean.ReferenceMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  recrCtx  : RBMap Lean.Name Nat compare
+  recrCtx  : Std.RBMap Lean.Name Nat compare
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    Except String Store :=
+    Except String CompileState :=
   match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ ste  => .ok ste.store
+  | .ok _ ste  => .ok ste
   | .error e _ => .error e
 
 def withName (name : Name) : CompileM α → CompileM α :=

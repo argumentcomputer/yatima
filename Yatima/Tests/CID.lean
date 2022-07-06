@@ -24,11 +24,11 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
 
   let names := groups.foldl (fun acc a => acc ++ a) []
 
-  match ← Compiler.runFrontend (← IO.FS.readFile ⟨fileName⟩) fileName false false with
+  match ← Compiler.runFrontend  fileName false default with
     | .error err => IO.eprintln err; return 1
     | .ok env => 
       let mut namesToCids : RBMap Lean.Name ConstAnonCid compare := RBMap.empty
-      for (constCid, const) in env.const_cache do
+      for (constCid, const) in env.store.const_cache do
          namesToCids := namesToCids.insert const.name constCid.anon
 
       let mut errList : List String := []
