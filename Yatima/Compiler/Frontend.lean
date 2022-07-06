@@ -423,9 +423,28 @@ mutual
           for d in ds do 
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
             mutualIdxs := mutualIdxs.insert d.name i
-        let definitions ← withRecrs mutualIdxs $ 
+        let definitions ← withRecrs mutualIdxs $
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
-        return .mutDefBlock definitions
+        let block : Const := .mutDefBlock definitions
+        let blockCid ← constToCid block
+        addToStore $ .const_cache blockCid block
+
+        let mut defn : Option Const := none
+        
+        for definition in definitions.join do
+          dbg_trace s!"MutDef: {definition.name}"
+          let idx := match (← get).mutDefIdx.find? definition.name with
+            | some i => i
+            | none => unreachable!
+          let defConst := .definitionProj ⟨definition.name, definition.lvls, definition.type, blockCid, idx⟩
+          let defConstCid ← constToCid defConst
+          addToStore $ .const_cache defConstCid defConst
+          set { ← get with cache := (← get).cache.insert definition.name (defConst, defConstCid) }
+          if definition.name == struct.name then defn := some defConst
+          
+        match defn with
+        | some defn' => return defn'
+        | none => throw s!"Constant for '{struct.name}' wasn't compiled"
       | none => return .definition $ ← toYatimaDef false struct 
     | .ctorInfo struct =>
       let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
@@ -526,17 +545,7 @@ mutual
       let constCid ← constToCid const
       addToStore $ .const_cache constCid const
       set { ← get with cache := (← get).cache.insert const.name (const, constCid) }
-      match (← get).mutDefIdx.find? name with
-      | some i =>
-        match const.lvlsAndType with
-        | some (lvls, type) =>
-          let mutConst := .definitionProj ⟨name, lvls, type, constCid, i⟩
-          let mutCid ← constToCid mutConst
-          addToStore $ .const_cache mutCid mutConst
-          set { ← get with cache := (← get).cache.insert name (mutConst, mutCid) }
-          pure (mutConst, mutCid)
-        | none => pure (const, constCid)
-      | none => pure (const, constCid)
+      pure (const, constCid)
     | some (const, constCid) => pure (const, constCid)
 
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
