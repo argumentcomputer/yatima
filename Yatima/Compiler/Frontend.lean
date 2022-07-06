@@ -11,8 +11,6 @@ instance : Coe Lean.Name Name where
   coe := .ofLeanName
 
 
-#eval ((Lean.Name.mkSimple "a").mkNum 6 : Yatima.Name)
-
 instance : Coe (List Lean.Name) (List Name) where
   coe l := l.map .ofLeanName
 
