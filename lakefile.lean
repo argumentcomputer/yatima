@@ -14,5 +14,8 @@ package Yatima {
   }, {
     name := "YatimaStdLib",
     src := Source.git "https://github.com/yatima-inc/YatimaStdLib.lean" "b57d71878e6d9762c75f99b07b4bacdefdadeeaf"
+  }, {
+    name := `Cli
+    src := Source.git "https://github.com/mhuisi/lean4-cli.git" "v1.0.0-lnightly-2022-05-21"
   }]
 }
