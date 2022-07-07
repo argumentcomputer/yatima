@@ -10,6 +10,7 @@ open Std (RBMap)
 instance : Coe Lean.Name Name where
   coe := .ofLeanName
 
+def TODO : CompileM a := throw "TODO"
 
 instance : Coe (List Lean.Name) (List Name) where
   coe l := l.map .ofLeanName
@@ -195,27 +196,30 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
 
 def findRecursorIn (recName : Name) (indInfos : List Inductive) :
     Option (Nat × Nat × Bool) := Id.run do
-  for (i, indInfo) in indInfos.enum do
-    for (j, intRec) in indInfo.intRecrs.enum do
-      if recName == intRec.name then
-        return (i, j, true)
-    for (j, extRec) in indInfo.extRecrs.enum do
-      if recName == extRec.name then
-        return (i, j, false)
-  return none
+    -- TODO
+    return none
+  -- for (i, indInfo) in indInfos.enum do
+  --   for (j, intRec) in indInfo.intRecrs.enum do
+  --     if recName == intRec.name then
+  --       return (i, j, true)
+  --   for (j, extRec) in indInfo.extRecrs.enum do
+  --     if recName == extRec.name then
+  --       return (i, j, false)
+  -- return none
 
 mutual
 
   partial def toYatimaInternalRecRule
     (ctors : List Lean.Name) (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
-    match ctors.indexOf rule.ctor with
-    | some idx =>
-      let type ← toYatimaExpr rule.rhs
-      let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      return { ctor := .inl idx, fields := rule.nfields, rhs := typeCid }
-    | none => throw s!"'{rule.ctor}' not found in '{ctors}'"
+      TODO
+    -- match ctors.indexOf rule.ctor with
+    -- | some idx =>
+    --   let type ← toYatimaExpr rule.rhs
+    --   let typeCid ← exprToCid type
+    --   addToStore $ .expr_cache typeCid type
+    --   return { ctor := .inl idx, fields := rule.nfields, rhs := typeCid }
+    -- | none => throw s!"'{rule.ctor}' not found in '{ctors}'"
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
@@ -225,11 +229,11 @@ mutual
     match (← read).constMap.find?' rule.ctor with
     | some const =>
       let (_, ctorCid) ← processYatimaConst const
-      return { ctor := .inr ctorCid, fields := rule.nfields, rhs := typeCid }
+      return { ctor := ctorCid, fields := rule.nfields, rhs := typeCid }
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
   partial def toYatimaRec (ctors : List Lean.Name) (name: Lean.Name) :
-      Lean.ConstantInfo → CompileM Recursor
+      Lean.ConstantInfo → CompileM (Recursor b)
     | .recInfo rec => do
       withLevels rec.levelParams do
         let type ← Expr.fix name <$> toYatimaExpr rec.type
@@ -240,15 +244,17 @@ mutual
             toYatimaInternalRecRule ctors r
           else
             toYatimaExternalRecRule r
-        return {
-          name    := rec.name
-          type    := typeCid
-          params  := rec.numParams
-          indices := rec.numIndices
-          motives := rec.numMotives
-          minors  := rec.numMinors
-          rules   := rules
-          k       := rec.k }
+        TODO
+        -- return {
+        --   name    := rec.name
+        --   lvls    := rec.levelParams
+        --   type    := typeCid
+        --   params  := rec.numParams
+        --   indices := rec.numIndices
+        --   motives := rec.numMotives
+        --   minors  := rec.numMinors
+        --   rules   := rules
+        --   k       := rec.k }
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
   partial def toYatimaExpr : Lean.Expr → CompileM Expr
@@ -315,11 +321,12 @@ mutual
           let type ← Expr.fix ind.name <$> toYatimaExpr ctor.type
           let typeCid ← exprToCid type
           addToStore $ .expr_cache typeCid type
-          return {
-            name   := ctor.name
-            type   := typeCid
-            params := ctor.numParams
-            fields := ctor.numFields }
+          TODO
+          -- return {
+          --   name   := ctor.name
+          --   type   := typeCid
+          --   params := ctor.numParams
+          --   fields := ctor.numFields }
         | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
         | none => throw s!"Unknown constant '{name}'"
     let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
@@ -332,18 +339,18 @@ mutual
             then return (r :: accI, accE)
             else return (accI, r :: accE)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
-    return {
-      name     := ind.name
-      lvls     := ind.levelParams
-      type     := typeCid
-      params   := ind.numParams
-      indices  := ind.numIndices
-      ctors    := ctors
-      intRecrs := ← internalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
-      extRecrs := ← externalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
-      recr     := ind.isRec
-      refl     := ind.isReflexive
-      safe     := not ind.isUnsafe }
+    TODO
+    -- return {
+    --   name     := ind.name
+    --   lvls     := ind.levelParams
+    --   type     := typeCid
+    --   params   := ind.numParams
+    --   indices  := ind.numIndices
+    --   ctors    := ctors
+    --   recrs := ← externalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
+    --   recr     := ind.isRec
+    --   refl     := ind.isReflexive
+    --   safe     := not ind.isUnsafe }
 
   partial def buildInductiveInfoList (ind : Lean.InductiveVal) :
       CompileM $ List Inductive := do
@@ -470,14 +477,15 @@ mutual
         addToStore $ .const_cache indBlockCid indBlock
         match findRecursorIn struct.name indInfos with
         | some (idx, ridx, intern) =>
-          return .recursorProj {
-            name   := struct.name
-            lvls   := struct.levelParams
-            type   := typeCid
-            block  := indBlockCid
-            idx    := idx
-            ridx   := ridx
-            intern := intern }
+          TODO
+          -- return .recursorProj {
+          --   name   := struct.name
+          --   lvls   := struct.levelParams
+          --   type   := typeCid
+          --   block  := indBlockCid
+          --   idx    := idx
+          --   ridx   := ridx
+          --   intern := intern }
         | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{inductName}'"

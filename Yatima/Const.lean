@@ -98,56 +98,65 @@ structure DefinitionProjMeta where
 
 structure Constructor where
   name   : Name
+  lvls   : List Name
   type   : ExprCid
   params : Nat
   fields : Nat
+  rhs    : ExprCid
 
 structure ConstructorAnon where
+  lvls   : Nat
   type   : ExprAnonCid
   params : Nat
   fields : Nat
+  rhs    : ExprAnonCid
 
 structure ConstructorMeta where
   name   : Name
+  lvls   : List Name
   type   : ExprMetaCid
+  rhs    : ExprMetaCid
 
 structure RecursorRule where
-  ctor   : Nat ⊕ ConstCid -- `Nat` for internal
+  ctor   : ConstCid
   fields : Nat
   rhs    : ExprCid
 
 structure RecursorRuleAnon where
-  ctor   : Nat ⊕ ConstAnonCid -- `Nat` for internal
+  ctor   : ConstAnonCid
   fields : Nat
   rhs    : ExprAnonCid
 
 structure RecursorRuleMeta where
-  ctor   : Option ConstMetaCid -- `none` for internal
+  ctor   : ConstMetaCid
   rhs    : ExprMetaCid
 
-structure Recursor where
+structure Recursor (b : Bool) where
   name    : Name
+  lvls    : List Name
   type    : ExprCid
   params  : Nat
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List RecursorRule
+  rules   : match b with | .true => Unit | .false => List RecursorRule
   k       : Bool
 
-structure RecursorAnon where
+structure RecursorAnon (b : Bool) where
+  lvls    : Nat
   type    : ExprAnonCid
   params  : Nat
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List RecursorRuleAnon
+  rules   : match b with | .true => Unit | .false => List RecursorRuleAnon
   k       : Bool
 
-structure RecursorMeta where
+structure RecursorMeta (b : Bool) where
   name    : Name
+  lvls    : List Name
   type    : ExprMetaCid
-  rules   : List RecursorRuleMeta
+  rules   : match b with | .true => Unit | .false => List RecursorRuleMeta
 
 structure Inductive where
   name     : Name
@@ -156,8 +165,7 @@ structure Inductive where
   params   : Nat
   indices  : Nat
   ctors    : List Constructor
-  intRecrs : List Recursor
-  extRecrs : List Recursor
+  recrs    : List (Sigma Recursor)
   recr     : Bool
   safe     : Bool
   refl     : Bool
@@ -168,19 +176,17 @@ structure InductiveAnon where
   params   : Nat
   indices  : Nat
   ctors    : List ConstructorAnon
-  intRecrs : List RecursorAnon
-  extRecrs : List RecursorAnon
+  recrs    : List (Sigma RecursorAnon)
   recr     : Bool
   safe     : Bool
   refl     : Bool
 
 structure InductiveMeta where
-  name    : Name
-  lvls    : List Name
-  type    : ExprMetaCid
-  ctors   : List ConstructorMeta
-  intRecrs : List RecursorMeta
-  extRecrs : List RecursorMeta
+  name     : Name
+  lvls     : List Name
+  type     : ExprMetaCid
+  ctors    : List ConstructorMeta
+  recrs    : List (Sigma RecursorMeta)
 
 structure InductiveProj where
   name    : Name
@@ -229,7 +235,6 @@ structure RecursorProj where
   block   : ConstCid
   idx     : Nat
   ridx    : Nat
-  intern  : Bool
 
 structure RecursorProjAnon where
   lvls    : Nat
@@ -237,7 +242,6 @@ structure RecursorProjAnon where
   block   : ConstAnonCid
   idx     : Nat
   ridx    : Nat
-  intern  : Bool
 
 structure RecursorProjMeta where
   name    : Name
@@ -310,20 +314,21 @@ def Definition.toAnon (d : Definition) : DefinitionAnon :=
   ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
 
 def Constructor.toAnon (x : Constructor) : ConstructorAnon :=
-  ⟨x.type.anon, x.params, x.fields⟩
+  ⟨x.lvls.length, x.type.anon, x.params, x.fields, x.rhs.anon⟩
 
 def RecursorRule.toAnon (x : RecursorRule) : RecursorRuleAnon :=
-  match x.ctor with
-  | .inl i => ⟨.inl i, x.fields, x.rhs.anon⟩
-  | .inr y => ⟨.inr y.anon, x.fields, x.rhs.anon⟩
+  ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
 
-def Recursor.toAnon (x: Recursor) : RecursorAnon :=
-  ⟨ x.type.anon
+def Recursor.toAnon (x: Recursor b) : RecursorAnon b :=
+  ⟨ x.lvls.length
+  , x.type.anon
   , x.params
   , x.indices
   , x.motives
   , x.minors
-  , x.rules.map RecursorRule.toAnon
+  , match b with
+    | .true => Unit.unit
+    | .false => x.rules.map RecursorRule.toAnon
   , x.k ⟩
 
 def Inductive.toAnon (x: Inductive) : InductiveAnon :=
@@ -332,8 +337,7 @@ def Inductive.toAnon (x: Inductive) : InductiveAnon :=
   , x.params
   , x.indices
   , x.ctors.map (·.toAnon)
-  , x.intRecrs.map Recursor.toAnon
-  , x.extRecrs.map Recursor.toAnon
+  , x.recrs.map (fun p => .mk p.fst (Recursor.toAnon p.snd))
   , x.recr
   , x.safe
   , x.refl ⟩
@@ -360,8 +364,7 @@ def Const.toAnon : Const → ConstAnon
     , r.type.anon
     , r.block.anon
     , r.idx
-    , r.ridx
-    , r.intern ⟩
+    , r.ridx ⟩
   | .definitionProj x => .definitionProj
     ⟨ x.lvls.length
     , x.type.anon
@@ -376,23 +379,20 @@ def Definition.toMeta (d: Definition) : DefinitionMeta :=
   ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
 
 def Constructor.toMeta (x: Constructor) : ConstructorMeta :=
-  ⟨x.name, x.type.meta⟩
+  ⟨x.name, x.lvls, x.type.meta, x.rhs.meta⟩
 
 def RecursorRule.toMeta (x: RecursorRule) : RecursorRuleMeta :=
-  match x.ctor with
-  | .inl _ => ⟨none, x.rhs.meta⟩
-  | .inr y => ⟨some y.meta, x.rhs.meta⟩
+  ⟨x.ctor.meta, x.rhs.meta⟩
 
-def RecursorInfo.toMeta (x: Recursor) : RecursorMeta :=
-  ⟨x.name, x.type.meta, x.rules.map RecursorRule.toMeta⟩
+def Recursor.toMeta (x: Recursor b) : RecursorMeta b :=
+  ⟨x.name, x.lvls, x.type.meta, match b with | .true => Unit.unit | .false => x.rules.map RecursorRule.toMeta⟩
 
-def InductiveInfo.toMeta (x: Inductive) : InductiveMeta :=
+def Inductive.toMeta (x: Inductive) : InductiveMeta :=
   ⟨ x.name
   , x.lvls
   , x.type.meta
   , x.ctors.map (·.toMeta)
-  , x.intRecrs.map RecursorInfo.toMeta
-  , x.extRecrs.map RecursorInfo.toMeta ⟩
+  , x.recrs.map (fun p => .mk p.fst (Recursor.toMeta p.snd)) ⟩
 
 def Const.toMeta : Const → ConstMeta
   | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
@@ -417,7 +417,7 @@ def Const.toMeta : Const → ConstMeta
     , x.type.meta
     , x.block.meta ⟩
   | .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => ds.map Definition.toMeta
-  | .mutIndBlock is => .mutIndBlock (is.map InductiveInfo.toMeta)
+  | .mutIndBlock is => .mutIndBlock (is.map Inductive.toMeta)
 
 def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
   | .axiom           x
