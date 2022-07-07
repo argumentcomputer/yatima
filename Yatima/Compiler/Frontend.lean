@@ -631,8 +631,6 @@ def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
     if log then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true const}"
-      dbg_trace s!"Anon CID: {constCid.anon.data}"
-      dbg_trace s!"Meta CID: {constCid.meta.data}"
   return (← get).store
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :

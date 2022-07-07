@@ -222,15 +222,22 @@ partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String :=
     return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++ 
             s!"{intern}\n" ++ 
             s!"Rules:\n{← printRules ind recr.rules}"
-  | .definitionProj proj =>
-    return s!"mutdef {proj.name}@{proj.idx} {← printYatimaConst cids? (← getConst proj.block)}"
+  | .definitionProj proj => do match ← getConst proj.block with
+    | .mutDefBlock defs => match defs.get? proj.idx with
+      | some ds => match ds.find? (fun d => d.name == proj.name) with 
+        | some d => return s!"{cid}{← printDefinition d}"
+        | none => throw s!"malformed definition projection '{proj.name}' not in weakly equal block '{proj.idx}'"
+      | none => throw s!"malformed definition projection '{proj.name}' idx {proj.idx} ≥ '{defs.length}'"
+    | _ => throw s!"malformed definition projection '{proj.name}': doesn't point to an definition block"
   -- these two will never happen
   | .mutDefBlock dss => do
-    let defStrings ← dss.join.mapM printDefinition
-    return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
+    throw s!"Unreachable call to print mutual pointer was reached"
+    -- let defStrings ← dss.join.mapM printDefinition
+    -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
   | .mutIndBlock inds => do
-    let defStrings ← inds.mapM printInductive
-    return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
+    throw s!"Unreachable call to print mutual pointer was reached"
+    -- let defStrings ← inds.mapM printInductive
+    -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
 
 end Yatima.Compiler.PrintYatima
 
