@@ -10,6 +10,7 @@ open Std (RBMap)
 instance : Coe Lean.Name Name where
   coe := .ofLeanName
 
+
 instance : Coe (List Lean.Name) (List Name) where
   coe l := l.map .ofLeanName
 
@@ -255,8 +256,10 @@ mutual
             return .const name constCid univsCids
           | none => throw s!"Unknown constant '{name}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
-    | .lam name typ bod data => .lam name data.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
-    | .forallE name dom img data => .pi name data.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
+    | .lam name typ bod data =>
+      .lam name data.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
+    | .forallE name dom img data =>
+      .pi name data.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
     | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr typ) <*> (toYatimaExpr exp) <*> (withName name $ toYatimaExpr bod)
     | .lit lit _ => return .lit lit
     | .mdata _ e _ => toYatimaExpr e
