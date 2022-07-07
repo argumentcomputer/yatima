@@ -25,7 +25,7 @@ def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
     s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
     s!"const_cache size: {stt.store.const_cache.size}\n" ++
     s!"cache size: {stt.cache.size}\n" ++
-    s!"cache: {stt.cache.toList.map fun (n, c) => (n, c.1.ctorName)}"
+    s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
 
 open Yatima.Compiler in
 def buildRun (p : Cli.Parsed) : IO UInt32 := do
