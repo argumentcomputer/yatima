@@ -660,7 +660,6 @@ def getPaths : IO Lean.SearchPath := do
     args := #["print-paths"]
   }
   let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
-  IO.println split
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
 
