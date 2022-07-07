@@ -19,6 +19,8 @@ mutual
   | 0 => 0 
   | n + 1 => B n + C n + E n + 1
 
+  -- should be an external mutual block that references into
+  -- the above mutual block
   unsafe def G : Nat → Nat 
   | 0 => 0
   | n + 1 => B n + F n + H n + 2

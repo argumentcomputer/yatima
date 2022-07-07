@@ -6,9 +6,6 @@ open Std (RBMap)
 
 namespace Yatima.Tests
 
-/-- 
-Runs a `LSpec` test and pretty prints the results.
--/
 def my_lspec (t : LSpec) : Except String String := do
   let (success?, msg) := LSpec.runAndCompile t
   if success?
@@ -32,10 +29,11 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
          namesToCids := namesToCids.insert const.name constCid.anon
 
       let mut errList : List String := []
+      
+      let mut tests : TestSeq := .done
 
-      -- TODO eliminate n(n+1)/2 duplicate comparisons
-      for a in names do
-        for b in names do
+      for a in names.reverse do
+        for b in names.reverse do
           if a.toString < b.toString then 
             let aIdx ← match groupIdxs.find? a with
               | some idx => pure idx
@@ -52,23 +50,14 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
               | none => unreachable!
 
             if aIdx = bIdx then
-              match my_lspec $ test s!"anon CID equality {a} and {b} of equivalent anon data" (aCid == bCid) with
-              | .ok msg => IO.println msg
-              | .error msg =>
-                IO.eprintln msg
-                errList := msg :: errList
+              tests := test' s!"anon CID equality {a} and {b} of equivalent anon data" (aCid == bCid) tests
             else
-              match my_lspec $ test s!"anon CID inequality {a} and {b} of inequivalent anon data" (aCid != bCid) with
-              | .ok msg => IO.println msg
-              | .error msg =>
-                IO.eprintln msg
-                errList := msg :: errList
+              tests := test' s!"anon CID inequality {a} and {b} of inequivalent anon data" (aCid != bCid) tests
 
-      if errList.isEmpty then
-        return 0
-      else
-        IO.eprintln $ "\n".intercalate errList.reverse 
-        return 1
+      match my_lspec tests with
+      | .ok msg => IO.println msg; return 0
+      | .error msg => IO.eprintln s!"{msg}\n--- TESTS FAILED ---"; return 1
 
-def CID : IO UInt32 :=
-  cid_test "Fixtures/MutDefBlock.lean" [[`A, `C, `E, `F], [`B], [`G, `H]]
+def CID : IO UInt32 := do
+  if (← cid_test "Fixtures/MutDefBlock.lean" [[`A, `C, `E, `B], [`B], [`G, `H]]) = 1 then return 1
+  return 0
