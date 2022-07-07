@@ -59,5 +59,16 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
       | .error msg => IO.eprintln s!"{msg}\n--- TESTS FAILED ---"; return 1
 
 def CID : IO UInt32 := do
-  if (← cid_test "Fixtures/MutDefBlock.lean" [[`A, `C, `E, `F], [`B], [`G, `H]]) = 1 then return 1
+  if (← cid_test "Fixtures/Definitions.lean" [[`A, `C, `E, `F], [`B], [`G, `H]]) = 1 then return 1
+  if (← cid_test "Fixtures/Inductives.lean" [
+      [`BLA, `BLU], 
+      [`BLA'],
+      [`BLE, `BLE'], 
+      [`BLI, `BLI'], 
+      [`BLO, `BLO'], 
+      [`BLE''], 
+      [`BLI''], 
+      [`BLO''],
+      [`BLEH]
+      ]) = 1 then return 1
   return 0
