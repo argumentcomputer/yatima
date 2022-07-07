@@ -10,7 +10,7 @@ namespace Yatima.Tests
 Runs a `LSpec` test and pretty prints the results.
 -/
 def my_lspec (t : LSpec) : Except String String := do
-  let (success?, msg) := compileLSpecResult t
+  let (success?, msg) := LSpec.runAndCompile t
   if success?
     then .ok msg
     else throw msg
@@ -52,13 +52,13 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
               | none => unreachable!
 
             if aIdx = bIdx then
-              match my_lspec $ it s!"anon CID equality {a} and {b} of equivalent anon data" aCid (shouldBe bCid) with
+              match my_lspec $ test s!"anon CID equality {a} and {b} of equivalent anon data" (aCid == bCid) with
               | .ok msg => IO.println msg
               | .error msg =>
                 IO.eprintln msg
                 errList := msg :: errList
             else
-              match my_lspec $ it s!"anon CID inequality {a} and {b} of inequivalent anon data" aCid (shouldNotBe bCid) with
+              match my_lspec $ test s!"anon CID inequality {a} and {b} of inequivalent anon data" (aCid != bCid) with
               | .ok msg => IO.println msg
               | .error msg =>
                 IO.eprintln msg

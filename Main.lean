@@ -58,6 +58,9 @@ def buildRun (p : Cli.Parsed) : IO UInt32 := do
     IO.eprintln "Run `yatima build -h` for further information."
     return 1
 
+instance : Coe String (Option String) where
+  coe := some
+
 def buildCmd : Cli.Cmd := `[Cli|
   build VIA buildRun; [VERSION]
   "Compile Lean 4 code to content-addressed IPLD"
