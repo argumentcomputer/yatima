@@ -1,5 +1,6 @@
 import Cli
 import Yatima.Compiler.Frontend
+import Yatima.Tests.CID
 
 constant VERSION : String := "0.0.1"
 
@@ -24,7 +25,7 @@ def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
     s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
     s!"const_cache size: {stt.store.const_cache.size}\n" ++
     s!"cache size: {stt.cache.size}\n" ++
-    s!"cache: {stt.cache.toList.map fun (n, c) => (n, c.1.ctorName)}"
+    s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
 
 open Yatima.Compiler in
 def buildRun (p : Cli.Parsed) : IO UInt32 := do
@@ -43,7 +44,9 @@ def buildRun (p : Cli.Parsed) : IO UInt32 := do
           | .error msg => errMsg := some msg; break
         if errMsg.isSome then break
       match errMsg with
-      | some msg => return 1
+      | some msg =>
+        IO.eprintln msg
+        return 1
       | none => pure ()
       if log then printCompilationStats stt
       -- todo: make use of `stt.store`
@@ -57,6 +60,9 @@ def buildRun (p : Cli.Parsed) : IO UInt32 := do
     IO.eprintln "Run `yatima build -h` for further information."
     return 1
 
+instance : Coe String (Option String) where
+  coe := some
+
 def buildCmd : Cli.Cmd := `[Cli|
   build VIA buildRun; [VERSION]
   "Compile Lean 4 code to content-addressed IPLD"
@@ -68,12 +74,23 @@ def buildCmd : Cli.Cmd := `[Cli|
     ...sources : String; "List of Lean files or directories"
 ]
 
+def testRun (p : Cli.Parsed) : IO UInt32 := Yatima.Tests.CID
+
+def testCmd : Cli.Cmd := `[Cli|
+  test VIA testRun; [VERSION]
+  "run test suite"
+
+  FLAGS:
+    l, log; "Flag to print compilation progress and stats"
+]
+
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima VIA fun _ => pure 0; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:
-    buildCmd
+    buildCmd;
+    testCmd
 ]
 
 def main (args : List String) : IO UInt32 :=
