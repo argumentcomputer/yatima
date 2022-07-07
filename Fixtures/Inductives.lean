@@ -18,13 +18,13 @@ mutual
   -- BLE and BLI should be distinct because we don't group by weak equality
   inductive BLE | bli : BLI → BLE
   inductive BLI | ble : BLE → BLI
-  inductive BLO | blea : BLE → BLA → BLO
+  inductive BLO | blea : BLE → BLI → BLO
 end
 
 mutual
   inductive BLE' | bli : BLI' → BLE'
   inductive BLI' | ble : BLE' → BLI'
-  inductive BLO' | blea : BLE' → BLA' → BLO'
+  inductive BLO' | blea : BLE' → BLI' → BLO'
 end
 
 mutual
