@@ -8,12 +8,12 @@ namespace Yatima.Compiler
 open Std (RBMap)
 
 instance : Coe Lean.Name Name where
-  coe := .ofLeanName
+  coe := toString
 
 def TODO : CompileM a := throw "TODO"
 
 instance : Coe (List Lean.Name) (List Name) where
-  coe l := l.map .ofLeanName
+  coe l := l.map toString
 
 instance : Coe Lean.BinderInfo BinderInfo where coe
   | .default        => .default
@@ -37,40 +37,15 @@ instance : Coe Lean.QuotKind QuotKind where coe
   | .lift => .lift
   | .ctor => .ctor
 
-inductive YatimaStoreEntry
-  | univ_cache  : UnivCid      → Univ      → YatimaStoreEntry
-  | univ_anon   : UnivAnonCid  → UnivAnon  → YatimaStoreEntry
-  | univ_meta   : UnivMetaCid  → UnivMeta  → YatimaStoreEntry
-  | expr_cache  : ExprCid      → Expr      → YatimaStoreEntry
-  | expr_anon   : ExprAnonCid  → ExprAnon  → YatimaStoreEntry
-  | expr_meta   : ExprMetaCid  → ExprMeta  → YatimaStoreEntry
-  | const_cache : ConstCid     → Const     → YatimaStoreEntry
-  | const_anon  : ConstAnonCid → ConstAnon → YatimaStoreEntry
-  | const_meta  : ConstMetaCid → ConstMeta → YatimaStoreEntry
-
-def addToStore (y : YatimaStoreEntry) : CompileM Unit := do
-  let stt ← get
-  let store := stt.store
-  match y with
-  | .univ_cache  cid obj => set { stt with store := { store with univ_cache  := store.univ_cache.insert cid obj  } }
-  | .univ_anon   cid obj => set { stt with store := { store with univ_anon   := store.univ_anon.insert cid obj   } }
-  | .univ_meta   cid obj => set { stt with store := { store with univ_meta   := store.univ_meta.insert cid obj   } }
-  | .expr_cache  cid obj => set { stt with store := { store with expr_cache  := store.expr_cache.insert cid obj  } }
-  | .expr_anon   cid obj => set { stt with store := { store with expr_anon   := store.expr_anon.insert cid obj   } }
-  | .expr_meta   cid obj => set { stt with store := { store with expr_meta   := store.expr_meta.insert cid obj   } }
-  | .const_cache cid obj => set { stt with store := { store with const_cache := store.const_cache.insert cid obj } }
-  | .const_anon  cid obj => set { stt with store := { store with const_anon  := store.const_anon.insert cid obj  } }
-  | .const_meta  cid obj => set { stt with store := { store with const_meta  := store.const_meta.insert cid obj  } }
-
 open ToIpld
 
 def univToCid (u : Univ) : CompileM UnivCid := do
   let univAnon : UnivAnon := u.toAnon
   let univAnonCid : UnivAnonCid := univAnonToCid univAnon
-  addToStore $ .univ_anon univAnonCid univAnon
+  addToStore (univAnonCid, univAnon)
   let univMeta : UnivMeta := u.toMeta
   let univMetaCid : UnivMetaCid := univMetaToCid univMeta
-  addToStore $ .univ_meta univMetaCid univMeta
+  addToStore (univMetaCid, univMeta)
   return ⟨univAnonCid, univMetaCid⟩
 
 mutual
@@ -116,9 +91,9 @@ mutual
   def exprToCid (e : Expr) : CompileM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
     let exprAnonCid : ExprAnonCid := exprAnonToCid exprAnon
-    addToStore $ .expr_anon exprAnonCid exprAnon
+    addToStore (exprAnonCid, exprAnon)
     let exprMetaCid : ExprMetaCid := exprMetaToCid exprMeta
-    addToStore $ .expr_meta exprMetaCid exprMeta
+    addToStore (exprMetaCid, exprMeta)
     return ⟨exprAnonCid, exprMetaCid⟩
 
 end
@@ -126,10 +101,10 @@ end
 def constToCid (c : Const) : CompileM ConstCid := do
   let constAnon : ConstAnon := c.toAnon
   let constAnonCid : ConstAnonCid := constAnonToCid constAnon
-  addToStore $ .const_anon constAnonCid constAnon
+  addToStore (constAnonCid, constAnon)
   let constMeta : ConstMeta := c.toMeta
   let constMetaCid : ConstMetaCid := constMetaToCid constMeta
-  addToStore $ .const_meta constMetaCid constMeta
+  addToStore (constMetaCid, constMeta)
   return ⟨constAnonCid, constMetaCid⟩
 
 def toYatimaUniv : Lean.Level → CompileM Univ
@@ -137,27 +112,27 @@ def toYatimaUniv : Lean.Level → CompileM Univ
   | .succ n _    => do
     let univ ← toYatimaUniv n
     let univCid ← univToCid univ
-    addToStore $ .univ_cache univCid univ
+    addToStore (univCid, univ)
     return .succ univCid
   | .max  a b _  => do
     let univA ← toYatimaUniv a
     let univACid ← univToCid univA
-    addToStore $ .univ_cache univACid univA
+    addToStore (univACid, univA)
     let univB ← toYatimaUniv b
     let univBCid ← univToCid univB
-    addToStore $ .univ_cache univBCid univB
+    addToStore (univBCid, univB)
     return .max univACid univBCid
   | .imax a b _  => do
     let univA ← toYatimaUniv a
     let univACid ← univToCid univA
-    addToStore $ .univ_cache univACid univA
+    addToStore (univACid, univA)
     let univB ← toYatimaUniv b
     let univBCid ← univToCid univB
-    addToStore $ .univ_cache univBCid univB
+    addToStore (univBCid, univB)
     return .imax univACid univBCid
   | .param name _ => do
     let lvls := (← read).univCtx
-    match lvls.indexOf name with
+    match lvls.indexOf? name with
     | some n => return .param name n
     | none   => throw s!"'{name}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
@@ -189,23 +164,29 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   | _, .imax _ _ _ => return .gt
   | .param x _, .param y _ => do
     let lvls := (← read).univCtx
-    match (lvls.indexOf x), (lvls.indexOf y) with
+    match (lvls.indexOf? x), (lvls.indexOf? y) with
     | some xi, some yi => return (compare xi yi)
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
 def findRecursorIn (recName : Name) (indInfos : List Inductive) :
     Option (Nat × Nat × Bool) := Id.run do
-    -- TODO
-    return none
+  -- TODO
+  return none
   -- for (i, indInfo) in indInfos.enum do
   --   for (j, intRec) in indInfo.intRecrs.enum do
   --     if recName == intRec.name then
-  --       return (i, j, true)
+  --       return some (i, j, true)
   --   for (j, extRec) in indInfo.extRecrs.enum do
   --     if recName == extRec.name then
-  --       return (i, j, false)
+  --       return some (i, j, false)
   -- return none
+
+def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
+  let c := (← constToCid const, const)
+  addToStore c
+  addToCache const.name c
+  return c
 
 mutual
 
@@ -213,11 +194,11 @@ mutual
     (ctors : List Lean.Name) (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
       TODO
-    -- match ctors.indexOf rule.ctor with
+    -- match ctors.indexOf? rule.ctor with
     -- | some idx =>
     --   let type ← toYatimaExpr rule.rhs
     --   let typeCid ← exprToCid type
-    --   addToStore $ .expr_cache typeCid type
+    --   addToStore (typeCid, type)
     --   return { ctor := .inl idx, fields := rule.nfields, rhs := typeCid }
     -- | none => throw s!"'{rule.ctor}' not found in '{ctors}'"
 
@@ -225,10 +206,10 @@ mutual
       CompileM RecursorRule := do
     let type ← toYatimaExpr rule.rhs
     let typeCid ← exprToCid type
-    addToStore $ .expr_cache typeCid type
+    addToStore (typeCid, type)
     match (← read).constMap.find?' rule.ctor with
     | some const =>
-      let (_, ctorCid) ← processYatimaConst const
+      let (ctorCid, _) ← processYatimaConst const
       return { ctor := ctorCid, fields := rule.nfields, rhs := typeCid }
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
@@ -238,7 +219,7 @@ mutual
       withLevels rec.levelParams do
         let type ← Expr.fix name <$> toYatimaExpr rec.type
         let typeCid ← exprToCid type
-        addToStore $ .expr_cache typeCid type
+        addToStore (typeCid, type)
         let rules ← rec.rules.mapM fun r =>
           if ctors.contains r.ctor then
             toYatimaInternalRecRule ctors r
@@ -266,18 +247,18 @@ mutual
     | .sort lvl _ => do
       let univ ← toYatimaUniv lvl
       let univCid ← univToCid univ
-      addToStore $ .univ_cache univCid univ
+      addToStore (univCid, univ)
       return .sort univCid
     | .const name lvls _ => do
       match (← read).recrCtx.find? name with
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
           | some const => do
-            let (const, constCid) ← processYatimaConst const
+            let (constCid, const) ← processYatimaConst const
             let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
-              addToStore $ .univ_cache univCid univ
+              addToStore (univCid, univ)
             return .const name constCid univsCids
           | none => throw s!"Unknown constant '{name}'"
     | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
@@ -296,13 +277,13 @@ mutual
       CompileM Definition := do
     let type ← toYatimaExpr defn.type
     let typeCid ← exprToCid type
-    addToStore $ .expr_cache typeCid type
+    addToStore (typeCid, type)
     let value ←
       if isMutual then toYatimaExpr defn.value 
       else withRecrs (RBMap.single defn.name 0) $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
-    addToStore $ .expr_cache valueCid value
+    addToStore (valueCid, value)
     return {
       name   := defn.name
       lvls   := defn.levelParams
@@ -314,13 +295,13 @@ mutual
       CompileM Inductive := do
     let type ← toYatimaExpr ind.type
     let typeCid ← exprToCid type
-    addToStore $ .expr_cache typeCid type
+    addToStore (typeCid, type)
     let ctors : List Constructor ← ind.ctors.mapM
       fun name => do match (← read).constMap.find?' name with
         | some (.ctorInfo ctor) =>
           let type ← Expr.fix ind.name <$> toYatimaExpr ctor.type
           let typeCid ← exprToCid type
-          addToStore $ .expr_cache typeCid type
+          addToStore (typeCid, type)
           TODO
           -- return {
           --   name   := ctor.name
@@ -373,13 +354,13 @@ mutual
     return indInfos
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
-      CompileM Const := withResetCompileEnv const.levelParams do
+      CompileM (ConstCid × Const) := withResetCompileEnv const.levelParams do
     match const with
     | .axiomInfo struct =>
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      return .axiom {
+      addToStore (typeCid, type)
+      addToStoreAndCache $ .axiom {
         name := struct.name
         lvls := struct.levelParams
         type := typeCid
@@ -387,12 +368,12 @@ mutual
     | .thmInfo struct =>
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
+      addToStore (typeCid, type)
       withRecrs (RBMap.single struct.name 0) do
         let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
         let valueCid ← exprToCid value
-        addToStore $ .expr_cache valueCid value
-        return .theorem {
+        addToStore (valueCid, value)
+        addToStoreAndCache $ .theorem {
           name  := struct.name
           lvls  := struct.levelParams
           type  := typeCid
@@ -400,12 +381,12 @@ mutual
     | .opaqueInfo struct =>
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
+      addToStore (typeCid, type)
       withRecrs (RBMap.single struct.name 0) do
         let value ← Expr.fix struct.name <$> toYatimaExpr struct.value
         let valueCid ← exprToCid value
-        addToStore $ .expr_cache valueCid value
-        return .opaque {
+        addToStore (valueCid, value)
+        addToStoreAndCache $ .opaque {
           name  := struct.name
           lvls  := struct.levelParams
           type  := typeCid
@@ -414,8 +395,8 @@ mutual
     | .quotInfo struct =>
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
-      return .quotient {
+      addToStore (typeCid, type)
+      addToStoreAndCache $ .quotient {
         name := struct.name
         lvls := struct.levelParams
         type := typeCid
@@ -433,52 +414,71 @@ mutual
           for d in ds do 
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
             mutualIdxs := mutualIdxs.insert d.name i
-        let definitions ← withRecrs mutualIdxs $ 
+        let definitions ← withRecrs mutualIdxs $
           mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
-        return .mutDefBlock definitions
-      | none => return .definition $ ← toYatimaDef false struct 
+        let block : Const := .mutDefBlock definitions
+        let blockCid ← constToCid block
+        addToStore (blockCid, block)
+
+        let mut ret? : Option (ConstCid × Const) := none
+
+        for definition in definitions.join do
+          let idx := match (← get).mutDefIdx.find? definition.name with
+            | some i => i
+            | none => unreachable!
+          let defConst := .definitionProj
+            ⟨definition.name, definition.lvls, definition.type, blockCid, idx⟩
+          let c ← addToStoreAndCache defConst
+          if definition.name == struct.name.toString then ret? := some c
+
+        match ret? with
+        | some ret => return ret
+        | none => throw s!"Constant for '{struct.name}' wasn't compiled"
+      | none => addToStoreAndCache $ .definition $ ← toYatimaDef false struct
     | .ctorInfo struct =>
       let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
       let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
+      addToStore (typeCid, type)
       match (← read).constMap.find? struct.induct with
       | some const@(.inductInfo ind) =>
         let name := struct.name
-        let idx ← (match ind.all.indexOf ind.name with
-          | some i => return i
-          | none => throw s!"'{ind.name}' not found in '{ind.all}'")
-        match ind.ctors.indexOf name with
+        let idx ← match ind.all.indexOf? ind.name with
+          | some i => pure i
+          | none => throw s!"'{ind.name}' not found in '{ind.all}'"
+        match ind.ctors.indexOf? name with
         | some cidx =>
           if cidx != struct.cidx then 
             throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
           let indInfos ← buildInductiveInfoList ind
           let indBlock : Const := .mutIndBlock indInfos
           let indBlockCid ← constToCid indBlock
-          return .constructorProj {
+          addToStore (indBlockCid, indBlock)
+          let const : Const := .constructorProj {
             name  := name
             lvls  := struct.levelParams
             type  := typeCid
             block := indBlockCid
             idx   := idx
             cidx  := struct.cidx }
+          addToStoreAndCache const
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{struct.induct}'"
     | .recInfo struct =>
       let type ← toYatimaExpr struct.type
       let typeCid ← exprToCid type
-      addToStore $ .expr_cache typeCid type
+      addToStore (typeCid, type)
       let inductName := struct.getInduct
       match (← read).constMap.find? inductName with
       | some (.inductInfo ind) =>
         let indInfos ← buildInductiveInfoList ind
         let indBlock : Const := .mutIndBlock indInfos
         let indBlockCid ← constToCid indBlock
-        addToStore $ .const_cache indBlockCid indBlock
+        addToStore (indBlockCid, indBlock)
         match findRecursorIn struct.name indInfos with
         | some (idx, ridx, intern) =>
           TODO
-          -- return .recursorProj {
+          -- let const : Const := .recursorProj {
           --   name   := struct.name
           --   lvls   := struct.levelParams
           --   type   := typeCid
@@ -486,6 +486,7 @@ mutual
           --   idx    := idx
           --   ridx   := ridx
           --   intern := intern }
+          -- addToStoreAndCache const
         | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{inductName}'"
@@ -493,27 +494,27 @@ mutual
       let indInfos ← buildInductiveInfoList struct
       let indBlock : Const := .mutIndBlock indInfos
       let indBlockCid ← constToCid indBlock
-      addToStore $ .const_cache indBlockCid indBlock
-      let mut ind : Option Const := none
+      addToStore (indBlockCid, indBlock)
+
+      let mut ret? : Option (ConstCid × Const) := none
+
       for (idx, name) in struct.all.enum do
         match (← read).constMap.find? name with
         | some const => 
           let type ← toYatimaExpr const.type
           let typeCid ← exprToCid type
-          addToStore $ .expr_cache typeCid type
+          addToStore (typeCid, type)
           let const := .inductiveProj {
             name := name
             lvls := const.levelParams
             type := typeCid
             block := indBlockCid
             idx := idx }
-          let constCid ← constToCid const
-          addToStore $ .const_cache constCid const
-          set { ← get with cache := (← get).cache.insert name (const, constCid) }
-          if name == struct.name then ind := some const
-        | none   => throw s!"Unknown constant '{name}'"
-      match ind with
-      | some ind' => return ind'
+          let c ← addToStoreAndCache const
+          if name == struct.name then ret? := some c
+        | none => throw s!"Unknown constant '{name}'"
+      match ret? with
+      | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
 
   /-- 
@@ -529,26 +530,10 @@ mutual
   `const_cache`.
   -/
   partial def processYatimaConst (const : Lean.ConstantInfo) :
-      CompileM $ Const × ConstCid := do
+      CompileM $ ConstCid × Const := do
     match (← get).cache.find? const.name with
-    | none =>
-      let name := const.name
-      let const ← toYatimaConst const
-      let constCid ← constToCid const
-      addToStore $ .const_cache constCid const
-      set { ← get with cache := (← get).cache.insert const.name (const, constCid) }
-      match (← get).mutDefIdx.find? name with
-      | some i =>
-        match const.lvlsAndType with
-        | some (lvls, type) =>
-          let mutConst := .definitionProj ⟨name, lvls, type, constCid, i⟩
-          let mutCid ← constToCid mutConst
-          addToStore $ .const_cache mutCid mutConst
-          set { ← get with cache := (← get).cache.insert name (mutConst, mutCid) }
-          pure (mutConst, mutCid)
-        | none => pure (const, constCid)
-      | none => pure (const, constCid)
-    | some (const, constCid) => pure (const, constCid)
+    | some c => pure c
+    | none   => toYatimaConst const
 
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
@@ -575,9 +560,9 @@ mutual
       | none, none => do
         match (← read).constMap.find?' x, (← read).constMap.find?' y with
         | some xConst, some yConst => do
-          let xCid := (← processYatimaConst xConst).snd
-          let yCid := (← processYatimaConst yConst).snd
-          return (compare xCid yCid)
+          let xCid := (← processYatimaConst xConst).fst
+          let yCid := (← processYatimaConst yConst).fst
+          return (compare xCid.anon yCid.anon)
         | none, some _ => throw s!"Unknown constant '{x}'"
         | some _, none => throw s!"Unknown constant '{y}'"
         | _, _ => throw s!"Unknown constants '{x}, {y}'"
@@ -603,22 +588,22 @@ mutual
       let ts ← cmpExpr names tx ty
       return concatOrds [ compare nx ny , ts ]
 
-  partial def cmpDef
-    (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+  partial def cmpDef (names : Std.RBMap Lean.Name Nat compare)
+    (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
     let ts ← cmpExpr names x.type y.type
     let vs ← cmpExpr names x.value y.value
     return concatOrds [ls, ts, vs]
 
-  partial def eqDef
-    (names : Std.RBMap Lean.Name Nat compare) (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
+  partial def eqDef (names : Std.RBMap Lean.Name Nat compare)
+    (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Bool := do
     match (← cmpDef names x y) with 
       | .eq => pure true 
       | _ => pure false
 
-  /--  -/
+  /-- todo -/
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
       CompileM (List (List Lean.DefinitionVal)) := do
     let enum (ll : List (List Lean.DefinitionVal)) := 
@@ -651,12 +636,10 @@ def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
     if log then
       dbg_trace "------------- Lean constant -------------"
       dbg_trace s!"{printLeanConst const}"
-    let (const, constCid) ← processYatimaConst const
+    let (constCid, const) ← processYatimaConst const
     if log then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true const}"
-      dbg_trace s!"Anon CID: {constCid.anon.data}"
-      dbg_trace s!"Meta CID: {constCid.meta.data}"
   return (← get).store
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
@@ -686,7 +669,6 @@ def getPaths : IO Lean.SearchPath := do
     args := #["print-paths"]
   }
   let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
-  IO.println split
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
 
