@@ -156,7 +156,7 @@ def toYatimaUniv : Lean.Level → CompileM Univ
     return .imax univACid univBCid
   | .param name _ => do
     let lvls := (← read).univCtx
-    match lvls.indexOf name with
+    match lvls.indexOf? name with
     | some n => return .param name n
     | none   => throw s!"'{name}' not found in '{lvls}'"
   | .mvar .. => throw "Unfilled level metavariable"
@@ -188,7 +188,7 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   | _, .imax _ _ _ => return .gt
   | .param x _, .param y _ => do
     let lvls := (← read).univCtx
-    match (lvls.indexOf x), (lvls.indexOf y) with
+    match (lvls.indexOf? x), (lvls.indexOf? y) with
     | some xi, some yi => return (compare xi yi)
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
@@ -198,10 +198,10 @@ def findRecursorIn (recName : Name) (indInfos : List Inductive) :
   for (i, indInfo) in indInfos.enum do
     for (j, intRec) in indInfo.intRecrs.enum do
       if recName == intRec.name then
-        return (i, j, true)
+        return some (i, j, true)
     for (j, extRec) in indInfo.extRecrs.enum do
       if recName == extRec.name then
-        return (i, j, false)
+        return some (i, j, false)
   return none
 
 mutual
@@ -209,7 +209,7 @@ mutual
   partial def toYatimaInternalRecRule
     (ctors : List Lean.Name) (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
-    match ctors.indexOf rule.ctor with
+    match ctors.indexOf? rule.ctor with
     | some idx =>
       let type ← toYatimaExpr rule.rhs
       let typeCid ← exprToCid type
@@ -437,10 +437,10 @@ mutual
       match (← read).constMap.find? struct.induct with
       | some const@(.inductInfo ind) =>
         let name := struct.name
-        let idx ← (match ind.all.indexOf ind.name with
+        let idx ← (match ind.all.indexOf? ind.name with
           | some i => return i
           | none => throw s!"'{ind.name}' not found in '{ind.all}'")
-        match ind.ctors.indexOf name with
+        match ind.ctors.indexOf? name with
         | some cidx =>
           if cidx != struct.cidx then 
             throw s!"constructor index mismatch: {cidx} != {struct.cidx}"

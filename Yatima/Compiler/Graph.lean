@@ -1,5 +1,7 @@
 import Yatima.Compiler.Utils
-
+import Yatima.ForStdLib
+import YatimaStdLib.RBNode
+import YatimaStdLib.List
 /-
 This graph API needs work beforing being factored out because it's specific to
 Lean types.
@@ -22,7 +24,7 @@ instance : Inhabited ReferenceMap :=
 
 def referenceMap (constMap : ConstMap) : ReferenceMap :=
   constMap.fold (init := .empty)
-    fun acc name const => acc.insert name $ (getConstRefs const).eraseDup
+    fun acc name const => acc.insert name $ (getConstRefs const).eraseDupB
 
 instance : ToString ReferenceMap := 
  { toString := fun refs => toString refs.toList }
