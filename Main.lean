@@ -44,7 +44,9 @@ def buildRun (p : Cli.Parsed) : IO UInt32 := do
           | .error msg => errMsg := some msg; break
         if errMsg.isSome then break
       match errMsg with
-      | some msg => return 1
+      | some msg =>
+        IO.eprintln msg
+        return 1
       | none => pure ()
       if log then printCompilationStats stt
       -- todo: make use of `stt.store`

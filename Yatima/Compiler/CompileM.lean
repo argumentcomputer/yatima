@@ -8,7 +8,7 @@ open Std (RBMap)
 structure CompileState where
   store     : Yatima.Store
   cache     : RBMap Name (ConstCid × Const) compare
-  mutDefIdx : RBMap Lean.Name Nat compare
+  mutDefIdx : RBMap Name Nat compare
 
 def CompileState.union (s s' : CompileState) :
     Except String CompileState := Id.run do

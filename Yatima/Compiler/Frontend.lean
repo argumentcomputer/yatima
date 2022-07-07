@@ -8,11 +8,10 @@ namespace Yatima.Compiler
 open Std (RBMap)
 
 instance : Coe Lean.Name Name where
-  coe := .ofLeanName
-
+  coe := toString
 
 instance : Coe (List Lean.Name) (List Name) where
-  coe l := l.map .ofLeanName
+  coe l := l.map toString
 
 instance : Coe Lean.BinderInfo BinderInfo where coe
   | .default        => .default
@@ -422,7 +421,7 @@ mutual
           let defConst := .definitionProj
             ⟨definition.name, definition.lvls, definition.type, blockCid, idx⟩
           let c ← addToStoreAndCache defConst
-          if definition.name == struct.name then ret? := some c
+          if definition.name == struct.name.toString then ret? := some c
 
         match ret? with
         | some ret => return ret
@@ -503,7 +502,7 @@ mutual
             block := indBlockCid
             idx := idx }
           let c ← addToStoreAndCache const
-          if name == struct.name then ret? := some c
+          if name == struct.name.toString then ret? := some c
         | none   => throw s!"Unknown constant '{name}'"
       match ret? with
       | some ret => return ret
