@@ -60,29 +60,48 @@ def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.cycles, lvls, e.bindCtx, e.recrCtx⟩
 
 inductive YatimaStoreEntry
-  | univ_cache  : UnivCid      → Univ      → YatimaStoreEntry
-  | univ_anon   : UnivAnonCid  → UnivAnon  → YatimaStoreEntry
-  | univ_meta   : UnivMetaCid  → UnivMeta  → YatimaStoreEntry
-  | expr_cache  : ExprCid      → Expr      → YatimaStoreEntry
-  | expr_anon   : ExprAnonCid  → ExprAnon  → YatimaStoreEntry
-  | expr_meta   : ExprMetaCid  → ExprMeta  → YatimaStoreEntry
-  | const_cache : ConstCid     → Const     → YatimaStoreEntry
-  | const_anon  : ConstAnonCid → ConstAnon → YatimaStoreEntry
-  | const_meta  : ConstMetaCid → ConstMeta → YatimaStoreEntry
+  | univ_cache  : UnivCid × Univ           → YatimaStoreEntry
+  | expr_cache  : ExprCid × Expr           → YatimaStoreEntry
+  | const_cache : ConstCid × Const         → YatimaStoreEntry
+  | univ_anon   : UnivAnonCid × UnivAnon   → YatimaStoreEntry
+  | expr_anon   : ExprAnonCid × ExprAnon   → YatimaStoreEntry
+  | const_anon  : ConstAnonCid × ConstAnon → YatimaStoreEntry
+  | univ_meta   : UnivMetaCid × UnivMeta   → YatimaStoreEntry
+  | expr_meta   : ExprMetaCid × ExprMeta   → YatimaStoreEntry
+  | const_meta  : ConstMetaCid × ConstMeta → YatimaStoreEntry
+
+instance : Coe (UnivCid × Univ) YatimaStoreEntry where coe := .univ_cache
+instance : Coe (ExprCid × Expr) YatimaStoreEntry where coe := .expr_cache
+instance : Coe (ConstCid × Const) YatimaStoreEntry where coe := .const_cache
+instance : Coe (UnivAnonCid × UnivAnon) YatimaStoreEntry where coe := .univ_anon
+instance : Coe (ExprAnonCid × ExprAnon) YatimaStoreEntry where coe := .expr_anon
+instance : Coe (ConstAnonCid × ConstAnon) YatimaStoreEntry where coe := .const_anon
+instance : Coe (UnivMetaCid × UnivMeta) YatimaStoreEntry where coe := .univ_meta
+instance : Coe (ExprMetaCid × ExprMeta) YatimaStoreEntry where coe := .expr_meta
+instance : Coe (ConstMetaCid × ConstMeta) YatimaStoreEntry where coe := .const_meta
 
 def addToStore (y : YatimaStoreEntry) : CompileM Unit := do
   let stt ← get
   let store := stt.store
   match y with
-  | .univ_cache  cid obj => set { stt with store := { store with univ_cache  := store.univ_cache.insert cid obj  } }
-  | .univ_anon   cid obj => set { stt with store := { store with univ_anon   := store.univ_anon.insert cid obj   } }
-  | .univ_meta   cid obj => set { stt with store := { store with univ_meta   := store.univ_meta.insert cid obj   } }
-  | .expr_cache  cid obj => set { stt with store := { store with expr_cache  := store.expr_cache.insert cid obj  } }
-  | .expr_anon   cid obj => set { stt with store := { store with expr_anon   := store.expr_anon.insert cid obj   } }
-  | .expr_meta   cid obj => set { stt with store := { store with expr_meta   := store.expr_meta.insert cid obj   } }
-  | .const_cache cid obj => set { stt with store := { store with const_cache := store.const_cache.insert cid obj } }
-  | .const_anon  cid obj => set { stt with store := { store with const_anon  := store.const_anon.insert cid obj  } }
-  | .const_meta  cid obj => set { stt with store := { store with const_meta  := store.const_meta.insert cid obj  } }
+  | .univ_cache  (cid, obj) => set { stt with store :=
+    { store with univ_cache  := store.univ_cache.insert cid obj  } }
+  | .univ_anon   (cid, obj) => set { stt with store :=
+    { store with univ_anon   := store.univ_anon.insert cid obj   } }
+  | .univ_meta   (cid, obj) => set { stt with store :=
+    { store with univ_meta   := store.univ_meta.insert cid obj   } }
+  | .expr_cache  (cid, obj) => set { stt with store :=
+    { store with expr_cache  := store.expr_cache.insert cid obj  } }
+  | .expr_anon   (cid, obj) => set { stt with store :=
+    { store with expr_anon   := store.expr_anon.insert cid obj   } }
+  | .expr_meta   (cid, obj) => set { stt with store :=
+    { store with expr_meta   := store.expr_meta.insert cid obj   } }
+  | .const_cache (cid, obj) => set { stt with store :=
+    { store with const_cache := store.const_cache.insert cid obj } }
+  | .const_anon  (cid, obj) => set { stt with store :=
+    { store with const_anon  := store.const_anon.insert cid obj  } }
+  | .const_meta  (cid, obj) => set { stt with store :=
+    { store with const_meta  := store.const_meta.insert cid obj  } }
 
 def addToCache (name : Name) (c : ConstCid × Const) : CompileM Unit := do
   set { ← get with cache := (← get).cache.insert name c }
