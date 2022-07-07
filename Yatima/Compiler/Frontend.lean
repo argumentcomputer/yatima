@@ -502,8 +502,8 @@ mutual
             block := indBlockCid
             idx := idx }
           let c ← addToStoreAndCache const
-          if name == struct.name.toString then ret? := some c
-        | none   => throw s!"Unknown constant '{name}'"
+          if name == struct.name then ret? := some c
+        | none => throw s!"Unknown constant '{name}'"
       match ret? with
       | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
