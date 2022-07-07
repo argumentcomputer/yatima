@@ -59,6 +59,11 @@ instance : ToString QuotKind where toString
   | .lift => "Quot.lift"
   | .ind  => "Quot.ind"
 
+instance : ToString Ordering where toString
+  | .lt => "lt"
+  | .gt => "gt"
+  | .eq => "eq"
+
 mutual
 
   partial def printRecursorRule (ind : Inductive) (rule : RecursorRule) : CompileM String := do

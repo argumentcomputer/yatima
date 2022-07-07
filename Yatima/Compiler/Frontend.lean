@@ -574,7 +574,7 @@ mutual
         | some xConst, some yConst => do
           let xCid := (← processYatimaConst xConst).snd
           let yCid := (← processYatimaConst yConst).snd
-          return (compare xCid yCid)
+          return (compare xCid.anon yCid.anon)
         | none, some _ => throw s!"Unknown constant '{x}'"
         | some _, none => throw s!"Unknown constant '{y}'"
         | _, _ => throw s!"Unknown constants '{x}, {y}'"
