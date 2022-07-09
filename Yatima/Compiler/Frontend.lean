@@ -184,10 +184,8 @@ def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
 mutual
 
   partial def toYatimaConstructor
-    (ctors : List Lean.Name) (rule : Lean.RecursorRule) :
+    (ctors : List Lean.Name) (rule : Lean.RecursorRule) (idx : Nat):
       CompileM Constructor := do
-    match ctors.indexOf? rule.ctor with
-    | some idx =>
       let type ← toYatimaExpr rule.rhs
       let typeCid ← exprToCid type
       addToStore (typeCid, type)
@@ -205,7 +203,6 @@ mutual
             fields := ctor.numFields }
         | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
         | none => throw s!"Unknown constant '{rule.ctor}'"
-    | none => throw s!"'{rule.ctor}' not found in '{ctors}'"
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
@@ -226,8 +223,11 @@ mutual
         let typeCid ← exprToCid type
         addToStore (typeCid, type)
         let ctorMap : RBMap Name Constructor compare := ← rec.rules.foldlM (init := (RBMap.empty)) fun ctorMap r => do
-          let ctor ← toYatimaConstructor ctors r
-          return ctorMap.insert ctor.name ctor
+          match ctors.indexOf? r.ctor with
+          | some idx =>
+            let ctor ← toYatimaConstructor ctors r idx
+            return ctorMap.insert ctor.name ctor
+          | none => return ctorMap
         let retCtors ← ctors.mapM fun ctor => do
           match ctorMap.find? ctor with
           | some thisCtor => pure thisCtor
@@ -319,6 +319,19 @@ mutual
       value  := valueCid
       safety := defn.safety }
 
+  partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
+    match expr with
+      | .forallE _ t e _  => do
+        match e with
+        | .forallE _ _ e' _  => do
+          isInternalRec e name
+        -- t is the major premise
+        | _ => do
+          isInternalRec t name
+      | .app e _ _ => isInternalRec e name
+      | .const n _ _ => return n == name
+      | _ => return false
+
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
       CompileM Inductive := do
     let type ← toYatimaExpr ind.type
@@ -329,8 +342,8 @@ mutual
     let (recs, ctors) : (List (Sigma Recursor) × Option (List Constructor)) := ←
         leanRecs.foldlM (init := ([], none)) fun (recs, ctors) r =>
         match r with
-        | .recInfo rv =>
-          if ind.all == rv.all then do
+        | .recInfo rv => do
+          if ← isInternalRec rv.type ind.name then do
             let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
             return ((Sigma.mk true thisRec) :: recs, some thisCtors)
           else do
