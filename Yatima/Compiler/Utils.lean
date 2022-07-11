@@ -1,5 +1,4 @@
 import Lean
-import YatimaStdLib.RBTree
 
 namespace Lean
 
