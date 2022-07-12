@@ -6,12 +6,6 @@ open Std (RBMap)
 
 namespace Yatima.Tests
 
-def my_lspec (t : LSpec) : Except String String := do
-  let (success?, msg) := LSpec.runAndCompile t
-  if success?
-    then .ok msg
-    else throw msg
-
 open Yatima in
 def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 := do
   let mut groupIdxs : RBMap Lean.Name Nat compare := RBMap.empty
@@ -52,7 +46,7 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
             else
               tests := test s!"anon CID inequality {a} and {b} of inequivalent anon data" (aCid != bCid) tests
 
-      match my_lspec tests with
+      match lspec tests with
       | .ok msg => IO.println msg; return 0
       | .error msg => IO.eprintln s!"{msg}\n--- TESTS FAILED ---"; return 1
 
@@ -70,3 +64,6 @@ def CID : IO UInt32 := do
       [`BLEH]
       ]) = 1 then return 1
   return 0
+
+def main (args : List String) : IO UInt32 :=
+  CID

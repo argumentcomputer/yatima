@@ -1,6 +1,5 @@
 import Cli
 import Yatima.Compiler.Frontend
-import Yatima.Tests.CID
 
 opaque VERSION : String := "0.0.1"
 
@@ -74,23 +73,12 @@ def buildCmd : Cli.Cmd := `[Cli|
     ...sources : String; "List of Lean files or directories"
 ]
 
-def testRun (p : Cli.Parsed) : IO UInt32 := Yatima.Tests.CID
-
-def testCmd : Cli.Cmd := `[Cli|
-  test VIA testRun; [VERSION]
-  "run test suite"
-
-  FLAGS:
-    l, log; "Flag to print compilation progress and stats"
-]
-
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima VIA fun _ => pure 0; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:
-    buildCmd;
-    testCmd
+    buildCmd
 ]
 
 def main (args : List String) : IO UInt32 :=
