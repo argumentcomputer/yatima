@@ -272,7 +272,7 @@ inductive Const
   -- standalone constants
   | «axiom»     : Axiom → Const
   | «theorem»   : Theorem → Const
-  | opaque      : Opaque → Const
+  | «opaque»      : Opaque → Const
   | quotient    : Quotient → Const
   | definition  : Definition → Const
   -- projections of mutual blocks
@@ -287,7 +287,7 @@ inductive Const
 inductive ConstAnon
   | «axiom»     : AxiomAnon → ConstAnon
   | «theorem»   : TheoremAnon → ConstAnon
-  | opaque      : OpaqueAnon → ConstAnon
+  | «opaque»      : OpaqueAnon → ConstAnon
   | quotient    : QuotientAnon → ConstAnon
   | definition  : DefinitionAnon → ConstAnon
   | inductiveProj   : InductiveProjAnon → ConstAnon
@@ -300,7 +300,7 @@ inductive ConstAnon
 inductive ConstMeta
   | «axiom»     : AxiomMeta → ConstMeta
   | «theorem»   : TheoremMeta → ConstMeta
-  | opaque      : OpaqueMeta → ConstMeta
+  | «opaque»      : OpaqueMeta → ConstMeta
   | quotient    : QuotientMeta → ConstMeta
   | definition  : DefinitionMeta → ConstMeta
   | inductiveProj   : InductiveProjMeta → ConstMeta
