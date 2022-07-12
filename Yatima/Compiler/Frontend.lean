@@ -183,9 +183,7 @@ def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
 
 mutual
 
-  partial def toYatimaConstructor
-    (ctors : List Lean.Name) (rule : Lean.RecursorRule) (idx : Nat):
-      CompileM Constructor := do
+  partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM Constructor := do
       let type ← toYatimaExpr rule.rhs
       let typeCid ← exprToCid type
       addToStore (typeCid, type)
@@ -224,9 +222,10 @@ mutual
         addToStore (typeCid, type)
         let ctorMap : RBMap Name Constructor compare := ← rec.rules.foldlM (init := (RBMap.empty)) fun ctorMap r => do
           match ctors.indexOf? r.ctor with
-          | some idx =>
-            let ctor ← toYatimaConstructor ctors r idx
+          | some _ =>
+            let ctor ← toYatimaConstructor r
             return ctorMap.insert ctor.name ctor
+          -- this is an external recursor rule
           | none => return ctorMap
         let retCtors ← ctors.mapM fun ctor => do
           match ctorMap.find? ctor with
@@ -323,7 +322,7 @@ mutual
     match expr with
       | .forallE _ t e _  => do
         match e with
-        | .forallE _ _ e' _  => do
+        | .forallE _ _ _ _  => do
           isInternalRec e name
         -- t is the major premise
         | _ => do
