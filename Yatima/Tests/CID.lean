@@ -27,8 +27,6 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
       let mut namesToCids : RBMap Lean.Name ConstAnonCid compare := RBMap.empty
       for (constCid, const) in env.store.const_cache do
          namesToCids := namesToCids.insert const.name constCid.anon
-
-      let mut errList : List String := []
       
       let mut tests : TestSeq := .done
 
@@ -50,9 +48,9 @@ def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 :=
               | none => unreachable!
 
             if aIdx = bIdx then
-              tests := test' s!"anon CID equality {a} and {b} of equivalent anon data" (aCid == bCid) tests
+              tests := test s!"anon CID equality {a} and {b} of equivalent anon data" (aCid == bCid) tests
             else
-              tests := test' s!"anon CID inequality {a} and {b} of inequivalent anon data" (aCid != bCid) tests
+              tests := test s!"anon CID inequality {a} and {b} of inequivalent anon data" (aCid != bCid) tests
 
       match my_lspec tests with
       | .ok msg => IO.println msg; return 0

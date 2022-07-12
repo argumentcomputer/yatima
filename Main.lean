@@ -2,7 +2,7 @@ import Cli
 import Yatima.Compiler.Frontend
 import Yatima.Tests.CID
 
-constant VERSION : String := "0.0.1"
+opaque VERSION : String := "0.0.1"
 
 open System in
 partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
