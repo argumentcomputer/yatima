@@ -1,10 +1,7 @@
 import LSpec
 import Yatima.Compiler.Frontend
-import Yatima.Const
 
 open Std (RBMap)
-
-namespace Yatima.Tests
 
 open Yatima in
 def cid_test (fileName : String) (groups : List (List Lean.Name)) : IO UInt32 := do
@@ -65,5 +62,5 @@ def CID : IO UInt32 := do
       ]) = 1 then return 1
   return 0
 
-def main (args : List String) : IO UInt32 :=
+def main : IO UInt32 :=
   CID
