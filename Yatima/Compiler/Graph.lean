@@ -1,7 +1,8 @@
 import Yatima.Compiler.Utils
-import Yatima.ForStdLib
 import YatimaStdLib.RBNode
 import YatimaStdLib.List
+import YatimaStdLib.Tree
+
 /-
 This graph API needs work beforing being factored out because it's specific to
 Lean types.
