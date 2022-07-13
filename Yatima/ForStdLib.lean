@@ -41,7 +41,7 @@ instance [ToString α] : ToString (Tree α) :=
 partial def size (ta : Tree α) : Nat :=
   match ta with
   | .empty => 0
-  | .node a ts => 1 + List.foldl (· + ·) 0 (ts.map size)
+  | .node _ ts => 1 + List.foldl (· + ·) 0 (ts.map size)
 
 @[inline] protected def pure (a : α) : Tree α :=
   .node a []

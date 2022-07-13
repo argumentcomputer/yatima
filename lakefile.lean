@@ -2,20 +2,26 @@ import Lake
 
 open Lake DSL
 
-package Yatima {
+package Yatima 
+
+@[defaultTarget]
+lean_exe yatima {
   supportInterpreter := true
-  binName := "yatima"
-  dependencies := #[{
-    name := `Ipld
-    src := Source.git "https://github.com/yatima-inc/Ipld.lean.git" "2940e8d8abeda81bd4eda119d12521e477a2490b"
-  }, {
-    name := `LSpec
-    src := Source.git "https://github.com/yatima-inc/LSpec.git" "56da3b774818df05f44d3fc7621a6888b716ee4a"
-  }, {
-    name := `YatimaStdLib,
-    src := Source.git "https://github.com/yatima-inc/YatimaStdLib.lean" "b57d71878e6d9762c75f99b07b4bacdefdadeeaf"
-  }, {
-    name := `Cli
-    src := Source.git "https://github.com/mhuisi/lean4-cli.git" "v1.0.0-lnightly-2022-05-21"
-  }]
+  root := "Main"
+}
+
+require Ipld from git
+  "https://github.com/yatima-inc/Ipld.lean" @ "2eb1ae8a0282d52af45d916d240fb0b5ec491ab0"
+
+require LSpec from git
+  "https://github.com/yatima-inc/LSpec.git" @ "95b36c3a13e32355a9222e1dad33e354c604798d"
+
+require YatimaStdLib from git
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "35aecd8951778f45a47d12376635c26a815dcb25"
+
+require Cli from git
+  "https://github.com/mhuisi/lean4-cli" @ "e70141d69b8562a0cd31d23a9c9a4f0f90a3c0a6"
+
+lean_exe Tests.CidAnonEqNEq {
+  supportInterpreter := true
 }

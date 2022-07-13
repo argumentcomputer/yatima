@@ -1,5 +1,4 @@
 import Lean
-import YatimaStdLib.RBTree
 
 namespace Lean
 
@@ -40,13 +39,13 @@ def getExprRefs : Expr → List Name
   | .const name _ _ => [name]
   | .app func arg _ => 
     getExprRefs func ++  getExprRefs arg
-  | .lam name type body _ => 
+  | .lam _ type body _ => 
     getExprRefs type ++  getExprRefs body
-  | .forallE name type body _ => 
+  | .forallE _ type body _ => 
     getExprRefs type ++  getExprRefs body
-  | .letE  name type body exp _ => 
+  | .letE  _ type body exp _ => 
     getExprRefs type ++  getExprRefs body ++ getExprRefs exp
-  | .proj name idx exp _ => getExprRefs exp
+  | .proj _ _ exp _ => getExprRefs exp
   | _ => []
 
 def getConstRefs : ConstantInfo → List Name
@@ -150,7 +149,7 @@ def hasOpenReferenceInConst (openReferences : RBTree Name compare) :
   | .recInfo struct =>
     struct.rules.foldl
       (init := hasOpenReferenceInExpr openReferences struct.type)
-      fun acc r => acc || hasOpenReferenceInExpr openReferences struct.type
+      fun acc r => acc || hasOpenReferenceInExpr openReferences r.rhs
   | .quotInfo struct => hasOpenReferenceInExpr openReferences struct.type
 
 def filterConstants (cs : ConstMap) : ConstMap :=
