@@ -63,29 +63,38 @@ instance : Coe DefinitionSafety Ipld where coe
   | .unsafe  => .number 1
   | .partial => .number 2
 
+instance : Coe Unit Ipld where coe
+  | .unit => .array #[]
+
 instance : Coe RecursorRuleAnon Ipld where coe
   | .mk c f r => .array #[c, f, r]
 
 instance : Coe RecursorRuleMeta Ipld where coe
   | .mk c r => .array #[c, r]
 
-instance : Coe RecursorAnon Ipld where coe
-  | .mk t p i m m' rs k => .array #[t, p, i, m, m', rs, k]
+instance : Coe (RecursorAnon b) Ipld where coe
+  | .mk l t p i m m' rs k => .array #[l, t, p, i, m, m', match b with | .true => rs | .false => rs, k]
 
-instance : Coe RecursorMeta Ipld where coe
-  | .mk n t rs => .array #[n, t, rs]
+instance : Coe (Sigma RecursorAnon) Ipld where coe
+  | .mk b (.mk l t p i m m' rs k) => .array #[l, t, p, i, m, m', match b with | .true => rs | .false => rs, k]
+
+instance : Coe (RecursorMeta b) Ipld where coe
+  | .mk n l t rs => .array #[n, l, t, match b with | .true => rs | .false => rs]
+
+instance : Coe (Sigma RecursorMeta) Ipld where coe
+  | .mk b (.mk n l t rs) => .array #[b, n, l, t, match b with | .true => rs | .false => rs]
 
 instance : Coe ConstructorAnon Ipld where coe
-  | .mk t p f => .array #[t, p, f]
+  | .mk t l p f r => .array #[t, l, p, f, r]
 
 instance : Coe ConstructorMeta Ipld where coe
-  | .mk n t => .array #[n, t]
+  | .mk n l t r => .array #[n, l, t, r]
 
 instance : Coe InductiveAnon Ipld where coe
-  | .mk l t p i cs is es r s r' => .array #[l, t, p, i, cs, is, es, r, s, r']
+  | .mk l t p i cs rs r s r' => .array #[l, t, p, i, cs, rs, r, s, r']
 
 instance : Coe InductiveMeta Ipld where coe
-  | .mk n l t cs is es => .array #[n, l, t, cs, is, es]
+  | .mk n l t cs rs => .array #[n, l, t, cs, rs]
 
 instance : Coe QuotKind Ipld where coe
   | .type => .number 0
@@ -147,7 +156,7 @@ def constAnonToIpld : ConstAnon → Ipld
   | .definition ⟨n, l, t, v⟩ => .array #[.number CONSTANON, .number 4,  n, l, t, v]
   | .inductiveProj ⟨l, t, b, i⟩       => .array #[.number CONSTANON, .number 5,  l, t, b, i]
   | .constructorProj ⟨l, t, b, i, j⟩  => .array #[.number CONSTANON, .number 6,  l, t, b, i, j]
-  | .recursorProj ⟨l, t, b, i, j, i'⟩ => .array #[.number CONSTANON, .number 7,  l, t, b, i, j, i']
+  | .recursorProj ⟨l, t, b, i, j⟩ => .array #[.number CONSTANON, .number 7,  l, t, b, i, j]
   | .definitionProj ⟨l, t, b, i⟩      => .array #[.number CONSTANON, .number 8,  l, t, b, i]
   | .mutDefBlock ds => .array #[.number CONSTANON, .number 9,  ds]
   | .mutIndBlock is => .array #[.number CONSTANON, .number 10, is]

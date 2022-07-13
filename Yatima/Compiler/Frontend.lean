@@ -168,14 +168,11 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
 def findRecursorIn (recName : Name) (indInfos : List Inductive) :
-    Option (Nat × Nat × Bool) := Id.run do
+    Option (Nat × Nat) := Id.run do
   for (i, indInfo) in indInfos.enum do
-    for (j, intRec) in indInfo.intRecrs.enum do
-      if recName == intRec.name then
-        return some (i, j, true)
-    for (j, extRec) in indInfo.extRecrs.enum do
-      if recName == extRec.name then
-        return some (i, j, false)
+    for (j, intRec) in indInfo.recrs.enum do
+      if recName == intRec.snd.name then
+        return some (i, j)
   return none
 
 def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
@@ -186,16 +183,24 @@ def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
 
 mutual
 
-  partial def toYatimaInternalRecRule
-    (ctors : List Lean.Name) (rule : Lean.RecursorRule) :
-      CompileM RecursorRule := do
-    match ctors.indexOf? rule.ctor with
-    | some idx =>
+  partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM Constructor := do
       let type ← toYatimaExpr rule.rhs
       let typeCid ← exprToCid type
       addToStore (typeCid, type)
-      return { ctor := .inl idx, fields := rule.nfields, rhs := typeCid }
-    | none => throw s!"'{rule.ctor}' not found in '{ctors}'"
+      match (← read).constMap.find?' rule.ctor with
+        | some (.ctorInfo ctor) =>
+          let type ← toYatimaExpr ctor.type
+          let typeCid ← exprToCid type
+          addToStore (typeCid, type)
+          return {
+            rhs    := typeCid
+            lvls   := ctor.levelParams
+            name   := ctor.name
+            type   := typeCid
+            params := ctor.numParams
+            fields := ctor.numFields }
+        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
+        | none => throw s!"Unknown constant '{rule.ctor}'"
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
@@ -205,23 +210,52 @@ mutual
     match (← read).constMap.find?' rule.ctor with
     | some const =>
       let (ctorCid, _) ← processYatimaConst const
-      return { ctor := .inr ctorCid, fields := rule.nfields, rhs := typeCid }
+      return { ctor := ctorCid, fields := rule.nfields, rhs := typeCid }
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
-  partial def toYatimaRec (ctors : List Lean.Name) (name: Lean.Name) :
-      Lean.ConstantInfo → CompileM Recursor
+  partial def toYatimaInternalRec (ctors : List Lean.Name) :
+      Lean.ConstantInfo → CompileM (Recursor true × List Constructor)
     | .recInfo rec => do
       withLevels rec.levelParams do
-        let type ← Expr.fix name <$> toYatimaExpr rec.type
+        let type ← toYatimaExpr rec.type
         let typeCid ← exprToCid type
         addToStore (typeCid, type)
-        let rules ← rec.rules.mapM fun r =>
-          if ctors.contains r.ctor then
-            toYatimaInternalRecRule ctors r
-          else
-            toYatimaExternalRecRule r
+        let ctorMap : RBMap Name Constructor compare := ← rec.rules.foldlM (init := (RBMap.empty)) fun ctorMap r => do
+          match ctors.indexOf? r.ctor with
+          | some _ =>
+            let ctor ← toYatimaConstructor r
+            return ctorMap.insert ctor.name ctor
+          -- this is an external recursor rule
+          | none => return ctorMap
+        let retCtors ← ctors.mapM fun ctor => do
+          match ctorMap.find? ctor with
+          | some thisCtor => pure thisCtor
+          | none => unreachable!
+        return ({
+          name    := rec.name
+          lvls    := rec.levelParams
+          type    := typeCid
+          params  := rec.numParams
+          indices := rec.numIndices
+          motives := rec.numMotives
+          minors  := rec.numMinors
+          rules   := ()
+          k       := rec.k }, retCtors)
+    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
+
+  partial def toYatimaExternalRec :
+      Lean.ConstantInfo → CompileM (Recursor false)
+    | .recInfo rec => do
+      withLevels rec.levelParams do
+        let type ← toYatimaExpr rec.type
+        let typeCid ← exprToCid type
+        addToStore (typeCid, type)
+        let rules := ← rec.rules.foldlM (init := []) fun rules r => do
+          let extRecrRule ← toYatimaExternalRecRule r
+          return extRecrRule::rules
         return {
           name    := rec.name
+          lvls    := rec.levelParams
           type    := typeCid
           params  := rec.numParams
           indices := rec.numIndices
@@ -284,34 +318,40 @@ mutual
       value  := valueCid
       safety := defn.safety }
 
+  partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
+    match expr with
+      | .forallE _ t e _  => do
+        match e with
+        | .forallE _ _ _ _  => do
+          isInternalRec e name
+        -- t is the major premise
+        | _ => do
+          isInternalRec t name
+      | .app e _ _ => isInternalRec e name
+      | .const n _ _ => return n == name
+      | _ => return false
+
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
       CompileM Inductive := do
     let type ← toYatimaExpr ind.type
     let typeCid ← exprToCid type
     addToStore (typeCid, type)
-    let ctors : List Constructor ← ind.ctors.mapM
-      fun name => do match (← read).constMap.find?' name with
-        | some (.ctorInfo ctor) =>
-          let type ← Expr.fix ind.name <$> toYatimaExpr ctor.type
-          let typeCid ← exprToCid type
-          addToStore (typeCid, type)
-          return {
-            name   := ctor.name
-            type   := typeCid
-            params := ctor.numParams
-            fields := ctor.numFields }
-        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
-        | none => throw s!"Unknown constant '{name}'"
     let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
       fun c => match c with | .recInfo _ => true | _ => false
-    let (internalLeanRecs, externalLeanRecs)  ←
-        leanRecs.foldlM (init := ([], [])) fun (accI, accE) r =>
+    let (recs, ctors) : (List (Sigma Recursor) × Option (List Constructor)) := ←
+        leanRecs.foldlM (init := ([], none)) fun (recs, ctors) r =>
         match r with
-        | .recInfo rv =>
-          if ind.all == rv.all
-            then return (r :: accI, accE)
-            else return (accI, r :: accE)
-        | _ => throw s!"Non-recursor {r.name} extracted from children"
+        | .recInfo rv => do
+          if ← isInternalRec rv.type ind.name then do
+            let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
+            return ((Sigma.mk true thisRec) :: recs, some thisCtors)
+          else do
+            let thisRec := ← toYatimaExternalRec r
+            return ((Sigma.mk false thisRec) :: recs, ctors)
+        | _ => throw s!"Non-recursor {r.name} extracted from children" 
+    let ctors := match ctors with
+      | some ctors => ctors
+      | none => unreachable!
     return {
       name     := ind.name
       lvls     := ind.levelParams
@@ -319,8 +359,7 @@ mutual
       params   := ind.numParams
       indices  := ind.numIndices
       ctors    := ctors
-      intRecrs := ← internalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
-      extRecrs := ← externalLeanRecs.mapM $ toYatimaRec ind.ctors ind.name
+      recrs    := recs
       recr     := ind.isRec
       refl     := ind.isReflexive
       safe     := not ind.isUnsafe }
@@ -468,15 +507,14 @@ mutual
         let indBlockCid ← constToCid indBlock
         addToStore (indBlockCid, indBlock)
         match findRecursorIn struct.name indInfos with
-        | some (idx, ridx, intern) =>
+        | some (idx, ridx) =>
           let const : Const := .recursorProj {
             name   := struct.name
             lvls   := struct.levelParams
             type   := typeCid
             block  := indBlockCid
             idx    := idx
-            ridx   := ridx
-            intern := intern }
+            ridx   := ridx }
           addToStoreAndCache const
         | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
