@@ -86,7 +86,7 @@ def isAtomAux : Expr → Bool
 
 def isAtom : Expr → CompileM Bool 
   | .const .. | .var .. | .lit .. | .lty .. => return true 
-  | .proj idx e => isAtom e
+  | .proj _ e => isAtom e
   | e => isProp e
 
 def isBinder : Expr → Bool 
@@ -94,9 +94,9 @@ def isBinder : Expr → Bool
   | _ => false
 
 def isArrow : Expr → Bool
-  | .pi name bInfo type body =>
+  | .pi name bInfo _ body =>
     !(body.getBVars.contains name) && bInfo == .default
-  | e => false 
+  | _ => false 
 
 def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
   match bInfo with 
@@ -126,7 +126,7 @@ mutual
     else return s!"({← printExpr e})"
 
   partial def printExpr : Expr → CompileM String
-    | .var name idx => return s!"{name}"
+    | .var name _ => return s!"{name}"
     | .sort _ => return "Sort"
     | .const name .. => return s!"{name}"
     | .app func body =>
@@ -134,7 +134,6 @@ mutual
     | .lam name bInfo type body =>
       return s!"λ{← printBinding false (.lam name bInfo type body)}"
     | .pi name bInfo type body => do
-      let huh? := isArrow body
       let arrow := (!body.getBVars.contains name || name == "") && bInfo == .default
       if !arrow then 
         return s!"Π{← printBinding true (.pi name bInfo type body)}"
@@ -230,11 +229,11 @@ partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String :=
       | none => throw s!"malformed definition projection '{proj.name}' idx {proj.idx} ≥ '{defs.length}'"
     | _ => throw s!"malformed definition projection '{proj.name}': doesn't point to an definition block"
   -- these two will never happen
-  | .mutDefBlock dss => do
+  | .mutDefBlock _ => do
     throw s!"Unreachable call to print mutual pointer was reached"
     -- let defStrings ← dss.join.mapM printDefinition
     -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
-  | .mutIndBlock inds => do
+  | .mutIndBlock _ => do
     throw s!"Unreachable call to print mutual pointer was reached"
     -- let defStrings ← inds.mapM printInductive
     -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
