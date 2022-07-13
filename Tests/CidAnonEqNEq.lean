@@ -22,9 +22,9 @@ instance : Append TestSeq where
 
 -- move to lspec
 def withSuccess (descr : String) :
-    Except String α → (α → TestSeq → TestSeq) → TestSeq
+    Except String α → (α → TestSeq) → TestSeq
   | .error msg, _ => test s!"{descr}\n    {msg}" false
-  | .ok    a,   f => f a $ test descr true
+  | .ok    a,   f =>  test descr true ++ f a
 
 open Yatima
 
@@ -76,7 +76,7 @@ def inductivesTests := ("Fixtures/Inductives.lean", [
 
 def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
   return withSuccess s!"Compiles '{x.1}'" (← extractCidGroups x.1 x.2)
-    fun cidGroups tSeq => tSeq ++ makeCidTests cidGroups
+    fun cidGroups => makeCidTests cidGroups
 
 def main : IO UInt32 := do
   let testDefinitions ← generateTestSeq definitionsTests
