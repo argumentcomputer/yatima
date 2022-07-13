@@ -89,8 +89,6 @@ structure dfsState where
 
 abbrev dfsM := ReaderT Graph $ EStateM String dfsState
 
-open YatimaStdLib (Tree)
-
 partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
   match (← get).visited.find? v with
   | some _ => pure .empty
