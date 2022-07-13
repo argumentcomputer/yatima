@@ -2,11 +2,19 @@ import Lake
 
 open Lake DSL
 
-package Yatima {
+package Yatima 
+
+@[defaultTarget]
+lean_exe yatima {
   supportInterpreter := true
-  binName := "yatima"
-  dependencies := #[{
-    name := `Ipld
-    src := Source.git "https://github.com/yatima-inc/Ipld.lean.git" "9d2f32738cffb83e96a07845824cb489a1dcf081"
-  }]
+  root := "Main"
+}
+
+require Ipld from git "https://github.com/yatima-inc/Ipld.lean"@"39d5e0851c5ecffc5eaf501bd090451ceb0da54b"
+require LSpec from git "https://github.com/yatima-inc/LSpec.git"@"95b36c3a13e32355a9222e1dad33e354c604798d"
+require YatimaStdLib from git "https://github.com/yatima-inc/YatimaStdLib.lean"@"35aecd8951778f45a47d12376635c26a815dcb25"
+require Cli from git "https://github.com/mhuisi/lean4-cli"@"e70141d69b8562a0cd31d23a9c9a4f0f90a3c0a6"
+
+lean_exe Tests.CID {
+  supportInterpreter := true
 }

@@ -1,4 +1,4 @@
-import Yatima.Env
+import Yatima.Store
 import Yatima.Typechecker.Expr
 
 namespace Yatima.Typechecker
@@ -10,7 +10,7 @@ inductive ConvError where
 | anonMetaMismatch : ConvError
 deriving Inhabited
 
-abbrev ConvM := ReaderT Env <| ExceptT ConvError Id
+abbrev ConvM := ReaderT Store <| ExceptT ConvError Id
 
 -- Auxiliary functions
 def findExprAnon (anonCid : ExprAnonCid) : ConvM ExprAnon := do

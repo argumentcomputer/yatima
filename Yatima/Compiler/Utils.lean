@@ -1,5 +1,4 @@
 import Lean
-import Yatima.ForStdLib
 
 namespace Lean
 
@@ -74,27 +73,26 @@ def ConstMap.childrenOfWith (map : ConstMap) (name : Name)
 
 section OpenReferences
 
-open YatimaStdLib (RBSet)
+open Std (RBTree)
 
-def getOpenReferencesInExpr (map : ConstMap) (mem : RBSet Name) :
-    Expr → RBSet Name
+def getOpenReferencesInExpr (map : ConstMap) (mem : RBTree Name compare) :
+    Expr → RBTree Name compare
   | .app e₁ e₂ .. =>
-    getOpenReferencesInExpr map mem e₁ ⋃ₛ getOpenReferencesInExpr map mem e₂
+    (getOpenReferencesInExpr map mem e₁).union (getOpenReferencesInExpr map mem e₂)
   | .lam _ e₁ e₂ .. =>
-    getOpenReferencesInExpr map mem e₁ ⋃ₛ getOpenReferencesInExpr map mem e₂
+    (getOpenReferencesInExpr map mem e₁).union (getOpenReferencesInExpr map mem e₂)
   | .forallE _ e₁ e₂ .. =>
-    getOpenReferencesInExpr map mem e₁ ⋃ₛ getOpenReferencesInExpr map mem e₂
+    (getOpenReferencesInExpr map mem e₁).union (getOpenReferencesInExpr map mem e₂)
   | .letE _ e₁ e₂ e₃ .. =>
-    getOpenReferencesInExpr map mem e₁
-      ⋃ₛ getOpenReferencesInExpr map mem e₂
-      ⋃ₛ getOpenReferencesInExpr map mem e₃
+    (getOpenReferencesInExpr map mem e₁).union $ (getOpenReferencesInExpr map mem e₂).union
+      (getOpenReferencesInExpr map mem e₃)
   | .mdata _ e ..  => getOpenReferencesInExpr map mem e
   | .proj n _ e .. =>
     getOpenReferencesInExpr map (if map.contains n then mem else mem.insert n) e
   | .const n .. => if map.contains n then mem else mem.insert n
   | _ => mem
 
-def getOpenReferencesInConst (map : Lean.ConstMap) : Lean.ConstantInfo → RBSet Lean.Name
+def getOpenReferencesInConst (map : Lean.ConstMap) : Lean.ConstantInfo → RBTree Name compare
   | .axiomInfo struct => getOpenReferencesInExpr map .empty struct.type
   | .thmInfo struct =>
       getOpenReferencesInExpr
@@ -113,7 +111,7 @@ def getOpenReferencesInConst (map : Lean.ConstMap) : Lean.ConstantInfo → RBSet
       fun acc r => getOpenReferencesInExpr map acc r.rhs
   | .quotInfo struct => getOpenReferencesInExpr map .empty struct.type
 
-def hasOpenReferenceInExpr (openReferences : RBSet Name) : Lean.Expr → Bool
+def hasOpenReferenceInExpr (openReferences : RBTree Name compare) : Lean.Expr → Bool
   | .app e₁ e₂ .. =>
     hasOpenReferenceInExpr openReferences e₁
       || hasOpenReferenceInExpr openReferences e₂
@@ -134,7 +132,7 @@ def hasOpenReferenceInExpr (openReferences : RBSet Name) : Lean.Expr → Bool
   | .const n .. => openReferences.contains n
   | _ => false
 
-def hasOpenReferenceInConst (openReferences : RBSet Name) :
+def hasOpenReferenceInConst (openReferences : RBTree Name compare) :
     Lean.ConstantInfo → Bool
   | .axiomInfo struct => hasOpenReferenceInExpr openReferences struct.type
   | .thmInfo struct =>
@@ -155,8 +153,8 @@ def hasOpenReferenceInConst (openReferences : RBSet Name) :
   | .quotInfo struct => hasOpenReferenceInExpr openReferences struct.type
 
 def filterConstants (cs : ConstMap) : ConstMap :=
-  let openReferences : RBSet Name := cs.fold (init := .empty)
-    fun acc _ c => acc ⋃ₛ getOpenReferencesInConst cs c
+  let openReferences : RBTree Name compare := cs.fold (init := .empty)
+    fun acc _ c => acc.union (getOpenReferencesInConst cs c)
   Lean.List.toSMap $ cs.toList.filter fun (n, c) =>
     (!openReferences.contains n) && (!hasOpenReferenceInConst openReferences c)
 

@@ -83,7 +83,7 @@ inductive Const
   | «axiom»     : ConstAnonCid → (Axiom Expr) → Const
   | «theorem»   : ConstAnonCid → (Theorem Expr) → Const
   | «inductive» : ConstAnonCid → (Inductive Expr) → Const
-  | opaque      : ConstAnonCid → (Opaque Expr) → Const
+  | «opaque»      : ConstAnonCid → (Opaque Expr) → Const
   | definition  : ConstAnonCid → (Definition Expr) → Const
   | constructor : ConstAnonCid → (Constructor Expr) → Const
   | recursor    : ConstAnonCid → (Recursor Expr) → Const
