@@ -152,8 +152,8 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   | .zero _, _ => return .lt
   | _, .zero _  => return .gt
   | .succ x _, .succ y _ => cmpLevel x y
-  | .succ x _, _ => return .lt
-  | _, .succ x _ => return .gt
+  | .succ _ _, _ => return .lt
+  | _, .succ _ _ => return .gt
   | .max lx ly _, .max rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
   | .max _ _ _, _ => return .lt
   | _, .max _ _ _ => return .gt
@@ -281,7 +281,7 @@ mutual
         | some i => return .var name $ (← read).bindCtx.length + i
         | none   => match (← read).constMap.find?' name with
           | some const => do
-            let (constCid, const) ← processYatimaConst const
+            let (constCid, _) ← processYatimaConst const
             let univs ← lvls.mapM $ toYatimaUniv
             let univsCids ← univs.mapM univToCid
             (univsCids.zip univs).forM fun (univCid, univ) =>
@@ -471,7 +471,7 @@ mutual
       let typeCid ← exprToCid type
       addToStore (typeCid, type)
       match (← read).constMap.find? struct.induct with
-      | some const@(.inductInfo ind) =>
+      | some (.inductInfo ind) =>
         let name := struct.name
         let idx ← match ind.all.indexOf? ind.name with
           | some i => pure i
@@ -584,8 +584,8 @@ mutual
       if univs != .eq then return univs
       match names.find? x, names.find? y with
       | some nx, some ny => return compare nx ny
-      | none, some ny => return .gt
-      | some nx, none => return .lt
+      | none, some _ => return .gt
+      | some _, none => return .lt
       | none, none => do
         match (← read).constMap.find?' x, (← read).constMap.find?' y with
         | some xConst, some yConst => do
@@ -643,7 +643,6 @@ mutual
       | [] => unreachable! -- should never occur
       | [d] => return [[d]]
       | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
-    let newNames := enum newDss
     
     -- must normalize, see comments
     let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
@@ -665,7 +664,7 @@ def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
     if log then
       dbg_trace "------------- Lean constant -------------"
       dbg_trace s!"{printLeanConst const}"
-    let (constCid, const) ← processYatimaConst const
+    let (_, const) ← processYatimaConst const
     if log then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true const}"
@@ -701,7 +700,8 @@ def getPaths : IO Lean.SearchPath := do
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
 
-def runFrontend (filePath : System.FilePath) (log : Bool) (stt : CompileState) :
+def runFrontend (filePath : System.FilePath)
+  (log : Bool := false) (stt : CompileState := default) :
     IO $ Except String CompileState := do
   Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
   let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
