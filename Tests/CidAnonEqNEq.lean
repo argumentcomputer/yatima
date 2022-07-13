@@ -24,7 +24,7 @@ instance : Append TestSeq where
 def withSuccess (descr : String) :
     Except String α → (α → TestSeq) → TestSeq
   | .error msg, _ => test s!"{descr}\n    {msg}" false
-  | .ok    a,   f =>  test descr true ++ f a
+  | .ok    a,   f => test descr true $ f a
 
 open Yatima
 
