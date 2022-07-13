@@ -15,6 +15,6 @@ require LSpec from git "https://github.com/yatima-inc/LSpec.git"@"95b36c3a13e323
 require YatimaStdLib from git "https://github.com/yatima-inc/YatimaStdLib.lean"@"35aecd8951778f45a47d12376635c26a815dcb25"
 require Cli from git "https://github.com/mhuisi/lean4-cli"@"e70141d69b8562a0cd31d23a9c9a4f0f90a3c0a6"
 
-lean_exe Tests.CID {
+lean_exe Tests.CidAnonEqNEq {
   supportInterpreter := true
 }

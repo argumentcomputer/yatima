@@ -663,7 +663,8 @@ def getPaths : IO Lean.SearchPath := do
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
 
-def runFrontend (filePath : System.FilePath) (log : Bool) (stt : CompileState) :
+def runFrontend (filePath : System.FilePath)
+  (log : Bool := false) (stt : CompileState := default) :
     IO $ Except String CompileState := do
   Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
   let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
