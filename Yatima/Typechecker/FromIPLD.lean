@@ -81,6 +81,15 @@ def inductiveIsUnit (ind : InductiveAnon) : Bool :=
   | [ctor] => ctor.fields != 0
   | _ => false
 
+def coerceRecursorAnonFalse {b : Bool} : (rules : match b with | .true => Unit | .false => List RecursorRuleAnon) → List RecursorRuleAnon :=
+  match b with
+  | .true => fun _ => []
+  | .false => fun rules => rules
+def coerceRecursorMetaFalse {b : Bool} : (rules : match b with | .true => Unit | .false => List RecursorRuleMeta) → List RecursorRuleMeta :=
+  match b with
+  | .true => fun _ => []
+  | .false => fun rules => rules
+
 mutual
 partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM Expr := do
   let anon ← findExprAnon anonCid
@@ -179,35 +188,32 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
     let pairAnon ← Option.option (throw .ipldError) pure (inductiveAnon.recrs.get? anon.ridx);
     let pairMeta ← Option.option (throw .ipldError) pure (inductiveMeta.recrs.get? anon.ridx);
-    match (Sigma.fst pairAnon, Sigma.fst pairAnon) with
-    | (Bool.true, Bool.true) =>
-      let recursorAnon := Sigma.snd pairAnon
-      let recursorMeta := Sigma.snd pairMeta
-      let name := recursorMeta.name
-      let lvls := recursorMeta.lvls
-      let type ← exprFromIpld recursorAnon.type recursorMeta.type
-      let params := recursorAnon.params
-      let indices := recursorAnon.indices
-      let motives := recursorAnon.motives
-      let minors := recursorAnon.minors
-      -- let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
-      let k := recursorAnon.k
-      pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
-    | (Bool.false, Bool.false) =>
-      panic! "TODO"
-      -- let recursorAnon := Sigma.snd pairAnon
-      -- let recursorMeta := Sigma.snd pairMeta
-      -- let name := recursorMeta.name
-      -- let lvls := recursorMeta.lvls
-      -- let type ← exprFromIpld recursorAnon.type recursorMeta.type
-      -- let params := recursorAnon.params
-      -- let indices := recursorAnon.indices
-      -- let motives := recursorAnon.motives
-      -- let minors := recursorAnon.minors
-      -- let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
-      -- let k := recursorAnon.k
-      -- pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
-    | _ => throw .ipldError
+    let recursorAnon := Sigma.snd pairAnon
+    let recursorMeta := Sigma.snd pairMeta
+    let name := recursorMeta.name
+    let lvls := recursorMeta.lvls
+    let type ← exprFromIpld recursorAnon.type recursorMeta.type
+    let params := recursorAnon.params
+    let indices := recursorAnon.indices
+    let motives := recursorAnon.motives
+    let minors := recursorAnon.minors
+    let k := recursorAnon.k
+    let b₁ := Sigma.fst pairAnon
+    let b₂ := Sigma.fst pairMeta
+    let casesExtInt := Bool.casesOn (motive := fun b₁ => (RecursorAnon b₁) → (RecursorMeta b₂) → ConvM Const) b₁
+      -- Case where recursorAnon is external
+      (fun recursorAnon => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvM Const)
+        -- Case where recursorMeta is also external
+        (fun recursorMeta => do
+             let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
+             pure $ .extRecursor anonCid { name, lvls, type, params, indices, motives, minors, rules, k })
+        (fun _ => throw .ipldError))
+      -- Case where recursorAnon is internal
+      (fun _ => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvM Const)
+        (fun _ => throw .ipldError)
+        -- Case where recursorMeta is also internal
+        (fun _ => pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }))
+    casesExtInt recursorAnon recursorMeta
   | (.quotient quotientAnon, .quotient quotientMeta) =>
     let name := quotientMeta.name
     let lvls := quotientMeta.lvls
@@ -230,16 +236,14 @@ partial def ctorFromIpld (ctorAnon : ConstructorAnon) (ctorMeta : ConstructorMet
   let rhs ← exprFromIpld ctorAnon.rhs ctorMeta.rhs
   pure { name := ctorMeta.name, type, params := ctorAnon.params, fields := ctorAnon.fields, rhs }
 
-
-partial def rulesFromIpld (_rulesAnon : List RecursorRuleAnon) (_rulesMeta : List RecursorRuleMeta) : ConvM (List (RecursorRule Expr)) :=
-  panic! "TODO"
-  -- match (rulesAnon, rulesMeta) with
-  -- | (ruleAnon :: rulesAnon, ruleMeta :: rulesMeta) => do
-  --   let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
-  --   let rules ← rulesFromIpld rulesAnon rulesMeta
-  --   pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields } :: rules
-  -- | ([], []) => pure []
-  -- | _ => throw .anonMetaMismatch
+partial def rulesFromIpld (rulesAnon : List RecursorRuleAnon) (rulesMeta : List RecursorRuleMeta) : ConvM (List (RecursorRule Expr)) :=
+  match (rulesAnon, rulesMeta) with
+  | (ruleAnon :: rulesAnon, ruleMeta :: rulesMeta) => do
+    let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
+    let rules ← rulesFromIpld rulesAnon rulesMeta
+    pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields } :: rules
+  | ([], []) => pure []
+  | _ => throw .anonMetaMismatch
 end
 
 end Yatima.Typechecker
