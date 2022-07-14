@@ -12,7 +12,6 @@ def terminationFixtures := [
 ]
 
 def main : IO UInt32 := do
-  return 0
-  -- let tSeq := (← terminationFixtures.mapM compile).foldl TestSeq.append .done
-  -- lspecIO
-  --   tSeq
+  let tSeq := (← terminationFixtures.mapM compile).foldl TestSeq.append .done
+  lspecIO
+    tSeq

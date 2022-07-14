@@ -68,13 +68,13 @@ def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
 
 def main : IO UInt32 := do
   -- let testDefinitions ← generateTestSeq definitionsPair
-  -- let testPartialDefinitions ← generateTestSeq partialDefinitionsPair
-  -- let testUnsafeDefinitions ← generateTestSeq unsafeDefinitionsPair
-  -- let testInductives ← generateTestSeq inductivesPair
+  let testPartialDefinitions ← generateTestSeq partialDefinitionsPair
+  let testUnsafeDefinitions ← generateTestSeq unsafeDefinitionsPair
+  let testInductives ← generateTestSeq inductivesPair
   let testImport ← generateTestSeq importPair
   lspecIO do
-  --   testDefinitions
-    -- testPartialDefinitions
-    -- testUnsafeDefinitions
-    -- testInductives
+    -- testDefinitions
+    testPartialDefinitions
+    testUnsafeDefinitions
+    testInductives
     testImport
