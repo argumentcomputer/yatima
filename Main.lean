@@ -27,7 +27,7 @@ def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
     s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
 
 open Yatima.Compiler in
-def buildRun (p : Cli.Parsed) : IO UInt32 := do
+def storeRun (p : Cli.Parsed) : IO UInt32 := do
   let log : Bool := p.hasFlag "log"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
@@ -51,19 +51,19 @@ def buildRun (p : Cli.Parsed) : IO UInt32 := do
       -- todo: make use of `stt.store`
       return 0
     else
-      IO.eprintln "No build argument was found."
-      IO.eprintln "Run `yatima build -h` for further information."
+      IO.eprintln "No store argument was found."
+      IO.eprintln "Run `yatima store -h` for further information."
       return 1
   | none =>
-    IO.eprintln "Couldn't parse build arguments."
-    IO.eprintln "Run `yatima build -h` for further information."
+    IO.eprintln "Couldn't parse store arguments."
+    IO.eprintln "Run `yatima store -h` for further information."
     return 1
 
 instance : Coe String (Option String) where
   coe := some
 
-def buildCmd : Cli.Cmd := `[Cli|
-  build VIA buildRun; [VERSION]
+def storeCmd : Cli.Cmd := `[Cli|
+  store VIA storeRun; [VERSION]
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
@@ -74,11 +74,11 @@ def buildCmd : Cli.Cmd := `[Cli|
 ]
 
 def yatimaCmd : Cli.Cmd := `[Cli|
-  yatima VIA fun _ => pure 0; [VERSION]
+  yatima NOOP; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:
-    buildCmd
+    storeCmd
 ]
 
 def main (args : List String) : IO UInt32 :=
