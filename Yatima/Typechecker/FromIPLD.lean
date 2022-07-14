@@ -8,6 +8,7 @@ inductive ConvError where
 | cannotFindAnon : ConvError
 | cannotFindMeta : ConvError
 | anonMetaMismatch : ConvError
+| ipldError : ConvError
 deriving Inhabited
 
 abbrev ConvM := ReaderT Store <| ExceptT ConvError Id
@@ -43,6 +44,16 @@ def findUnivMeta (metaCid : UnivMetaCid) : ConvM UnivMeta := do
   | .some univ => pure univ
   | .none => throw .cannotFindMeta
 
+def getInductiveAnon (const : Yatima.ConstAnon) (idx : Nat) : ConvM Yatima.InductiveAnon :=
+  match const with
+  | .mutIndBlock inds => pure $ inds.get! idx
+  | _ => throw .ipldError
+
+def getInductiveMeta (const : Yatima.ConstMeta) (idx : Nat) : ConvM Yatima.InductiveMeta :=
+  match const with
+  | .mutIndBlock inds => pure $ inds.get! idx
+  | _ => throw .ipldError
+
 -- Conversion functions
 partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM Univ := do
   let anon ← findUnivAnon anonCid
@@ -51,9 +62,9 @@ partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM
   | (.zero, .zero) => pure $ .zero
   | (.succ univAnon, .succ univMeta) => pure $ .succ (← univFromIpld univAnon univMeta)
   | (.max univAnon₁ univAnon₂, .max univMeta₁ univMeta₂) =>
-    pure $ .max (← univFromIpld univAnon₁ univMeta₂) (← univFromIpld univAnon₁ univMeta₂)
+    pure $ .max (← univFromIpld univAnon₁ univMeta₁) (← univFromIpld univAnon₂ univMeta₂)
   | (.imax univAnon₁ univAnon₂, .imax univMeta₁ univMeta₂) =>
-    pure $ .imax (← univFromIpld univAnon₁ univMeta₂) (← univFromIpld univAnon₁ univMeta₂)
+    pure $ .imax (← univFromIpld univAnon₁ univMeta₁) (← univFromIpld univAnon₂ univMeta₂)
   | (.param idx, .param nam) => pure $ .var nam idx
   | _ => throw .anonMetaMismatch
 
@@ -64,13 +75,9 @@ partial def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMet
   | ([], []) => pure []
   | _ => throw .anonMetaMismatch
 
-def getConstructorsAnon (ind : InductiveAnon) : List ConstructorAnon :=
-  -- This is an important function which probably needs a refactoring of `Expr.Inductive` and `Expr.Constructor`
-  panic! "TODO"
-
 def inductiveIsUnit (ind : InductiveAnon) : Bool :=
   if ind.recr || ind.indices != 0 then false
-  else match getConstructorsAnon ind with
+  else match ind.ctors with
   | [ctor] => ctor.fields != 0
   | _ => false
 
@@ -128,7 +135,9 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let type ← exprFromIpld theoremAnon.type theoremMeta.type
     let value ← exprFromIpld theoremAnon.value theoremMeta.value
     pure $ .«theorem» anonCid { name, lvls, type, value }
-  | (.«inductive» inductiveAnon, .«inductive» inductiveMeta) =>
+  | (.inductiveProj anon, .inductiveProj meta) =>
+    let inductiveAnon ← getInductiveAnon (← findConstAnon anon.block) anon.idx
+    let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
     let name := inductiveMeta.name
     let lvls := inductiveMeta.lvls
     let type ← exprFromIpld inductiveAnon.type inductiveMeta.type
@@ -138,9 +147,8 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let recr := inductiveAnon.recr
     let safe := inductiveAnon.safe
     let refl := inductiveAnon.refl
-    let nest := inductiveAnon.nest
     let unit := inductiveIsUnit inductiveAnon
-    pure $ .«inductive» anonCid { name, lvls, type, params, indices, ctors, recr, safe, refl, nest, unit }
+    pure $ .«inductive» anonCid { name, lvls, type, params, indices, ctors, recr, safe, refl, unit }
   | (.opaque opaqueAnon, .opaque opaqueMeta) =>
     let name := opaqueMeta.name
     let lvls := opaqueMeta.lvls
@@ -155,27 +163,51 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let value ← exprFromIpld definitionAnon.value definitionMeta.value
     let safety := definitionAnon.safety
     pure $ .definition anonCid { name, lvls, type, value, safety }
-  | (.constructor constructorAnon, .constructor constructorMeta) =>
+  | (.constructorProj anon, .constructorProj meta) =>
+    let inductiveAnon ← getInductiveAnon (← findConstAnon anon.block) anon.idx
+    let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
+    let constructorAnon ← Option.option (throw .ipldError) pure (inductiveAnon.ctors.get? anon.cidx);
+    let constructorMeta ← Option.option (throw .ipldError) pure (inductiveMeta.ctors.get? anon.cidx);
     let name := constructorMeta.name
-    let lvls := constructorMeta.lvls
     let type ← exprFromIpld constructorAnon.type constructorMeta.type
     let params := constructorAnon.params
-    let idx := constructorAnon.idx
     let fields := constructorAnon.fields
-    let safe := constructorAnon.safe
-    pure $ .constructor anonCid { name, lvls, type, idx, params, fields, safe }
-  | (.recursor recursorAnon, .recursor recursorMeta) =>
-    let name := recursorMeta.name
-    let lvls := recursorMeta.lvls
-    let type ← exprFromIpld recursorAnon.type recursorMeta.type
-    let params := recursorAnon.params
-    let indices := recursorAnon.indices
-    let motives := recursorAnon.motives
-    let minors := recursorAnon.minors
-    let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
-    let k := recursorAnon.k
-    let safe := recursorAnon.safe
-    pure $ .recursor anonCid { name, lvls, type, params, indices, motives, minors, rules, k, safe }
+    let rhs ← exprFromIpld constructorAnon.rhs constructorMeta.rhs
+    pure $ .constructor anonCid { name, type, params, fields, rhs }
+  | (.recursorProj anon, .recursorProj meta) =>
+    let inductiveAnon ← getInductiveAnon (← findConstAnon anon.block) anon.idx
+    let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
+    let pairAnon ← Option.option (throw .ipldError) pure (inductiveAnon.recrs.get? anon.ridx);
+    let pairMeta ← Option.option (throw .ipldError) pure (inductiveMeta.recrs.get? anon.ridx);
+    match (Sigma.fst pairAnon, Sigma.fst pairAnon) with
+    | (Bool.true, Bool.true) =>
+      let recursorAnon := Sigma.snd pairAnon
+      let recursorMeta := Sigma.snd pairMeta
+      let name := recursorMeta.name
+      let lvls := recursorMeta.lvls
+      let type ← exprFromIpld recursorAnon.type recursorMeta.type
+      let params := recursorAnon.params
+      let indices := recursorAnon.indices
+      let motives := recursorAnon.motives
+      let minors := recursorAnon.minors
+      -- let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
+      let k := recursorAnon.k
+      pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
+    | (Bool.false, Bool.false) =>
+      panic! "TODO"
+      -- let recursorAnon := Sigma.snd pairAnon
+      -- let recursorMeta := Sigma.snd pairMeta
+      -- let name := recursorMeta.name
+      -- let lvls := recursorMeta.lvls
+      -- let type ← exprFromIpld recursorAnon.type recursorMeta.type
+      -- let params := recursorAnon.params
+      -- let indices := recursorAnon.indices
+      -- let motives := recursorAnon.motives
+      -- let minors := recursorAnon.minors
+      -- let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
+      -- let k := recursorAnon.k
+      -- pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
+    | _ => throw .ipldError
   | (.quotient quotientAnon, .quotient quotientMeta) =>
     let name := quotientMeta.name
     let lvls := quotientMeta.lvls
@@ -184,23 +216,30 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     pure $ .quotient anonCid { name, lvls, type, kind }
   | _ => throw .anonMetaMismatch
 
-partial def ctorsFromIpld (ctorsAnon : List (Name × ExprAnonCid)) (ctorsMeta : List ExprMetaCid) : ConvM (List (Name × Expr)) :=
+partial def ctorsFromIpld (ctorsAnon : List ConstructorAnon) (ctorsMeta : List ConstructorMeta) : ConvM (List (Constructor Expr)) :=
   match (ctorsAnon, ctorsMeta) with
-  | ((name, exprAnon) :: ctorsAnon, exprMeta :: ctorsMeta) => do
-    let expr ← exprFromIpld exprAnon exprMeta
+  | (ctorAnon :: ctorsAnon, ctorMeta :: ctorsMeta) => do
+    let ctor ← ctorFromIpld ctorAnon ctorMeta
     let ctors ← ctorsFromIpld ctorsAnon ctorsMeta
-    pure $ (name, expr) :: ctors
+    pure $ ctor :: ctors
   | ([], []) => pure []
   | _ => throw .anonMetaMismatch
 
-partial def rulesFromIpld (rulesAnon : List RecursorRuleAnon) (rulesMeta : List RecursorRuleMeta) : ConvM (List (RecursorRule Expr)) :=
-  match (rulesAnon, rulesMeta) with
-  | (ruleAnon :: rulesAnon, ruleMeta :: rulesMeta) => do
-    let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
-    let rules ← rulesFromIpld rulesAnon rulesMeta
-    pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields } :: rules
-  | ([], []) => pure []
-  | _ => throw .anonMetaMismatch
+partial def ctorFromIpld (ctorAnon : ConstructorAnon) (ctorMeta : ConstructorMeta) : ConvM (Constructor Expr) := do
+  let type ← exprFromIpld ctorAnon.type ctorMeta.type
+  let rhs ← exprFromIpld ctorAnon.rhs ctorMeta.rhs
+  pure { name := ctorMeta.name, type, params := ctorAnon.params, fields := ctorAnon.fields, rhs }
+
+
+partial def rulesFromIpld (_rulesAnon : List RecursorRuleAnon) (_rulesMeta : List RecursorRuleMeta) : ConvM (List (RecursorRule Expr)) :=
+  panic! "TODO"
+  -- match (rulesAnon, rulesMeta) with
+  -- | (ruleAnon :: rulesAnon, ruleMeta :: rulesMeta) => do
+  --   let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
+  --   let rules ← rulesFromIpld rulesAnon rulesMeta
+  --   pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields } :: rules
+  -- | ([], []) => pure []
+  -- | _ => throw .anonMetaMismatch
 end
 
 end Yatima.Typechecker

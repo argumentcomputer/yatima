@@ -23,12 +23,21 @@ partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value 
   partial def applyConst (name : Name) (k : Const) (univs : List Univ) (arg : Thunk Value) (args : Args) : Value :=
   -- Assumes a partial application of k to args, which means in particular, that it is in normal form
     match k with
-    | .recursor _ recur =>
+    | .intRecursor _ recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != major_idx then Value.app (Neutral.const name k univs) (arg :: args)
       else
         match arg.get with
-        | .app (Neutral.const _ (.constructor hash ctor) _) args' =>
+        | .app (Neutral.const _ (.constructor _ ctor) _) args' =>
+          let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
+          eval ctor.rhs {exprs, univs}
+        | _ => Value.app (Neutral.const name k univs) (arg :: args)
+    | .extRecursor _ recur =>
+      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != major_idx then Value.app (Neutral.const name k univs) (arg :: args)
+      else
+        match arg.get with
+        | .app (Neutral.const _ (.constructor hash _) _) args' =>
           match List.find? (fun r => r.ctor == hash) recur.rules with
           | some rule =>
             let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)

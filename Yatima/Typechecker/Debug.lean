@@ -20,7 +20,7 @@ def printExpr (expr : Expr) : String :=
     | .strictImplicit => s!"(⦃{nam}: {printExpr dom}⦄ → {printExpr cod})"
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
-  | .letE _ nam typ val bod => s!""
+  | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
   | .lit _ (.nat x) => s!"{x}"
   | .lit _ (.str x) => s!"\"{x}\""
   | .lty _ .nat => s!"Nat"
@@ -31,7 +31,7 @@ def printExpr (expr : Expr) : String :=
 mutual
 partial def printVal (val : Value) : String :=
   match val with
-  | .sort univ => s!"Sort"
+  | .sort _ => s!"Sort"
   | .app neu args => printSpine neu args
   | .lam nam binfo bod env =>
     match binfo with
@@ -74,7 +74,8 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
     | .strictImplicit => s!"(⦃{nam}: {printLamBod dom env}⦄ → {printLamBod cod env})"
     | .instImplicit => s!"([{nam}: {printLamBod dom env}] → {printLamBod cod env})"
     | _ => s!"(({nam}: {printLamBod dom env}) → {printLamBod cod env})"
-  | .letE _ nam typ val bod => s!""
+  -- | .letE _ nam typ val bod => s!""
+  | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
   | .lit _ (.nat x) => s!"{x}"
   | .lit _ (.str x) => s!"\"{x}\""
   | .lty _ .nat => s!"Nat"

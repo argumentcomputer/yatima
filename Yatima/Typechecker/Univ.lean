@@ -49,7 +49,7 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
     | Univ.zero => Univ.zero
     | Univ.succ _ => reduceMax (instReduce a idx subst) b_prime
     | _ => Univ.imax (instReduce a idx subst) b_prime
-  | Univ.var nam idx' => if idx' == idx then subst else u
+  | Univ.var _ idx' => if idx' == idx then subst else u
   | Univ.zero => u
 
 -- Instantiate multiple variables at the same time and reduce. Assumes already

@@ -29,48 +29,53 @@ structure Definition (Expr : Type) where
   value  : Expr
   safety : DefinitionSafety
 
+structure Constructor (Expr : Type) where
+  name   : Name
+  -- lvls   : List Name
+  type   : Expr
+  -- idx    : Nat
+  params : Nat
+  fields : Nat
+  rhs    : Expr
+  -- safe   : Bool
+
 structure Inductive (Expr : Type) where
   name    : Name
   lvls    : List Name
   type    : Expr
   params  : Nat
   indices : Nat
-  ctors   : List (Name × Expr)
+  ctors   : List (Constructor Expr)
   recr    : Bool
   safe    : Bool
   refl    : Bool
-  nest    : Bool
   unit    : Bool
-
-structure Constructor (Expr : Type) where
-  name   : Name
-  lvls   : List Name
-  type   : Expr
-  -- TODO: this might not be necessary at all
-  -- ind    : ConstCid
-  idx    : Nat
-  params : Nat
-  fields : Nat
-  safe   : Bool
 
 structure RecursorRule (Expr : Type) where
   ctor   : ConstAnonCid
   fields : Nat
   rhs    : Expr
 
-structure Recursor (Expr : Type) where
+structure ExtRecursor (Expr : Type) where
   name    : Name
   lvls    : List Name
   type    : Expr
-  -- TODO: this might not be necessary at all
-  -- ind     : ConstCid
   params  : Nat
   indices : Nat
   motives : Nat
   minors  : Nat
   rules   : List (RecursorRule Expr)
   k       : Bool
-  safe    : Bool
+
+structure IntRecursor (Expr : Type) where
+  name    : Name
+  lvls    : List Name
+  type    : Expr
+  params  : Nat
+  indices : Nat
+  motives : Nat
+  minors  : Nat
+  k       : Bool
 
 structure Quotient (Expr : Type) where
   name : Name
@@ -83,10 +88,11 @@ inductive Const
   | «axiom»     : ConstAnonCid → (Axiom Expr) → Const
   | «theorem»   : ConstAnonCid → (Theorem Expr) → Const
   | «inductive» : ConstAnonCid → (Inductive Expr) → Const
-  | «opaque»      : ConstAnonCid → (Opaque Expr) → Const
+  | «opaque»    : ConstAnonCid → (Opaque Expr) → Const
   | definition  : ConstAnonCid → (Definition Expr) → Const
   | constructor : ConstAnonCid → (Constructor Expr) → Const
-  | recursor    : ConstAnonCid → (Recursor Expr) → Const
+  | extRecursor : ConstAnonCid → (ExtRecursor Expr) → Const
+  | intRecursor : ConstAnonCid → (IntRecursor Expr) → Const
   | quotient    : ConstAnonCid → (Quotient Expr) → Const
 
 inductive Expr
@@ -109,10 +115,11 @@ def getConstType (k : Const) : Expr :=
   | .«axiom» _ x => x.type
   | .«theorem» _ x => x.type
   | .«inductive» _ x => x.type
-  | .opaque _ x => x.type
+  | .«opaque» _ x => x.type
   | .definition _ x => x.type
   | .constructor _ x => x.type
-  | .recursor _ x => x.type
+  | .intRecursor _ x => x.type
+  | .extRecursor _ x => x.type
   | .quotient _ x => x.type
 
 def getConstHash (k : Const) : ConstAnonCid :=
@@ -120,10 +127,11 @@ def getConstHash (k : Const) : ConstAnonCid :=
   | .«axiom» h _ => h
   | .«theorem» h _ => h
   | .«inductive» h _ => h
-  | .opaque h _ => h
+  | .«opaque» h _ => h
   | .definition h _ => h
   | .constructor h _ => h
-  | .recursor h _ => h
+  | .intRecursor h _ => h
+  | .extRecursor h _ => h
   | .quotient h _ => h
 
 end Yatima.Typechecker

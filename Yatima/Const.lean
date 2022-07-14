@@ -110,12 +110,14 @@ structure ConstructorAnon where
   params : Nat
   fields : Nat
   rhs    : ExprAnonCid
+  deriving Inhabited
 
 structure ConstructorMeta where
   name   : Name
   lvls   : List Name
   type   : ExprMetaCid
   rhs    : ExprMetaCid
+  deriving Inhabited
 
 structure RecursorRule where
   ctor   : ConstCid

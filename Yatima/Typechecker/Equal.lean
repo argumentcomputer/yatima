@@ -15,7 +15,7 @@ def isUnit (type : Value) : Bool :=
 
 def applyType (type : Value) (args : List (Thunk Value)) : Value :=
   match type, args with
-  | .pi _ _ dom img env, arg :: args =>
+  | .pi _ _ _ img env, arg :: args =>
     applyType (eval img (extEnv env arg)) args
   | type, [] => type
   | _, _ => panic! "Cannot apply argument list to type. Implementation broken."
@@ -53,7 +53,7 @@ mutual
       -- Here, it is assumed that `type` is some a `Sort`
       equal lvl dom.get dom'.get type &&
       let img := eval img (extVar env name lvl dom)
-      let img' := eval img' (extVar env name' lvl dom)
+      let img' := eval img' (extVar env' name' lvl dom)
       equal (lvl + 1) img img' type
     | .lam name _ bod env, .lam name' _ bod' env' =>
       match type with
@@ -69,7 +69,7 @@ mutual
         let var := mkVar name lvl dom
         let bod := eval bod (extEnv env var)
         let app := Value.app neu' (var :: args')
-        let img := eval img (extVar env pi_name lvl dom)
+        let img := eval img (extVar pi_env pi_name lvl dom)
         equal (lvl + 1) bod app img
       | _ => panic! "Impossible equal case"
     | .app neu args, .lam name _ bod env =>
@@ -78,7 +78,7 @@ mutual
         let var := mkVar name lvl dom
         let bod := eval bod (extEnv env var)
         let app := Value.app neu (var :: args)
-        let img := eval img (extVar env pi_name lvl dom)
+        let img := eval img (extVar pi_env pi_name lvl dom)
         equal (lvl + 1) app bod img
       | _ => panic! "Impossible equal case"
     | .app (.fvar _ idx var_type) args, .app (.fvar _ idx' _) args' =>

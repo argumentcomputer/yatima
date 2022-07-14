@@ -23,18 +23,16 @@ abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
 def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : CheckM α) : CheckM α :=
   withReader (fun ctx => { lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnv ctx.env val }) m
 
-def getConstructor (ind : Inductive Expr) : List (Constructor Expr) := default -- TODO
-
 def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
   if ind.recr || ind.indices != 0 then throw .typNotStructure
-  else match getConstructor ind with
+  else match ind.ctors with
   | [ctor] => pure ctor
   | _ => throw .typNotStructure
 
 mutual
   partial def check (term : Expr) (type : Value) : CheckM Unit := do
     match term with
-    | .lam _ lam_name _ lam_dom bod =>
+    | .lam _ lam_name _ _lam_dom bod =>
       match type with
       | .pi _ _ dom img env =>
         -- TODO check that `lam_dom` == `dom`
@@ -45,7 +43,7 @@ mutual
       | _ => throw .notPi
     | .letE _ _ exp_typ exp bod =>
       match (← infer exp_typ) with
-      | Value.sort u =>
+      | Value.sort _ =>
         let env := (← read).env
         let exp_typ := eval exp_typ env
         check exp exp_typ
@@ -87,7 +85,7 @@ mutual
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
-    | .lam _ _ _ dom bod => throw .cannotInferLam
+    | .lam .. => throw .cannotInferLam
     | .pi _ name _ dom img  =>
       let dom_lvl ← match (← infer dom) with
         | .sort u => pure u
@@ -101,7 +99,7 @@ mutual
       pure (Value.sort (Univ.imax dom_lvl img_lvl))
     | .letE _ _ exp_typ exp bod =>
       match (← infer exp_typ) with
-      | Value.sort u =>
+      | Value.sort _ =>
         let env := (← read).env
         let exp_typ := eval exp_typ env
         check exp exp_typ
@@ -123,13 +121,13 @@ mutual
       | .app (.const _ (.«inductive» _ ind) univs) params =>
         let ctor ← checkStructure ind
         if ind.params != params.length then throw .valueMismatch else
-        let mut ctorType := applyType (eval ctor.type { exprs := [], univs := List.map (instBulkReduce (← read).env.univs) univs }) params
+        let mut ctorType := applyType (eval ctor.type { exprs := [], univs }) params
         for i in [:idx] do
           match ctorType with
           | .pi _ _ _ img pi_env =>
             let env := (← read).env
             let proj := Thunk.mk (fun _ => eval (Expr.proj nam i expr) env)
-            ctorType := eval img { env with exprs := proj :: env.exprs }
+            ctorType := eval img { pi_env with exprs := proj :: pi_env.exprs }
           | _ => pure ()
         match ctorType with
         | .pi _ _ dom _ _  =>
