@@ -185,16 +185,16 @@ def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
 mutual
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM Constructor := do
-      let type ← toYatimaExpr rule.rhs
-      let typeCid ← exprToCid type
-      addToStore (typeCid, type)
+      let rhs ← toYatimaExpr rule.rhs
+      let rhsCid ← exprToCid rhs
+      addToStore (rhsCid, rhs)
       match (← read).constMap.find?' rule.ctor with
         | some (.ctorInfo ctor) =>
           let type ← toYatimaExpr ctor.type
           let typeCid ← exprToCid type
           addToStore (typeCid, type)
           return {
-            rhs    := typeCid
+            rhs    := rhsCid
             lvls   := ctor.levelParams
             name   := ctor.name
             type   := typeCid
@@ -205,13 +205,13 @@ mutual
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
-    let type ← toYatimaExpr rule.rhs
-    let typeCid ← exprToCid type
-    addToStore (typeCid, type)
+    let rhs ← toYatimaExpr rule.rhs
+    let rhsCid ← exprToCid rhs
+    addToStore (rhsCid, rhs)
     match (← read).constMap.find?' rule.ctor with
     | some const =>
       let (ctorCid, _) ← processYatimaConst const
-      return { ctor := ctorCid, fields := rule.nfields, rhs := typeCid }
+      return { ctor := ctorCid, fields := rule.nfields, rhs := rhsCid }
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
   partial def toYatimaInternalRec (ctors : List Lean.Name) :
