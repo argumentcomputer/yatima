@@ -39,7 +39,9 @@ def definitionsPair :=
   ("Fixtures/AnonCidGroups/Definitions.lean", defGroups)
 
 def partialDefinitionsPair :=
-  ("Fixtures/AnonCidGroups/PartialDefinitions.lean", defGroups)
+  ("Fixtures/AnonCidGroups/PartialDefinitions.lean",
+    [[`A, `C, `E, `F, `B, `G, `H], [`I]]) -- the bodies of partial definitions
+                                          -- are ignored by Lean's kernel
 
 def unsafeDefinitionsPair :=
   ("Fixtures/AnonCidGroups/UnsafeDefinitions.lean", defGroups)
@@ -66,13 +68,13 @@ def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
 
 def main : IO UInt32 := do
   -- let testDefinitions ← generateTestSeq definitionsPair
-  let testPartialDefinitions ← generateTestSeq partialDefinitionsPair
-  let testUnsafeDefinitions ← generateTestSeq unsafeDefinitionsPair
-  let testInductives ← generateTestSeq inductivesPair
+  -- let testPartialDefinitions ← generateTestSeq partialDefinitionsPair
+  -- let testUnsafeDefinitions ← generateTestSeq unsafeDefinitionsPair
+  -- let testInductives ← generateTestSeq inductivesPair
   let testImport ← generateTestSeq importPair
   lspecIO do
   --   testDefinitions
-    testPartialDefinitions
-    testUnsafeDefinitions
-    testInductives
+    -- testPartialDefinitions
+    -- testUnsafeDefinitions
+    -- testInductives
     testImport
