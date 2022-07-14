@@ -1,7 +1,8 @@
 import Yatima.Compiler.Utils
-import Yatima.ForStdLib
 import YatimaStdLib.RBNode
 import YatimaStdLib.List
+import YatimaStdLib.Tree
+
 /-
 This graph API needs work beforing being factored out because it's specific to
 Lean types.
@@ -87,8 +88,6 @@ structure dfsState where
   visited : RBMap Name Bool compare
 
 abbrev dfsM := ReaderT Graph $ EStateM String dfsState
-
-open YatimaStdLib (Tree)
 
 partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
   match (← get).visited.find? v with

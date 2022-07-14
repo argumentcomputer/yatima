@@ -1,30 +1,6 @@
 import LSpec
 import Yatima.Compiler.Frontend
-
--- move to std
-def List.pairwise : List α → List (α × α)
-  | [ ]
-  | [_] => []
-  | x :: y :: zs => ((y :: zs).map fun k => (x, k)) ++ (y :: zs).pairwise
-
--- move to std
-def List.cartesian (as : List α) (bs : List β) : List (α × β) :=
-  as.foldl (init := []) fun acc a => acc ++ bs.map fun b => (a, b)
-
--- move to lspec
-def TestSeq.append : TestSeq → TestSeq → TestSeq
-  | done, t => t
-  | more d p i n, t' => more d p i $ n.append t'
-
--- move to lspec
-instance : Append TestSeq where
-  append := TestSeq.append
-
--- move to lspec
-def withSuccess (descr : String) :
-    Except String α → (α → TestSeq) → TestSeq
-  | .error msg, _ => test s!"{descr}\n    {msg}" false
-  | .ok    a,   f => test descr true $ f a
+import YatimaStdLib.List
 
 open Yatima
 
@@ -75,7 +51,7 @@ def inductivesTests := ("Fixtures/Inductives.lean", [
   [`BLEH]])
 
 def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
-  return withSuccess s!"Compiles '{x.1}'" (← extractCidGroups x.1 x.2)
+  return withExceptOk s!"Compiles '{x.1}'" (← extractCidGroups x.1 x.2)
     fun cidGroups => makeCidTests cidGroups
 
 def main : IO UInt32 := do

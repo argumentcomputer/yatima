@@ -7,17 +7,17 @@ package Yatima
 @[defaultTarget]
 lean_exe yatima {
   supportInterpreter := true
-  root := "Main"
+  root := `Main
 }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "2eb1ae8a0282d52af45d916d240fb0b5ec491ab0"
+  "https://github.com/yatima-inc/Ipld.lean" @ "86a04cccf02946181bcf6409a95eb3b2c457a18c"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "95b36c3a13e32355a9222e1dad33e354c604798d"
+  "https://github.com/yatima-inc/LSpec.git" @ "0222cb5a6543283dc3c40c7ccd401cb54609d3d0"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "35aecd8951778f45a47d12376635c26a815dcb25"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "80b290a322267aee7dbca96b2547fa24de64236a"
 
 require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "e70141d69b8562a0cd31d23a9c9a4f0f90a3c0a6"
