@@ -34,33 +34,33 @@ def ConstantInfo.ctorName : ConstantInfo → String
   | ctorInfo   _ => "constructor"
   | recInfo    _ => "recursor"
 
-def getExprRefs : Expr → List Name 
+def getExprRefs : Expr → List Name
   | .mdata _ exp _ => getExprRefs exp
   | .const name _ _ => [name]
-  | .app func arg _ => 
+  | .app func arg _ =>
     getExprRefs func ++  getExprRefs arg
-  | .lam name type body _ => 
+  | .lam _ type body _ =>
     getExprRefs type ++  getExprRefs body
-  | .forallE name type body _ => 
+  | .forallE _ type body _ =>
     getExprRefs type ++  getExprRefs body
-  | .letE  name type body exp _ => 
+  | .letE  _ type body exp _ =>
     getExprRefs type ++  getExprRefs body ++ getExprRefs exp
-  | .proj name idx exp _ => getExprRefs exp
+  | .proj _ _ exp _ => getExprRefs exp
   | _ => []
 
 def getConstRefs : ConstantInfo → List Name
   | .axiomInfo  val => getExprRefs val.type
-  | .defnInfo   val => 
+  | .defnInfo   val =>
     getExprRefs val.type ++ getExprRefs val.value
-  | .thmInfo    val => 
+  | .thmInfo    val =>
     getExprRefs val.type ++ getExprRefs val.value
-  | .opaqueInfo val => 
+  | .opaqueInfo val =>
     getExprRefs val.type ++ getExprRefs val.value
   | .ctorInfo   val => val.induct :: getExprRefs val.type
-  | .inductInfo val => 
+  | .inductInfo val =>
     getExprRefs val.type ++ val.all
-  | .recInfo    val => 
-    getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
+  | .recInfo    val =>
+    getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor
                 ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
   | .quotInfo   val => getExprRefs val.type
 
@@ -149,7 +149,7 @@ def hasOpenReferenceInConst (openReferences : RBTree Name compare) :
   | .recInfo struct =>
     struct.rules.foldl
       (init := hasOpenReferenceInExpr openReferences struct.type)
-      fun acc r => acc || hasOpenReferenceInExpr openReferences struct.type
+      fun acc r => acc || hasOpenReferenceInExpr openReferences r.rhs
   | .quotInfo struct => hasOpenReferenceInExpr openReferences struct.type
 
 def filterConstants (cs : ConstMap) : ConstMap :=
