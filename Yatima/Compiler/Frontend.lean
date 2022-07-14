@@ -434,8 +434,13 @@ mutual
         type := typeCid
         kind := struct.kind }
     | .defnInfo struct =>
-      match (← read).cycles.find? struct.name with 
-      | some mutualNames =>
+      match struct.all.length, (← read).cycles.find? struct.name with 
+      | 1, none => addToStoreAndCache $ .definition $ ← toYatimaDef false struct
+      | _, some mutualNames =>
+        if List.sort struct.all != List.sort mutualNames then 
+          throw $ s!"DefinitionVal.all and our SCC don't agree:\n" ++ 
+                  s!"Expected:\n  {struct.all}" ++ 
+                  s!"Found:\n     {mutualNames}"
         let mutualDefs ← mutualNames.mapM fun name => do
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn
@@ -466,7 +471,10 @@ mutual
         match ret? with
         | some ret => return ret
         | none => throw s!"Constant for '{struct.name}' wasn't compiled"
-      | none => addToStoreAndCache $ .definition $ ← toYatimaDef false struct
+      | _, n => 
+        throw $ s!"DefinitionVal.all and our SCC don't agree:\n" ++ 
+                s!"Expected:\n  {struct.all}" ++ 
+                s!"Found:\n     {n}"
     | .ctorInfo struct =>
       let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
       let typeCid ← exprToCid type
