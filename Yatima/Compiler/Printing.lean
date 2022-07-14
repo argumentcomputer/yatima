@@ -151,14 +151,30 @@ mutual
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 
-partial def printRecursorRule (ind : Inductive) (rule : RecursorRule) : CompileM String := do
-  let ctor := (← getConst rule.ctor).name
-  let rhs ← getExpr rule.rhs ctor
-  return s!"{ctor} {rule.fields} {← printExpr rhs}"
+partial def printRecursorRule (b : Bool) : (if b then Constructor else RecursorRule) → CompileM String :=
+  match b with
+  | .false => fun rule => do
+    let ctor := (← getConst rule.ctor).name
+    let rhs ← getExpr rule.rhs ctor
+    return s!"{ctor} {rule.fields} {← printExpr rhs}"
+  | .true => fun ctor => do
+    let rhs ← getExpr ctor.rhs ctor.name
+    return s!"{ctor.name} {ctor.fields} {← printExpr rhs}"
 
-partial def printRules (ind : Inductive) (rules : List RecursorRule) : CompileM String := do
-  let rules ← rules.mapM $ printRecursorRule ind
-  return "\n".intercalate rules
+partial def printRecursor (cid : String)(ind : Inductive) (b : Bool) : Recursor b → CompileM String :=
+  match b with
+  | .false => fun recr => do
+    let type ← getExpr recr.type recr.name
+    let rules ← recr.rules.mapM $ printRecursorRule .false
+    return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
+            s!"external\n" ++
+            s!"Rules:\n{rules}"
+  | .true => fun recr => do
+    let type ← getExpr recr.type recr.name
+    let rules ← ind.ctors.mapM $ printRecursorRule .true
+    return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
+            s!"internal\n" ++
+            s!"Rules:\n{rules}"
 
 partial def printConstructors (ctors : List Constructor) : CompileM String := do
   let ctors ← ctors.mapM fun ctor => do
@@ -210,13 +226,7 @@ partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String :=
     return s!"{cid}{printIsSafe ind.safe}constructor {ctor.name} {ind.lvls} : {← printExpr type}"
   | .recursorProj proj => do
     let (ind, recr) ← getRecr proj
-    let type ← getExpr recr.snd.type recr.snd.name
-    let intern := if recr.fst then "internal" else "external"
-    return s!"{cid}{printIsSafe ind.safe}recursor {recr.snd.name} {ind.lvls} : {← printExpr type}\n" ++
-            s!"{intern}\n"
-            -- TODO
-            -- s!"{intern}\n" ++
-            -- s!"Rules:\n{← printRules ind recr.snd.rules}"
+    printRecursor cid ind recr.fst recr.snd
   | .definitionProj proj => do match ← getConst proj.block with
     | .mutDefBlock defs => match defs.get? proj.idx with
       | some ds => match ds.find? (fun d => d.name == proj.name) with

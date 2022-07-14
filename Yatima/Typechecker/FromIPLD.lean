@@ -81,15 +81,6 @@ def inductiveIsUnit (ind : InductiveAnon) : Bool :=
   | [ctor] => ctor.fields != 0
   | _ => false
 
-def coerceRecursorAnonFalse {b : Bool} : (rules : match b with | .true => Unit | .false => List RecursorRuleAnon) → List RecursorRuleAnon :=
-  match b with
-  | .true => fun _ => []
-  | .false => fun rules => rules
-def coerceRecursorMetaFalse {b : Bool} : (rules : match b with | .true => Unit | .false => List RecursorRuleMeta) → List RecursorRuleMeta :=
-  match b with
-  | .true => fun _ => []
-  | .false => fun rules => rules
-
 mutual
 partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM Expr := do
   let anon ← findExprAnon anonCid
