@@ -1,7 +1,8 @@
 import Yatima.Compiler.Utils
-import Yatima.ForStdLib
 import YatimaStdLib.RBNode
 import YatimaStdLib.List
+import YatimaStdLib.Tree
+
 /-
 This graph API needs work beforing being factored out because it's specific to
 Lean types.
@@ -66,7 +67,7 @@ def outDegree (g : Graph) (v : Vertex) : Option Nat :=
 
 open Std in 
 def inDegrees (g : Graph) : RBMap Name Nat compare :=
-  g.fold (fun degrees x xs => 
+  g.fold (fun degrees _ xs => 
     xs.foldl (fun acc v => 
       match acc.find? v with 
       | some n => acc.insert v (n + 1)
@@ -88,8 +89,6 @@ structure dfsState where
 
 abbrev dfsM := ReaderT Graph $ EStateM String dfsState
 
-open YatimaStdLib (Tree)
-
 partial def generate (v : Vertex) : dfsM $ Tree Vertex := do
   match (← get).visited.find? v with
   | some _ => pure .empty
@@ -106,17 +105,17 @@ def generateVs (vs : List Vertex) : dfsM $ List $ Tree Vertex := do
 
 def dfsM.run (g : Graph) (v : Vertex) : Except String $ Tree Vertex  :=
   match EStateM.run (ReaderT.run (generate v) g) { visited := .empty } with 
-  | .ok res state => .ok res 
+  | .ok res _ => .ok res 
   | .error e _ => .error e
 
 def dfs? (g : Graph) (vs : List Vertex) : Except String $ List $ Tree Vertex :=
   match EStateM.run (ReaderT.run (generateVs vs) g) { visited := .empty } with 
-  | .ok res state => .ok res 
+  | .ok res _ => .ok res 
   | .error e _ => .error e
 
 def dfs! (g : Graph) (vs : List Vertex) : List $ Tree Vertex :=
   match EStateM.run (ReaderT.run (generateVs vs) g) { visited := .empty } with 
-  | .ok res state => res 
+  | .ok res _ => res 
   | .error e _ => panic! e
 
 def dff? (g : Graph) : Except String $ List $ Tree Vertex :=
@@ -180,7 +179,7 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
   let mut vll := idx 
   for w in edges do 
     match (← get).info.find? w with 
-    | some ⟨widx, wlowlink, won⟩ => do 
+    | some ⟨widx, _, won⟩ => do 
       if won then
         vll := min vll widx
     | none => do
@@ -194,7 +193,7 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
     let s := (← get).stack
     let (scc, s) := s.splitAtP fun w => w != v 
     scc.forM fun w => do 
-      let ⟨idx, lowlink, on⟩ ← getInfo w
+      let ⟨idx, lowlink, _⟩ ← getInfo w
       setInfo w ⟨idx, lowlink, false⟩
     set { ← get with stack := s } 
     -- if `scc` has length 1, check if `v` has a self-loop
@@ -207,7 +206,7 @@ partial def strongConnect (v : Vertex) : sccM (List $ List Vertex) := do
 def run : sccM $ List $ List Vertex := do 
   (← read).vertices.foldlM (init := []) $ fun acc v => do
     match (← get).info.find? v with 
-    | some ⟨idx, _, _⟩ => pure acc 
+    | some _ => pure acc 
     | none => 
     match ← strongConnect v with 
       | [] => pure $ acc

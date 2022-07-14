@@ -182,6 +182,7 @@ structure InductiveAnon where
   recr     : Bool
   safe     : Bool
   refl     : Bool
+  deriving Inhabited
 
 structure InductiveMeta where
   name     : Name
@@ -189,6 +190,7 @@ structure InductiveMeta where
   type     : ExprMetaCid
   ctors    : List ConstructorMeta
   recrs    : List (Sigma RecursorMeta)
+  deriving Inhabited
 
 structure InductiveProj where
   name    : Name

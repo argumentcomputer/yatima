@@ -9,6 +9,7 @@ structure CompileState where
   store     : Yatima.Store
   cache     : RBMap Name (ConstCid × Const) compare
   mutDefIdx : RBMap Name Nat compare
+  deriving Inhabited
 
 def CompileState.union (s s' : CompileState) :
     Except String CompileState := Id.run do
@@ -24,9 +25,6 @@ def CompileState.union (s s' : CompileState) :
     s'.mutDefIdx.fold (init := s.mutDefIdx) fun acc n i =>
       acc.insert n i
   ⟩
-
-instance : Inhabited CompileState where
-  default := ⟨default, .empty, .empty⟩
 
 structure CompileEnv where
   constMap : Lean.ConstMap
