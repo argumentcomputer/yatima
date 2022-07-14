@@ -22,5 +22,9 @@ require YatimaStdLib from git
 require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "e70141d69b8562a0cd31d23a9c9a4f0f90a3c0a6"
 
+lean_lib Fixtures {
+  roots := #[`Fixtures.AnonCidGroups.ToBeImported]
+}
+
 lean_exe Tests.AnonCidGroups { supportInterpreter := true }
 lean_exe Tests.Termination   { supportInterpreter := true }
