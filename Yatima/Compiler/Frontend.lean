@@ -434,8 +434,7 @@ mutual
         type := typeCid
         kind := struct.kind }
     | .defnInfo struct =>
-      if struct.all.length == 1 
-      then 
+      if struct.all.length == 1 then
         addToStoreAndCache $ .definition $ ← toYatimaDef false struct
       else 
         let mutualDefs ← struct.all.mapM fun name => do
@@ -681,10 +680,7 @@ def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
       match map₀.find? n with
       | some c' => if c == c' then acc else acc.insert n c
       | none    => acc.insert n c
-  CompileM.run
-    ⟨map, [], [], .empty⟩
-    stt
-    (buildStore delta log)
+  CompileM.run ⟨map, [], [], .empty⟩ stt (buildStore delta log)
 
 def getPaths : IO Lean.SearchPath := do
   let out ← IO.Process.output {
