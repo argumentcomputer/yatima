@@ -12,6 +12,4 @@ def terminationFixtures := [
 ]
 
 def main : IO UInt32 :=
-  terminationFixtures.foldlM (init := 0) fun acc fileName => do
-    let tSeq ← compile fileName
-    pure $ min 1 (acc + (← lspec tSeq))
+  lspecEachWith terminationFixtures compile

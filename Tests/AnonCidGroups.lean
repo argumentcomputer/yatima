@@ -81,6 +81,4 @@ def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
     fun cidGroups => makeCidTests cidGroups
 
 def main : IO UInt32 :=
-  allPairs.foldlM (init := 0) fun acc pair => do
-    let tSeq ← generateTestSeq pair
-    pure $ min 1 (acc + (← lspec tSeq))
+  lspecEachWith allPairs generateTestSeq
