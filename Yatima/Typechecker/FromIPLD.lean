@@ -1,7 +1,9 @@
 import Yatima.Store
 import Yatima.Typechecker.Expr
+import YatimaStdLib.RBMap
 
 namespace Yatima.Typechecker
+open Std (RBMap)
 
 -- Conversion monad
 inductive ConvError where
@@ -9,40 +11,53 @@ inductive ConvError where
 | cannotFindMeta : ConvError
 | anonMetaMismatch : ConvError
 | ipldError : ConvError
+| cannotStoreValue : ConvError
 deriving Inhabited
 
-abbrev ConvM := ReaderT Store <| ExceptT ConvError Id
+structure State where
+ expr_cache : RBMap ExprCid Expr compare
+ const_cache : RBMap ConstCid Const compare
+ univ_cache : RBMap UnivCid Univ compare
 
--- Auxiliary functions
-def findExprAnon (anonCid : ExprAnonCid) : ConvM ExprAnon := do
-  match (← read).expr_anon.find? anonCid with
-  | .some expr => pure expr
-  | .none => throw .cannotFindAnon
+abbrev ConvM := ReaderT Store <| StateT State <| ExceptT ConvError Id
+instance : Monad ConvM := let i := inferInstanceAs (Monad ConvM); { pure := i.pure, bind := i.bind }
 
-def findExprMeta (metaCid : ExprMetaCid) : ConvM ExprMeta := do
-  match (← read).expr_meta.find? metaCid with
-  | .some expr => pure expr
-  | .none => throw .cannotFindMeta
+instance (α : Type) : Inhabited (ConvM α) where
+  default _ := throw .ipldError
 
-def findConstAnon (anonCid : ConstAnonCid) : ConvM ConstAnon := do
-  match (← read).const_anon.find? anonCid with
-  | .some const => pure const
-  | .none => throw .cannotFindAnon
+-- Auxiliary definitions
+inductive Key : Type → Type
+  | univ_cache  : UnivCid      → Key Univ
+  | expr_cache  : ExprCid      → Key Expr
+  | const_cache : ConstCid     → Key Const
+  | univ_anon   : UnivAnonCid  → Key UnivAnon
+  | expr_anon   : ExprAnonCid  → Key ExprAnon
+  | const_anon  : ConstAnonCid → Key ConstAnon
+  | univ_meta   : UnivMetaCid  → Key UnivMeta
+  | expr_meta   : ExprMetaCid  → Key ExprMeta
+  | const_meta  : ConstMetaCid → Key ConstMeta
 
-def findConstMeta (metaCid : ConstMetaCid) : ConvM ConstMeta := do
-  match (← read).const_meta.find? metaCid with
-  | .some const => pure const
-  | .none => throw .cannotFindMeta
+def Key.find? (key : Key A) : ConvM (Option A) := do
+  match key with
+  | .univ_cache  univ  => pure $ (← get).univ_cache.find? univ
+  | .expr_cache  expr  => pure $ (← get).expr_cache.find? expr
+  | .const_cache const => pure $ (← get).const_cache.find? const
+  | .univ_anon   univ  => pure $ (← read).univ_anon.find? univ
+  | .expr_anon   expr  => pure $ (← read).expr_anon.find? expr
+  | .const_anon  const => pure $ (← read).const_anon.find? const
+  | .univ_meta   univ  => pure $ (← read).univ_meta.find? univ
+  | .expr_meta   expr  => pure $ (← read).expr_meta.find? expr
+  | .const_meta  const => pure $ (← read).const_meta.find? const
 
-def findUnivAnon (anonCid : UnivAnonCid) : ConvM UnivAnon := do
-  match (← read).univ_anon.find? anonCid with
-  | .some univ => pure univ
-  | .none => throw .cannotFindAnon
+def Key.find (key : Key A) : ConvM A := do
+  Option.option (throw .ipldError) pure (← Key.find? key)
 
-def findUnivMeta (metaCid : UnivMetaCid) : ConvM UnivMeta := do
-  match (← read).univ_meta.find? metaCid with
-  | .some univ => pure univ
-  | .none => throw .cannotFindMeta
+def Key.store (key : Key A) (a : A) : ConvM Unit := do
+  match key with
+  | .univ_cache  univ  => modifyGet (fun stt => (() , { stt with univ_cache  := stt.univ_cache.insert univ a }))
+  | .expr_cache  expr  => modifyGet (fun stt => (() , { stt with expr_cache  := stt.expr_cache.insert expr a }))
+  | .const_cache const => modifyGet (fun stt => (() , { stt with const_cache := stt.const_cache.insert const a }))
+  | _ => throw .cannotStoreValue
 
 def getInductiveAnon (const : Yatima.ConstAnon) (idx : Nat) : ConvM Yatima.InductiveAnon :=
   match const with
@@ -56,9 +71,13 @@ def getInductiveMeta (const : Yatima.ConstMeta) (idx : Nat) : ConvM Yatima.Induc
 
 -- Conversion functions
 partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM Univ := do
-  let anon ← findUnivAnon anonCid
-  let meta ← findUnivMeta metaCid
-  match (anon, meta) with
+  let cid := .mk anonCid metaCid
+  match <- Key.find? $ .univ_cache $ cid with
+  | none => pure ()
+  | some univ => return univ
+  let anon ← Key.find $ .univ_anon  anonCid
+  let meta ← Key.find $ .univ_meta metaCid
+  let univ ← match (anon, meta) with
   | (.zero, .zero) => pure $ .zero
   | (.succ univAnon, .succ univMeta) => pure $ .succ (← univFromIpld univAnon univMeta)
   | (.max univAnon₁ univAnon₂, .max univMeta₁ univMeta₂) =>
@@ -67,6 +86,8 @@ partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM
     pure $ .imax (← univFromIpld univAnon₁ univMeta₁) (← univFromIpld univAnon₂ univMeta₂)
   | (.param idx, .param nam) => pure $ .var nam idx
   | _ => throw .anonMetaMismatch
+  Key.store (.univ_cache cid) univ
+  pure univ
 
 partial def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMetaCid) : ConvM (List Univ) := do
   match (anonCids, metaCids) with
@@ -83,9 +104,13 @@ def inductiveIsUnit (ind : InductiveAnon) : Bool :=
 
 mutual
 partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM Expr := do
-  let anon ← findExprAnon anonCid
-  let meta ← findExprMeta metaCid
-  match (anon, meta) with
+  let cid := .mk anonCid metaCid
+  match <- Key.find? $ .expr_cache $ cid with
+  | none => pure ()
+  | some expr => return expr
+  let anon ← Key.find $ .expr_anon anonCid
+  let meta ← Key.find $ .expr_meta metaCid
+  let expr ← match (anon, meta) with
   | (.var idx, .var name) => pure $ .var anonCid name idx
   | (.sort uAnonCid, .sort uMetaCid) => pure $ .sort anonCid (← univFromIpld uAnonCid uMetaCid)
   | (.const cAnonCid uAnonCids, .const name cMetaCid uMetaCids) =>
@@ -118,11 +143,17 @@ partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM
     let bod ← exprFromIpld bodAnon bodMeta
     pure $ .proj anonCid idx bod
   | _ => throw .anonMetaMismatch
+  Key.store (.expr_cache cid) expr
+  pure expr
 
 partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : ConvM Const := do
-  let anon ← findConstAnon anonCid
-  let meta ← findConstMeta metaCid
-  match (anon, meta) with
+  let cid := .mk anonCid metaCid
+  match <- Key.find? $ .const_cache $ cid with
+  | none => pure ()
+  | some const => return const
+  let anon ← Key.find $ .const_anon anonCid
+  let meta ← Key.find $ .const_meta metaCid
+  let const ← match (anon, meta) with
   | (.«axiom» axiomAnon, .«axiom» axiomMeta) =>
     let name := axiomMeta.name
     let lvls := axiomMeta.lvls
@@ -136,8 +167,8 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let value ← exprFromIpld theoremAnon.value theoremMeta.value
     pure $ .«theorem» anonCid { name, lvls, type, value }
   | (.inductiveProj anon, .inductiveProj meta) =>
-    let inductiveAnon ← getInductiveAnon (← findConstAnon anon.block) anon.idx
-    let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
+    let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
+    let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
     let name := inductiveMeta.name
     let lvls := inductiveMeta.lvls
     let type ← exprFromIpld inductiveAnon.type inductiveMeta.type
@@ -164,8 +195,8 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let safety := definitionAnon.safety
     pure $ .definition anonCid { name, lvls, type, value, safety }
   | (.constructorProj anon, .constructorProj meta) =>
-    let inductiveAnon ← getInductiveAnon (← findConstAnon anon.block) anon.idx
-    let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
+    let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
+    let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
     let constructorAnon ← Option.option (throw .ipldError) pure (inductiveAnon.ctors.get? anon.cidx);
     let constructorMeta ← Option.option (throw .ipldError) pure (inductiveMeta.ctors.get? anon.cidx);
     let name := constructorMeta.name
@@ -175,8 +206,8 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let rhs ← exprFromIpld constructorAnon.rhs constructorMeta.rhs
     pure $ .constructor anonCid { name, type, params, fields, rhs }
   | (.recursorProj anon, .recursorProj meta) =>
-    let inductiveAnon ← getInductiveAnon (← findConstAnon anon.block) anon.idx
-    let inductiveMeta ← getInductiveMeta (← findConstMeta meta.block) anon.idx
+    let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
+    let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
     let pairAnon ← Option.option (throw .ipldError) pure (inductiveAnon.recrs.get? anon.ridx);
     let pairMeta ← Option.option (throw .ipldError) pure (inductiveMeta.recrs.get? anon.ridx);
     let recursorAnon := Sigma.snd pairAnon
@@ -212,6 +243,8 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let kind := quotientAnon.kind
     pure $ .quotient anonCid { name, lvls, type, kind }
   | _ => throw .anonMetaMismatch
+  Key.store (.const_cache cid) const
+  pure const
 
 partial def ctorsFromIpld (ctorsAnon : List ConstructorAnon) (ctorsMeta : List ConstructorMeta) : ConvM (List (Constructor Expr)) :=
   match (ctorsAnon, ctorsMeta) with
