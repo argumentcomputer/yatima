@@ -37,37 +37,33 @@ inductive Key : Type → Type
   | expr_meta   : ExprMetaCid  → Key ExprMeta
   | const_meta  : ConstMetaCid → Key ConstMeta
 
-def Key.find? (key : Key A) : ConvertM (Option A) := do
-  match key with
-  | .univ_cache  univ  => pure $ (← get).univ_cache.find? univ
-  | .expr_cache  expr  => pure $ (← get).expr_cache.find? expr
-  | .const_cache const => pure $ (← get).const_cache.find? const
-  | .univ_anon   univ  => pure $ (← read).univ_anon.find? univ
-  | .expr_anon   expr  => pure $ (← read).expr_anon.find? expr
-  | .const_anon  const => pure $ (← read).const_anon.find? const
-  | .univ_meta   univ  => pure $ (← read).univ_meta.find? univ
-  | .expr_meta   expr  => pure $ (← read).expr_meta.find? expr
-  | .const_meta  const => pure $ (← read).const_meta.find? const
+def Key.find? : (key : Key A) → ConvertM (Option A)
+  | .univ_cache  univ  => do pure $ (← get).univ_cache.find? univ
+  | .expr_cache  expr  => do pure $ (← get).expr_cache.find? expr
+  | .const_cache const => do pure $ (← get).const_cache.find? const
+  | .univ_anon   univ  => do pure $ (← read).univ_anon.find? univ
+  | .expr_anon   expr  => do pure $ (← read).expr_anon.find? expr
+  | .const_anon  const => do pure $ (← read).const_anon.find? const
+  | .univ_meta   univ  => do pure $ (← read).univ_meta.find? univ
+  | .expr_meta   expr  => do pure $ (← read).expr_meta.find? expr
+  | .const_meta  const => do pure $ (← read).const_meta.find? const
 
 def Key.find (key : Key A) : ConvertM A := do
   Option.option (throw .ipldError) pure (← Key.find? key)
 
-def Key.store (key : Key A) (a : A) : ConvertM Unit := do
-  match key with
-  | .univ_cache  univ  => modifyGet (fun stt => (() , { stt with univ_cache  := stt.univ_cache.insert univ a }))
-  | .expr_cache  expr  => modifyGet (fun stt => (() , { stt with expr_cache  := stt.expr_cache.insert expr a }))
-  | .const_cache const => modifyGet (fun stt => (() , { stt with const_cache := stt.const_cache.insert const a }))
-  | _ => throw .cannotStoreValue
+def Key.store : (Key A) → A → ConvertM Unit
+  | .univ_cache  univ, a  => modifyGet (fun stt => (() , { stt with univ_cache  := stt.univ_cache.insert univ a }))
+  | .expr_cache  expr, a  => modifyGet (fun stt => (() , { stt with expr_cache  := stt.expr_cache.insert expr a }))
+  | .const_cache const, a => modifyGet (fun stt => (() , { stt with const_cache := stt.const_cache.insert const a }))
+  | _, _ => throw .cannotStoreValue
 
-def getInductiveAnon (const : Yatima.ConstAnon) (idx : Nat) : ConvertM Yatima.InductiveAnon :=
-  match const with
-  | .mutIndBlock inds => pure $ inds.get! idx
-  | _ => throw .ipldError
+def getInductive : (b : Bool) → (if b then Yatima.ConstAnon else Yatima.ConstMeta) → Nat → ConvertM (if b then Yatima.InductiveAnon else Yatima.InductiveMeta)
+  | .true, .mutIndBlock inds, idx => pure $ inds.get! idx
+  | .false, .mutIndBlock inds, idx => pure $ inds.get! idx
+  | _, _, _ => throw .ipldError
 
-def getInductiveMeta (const : Yatima.ConstMeta) (idx : Nat) : ConvertM Yatima.InductiveMeta :=
-  match const with
-  | .mutIndBlock inds => pure $ inds.get! idx
-  | _ => throw .ipldError
+def getInductiveAnon := getInductive True
+def getInductiveMeta := getInductive False
 
 def List.zipWithError [Monad m] [MonadExcept ε m] (e : ε) (f : α → β → m γ) : List α → List β → m (List γ)
   | x::xs, y::ys => do
