@@ -60,7 +60,7 @@ def inductivesPair :=
   )
 
 def importPair :=
-  ("Fixtures/AnonCidGroups/ToImport.lean", [[`MyNat, `MyOtherNat]])
+  ("Fixtures/AnonCidGroups/ToImport.lean", [[`Nat, `MyNat, `MyOtherNat]])
 
 def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
   return withExceptOk s!"Compiles '{x.1}'" (← extractCidGroups x.1 x.2)
