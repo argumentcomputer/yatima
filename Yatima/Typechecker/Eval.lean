@@ -11,13 +11,13 @@ def extEnv (env : Env Value) (thunk : Thunk Value) : Env Value :=
 mutual
 partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value :=
   match const with
-  | .«theorem» _ x =>
+  | .theorem _ x =>
     eval x.value { exprs := [] , univs }
   | .definition _ x =>
     match x.safety with
     | .safe => eval x.value { exprs := [] , univs }
-    | .«partial» => mkConst name const univs
-    | .«unsafe» => panic! "Unsafe definition found"
+    | .partial => mkConst name const univs
+    | .unsafe => panic! "Unsafe definition found"
   | _ => mkConst name const univs
 
   partial def applyConst (name : Name) (k : Const) (univs : List Univ) (arg : Thunk Value) (args : Args) : Value :=

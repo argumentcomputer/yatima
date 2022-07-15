@@ -10,7 +10,7 @@ def extVar (env : Env Value) (name : Name) (idx : Nat) (type : Thunk Value) :=
 
 def isUnit (type : Value) : Bool :=
   match type with
-  | .app (.const _ (.«inductive» _ induct) _) _ => induct.unit
+  | .app (.const _ (.inductive _ induct) _) _ => induct.unit
   | _ => false
 
 def applyType (type : Value) (args : List (Thunk Value)) : Value :=

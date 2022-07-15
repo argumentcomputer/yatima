@@ -118,7 +118,7 @@ mutual
     | .proj nam idx expr =>
       let exprTyp ← infer expr
       match exprTyp with
-      | .app (.const _ (.«inductive» _ ind) univs) params =>
+      | .app (.const _ (.inductive _ ind) univs) params =>
         let ctor ← checkStructure ind
         if ind.params != params.length then throw .valueMismatch else
         let mut ctorType := applyType (eval ctor.type { exprs := [], univs }) params

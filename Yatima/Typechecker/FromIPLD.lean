@@ -6,12 +6,12 @@ namespace Yatima.Typechecker
 open Std (RBMap)
 
 -- Conversion monad
-inductive ConvError where
-| cannotFindAnon : ConvError
-| cannotFindMeta : ConvError
-| anonMetaMismatch : ConvError
-| ipldError : ConvError
-| cannotStoreValue : ConvError
+inductive ConvertError where
+| cannotFindAnon : ConvertError
+| cannotFindMeta : ConvertError
+| anonMetaMismatch : ConvertError
+| ipldError : ConvertError
+| cannotStoreValue : ConvertError
 deriving Inhabited
 
 structure State where
@@ -19,10 +19,10 @@ structure State where
  const_cache : RBMap ConstCid Const compare
  univ_cache : RBMap UnivCid Univ compare
 
-abbrev ConvM := ReaderT Store <| StateT State <| ExceptT ConvError Id
-instance : Monad ConvM := let i := inferInstanceAs (Monad ConvM); { pure := i.pure, bind := i.bind }
+abbrev ConvertM := ReaderT Store <| StateT State <| ExceptT ConvertError Id
+instance : Monad ConvertM := let i := inferInstanceAs (Monad ConvertM); { pure := i.pure, bind := i.bind }
 
-instance (α : Type) : Inhabited (ConvM α) where
+instance (α : Type) : Inhabited (ConvertM α) where
   default _ := throw .ipldError
 
 -- Auxiliary definitions
@@ -37,7 +37,7 @@ inductive Key : Type → Type
   | expr_meta   : ExprMetaCid  → Key ExprMeta
   | const_meta  : ConstMetaCid → Key ConstMeta
 
-def Key.find? (key : Key A) : ConvM (Option A) := do
+def Key.find? (key : Key A) : ConvertM (Option A) := do
   match key with
   | .univ_cache  univ  => pure $ (← get).univ_cache.find? univ
   | .expr_cache  expr  => pure $ (← get).expr_cache.find? expr
@@ -49,28 +49,36 @@ def Key.find? (key : Key A) : ConvM (Option A) := do
   | .expr_meta   expr  => pure $ (← read).expr_meta.find? expr
   | .const_meta  const => pure $ (← read).const_meta.find? const
 
-def Key.find (key : Key A) : ConvM A := do
+def Key.find (key : Key A) : ConvertM A := do
   Option.option (throw .ipldError) pure (← Key.find? key)
 
-def Key.store (key : Key A) (a : A) : ConvM Unit := do
+def Key.store (key : Key A) (a : A) : ConvertM Unit := do
   match key with
   | .univ_cache  univ  => modifyGet (fun stt => (() , { stt with univ_cache  := stt.univ_cache.insert univ a }))
   | .expr_cache  expr  => modifyGet (fun stt => (() , { stt with expr_cache  := stt.expr_cache.insert expr a }))
   | .const_cache const => modifyGet (fun stt => (() , { stt with const_cache := stt.const_cache.insert const a }))
   | _ => throw .cannotStoreValue
 
-def getInductiveAnon (const : Yatima.ConstAnon) (idx : Nat) : ConvM Yatima.InductiveAnon :=
+def getInductiveAnon (const : Yatima.ConstAnon) (idx : Nat) : ConvertM Yatima.InductiveAnon :=
   match const with
   | .mutIndBlock inds => pure $ inds.get! idx
   | _ => throw .ipldError
 
-def getInductiveMeta (const : Yatima.ConstMeta) (idx : Nat) : ConvM Yatima.InductiveMeta :=
+def getInductiveMeta (const : Yatima.ConstMeta) (idx : Nat) : ConvertM Yatima.InductiveMeta :=
   match const with
   | .mutIndBlock inds => pure $ inds.get! idx
   | _ => throw .ipldError
 
--- Conversion functions
-partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM Univ := do
+def List.zipWithError [Monad m] [MonadExcept ε m] (e : ε) (f : α → β → m γ) : List α → List β → m (List γ)
+  | x::xs, y::ys => do
+    let z ← f x y
+    let zs ← List.zipWithError e f xs ys
+    pure $ z :: zs
+  | [], []     => pure []
+  | _, _     => throw e
+
+-- Convertersion functions
+partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvertM Univ := do
   let cid := .mk anonCid metaCid
   match <- Key.find? $ .univ_cache $ cid with
   | none => pure ()
@@ -89,12 +97,8 @@ partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvM
   Key.store (.univ_cache cid) univ
   pure univ
 
-partial def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMetaCid) : ConvM (List Univ) := do
-  match (anonCids, metaCids) with
-  | (anonCid :: anonCids, metaCid :: metaCids) =>
-    pure $ (← univFromIpld anonCid metaCid) :: (← univsFromIpld anonCids metaCids)
-  | ([], []) => pure []
-  | _ => throw .anonMetaMismatch
+partial def univsFromIpld (anonCids : List UnivAnonCid) (metaCids : List UnivMetaCid) : ConvertM (List Univ) := do
+  List.zipWithError .anonMetaMismatch univFromIpld anonCids metaCids
 
 def inductiveIsUnit (ind : InductiveAnon) : Bool :=
   if ind.recr || ind.indices != 0 then false
@@ -103,7 +107,7 @@ def inductiveIsUnit (ind : InductiveAnon) : Bool :=
   | _ => false
 
 mutual
-partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM Expr := do
+partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvertM Expr := do
   let cid := .mk anonCid metaCid
   match <- Key.find? $ .expr_cache $ cid with
   | none => pure ()
@@ -115,7 +119,7 @@ partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM
   | (.sort uAnonCid, .sort uMetaCid) => pure $ .sort anonCid (← univFromIpld uAnonCid uMetaCid)
   | (.const cAnonCid uAnonCids, .const name cMetaCid uMetaCids) =>
     let const ← constFromIpld cAnonCid cMetaCid
-    let univs ← univsFromIpld uAnonCids uMetaCids
+    let univs ← List.zipWithError .anonMetaMismatch univFromIpld uAnonCids uMetaCids
     pure $ .const anonCid name const univs
   | (.app fncAnon argAnon, .app fncMeta argMeta) =>
     let fnc ← exprFromIpld fncAnon fncMeta
@@ -146,7 +150,7 @@ partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) : ConvM
   Key.store (.expr_cache cid) expr
   pure expr
 
-partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : ConvM Const := do
+partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : ConvertM Const := do
   let cid := .mk anonCid metaCid
   match <- Key.find? $ .const_cache $ cid with
   | none => pure ()
@@ -154,18 +158,18 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
   let anon ← Key.find $ .const_anon anonCid
   let meta ← Key.find $ .const_meta metaCid
   let const ← match (anon, meta) with
-  | (.«axiom» axiomAnon, .«axiom» axiomMeta) =>
+  | (.axiom axiomAnon, .axiom axiomMeta) =>
     let name := axiomMeta.name
     let lvls := axiomMeta.lvls
     let type ← exprFromIpld axiomAnon.type axiomMeta.type
     let safe := axiomAnon.safe
-    pure $ .«axiom» anonCid { name, lvls, type, safe }
-  | (.«theorem» theoremAnon, .«theorem» theoremMeta) =>
+    pure $ .axiom anonCid { name, lvls, type, safe }
+  | (.theorem theoremAnon, .theorem theoremMeta) =>
     let name := theoremMeta.name
     let lvls := theoremMeta.lvls
     let type ← exprFromIpld theoremAnon.type theoremMeta.type
     let value ← exprFromIpld theoremAnon.value theoremMeta.value
-    pure $ .«theorem» anonCid { name, lvls, type, value }
+    pure $ .theorem anonCid { name, lvls, type, value }
   | (.inductiveProj anon, .inductiveProj meta) =>
     let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
     let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
@@ -174,12 +178,12 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let type ← exprFromIpld inductiveAnon.type inductiveMeta.type
     let params := inductiveAnon.params
     let indices := inductiveAnon.indices
-    let ctors ← ctorsFromIpld inductiveAnon.ctors inductiveMeta.ctors
+    let ctors ← List.zipWithError .anonMetaMismatch ctorFromIpld inductiveAnon.ctors inductiveMeta.ctors
     let recr := inductiveAnon.recr
     let safe := inductiveAnon.safe
     let refl := inductiveAnon.refl
     let unit := inductiveIsUnit inductiveAnon
-    pure $ .«inductive» anonCid { name, lvls, type, params, indices, ctors, recr, safe, refl, unit }
+    pure $ .inductive anonCid { name, lvls, type, params, indices, ctors, recr, safe, refl, unit }
   | (.opaque opaqueAnon, .opaque opaqueMeta) =>
     let name := opaqueMeta.name
     let lvls := opaqueMeta.lvls
@@ -222,16 +226,16 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let k := recursorAnon.k
     let b₁ := Sigma.fst pairAnon
     let b₂ := Sigma.fst pairMeta
-    let casesExtInt := Bool.casesOn (motive := fun b₁ => (RecursorAnon b₁) → (RecursorMeta b₂) → ConvM Const) b₁
+    let casesExtInt := Bool.casesOn (motive := fun b₁ => (RecursorAnon b₁) → (RecursorMeta b₂) → ConvertM Const) b₁
       -- Case where recursorAnon is external
-      (fun recursorAnon => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvM Const)
+      (fun recursorAnon => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvertM Const)
         -- Case where recursorMeta is also external
         (fun recursorMeta => do
-             let rules ← rulesFromIpld recursorAnon.rules recursorMeta.rules
+             let rules ← List.zipWithError .anonMetaMismatch ruleFromIpld recursorAnon.rules recursorMeta.rules
              pure $ .extRecursor anonCid { name, lvls, type, params, indices, motives, minors, rules, k })
         (fun _ => throw .ipldError))
       -- Case where recursorAnon is internal
-      (fun _ => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvM Const)
+      (fun _ => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvertM Const)
         (fun _ => throw .ipldError)
         -- Case where recursorMeta is also internal
         (fun _ => pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }))
@@ -246,28 +250,14 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
   Key.store (.const_cache cid) const
   pure const
 
-partial def ctorsFromIpld (ctorsAnon : List ConstructorAnon) (ctorsMeta : List ConstructorMeta) : ConvM (List (Constructor Expr)) :=
-  match (ctorsAnon, ctorsMeta) with
-  | (ctorAnon :: ctorsAnon, ctorMeta :: ctorsMeta) => do
-    let ctor ← ctorFromIpld ctorAnon ctorMeta
-    let ctors ← ctorsFromIpld ctorsAnon ctorsMeta
-    pure $ ctor :: ctors
-  | ([], []) => pure []
-  | _ => throw .anonMetaMismatch
-
-partial def ctorFromIpld (ctorAnon : ConstructorAnon) (ctorMeta : ConstructorMeta) : ConvM (Constructor Expr) := do
+partial def ctorFromIpld (ctorAnon : ConstructorAnon) (ctorMeta : ConstructorMeta) : ConvertM (Constructor Expr) := do
   let type ← exprFromIpld ctorAnon.type ctorMeta.type
   let rhs ← exprFromIpld ctorAnon.rhs ctorMeta.rhs
   pure { name := ctorMeta.name, type, params := ctorAnon.params, fields := ctorAnon.fields, rhs }
 
-partial def rulesFromIpld (rulesAnon : List RecursorRuleAnon) (rulesMeta : List RecursorRuleMeta) : ConvM (List (RecursorRule Expr)) :=
-  match (rulesAnon, rulesMeta) with
-  | (ruleAnon :: rulesAnon, ruleMeta :: rulesMeta) => do
-    let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
-    let rules ← rulesFromIpld rulesAnon rulesMeta
-    pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields } :: rules
-  | ([], []) => pure []
-  | _ => throw .anonMetaMismatch
+partial def ruleFromIpld (ruleAnon : RecursorRuleAnon) (ruleMeta : RecursorRuleMeta) : ConvertM (RecursorRule Expr) := do
+  let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
+  pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields }
 end
 
 end Yatima.Typechecker

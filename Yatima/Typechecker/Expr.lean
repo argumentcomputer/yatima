@@ -112,10 +112,10 @@ end
 
 def getConstType (k : Const) : Expr :=
   match k with
-  | .«axiom» _ x => x.type
-  | .«theorem» _ x => x.type
-  | .«inductive» _ x => x.type
-  | .«opaque» _ x => x.type
+  | .axiom _ x => x.type
+  | .theorem _ x => x.type
+  | .inductive _ x => x.type
+  | .opaque _ x => x.type
   | .definition _ x => x.type
   | .constructor _ x => x.type
   | .intRecursor _ x => x.type
@@ -124,10 +124,10 @@ def getConstType (k : Const) : Expr :=
 
 def getConstHash (k : Const) : ConstAnonCid :=
   match k with
-  | .«axiom» h _ => h
-  | .«theorem» h _ => h
-  | .«inductive» h _ => h
-  | .«opaque» h _ => h
+  | .axiom h _ => h
+  | .theorem h _ => h
+  | .inductive h _ => h
+  | .opaque h _ => h
   | .definition h _ => h
   | .constructor h _ => h
   | .intRecursor h _ => h
