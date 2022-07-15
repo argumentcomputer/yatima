@@ -7,10 +7,11 @@ def compile (fileName : String) : IO TestSeq := do
     fun _ => .done
 
 def terminationFixtures := [
-  "Fixtures/Termination/NastyInductives.lean"
-  , "Fixtures/Termination/Prelude.lean"
+  "Fixtures/Termination/NastyInductives.lean",
+  "Fixtures/Termination/Prelude.lean"
 ]
 
-def main : IO UInt32 := do
-  let tSeq := (← terminationFixtures.mapM compile).foldl TestSeq.append .done
-  lspec tSeq
+def main : IO UInt32 :=
+  terminationFixtures.foldlM (init := 0) fun acc fileName => do
+    let tSeq ← compile fileName
+    pure $ min 1 (acc + (← lspec tSeq))

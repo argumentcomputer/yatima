@@ -69,19 +69,18 @@ def inductivesPair :=
 def importPair :=
   ("Fixtures/AnonCidGroups/ToImport.lean", [[`Nat, `MyNat, `MyOtherNat]])
 
+def allPairs := [
+  definitionsPair,
+  partialDefinitionsPair,
+  unsafeDefinitionsPair,
+  inductivesPair,
+  importPair]
+
 def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
   return withExceptOk s!"Compiles '{x.1}'" (← extractCidGroups x.1 x.2)
     fun cidGroups => makeCidTests cidGroups
 
-def main : IO UInt32 := do
-  let testDefinitions ← generateTestSeq definitionsPair
-  let testPartialDefinitions ← generateTestSeq partialDefinitionsPair
-  let testUnsafeDefinitions ← generateTestSeq unsafeDefinitionsPair
-  let testInductives ← generateTestSeq inductivesPair
-  let testImport ← generateTestSeq importPair
-  lspec $
-    testDefinitions
-    ++ testPartialDefinitions
-    ++ testUnsafeDefinitions
-    ++ testInductives
-    ++ testImport
+def main : IO UInt32 :=
+  allPairs.foldlM (init := 0) fun acc pair => do
+    let tSeq ← generateTestSeq pair
+    pure $ min 1 (acc + (← lspec tSeq))
