@@ -32,11 +32,17 @@ def makeCidTests (cidGroups : List (List (Lean.Name × ConstAnonCid))) :
     (g.cartesian g').foldl (init := tSeq) fun tSeq (x, y) =>
       tSeq ++ test s!"{x.1}ₐₙₒₙ ≠ {y.1}ₐₙₒₙ" (x.2 != y.2)
 
-def defGroups :=
-  [[`A, `C, `E, `F], [`B], [`G, `H], [`I]]
-
 def definitionsPair :=
-  ("Fixtures/AnonCidGroups/Definitions.lean", defGroups)
+  ("Fixtures/AnonCidGroups/Definitions.lean", [
+    [`A, `A'],
+    [`B, `B'],
+    [`C, `C'],
+    [`E, `E'],
+    [`F, `F'],
+    [`G, `G'],
+    [`H, `H'],
+    [`I, `I']]
+  )
 
 def partialDefinitionsPair :=
   ("Fixtures/AnonCidGroups/PartialDefinitions.lean",
@@ -44,7 +50,8 @@ def partialDefinitionsPair :=
                                           -- are ignored by Lean's kernel
 
 def unsafeDefinitionsPair :=
-  ("Fixtures/AnonCidGroups/UnsafeDefinitions.lean", defGroups)
+  ("Fixtures/AnonCidGroups/UnsafeDefinitions.lean",
+    [[`A, `C, `E, `F], [`B], [`G, `H], [`I]])
 
 def inductivesPair :=
   ("Fixtures/AnonCidGroups/Inductives.lean", [
@@ -72,9 +79,9 @@ def main : IO UInt32 := do
   let testUnsafeDefinitions ← generateTestSeq unsafeDefinitionsPair
   let testInductives ← generateTestSeq inductivesPair
   let testImport ← generateTestSeq importPair
-  lspecIO do
+  lspec $
     testDefinitions
-    testPartialDefinitions
-    testUnsafeDefinitions
-    testInductives
-    testImport
+    ++ testPartialDefinitions
+    ++ testUnsafeDefinitions
+    ++ testInductives
+    ++ testImport
