@@ -434,9 +434,10 @@ mutual
         type := typeCid
         kind := struct.kind }
     | .defnInfo struct =>
-      match (← read).cycles.find? struct.name with 
-      | some mutualNames =>
-        let mutualDefs ← mutualNames.mapM fun name => do
+      if struct.all.length == 1 then
+        addToStoreAndCache $ .definition $ ← toYatimaDef false struct
+      else 
+        let mutualDefs ← struct.all.mapM fun name => do
           match (← read).constMap.find? name with 
           | some (.defnInfo defn) => pure defn
           | _ => throw s!"Unknown definition '{name}'"
@@ -466,7 +467,6 @@ mutual
         match ret? with
         | some ret => return ret
         | none => throw s!"Constant for '{struct.name}' wasn't compiled"
-      | none => addToStoreAndCache $ .definition $ ← toYatimaDef false struct
     | .ctorInfo struct =>
       let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
       let typeCid ← exprToCid type
@@ -680,17 +680,7 @@ def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
       match map₀.find? n with
       | some c' => if c == c' then acc else acc.insert n c
       | none    => acc.insert n c
-  let g : Graph := Lean.referenceMap map
-  match g.scc? with
-  | .ok vss =>
-    let nss : List (List $ Lean.Name × List Lean.Name) :=
-      (vss.filter (·.length != 1)).map fun vs => 
-        vs.map fun v => (v, vs)
-    CompileM.run
-      ⟨map, Std.RBMap.ofList nss.join, [], [], .empty⟩
-      stt
-      (buildStore delta log)
-  | .error e => throw e
+  CompileM.run ⟨map, [], [], .empty⟩ stt (buildStore delta log)
 
 def getPaths : IO Lean.SearchPath := do
   let out ← IO.Process.output {
