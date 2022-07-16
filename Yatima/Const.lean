@@ -342,36 +342,12 @@ def Const.name : Const .Pure → Name
   | .opaque          x
   | .inductive       x
   | .definition      x
-<<<<<<< HEAD
   | .constructor     x
   | .extRecursor     x
   | .intRecursor     x
   | .quotient        x => x.name
 
 def Const.ctorName : Const → String
-||||||| parent of 5396d8c (Parametrize Pure, Anon, Meta triplets to remove boilerplate)
-  | .inductiveProj   x
-  | .constructorProj x
-  | .recursorProj    x
-  | .definitionProj  x => x.name
-  | .mutDefBlock     x => s!"mutual definitions {x.map fun ds => ds.map (·.name)}" -- TODO
-  | .mutIndBlock     x => s!"mutual inductives {x.map (·.name)}" -- TODO
-
-def Const.ctorName : Const → String
-=======
-  | .inductiveProj   x
-  | .constructorProj x
-  | .recursorProj    x
-  | .definitionProj  x => x.name
-  | .mutDefBlock     x =>
-    let defs : List (List Name) := x.map (fun ds => ds.map (·.name))
-    s!"mutual definitions {defs}" -- TODO
-  | .mutIndBlock     x =>
-    let inds : List Name := x.map (·.name)
-    s!"mutual inductives {inds}" -- TODO
-
-def Const.ctorName : Const .Pure → String
->>>>>>> 5396d8c (Parametrize Pure, Anon, Meta triplets to remove boilerplate)
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
