@@ -14,10 +14,18 @@ inductive ConvertError where
 | cannotStoreValue : ConvertError
 deriving Inhabited
 
+instance : ToString ConvertError where
+  toString
+    | .cannotFindAnon => "Cannot find anon"
+    | .cannotFindMeta => "Cannot find meta"
+    | .anonMetaMismatch => "Anon/meta are of different kind"
+    | .ipldError => "IPLD broken"
+    | .cannotStoreValue => "Cannot store value"
+
 structure ConvertState where
- expr_cache : RBMap ExprCid Expr compare
- const_cache : RBMap ConstCid Const compare
- univ_cache : RBMap UnivCid Univ compare
+  expr_cache : RBMap ExprCid Expr compare
+  const_cache : RBMap ConstCid Const compare
+  univ_cache : RBMap UnivCid Univ compare
 instance : Inhabited ConvertState where
   default := .mk .empty .empty .empty
 
@@ -30,6 +38,8 @@ def ConvertM.run (env : Store) (ste : ConvertState) (m : ConvertM α) : Except C
   match EStateM.run (ReaderT.run m env) ste with
   | .ok a _  => .ok a
   | .error e _ => .error e
+
+def ConvertM.unwrap : Option A → ConvertM A := Option.option (throw .ipldError) pure
 
 -- Auxiliary definitions
 inductive Key : Type → Type
@@ -55,7 +65,7 @@ def Key.find? : (key : Key A) → ConvertM (Option A)
   | .const_meta  const => do pure $ (← read).const_meta.find? const
 
 def Key.find (key : Key A) : ConvertM A := do
-  Option.option (throw .ipldError) pure (← Key.find? key)
+  ConvertM.unwrap (← Key.find? key)
 
 def Key.store : (Key A) → A → ConvertM Unit
   | .univ_cache  univ, a  => modifyGet (fun stt => (() , { stt with univ_cache  := stt.univ_cache.insert univ a }))
@@ -79,7 +89,7 @@ def List.zipWithError [Monad m] [MonadExcept ε m] (e : ε) (f : α → β → m
   | [], []     => pure []
   | _, _     => throw e
 
--- Convertersion functions
+-- Conversion functions
 partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) : ConvertM Univ := do
   let cid := .mk anonCid metaCid
   match <- Key.find? $ .univ_cache $ cid with
@@ -203,19 +213,20 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
   | (.constructorProj anon, .constructorProj meta) =>
     let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
     let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
-    let constructorAnon ← Option.option (throw .ipldError) pure (inductiveAnon.ctors.get? anon.cidx);
-    let constructorMeta ← Option.option (throw .ipldError) pure (inductiveMeta.ctors.get? anon.cidx);
+    let constructorAnon ← ConvertM.unwrap $ inductiveAnon.ctors.get? anon.cidx;
+    let constructorMeta ← ConvertM.unwrap $ inductiveMeta.ctors.get? anon.cidx;
     let name := constructorMeta.name
     let type ← exprFromIpld constructorAnon.type constructorMeta.type
     let params := constructorAnon.params
     let fields := constructorAnon.fields
+    -- TODO correctly substitute free variables of `rhs` with inductives, constructors and recursors
     let rhs ← exprFromIpld constructorAnon.rhs constructorMeta.rhs
     pure $ .constructor anonCid { name, type, params, fields, rhs }
   | (.recursorProj anon, .recursorProj meta) =>
     let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
     let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
-    let pairAnon ← Option.option (throw .ipldError) pure (inductiveAnon.recrs.get? anon.ridx);
-    let pairMeta ← Option.option (throw .ipldError) pure (inductiveMeta.recrs.get? anon.ridx);
+    let pairAnon ← ConvertM.unwrap $ inductiveAnon.recrs.get? anon.ridx;
+    let pairMeta ← ConvertM.unwrap $ inductiveMeta.recrs.get? anon.ridx;
     let recursorAnon := Sigma.snd pairAnon
     let recursorMeta := Sigma.snd pairMeta
     let name := recursorMeta.name
@@ -226,22 +237,13 @@ partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) : Co
     let motives := recursorAnon.motives
     let minors := recursorAnon.minors
     let k := recursorAnon.k
-    let b₁ := Sigma.fst pairAnon
-    let b₂ := Sigma.fst pairMeta
-    let casesExtInt := Bool.casesOn (motive := fun b₁ => (RecursorAnon b₁) → (RecursorMeta b₂) → ConvertM Const) b₁
-      -- Case where recursorAnon is external
-      (fun recursorAnon => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvertM Const)
-        -- Case where recursorMeta is also external
-        (fun recursorMeta => do
-             let rules ← List.zipWithError .anonMetaMismatch ruleFromIpld recursorAnon.rules recursorMeta.rules
-             pure $ .extRecursor anonCid { name, lvls, type, params, indices, motives, minors, rules, k })
-        (fun _ => throw .ipldError))
-      -- Case where recursorAnon is internal
-      (fun _ => Bool.casesOn b₂ (motive := fun b₂ => (RecursorMeta b₂) → ConvertM Const)
-        (fun _ => throw .ipldError)
-        -- Case where recursorMeta is also internal
-        (fun _ => pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }))
-    casesExtInt recursorAnon recursorMeta
+    let casesExtInt : (b₁ : Bool) → (b₂ : Bool) → (RecursorAnon b₁) → (RecursorMeta b₂) → ConvertM Const 
+    | .true, .true, _, _ => pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
+    | .false, .false, recAnon, recMeta => do
+      let rules ← List.zipWithError .anonMetaMismatch ruleFromIpld recAnon.rules recMeta.rules
+      pure $ .extRecursor anonCid { name, lvls, type, params, indices, motives, minors, rules, k }
+    | _, _, _, _ => throw .ipldError
+    casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
   | (.quotient quotientAnon, .quotient quotientMeta) =>
     let name := quotientMeta.name
     let lvls := quotientMeta.lvls
@@ -268,5 +270,10 @@ def convertStore (store : Store) : Except ConvertError (List Expr) := ConvertM.r
     let expr ← exprFromIpld cid.anon cid.meta
     pure $ expr :: exprs
   cidMap.foldM collect []
+
+def convertStoreIO (store : Store) : IO (List Expr) :=
+  match convertStore store with
+  | .ok exprs => pure exprs
+  | .error err => .error $ toString err
 
 end Yatima.Typechecker

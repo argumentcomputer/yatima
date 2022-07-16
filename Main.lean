@@ -29,6 +29,7 @@ def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
     s!"cache size: {stt.cache.size}\n" ++
     s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
 
+open Yatima.Typechecker in
 open Yatima.Compiler in
 def buildRun (p : Cli.Parsed) : IO UInt32 := do
   let log : Bool := p.hasFlag "log"
@@ -51,7 +52,8 @@ def buildRun (p : Cli.Parsed) : IO UInt32 := do
         return 1
       | none => pure ()
       if log then printCompilationStats stt
-      -- todo: make use of `stt.store`
+      let exprs ← convertStoreIO stt.store
+      List.forM exprs (fun expr => IO.println s!"{printExpr expr}")
       return 0
     else
       IO.eprintln "No build argument was found."
