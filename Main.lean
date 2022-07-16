@@ -78,8 +78,8 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
     IO.eprintln "Run `yatima store -h` for further information."
     return 1
 
-instance : Coe String (Option String) where
-  coe := some
+-- instance : Coe String (Option String) where
+--   coe := some
 
 def storeCmd : Cli.Cmd := `[Cli|
   store VIA storeRun; [VERSION]
@@ -91,9 +91,9 @@ def storeCmd : Cli.Cmd := `[Cli|
     l, "log";     "Logs compilation progress"
     s, "summary"; "Prints a compilation summary at the end of the process"
 
-  ARGS:
-    ...sources : String; "List of Lean files or directories"
-]
+--   ARGS:
+--     ...sources : String; "List of Lean files or directories"
+-- ]
 
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima NOOP; [VERSION]
