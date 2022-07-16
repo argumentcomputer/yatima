@@ -14,16 +14,22 @@ inductive ConvertError where
 | cannotStoreValue : ConvertError
 deriving Inhabited
 
-structure State where
+structure ConvertState where
  expr_cache : RBMap ExprCid Expr compare
  const_cache : RBMap ConstCid Const compare
  univ_cache : RBMap UnivCid Univ compare
+instance : Inhabited ConvertState where
+  default := .mk .empty .empty .empty
 
-abbrev ConvertM := ReaderT Store <| StateT State <| ExceptT ConvertError Id
+abbrev ConvertM := ReaderT Store <| EStateM ConvertError ConvertState
 instance : Monad ConvertM := let i := inferInstanceAs (Monad ConvertM); { pure := i.pure, bind := i.bind }
-
 instance (α : Type) : Inhabited (ConvertM α) where
   default _ := throw .ipldError
+
+def ConvertM.run (env : Store) (ste : ConvertState) (m : ConvertM α) : Except ConvertError α :=
+  match EStateM.run (ReaderT.run m env) ste with
+  | .ok a _  => .ok a
+  | .error e _ => .error e
 
 -- Auxiliary definitions
 inductive Key : Type → Type
@@ -255,5 +261,12 @@ partial def ruleFromIpld (ruleAnon : RecursorRuleAnon) (ruleMeta : RecursorRuleM
   let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
   pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields }
 end
+
+def convertStore (store : Store) : Except ConvertError (List Expr) := ConvertM.run store default $ do
+  let cidMap := (← read).expr_cache
+  let collect := fun exprs cid _ => do
+    let expr ← exprFromIpld cid.anon cid.meta
+    pure $ expr :: exprs
+  cidMap.foldM collect []
 
 end Yatima.Typechecker
