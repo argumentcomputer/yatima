@@ -2,9 +2,7 @@ import Yatima.Univ
 
 namespace Yatima
 
-def Name? : Kind → Type
-| .Anon => Unit
-| _ => Name
+def Name? (k : Kind) := UnitIfAnon k Name
 
 inductive LitType
   | nat : LitType
