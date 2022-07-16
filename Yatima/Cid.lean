@@ -1,4 +1,5 @@
 import Ipld.Cid
+import Yatima.Kind
 
 namespace Yatima
 def UNIVANON  : UInt64 := 0xC0DE0001
@@ -17,20 +18,35 @@ structure ExprMetaCid  where data : Cid deriving BEq, Ord
 structure ConstAnonCid where data : Cid deriving BEq, Ord
 structure ConstMetaCid where data : Cid deriving BEq, Ord
 
-structure UnivCid where 
+structure UnivPureCid where
   anon : UnivAnonCid
   meta : UnivMetaCid
 deriving BEq, Ord
 
-structure ExprCid where 
+structure ExprPureCid where
   anon : ExprAnonCid
   meta : ExprMetaCid
 deriving BEq, Ord
 
-structure ConstCid where
+structure ConstPureCid where
   anon : ConstAnonCid
   meta : ConstMetaCid
 deriving BEq, Ord
+
+def UnivCid : Kind → Type
+| .Pure => UnivPureCid
+| .Anon => UnivAnonCid
+| .Meta => UnivMetaCid
+
+def ExprCid : Kind → Type
+| .Pure => ExprPureCid
+| .Anon => ExprAnonCid
+| .Meta => ExprMetaCid
+
+def ConstCid : Kind → Type
+| .Pure => ConstPureCid
+| .Anon => ConstAnonCid
+| .Meta => ConstMetaCid
 
 structure EnvCid where data : Cid deriving BEq
 

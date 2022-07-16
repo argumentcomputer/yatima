@@ -1,425 +1,260 @@
+import Yatima.Kind
 import Yatima.Name
 import Yatima.Expr
 
 namespace Yatima
 
-structure Axiom where
-  name : Name
-  lvls : List Name
-  type : ExprCid
-  safe : Bool
+def ListName? : Kind → Type
+| .Anon => Nat
+| _ => List Name
 
-structure AxiomAnon where
-  lvls : Nat
-  type : ExprAnonCid
-  safe : Bool
+structure Axiom (k : Kind) where
+  name : Name? k
+  lvls : ListName? k
+  type : ExprCid k
+  safe : UnitIfMeta k Bool
 
-structure AxiomMeta where
-  name : Name
-  lvls : List Name
-  type : ExprMetaCid
+structure Theorem (k : Kind) where
+  name  : Name? k
+  lvls  : ListName? k
+  type  : ExprCid k
+  value : ExprCid k
 
-structure Theorem where
-  name  : Name
-  lvls  : List Name
-  type  : ExprCid
-  value : ExprCid
-
-structure TheoremAnon where
-  lvls  : Nat
-  type  : ExprAnonCid
-  value : ExprAnonCid
-
-structure TheoremMeta where
-  name  : Name
-  lvls  : List Name
-  type  : ExprMetaCid
-  value : ExprMetaCid
-
-structure Opaque where
-  name  : Name
-  lvls  : List Name
-  type  : ExprCid
-  value : ExprCid
-  safe  : Bool
-
-structure OpaqueAnon where
-  lvls  : Nat
-  type  : ExprAnonCid
-  value : ExprAnonCid
-  safe  : Bool
-
-structure OpaqueMeta where
-  name  : Name
-  lvls  : List Name
-  type  : ExprMetaCid
-  value : ExprMetaCid
+structure Opaque (k : Kind) where
+  name  : Name? k
+  lvls  : ListName? k
+  type  : ExprCid k
+  value : ExprCid k
+  safe  : UnitIfMeta k Bool
 
 inductive DefinitionSafety where
   | safe | «unsafe» | «partial»
 
-structure Definition where
-  name   : Name
-  lvls   : List Name
-  type   : ExprCid
-  value  : ExprCid
-  safety : DefinitionSafety
+structure Definition (k : Kind) where
+  name   : Name? k
+  lvls   : ListName? k
+  type   : ExprCid k
+  value  : ExprCid k
+  safety : UnitIfMeta k DefinitionSafety
 
-structure DefinitionAnon where
-  lvls   : Nat
-  type   : ExprAnonCid
-  value  : ExprAnonCid
-  safety : DefinitionSafety
+structure DefinitionProj (k : Kind) where
+  name  : Name? k
+  lvls  : ListName? k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : UnitIfMeta k Nat
 
-structure DefinitionMeta where
-  name  : Name
-  lvls  : List Name
-  type  : ExprMetaCid
-  value : ExprMetaCid
+structure Constructor (k : Kind) where
+  name   : Name? k
+  lvls   : ListName? k
+  type   : ExprCid k
+  params : UnitIfMeta k Nat
+  fields : UnitIfMeta k Nat
+  rhs    : ExprCid k
 
-structure DefinitionProj where
-  name  : Name
-  lvls  : List Name
-  type  : ExprCid
-  block : ConstCid
-  idx   : Nat
+structure RecursorRule (k : Kind) where
+  ctor   : ConstCid k
+  fields : UnitIfMeta k Nat
+  rhs    : ExprCid k
 
-structure DefinitionProjAnon where
-  lvls  : Nat
-  type  : ExprAnonCid
-  block : ConstAnonCid
-  idx   : Nat
+structure Recursor (k : Kind) (b : Bool) where
+  name    : Name? k
+  lvls    : ListName? k
+  type    : ExprCid k
+  params  : UnitIfMeta k Nat
+  indices : UnitIfMeta k Nat
+  motives : UnitIfMeta k Nat
+  minors  : UnitIfMeta k Nat
+  rules   : match b with | .true => Unit | .false => List (RecursorRule k)
+  k       : UnitIfMeta k Bool
 
-structure DefinitionProjMeta where
-  name  : Name
-  lvls  : List Name
-  type  : ExprMetaCid
-  block : ConstMetaCid
+structure Inductive (k : Kind) where
+  name     : Name? k
+  lvls     : ListName? k
+  type     : ExprCid k
+  params   : UnitIfMeta k Nat
+  indices  : UnitIfMeta k Nat
+  ctors    : List (Constructor k)
+  recrs    : List (Sigma (Recursor k))
+  recr     : UnitIfMeta k Bool
+  safe     : UnitIfMeta k Bool
+  refl     : UnitIfMeta k Bool
 
-structure Constructor where
-  name   : Name
-  lvls   : List Name
-  type   : ExprCid
-  params : Nat
-  fields : Nat
-  rhs    : ExprCid
+structure InductiveProj (k : Kind) where
+  name    : Name? k
+  lvls    : ListName? k
+  type    : ExprCid k
+  block   : ConstCid k
+  idx     : UnitIfMeta k Nat
 
-structure ConstructorAnon where
-  lvls   : Nat
-  type   : ExprAnonCid
-  params : Nat
-  fields : Nat
-  rhs    : ExprAnonCid
-
-structure ConstructorMeta where
-  name   : Name
-  lvls   : List Name
-  type   : ExprMetaCid
-  rhs    : ExprMetaCid
-
-structure RecursorRule where
-  ctor   : ConstCid
-  fields : Nat
-  rhs    : ExprCid
-
-structure RecursorRuleAnon where
-  ctor   : ConstAnonCid
-  fields : Nat
-  rhs    : ExprAnonCid
-
-structure RecursorRuleMeta where
-  ctor   : ConstMetaCid
-  rhs    : ExprMetaCid
-
-structure Recursor (b : Bool) where
-  name    : Name
-  lvls    : List Name
-  type    : ExprCid
-  params  : Nat
-  indices : Nat
-  motives : Nat
-  minors  : Nat
-  rules   : match b with | .true => Unit | .false => List RecursorRule
-  k       : Bool
-
-structure RecursorAnon (b : Bool) where
-  lvls    : Nat
-  type    : ExprAnonCid
-  params  : Nat
-  indices : Nat
-  motives : Nat
-  minors  : Nat
-  rules   : match b with | .true => Unit | .false => List RecursorRuleAnon
-  k       : Bool
-
-structure RecursorMeta (b : Bool) where
-  name    : Name
-  lvls    : List Name
-  type    : ExprMetaCid
-  rules   : match b with | .true => Unit | .false => List RecursorRuleMeta
-
-structure Inductive where
-  name     : Name
-  lvls     : List Name
-  type     : ExprCid
-  params   : Nat
-  indices  : Nat
-  ctors    : List Constructor
-  recrs    : List (Sigma Recursor)
-  recr     : Bool
-  safe     : Bool
-  refl     : Bool
-
-structure InductiveAnon where
-  lvls     : Nat
-  type     : ExprAnonCid
-  params   : Nat
-  indices  : Nat
-  ctors    : List ConstructorAnon
-  recrs    : List (Sigma RecursorAnon)
-  recr     : Bool
-  safe     : Bool
-  refl     : Bool
-
-structure InductiveMeta where
-  name     : Name
-  lvls     : List Name
-  type     : ExprMetaCid
-  ctors    : List ConstructorMeta
-  recrs    : List (Sigma RecursorMeta)
-
-structure InductiveProj where
-  name    : Name
-  lvls    : List Name
-  type    : ExprCid
-  block   : ConstCid
-  idx     : Nat
-
-structure InductiveProjAnon where
-  lvls    : Nat
-  type    : ExprAnonCid
-  block   : ConstAnonCid
-  idx     : Nat
-
-structure InductiveProjMeta where
-  name    : Name
-  lvls    : List Name
-  type    : ExprMetaCid
-  block   : ConstMetaCid
-
-structure ConstructorProj where
-  name    : Name
-  lvls    : List Name
-  type    : ExprCid
-  block   : ConstCid
+structure ConstructorProj (k : Kind) where
+  name    : Name? k
+  lvls    : ListName? k
+  type    : ExprCid k
+  block   : ConstCid k
   idx     : Nat
   cidx    : Nat
 
-structure ConstructorProjAnon where
-  lvls    : Nat
-  type    : ExprAnonCid
-  block   : ConstAnonCid
-  idx     : Nat
-  cidx    : Nat
-
-structure ConstructorProjMeta where
-  name    : Name
-  lvls    : List Name
-  type    : ExprMetaCid
-  block   : ConstMetaCid
-
-structure RecursorProj where
-  name    : Name
-  lvls    : List Name
-  type    : ExprCid
-  block   : ConstCid
-  idx     : Nat
-  ridx    : Nat
-
-structure RecursorProjAnon where
-  lvls    : Nat
-  type    : ExprAnonCid
-  block   : ConstAnonCid
-  idx     : Nat
-  ridx    : Nat
-
-structure RecursorProjMeta where
-  name    : Name
-  lvls    : List Name
-  type    : ExprMetaCid
-  block   : ConstMetaCid
+structure RecursorProj (k : Kind) where
+  name    : Name? k
+  lvls    : ListName? k
+  type    : ExprCid k
+  block   : ConstCid k
+  idx     : UnitIfMeta k Nat
+  ridx    : UnitIfMeta k Nat
 
 inductive QuotKind where
   | type | ctor | lift | ind
 
-structure Quotient where
-  name : Name
-  lvls : List Name
-  type : ExprCid
-  kind : QuotKind
+structure Quotient (k : Kind) where
+  name : Name? k
+  lvls : ListName? k
+  type : ExprCid k
+  kind : UnitIfMeta k QuotKind
 
-structure QuotientAnon where
-  lvls : Nat
-  type : ExprAnonCid
-  kind : QuotKind
-
-structure QuotientMeta where
-  name : Name
-  lvls : List Name
-  type : ExprMetaCid
-
-inductive Const
+inductive Const (k : Kind)
   -- standalone constants
-  | «axiom»     : Axiom → Const
-  | «theorem»   : Theorem → Const
-  | «opaque»      : Opaque → Const
-  | quotient    : Quotient → Const
-  | definition  : Definition → Const
+  | «axiom»     : Axiom k → Const k
+  | «theorem»   : Theorem k → Const k
+  | «opaque»      : Opaque k → Const k
+  | quotient    : Quotient k → Const k
+  | definition  : Definition k → Const k
   -- projections of mutual blocks
-  | inductiveProj   : InductiveProj → Const
-  | constructorProj : ConstructorProj → Const
-  | recursorProj    : RecursorProj → Const
-  | definitionProj  : DefinitionProj → Const
+  | inductiveProj   : InductiveProj k → Const k
+  | constructorProj : ConstructorProj k → Const k
+  | recursorProj    : RecursorProj k → Const k
+  | definitionProj  : DefinitionProj k → Const k
   -- constants to represent mutual blocks
-  | mutDefBlock : List (List Definition) → Const
-  | mutIndBlock : List Inductive → Const
+  | mutDefBlock : List (substIfAnon k (Definition k) (List (Definition k))) → Const k
+  | mutIndBlock : List (Inductive k) → Const k
 
-inductive ConstAnon
-  | «axiom»     : AxiomAnon → ConstAnon
-  | «theorem»   : TheoremAnon → ConstAnon
-  | «opaque»      : OpaqueAnon → ConstAnon
-  | quotient    : QuotientAnon → ConstAnon
-  | definition  : DefinitionAnon → ConstAnon
-  | inductiveProj   : InductiveProjAnon → ConstAnon
-  | constructorProj : ConstructorProjAnon → ConstAnon
-  | recursorProj    : RecursorProjAnon → ConstAnon
-  | definitionProj  : DefinitionProjAnon → ConstAnon
-  | mutDefBlock : List DefinitionAnon → ConstAnon
-  | mutIndBlock : List InductiveAnon → ConstAnon
+def Definition.to : (k : Kind) → Definition .Pure → Definition k
+  | .Pure, d => d
+  | .Anon, d => ⟨(), d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
+  | .Meta, d => ⟨d.name, d.lvls, d.type.meta, d.value.meta, ()⟩
 
-inductive ConstMeta
-  | «axiom»     : AxiomMeta → ConstMeta
-  | «theorem»   : TheoremMeta → ConstMeta
-  | «opaque»      : OpaqueMeta → ConstMeta
-  | quotient    : QuotientMeta → ConstMeta
-  | definition  : DefinitionMeta → ConstMeta
-  | inductiveProj   : InductiveProjMeta → ConstMeta
-  | constructorProj : ConstructorProjMeta → ConstMeta
-  | recursorProj    : RecursorProjMeta → ConstMeta
-  | definitionProj  : DefinitionProjMeta → ConstMeta
-  | mutDefBlock : List (List DefinitionMeta) → ConstMeta
-  | mutIndBlock : List InductiveMeta → ConstMeta
+def Constructor.to : (k : Kind) → Constructor .Pure → Constructor k
+  | .Pure, x => x
+  | .Anon, x => ⟨(), x.lvls.length, x.type.anon, x.params, x.fields, x.rhs.anon⟩
+  | .Meta, x => ⟨x.name, x.lvls, x.type.meta, (), (), x.rhs.meta⟩
 
-def Definition.toAnon (d : Definition) : DefinitionAnon :=
-  ⟨d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
+def RecursorRule.to : (k : Kind) → RecursorRule .Pure → RecursorRule k
+  | .Pure, x => x
+  | .Anon, x => ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
+  | .Meta, x => ⟨x.ctor.meta, (), x.rhs.meta⟩
 
-def Constructor.toAnon (x : Constructor) : ConstructorAnon :=
-  ⟨x.lvls.length, x.type.anon, x.params, x.fields, x.rhs.anon⟩
+def Recursor.to : (k : Kind) → Recursor .Pure b → Recursor k b
+  | .Pure, x => x
+  | .Anon, x =>
+    ⟨ ()
+    , x.lvls.length
+    , x.type.anon
+    , x.params
+    , x.indices
+    , x.motives
+    , x.minors
+    , match b with
+      | .true => Unit.unit
+      | .false => x.rules.map $ RecursorRule.to .Anon
+    , x.k ⟩
+  | .Meta, x => ⟨x.name, x.lvls, x.type.meta, (), (), (), (), match b with | .true => Unit.unit | .false => x.rules.map $ RecursorRule.to .Meta, ()⟩
 
-def RecursorRule.toAnon (x : RecursorRule) : RecursorRuleAnon :=
-  ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
+def Inductive.to : (k : Kind) → Inductive .Pure → Inductive k
+  | .Pure, x => x
+  | .Anon, x =>
+    ⟨ ()
+    , x.lvls.length
+    , x.type.anon
+    , x.params
+    , x.indices
+    , x.ctors.map (·.to .Anon)
+    , x.recrs.map (fun p => .mk p.fst (Recursor.to .Anon p.snd))
+    , x.recr
+    , x.safe
+    , x.refl ⟩
+  | .Meta, x =>
+    ⟨ x.name
+    , x.lvls
+    , x.type.meta
+    , ()
+    , ()
+    , x.ctors.map (·.to .Meta)
+    , x.recrs.map (fun p => .mk p.fst (Recursor.to .Meta p.snd))
+    , ()
+    , ()
+    , () ⟩
 
-def Recursor.toAnon (x: Recursor b) : RecursorAnon b :=
-  ⟨ x.lvls.length
-  , x.type.anon
-  , x.params
-  , x.indices
-  , x.motives
-  , x.minors
-  , match b with
-    | .true => Unit.unit
-    | .false => x.rules.map RecursorRule.toAnon
-  , x.k ⟩
-
-def Inductive.toAnon (x: Inductive) : InductiveAnon :=
-  ⟨ x.lvls.length
-  , x.type.anon
-  , x.params
-  , x.indices
-  , x.ctors.map (·.toAnon)
-  , x.recrs.map (fun p => .mk p.fst (Recursor.toAnon p.snd))
-  , x.recr
-  , x.safe
-  , x.refl ⟩
-
-def Const.toAnon : Const → ConstAnon
-  | .axiom a => .axiom ⟨a.lvls.length, a.type.anon, a.safe⟩
-  | .theorem t => .theorem ⟨t.lvls.length, t.type.anon, t.value.anon⟩
-  | .opaque o => .opaque ⟨o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
-  | .quotient q => .quotient ⟨q.lvls.length, q.type.anon, q.kind⟩
-  | .definition d => .definition d.toAnon
-  | .inductiveProj i => .inductiveProj
-    ⟨ i.lvls.length
+def Const.to : (k : Kind) → Const .Pure → Const k
+  | .Pure, c => c
+  | .Anon, .axiom a => .axiom ⟨(), a.lvls.length, a.type.anon, a.safe⟩
+  | .Meta, .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta, ()⟩
+  | .Anon, .theorem t => .theorem ⟨(), t.lvls.length, t.type.anon, t.value.anon⟩
+  | .Meta, .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
+  | .Anon, .opaque o => .opaque ⟨(), o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
+  | .Meta, .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta, ()⟩
+  | .Anon, .quotient q => .quotient ⟨(), q.lvls.length, q.type.anon, q.kind⟩
+  | .Meta, .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta, ()⟩
+  | .Anon, .definition d => .definition $ d.to .Anon
+  | .Meta, .definition d => .definition $ d.to .Meta
+  | .Anon, .inductiveProj i => .inductiveProj
+    ⟨ ()
+    , i.lvls.length
     , i.type.anon
     , i.block.anon
     , i.idx ⟩
-  | .constructorProj c => .constructorProj 
-    ⟨ c.lvls.length
+  | .Meta, .inductiveProj i => .inductiveProj
+    ⟨ i.name
+    , i.lvls
+    , i.type.meta
+    , i.block.meta
+    , () ⟩
+  | .Anon, .constructorProj c => .constructorProj
+    ⟨ ()
+    , c.lvls.length
     , c.type.anon
     , c.block.anon
     , c.idx
     , c.cidx ⟩
-  | .recursorProj r => .recursorProj
-    ⟨ r.lvls.length
+  | .Meta, .constructorProj c => .constructorProj
+    ⟨ c.name
+    , c.lvls
+    , c.type.meta
+    , c.block.meta
+    , c.idx
+    , c.cidx ⟩
+  | .Anon, .recursorProj r => .recursorProj
+    ⟨ ()
+    , r.lvls.length
     , r.type.anon
     , r.block.anon
     , r.idx
     , r.ridx ⟩
-  | .definitionProj x => .definitionProj
-    ⟨ x.lvls.length
+  | .Meta, .recursorProj r => .recursorProj
+    ⟨ r.name
+    , r.lvls
+    , r.type.meta
+    , r.block.meta
+    , ()
+    , () ⟩
+  | .Anon, .definitionProj x => .definitionProj
+    ⟨ ()
+    , x.lvls.length
     , x.type.anon
     , x.block.anon
     , x.idx ⟩
-  | .mutDefBlock ds => .mutDefBlock $
-    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map
-      Definition.toAnon
-  | .mutIndBlock is => .mutIndBlock (is.map Inductive.toAnon)
-
-def Definition.toMeta (d: Definition) : DefinitionMeta :=
-  ⟨d.name, d.lvls, d.type.meta, d.value.meta⟩
-
-def Constructor.toMeta (x: Constructor) : ConstructorMeta :=
-  ⟨x.name, x.lvls, x.type.meta, x.rhs.meta⟩
-
-def RecursorRule.toMeta (x: RecursorRule) : RecursorRuleMeta :=
-  ⟨x.ctor.meta, x.rhs.meta⟩
-
-def Recursor.toMeta (x: Recursor b) : RecursorMeta b :=
-  ⟨x.name, x.lvls, x.type.meta, match b with | .true => Unit.unit | .false => x.rules.map RecursorRule.toMeta⟩
-
-def Inductive.toMeta (x: Inductive) : InductiveMeta :=
-  ⟨ x.name
-  , x.lvls
-  , x.type.meta
-  , x.ctors.map (·.toMeta)
-  , x.recrs.map (fun p => .mk p.fst (Recursor.toMeta p.snd)) ⟩
-
-def Const.toMeta : Const → ConstMeta
-  | .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta⟩
-  | .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
-  | .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta⟩
-  | .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta⟩
-  | .definition d => .definition d.toMeta
-  | .inductiveProj i => .inductiveProj
-    ⟨ i.name
-    , i.lvls
-    , i.type.meta
-    , i.block.meta ⟩
-  | .constructorProj c => .constructorProj
-    ⟨ c.name
-    , c.lvls
-    , c.type.meta
-    , c.block.meta ⟩
-  | .recursorProj r => .recursorProj ⟨r.name, r.lvls, r.type.meta, r.block.meta⟩
-  | .definitionProj x => .definitionProj
+  | .Meta, .definitionProj x => .definitionProj
     ⟨ x.name
     , x.lvls
     , x.type.meta
-    , x.block.meta ⟩
-  | .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => ds.map Definition.toMeta
-  | .mutIndBlock is => .mutIndBlock (is.map Inductive.toMeta)
+    , x.block.meta
+    , () ⟩
+  | .Anon, .mutDefBlock ds => .mutDefBlock $
+    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (Definition.to .Anon)
+  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => ds.map $ Definition.to .Meta
+  | .Anon, .mutIndBlock is => .mutIndBlock (is.map $ Inductive.to .Anon)
+  | .Meta, .mutIndBlock is => .mutIndBlock (is.map $ Inductive.to .Meta)
 
-def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
+def Const.lvlsAndType : Const .Pure → Option (List Name × ExprCid .Pure)
   | .axiom           x
   | .theorem         x
   | .opaque          x
@@ -432,7 +267,7 @@ def Const.lvlsAndType : Const → Option ((List Name) × ExprCid)
   | .mutDefBlock     _ => none
   | .mutIndBlock     _ => none
 
-def Const.name : Const → Name
+def Const.name : Const .Pure → Name
   | .axiom           x
   | .theorem         x
   | .opaque          x
@@ -442,10 +277,14 @@ def Const.name : Const → Name
   | .constructorProj x
   | .recursorProj    x
   | .definitionProj  x => x.name
-  | .mutDefBlock     x => s!"mutual definitions {x.map fun ds => ds.map (·.name)}" -- TODO
-  | .mutIndBlock     x => s!"mutual inductives {x.map (·.name)}" -- TODO
+  | .mutDefBlock     x =>
+    let defs : List (List Name) := x.map (fun ds => ds.map (·.name))
+    s!"mutual definitions {defs}" -- TODO
+  | .mutIndBlock     x =>
+    let inds : List Name := x.map (·.name)
+    s!"mutual inductives {inds}" -- TODO
 
-def Const.ctorName : Const → String
+def Const.ctorName : Const .Pure → String
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
