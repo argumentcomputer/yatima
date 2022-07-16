@@ -116,7 +116,7 @@ inductive Const (k : Kind)
   -- standalone constants
   | «axiom»     : Axiom k → Const k
   | «theorem»   : Theorem k → Const k
-  | «opaque»      : Opaque k → Const k
+  | «opaque»    : Opaque k → Const k
   | quotient    : Quotient k → Const k
   | definition  : Definition k → Const k
   -- projections of mutual blocks
@@ -157,7 +157,15 @@ def Recursor.to : (k : Kind) → Recursor .Pure b → Recursor k b
       | .true => Unit.unit
       | .false => x.rules.map $ RecursorRule.to .Anon
     , x.k ⟩
-  | .Meta, x => ⟨x.name, x.lvls, x.type.meta, (), (), (), (), match b with | .true => Unit.unit | .false => x.rules.map $ RecursorRule.to .Meta, ()⟩
+  | .Meta, x =>
+    ⟨x.name
+    , x.lvls
+    , x.type.meta
+    , (), (), (), ()
+    , match b with
+      | .true => Unit.unit
+      | .false => x.rules.map $ RecursorRule.to .Meta
+    , ()⟩
 
 def Inductive.to : (k : Kind) → Inductive .Pure → Inductive k
   | .Pure, x => x
@@ -176,13 +184,10 @@ def Inductive.to : (k : Kind) → Inductive .Pure → Inductive k
     ⟨ x.name
     , x.lvls
     , x.type.meta
-    , ()
-    , ()
+    , () , ()
     , x.ctors.map (·.to .Meta)
     , x.recrs.map (fun p => .mk p.fst (Recursor.to .Meta p.snd))
-    , ()
-    , ()
-    , () ⟩
+    , () , () , () ⟩
 
 def Const.to : (k : Kind) → Const .Pure → Const k
   | .Pure, c => c
@@ -197,57 +202,21 @@ def Const.to : (k : Kind) → Const .Pure → Const k
   | .Anon, .definition d => .definition $ d.to .Anon
   | .Meta, .definition d => .definition $ d.to .Meta
   | .Anon, .inductiveProj i => .inductiveProj
-    ⟨ ()
-    , i.lvls.length
-    , i.type.anon
-    , i.block.anon
-    , i.idx ⟩
+    ⟨ () , i.lvls.length , i.type.anon , i.block.anon , i.idx ⟩
   | .Meta, .inductiveProj i => .inductiveProj
-    ⟨ i.name
-    , i.lvls
-    , i.type.meta
-    , i.block.meta
-    , () ⟩
+    ⟨ i.name , i.lvls , i.type.meta , i.block.meta , () ⟩
   | .Anon, .constructorProj c => .constructorProj
-    ⟨ ()
-    , c.lvls.length
-    , c.type.anon
-    , c.block.anon
-    , c.idx
-    , c.cidx ⟩
+    ⟨ () , c.lvls.length , c.type.anon , c.block.anon , c.idx , c.cidx ⟩
   | .Meta, .constructorProj c => .constructorProj
-    ⟨ c.name
-    , c.lvls
-    , c.type.meta
-    , c.block.meta
-    , c.idx
-    , c.cidx ⟩
+    ⟨ c.name , c.lvls , c.type.meta , c.block.meta , c.idx , c.cidx ⟩
   | .Anon, .recursorProj r => .recursorProj
-    ⟨ ()
-    , r.lvls.length
-    , r.type.anon
-    , r.block.anon
-    , r.idx
-    , r.ridx ⟩
+    ⟨ () , r.lvls.length , r.type.anon , r.block.anon , r.idx , r.ridx ⟩
   | .Meta, .recursorProj r => .recursorProj
-    ⟨ r.name
-    , r.lvls
-    , r.type.meta
-    , r.block.meta
-    , ()
-    , () ⟩
+    ⟨ r.name , r.lvls , r.type.meta , r.block.meta , () , () ⟩
   | .Anon, .definitionProj x => .definitionProj
-    ⟨ ()
-    , x.lvls.length
-    , x.type.anon
-    , x.block.anon
-    , x.idx ⟩
+    ⟨ () , x.lvls.length , x.type.anon , x.block.anon , x.idx ⟩
   | .Meta, .definitionProj x => .definitionProj
-    ⟨ x.name
-    , x.lvls
-    , x.type.meta
-    , x.block.meta
-    , () ⟩
+    ⟨ x.name , x.lvls , x.type.meta , x.block.meta , () ⟩
   | .Anon, .mutDefBlock ds => .mutDefBlock $
     (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (Definition.to .Anon)
   | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => ds.map $ Definition.to .Meta

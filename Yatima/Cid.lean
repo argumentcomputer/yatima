@@ -33,20 +33,32 @@ structure ConstPureCid where
   meta : ConstMetaCid
 deriving BEq, Ord
 
-def UnivCid : Kind → Type
+@[reducible] def UnivCid : Kind → Type
 | .Pure => UnivPureCid
 | .Anon => UnivAnonCid
 | .Meta => UnivMetaCid
+instance : BEq (UnivCid k) where
+  beq := kindEtaExpand k with BEq.beq
+instance : Ord (UnivCid k) where
+  compare := kindEtaExpand k with Ord.compare
 
-def ExprCid : Kind → Type
+@[reducible] def ExprCid : Kind → Type
 | .Pure => ExprPureCid
 | .Anon => ExprAnonCid
 | .Meta => ExprMetaCid
+instance : BEq (ExprCid k) where
+  beq := kindEtaExpand k with BEq.beq
+instance : Ord (ExprCid k) where
+  compare := kindEtaExpand k with Ord.compare
 
-def ConstCid : Kind → Type
+@[reducible] def ConstCid : Kind → Type
 | .Pure => ConstPureCid
 | .Anon => ConstAnonCid
 | .Meta => ConstMetaCid
+instance : BEq (ConstCid k) where
+  beq := kindEtaExpand k with BEq.beq
+instance : Ord (ConstCid k) where
+  compare := kindEtaExpand k with Ord.compare
 
 structure EnvCid where data : Cid deriving BEq
 
