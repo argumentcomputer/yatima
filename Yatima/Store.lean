@@ -9,9 +9,9 @@ structure Store where
   expr_anon  : RBMap (ExprCid .Anon) (Expr .Anon)  compare
   const_anon : RBMap (ConstCid .Anon) (Const .Anon) compare
 
-  univ_meta  : RBMap (UnivCid .Meta) (Univ .Meta)  compare
-  expr_meta  : RBMap (ExprCid .Meta) (Expr .Meta)  compare
-  const_meta : RBMap (ConstCid .Meta) (Const .Meta) compare
+  univ_meta  : RBMap (Ipld.UnivCid .Meta) (Ipld.Univ .Meta)  compare
+  expr_meta  : RBMap (Ipld.ExprCid .Meta) (Ipld.Expr .Meta)  compare
+  const_meta : RBMap (Ipld.ConstCid .Meta) (Ipld.Const .Meta) compare
 
   univ_cids  : RBTree (Both UnivCid) compare
   expr_cids  : RBTree (Both ExprCid) compare

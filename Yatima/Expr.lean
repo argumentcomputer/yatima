@@ -86,7 +86,7 @@ def isVarFree (name : Name) : Expr → Bool
   | _ => false
 
 -- Get the list of de Bruijn indices of all the variables of a Yatima `Expr` (helpful for debugging later)
-def getIndices : Expr .Pure → List Nat
+def getIndices : Expr → List Nat
   | var _ idx => [idx]
   | app func input => getIndices func ++ getIndices input
   | lam _ _ type body => getIndices type ++ getIndices body
@@ -95,7 +95,7 @@ def getIndices : Expr .Pure → List Nat
   | proj _ body => getIndices body
   | _ => [] -- All the rest of the cases are treated at once
 
-def getBVars : Expr .Pure → List Name
+def getBVars : Expr → List Name
   | var name _ => [name]
   | app func input => getBVars func ++ getBVars input
   | lam _ _ type body => getBVars type ++ getBVars body
@@ -117,7 +117,7 @@ def ctorType : Expr → String
   | proj .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
-def numBinders : Expr .Pure → Nat
+def numBinders : Expr → Nat
   | lam _ _ _ body  => 1 + numBinders body
   | pi _ _ _ body   => 1 + numBinders body
   | letE _ _ _ body => 1 + numBinders body
@@ -187,7 +187,7 @@ Substitute the expression `term` for the top level bound variable of the express
 
 (essentially just `(λ. M) N` )
 -/
-def substTop (expr term : Expr .Pure) : Expr .Pure :=
+def substTop (expr term : Expr) : Expr :=
   expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
 
 end Expr

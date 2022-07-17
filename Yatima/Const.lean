@@ -336,7 +336,7 @@ def Const.type (k : Const) : Expr :=
   | .extRecursor x => x.type
   | .quotient x => x.type
 
-def Const.name : Const .Pure → Name
+def Const.name : Const → Name
   | .axiom           x
   | .theorem         x
   | .opaque          x
