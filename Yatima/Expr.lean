@@ -2,8 +2,6 @@ import Yatima.Univ
 
 namespace Yatima
 
-def Name? (k : Kind) := UnitIfAnon k Name
-
 inductive LitType
   | nat : LitType
   | str : LitType
@@ -22,47 +20,63 @@ inductive BinderInfo
   | auxDecl
   deriving BEq, Inhabited
 
-inductive Expr (k : Kind)
-  | var   : Name? k → UnitIfMeta k Nat → Expr k
-  | sort  : UnivCid k → Expr k
-  | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
-  | app   : Expr k → Expr k → Expr k
-  | lam   : Name? k → UnitIfMeta k BinderInfo → Expr k → Expr k → Expr k
-  | pi    : Name? k → UnitIfMeta k BinderInfo → Expr k → Expr k → Expr k
-  | letE  : Name? k → Expr k → Expr k → Expr k → Expr k
-  | lit   : UnitIfMeta k Literal → Expr k
-  | lty   : UnitIfMeta k LitType → Expr k
-  | fix   : Name? k → Expr k → Expr k
-  | proj  : UnitIfMeta k Nat → Expr k → Expr k
-  -- deriving BEq, Inhabited
+inductive Expr
+  | var   : Name → Nat → Expr
+  | sort  : Univ → Expr
+  | const : Name → ConstCid → List Univ → Expr
+  | app   : Expr → Expr → Expr
+  | lam   : Name → BinderInfo → Expr → Expr → Expr
+  | pi    : Name → BinderInfo → Expr → Expr → Expr
+  | letE  : Name → Expr → Expr → Expr → Expr
+  | lit   : Literal → Expr
+  | lty   : LitType → Expr
+  | fix   : Name → Expr → Expr
+  | proj  : Nat → Expr → Expr
+  deriving BEq, Inhabited
+
+abbrev BinderInfo? k := Split BinderInfo Unit k
+
+inductive Ipld.Expr (k : Kind)
+  | var   : Name? k → Nat? k → Ipld.Expr k
+  | sort  : UnivCid k → Ipld.Expr k
+  | const : Name? k → ConstCid k → List (UnivCid k) → Ipld.Expr k
+  | app   : Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
+  | lam   : Name? k → BinderInfo? k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
+  | pi    : Name? k → BinderInfo? k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
+  | letE  : Name? k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
+  | lit   : Split Literal Unit k → Ipld.Expr k
+  | lty   : Split LitType Unit k → Ipld.Expr k
+  | fix   : Name? k → Ipld.ExprCid k → Ipld.Expr k
+  | proj  : Nat? k → Ipld.ExprCid k → Ipld.Expr k
+  deriving BEq, Inhabited
 
 namespace Expr
 
-def name : Expr .Pure → Option Name
+def name : Expr → Option Name
   | lam name .. => some name
   | pi name .. => some name
   | letE name .. => some name
   | _ => none
 
-def bInfo : Expr .Pure → Option BinderInfo
+def bInfo : Expr → Option BinderInfo
   | lam _ b _ _ => some b
   | pi _ b _ _ => some b
   | _ => none
 
-def type : Expr .Pure → Option (Expr .Pure)
+def type : Expr → Option (Expr)
   | lam _ _ t _ => some t
   | pi _ _ t _ => some t
   | letE _ t _ _ => some t
   | _ => none
 
-def body : Expr .Pure → Option (Expr .Pure)
+def body : Expr → Option (Expr)
   | lam _ _ _ b => some b
   | pi _ _ _ b => some b
   | letE _ _ _ b => some b
   | _ => none
 
 -- Get the list of de Bruijn indices of all the variables of a Yatima `Expr` (helpful for debugging later)
-def getIndices : Expr .Pure → List Nat
+def getIndices : Expr → List Nat
   | var _ idx => [idx]
   | app func input => getIndices func ++ getIndices input
   | lam _ _ type body => getIndices type ++ getIndices body
@@ -72,7 +86,7 @@ def getIndices : Expr .Pure → List Nat
   | proj _ body => getIndices body
   | _ => [] -- All the rest of the cases are treated at once
 
-def getBVars : Expr .Pure → List Name
+def getBVars : Expr → List Name
   | var name _ => [name]
   | app func input => getBVars func ++ getBVars input
   | lam _ _ type body => getBVars type ++ getBVars body
@@ -82,7 +96,7 @@ def getBVars : Expr .Pure → List Name
   | proj _ body => getBVars body
   | _ => [] -- All the rest of the cases are treated at once
 
-def ctorType : Expr .Pure → String
+def ctorType : Expr → String
   | var .. => "var"
   | sort .. => "sort"
   | const .. => "const"
@@ -96,7 +110,7 @@ def ctorType : Expr .Pure → String
   | proj .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
-def numBinders : Expr .Pure → Nat
+def numBinders : Expr → Nat
   | lam _ _ _ body  => 1 + numBinders body
   | pi _ _ _ body   => 1 + numBinders body
   | letE _ _ _ body => 1 + numBinders body
@@ -108,8 +122,8 @@ Shift the de Bruijn indices of all variables at depth > `cutoff` in expression `
 
 `shiftFreeVars` and `subst` implementations are variation on those for untyped λ-expressions from `ExprGen.lean`.
 -/
-def shiftFreeVars (expr : Expr .Pure) (inc : Int) (cutoff : Nat) : Expr .Pure :=
-  let rec walk (cutoff : Nat) (expr : Expr .Pure) : Expr .Pure := match expr with
+def shiftFreeVars (expr : Expr) (inc : Int) (cutoff : Nat) : Expr :=
+  let rec walk (cutoff : Nat) (expr : Expr) : Expr := match expr with
     | var name idx              =>
       let idx : Nat := idx
       match inc with
@@ -127,8 +141,8 @@ def shiftFreeVars (expr : Expr .Pure) (inc : Int) (cutoff : Nat) : Expr .Pure :=
 /--
 Shift the de Bruijn indices of all variables in expression `expr` by increment `inc`.
 -/
-def shiftVars (expr : Expr .Pure) (inc : Int) : Expr .Pure :=
-  let rec walk (expr : Expr .Pure) : Expr .Pure := match expr with
+def shiftVars (expr : Expr) (inc : Int) : Expr :=
+  let rec walk (expr : Expr) : Expr := match expr with
     | var name idx              =>
       let idx : Nat := idx
       match inc with
@@ -146,8 +160,8 @@ def shiftVars (expr : Expr .Pure) (inc : Int) : Expr .Pure :=
 /--
 Substitute the expression `term` for any bound variable with de Bruijn index `dep` in the expression `expr`
 -/
-def subst (expr term : Expr .Pure) (dep : Nat) : Expr .Pure :=
-  let rec walk (acc : Nat) (expr : Expr .Pure) : Expr .Pure := match expr with
+def subst (expr term : Expr) (dep : Nat) : Expr :=
+  let rec walk (acc : Nat) (expr : Expr) : Expr := match expr with
     | var name idx => let idx : Nat := idx
       match compare idx (dep + acc) with
         | .eq => term.shiftFreeVars acc 0
@@ -170,7 +184,7 @@ Substitute the expression `term` for the top level bound variable of the express
 
 (essentially just `(λ. M) N` )
 -/
-def substTop (expr term : Expr .Pure) : Expr .Pure :=
+def substTop (expr term : Expr) : Expr :=
   expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
 
 end Expr

@@ -1,24 +1,32 @@
 namespace Yatima
 
 inductive Kind where
-| Pure : Kind
 | Anon : Kind
 | Meta : Kind
 deriving BEq, Inhabited
 
-macro "kindEtaExpand" k:term "with" x:term : term =>
-  `(match $k:term with | .Pure => $x:term | .Anon => $x:term | .Meta => $x:term)
+instance : Coe Kind Bool where coe | .Anon => .true | .Meta => .false
 
-def substIfAnon : Kind → A → A → A
-| .Anon, a, _ => a
-| _, _, b => b
+inductive Split (A : Type) (B : Type) : (b : Bool) → Type where
+| fst : A → Split A B True
+| snd : B → Split A B False
+deriving BEq
 
-def UnitIfAnon : Kind → Type → Type
-| .Anon, _ => Unit
-| _, A => A
+instance [Inhabited A] [Inhabited B] : Inhabited (Split A B k) where
+  default := match k with | .true => .fst default | .false => .snd default
 
-def UnitIfMeta : Kind → Type → Type
-| .Meta, _ => Unit
-| _, A => A
+instance [Ord A] [Ord B] : Ord (Split A B k) where
+  compare
+    | .fst a, .fst b => compare a b
+    | .snd a, .snd b => compare a b
+    
+def Split.proj₁ : Split A B True → A
+  | .fst a => a
+    
+def Split.proj₂ : Split A B False → B
+  | .snd b => b
+
+def Split.anon : A → Split A B Kind.Anon := Split.fst
+def Split.meta : B → Split A B Kind.Meta := Split.snd
 
 end Yatima
