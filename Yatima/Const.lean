@@ -254,91 +254,91 @@ inductive Const where
   | mutIndBlock : List (Inductive) → Const
 
 def Definition.to : {k : Kind} → Definition → Ipld.Definition k
-  | .Anon, d => ⟨.anon (), .anon d.lvls.length, d.type.anon, d.value.anon, .anon d.safety⟩
-  | .Meta, d => ⟨.meta d.name, .meta d.lvls, d.type.meta, d.value.meta, .meta ()⟩
+  | .Anon, d => ⟨(), d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
+  | .Meta, d => ⟨d.name, d.lvls, d.type.meta, d.value.meta, ()⟩
 
 def Constructor.to : {k : Kind} → Constructor → Ipld.Constructor k
-  | .Anon, x => ⟨.anon (), .anon x.lvls.length, x.type.anon, .anon x.params, .anon x.fields, x.rhs.anon⟩
-  | .Meta, x => ⟨.meta x.name, .meta x.lvls, x.type.meta, .meta (), .meta (), x.rhs.meta⟩
+  | .Anon, x => ⟨(), x.lvls.length, x.type.anon, x.params, x.fields, x.rhs.anon⟩
+  | .Meta, x => ⟨x.name, x.lvls, x.type.meta, (), (), x.rhs.meta⟩
 
 def RecursorRule.to : {k : Kind} → RecursorRule → Ipld.RecursorRule k
-  | .Anon, x => ⟨x.ctor.anon, .anon x.fields, x.rhs.anon⟩
-  | .Meta, x => ⟨x.ctor.meta, .meta (), x.rhs.meta⟩
+  | .Anon, x => ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
+  | .Meta, x => ⟨x.ctor.meta, (), x.rhs.meta⟩
 
 def Recursor.to : {k : Kind} → Recursor b → Ipld.Recursor k b
   | .Anon, x =>
-    ⟨ .anon ()
-    , .anon x.lvls.length
+    ⟨ ()
+    , x.lvls.length
     , x.type.anon
-    , .anon x.params
-    , .anon x.indices
-    , .anon x.motives
-    , .anon x.minors
+    , x.params
+    , x.indices
+    , x.motives
+    , x.minors
     , match b with
       | .Intr => .intr Unit.unit
       | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.to
-    , .anon x.k ⟩
+    , x.k ⟩
   | .Meta, x =>
-    ⟨.meta x.name
-    , .meta x.lvls
+    ⟨ x.name
+    , x.lvls
     , x.type.meta
-    , .meta (), .meta (), .meta (), .meta ()
+    , (), (), (), ()
     , match b with
       | .Intr => .intr Unit.unit
       | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.to
-    , .meta ()⟩
+    , ()⟩
 
 def Inductive.to : {k : Kind} → Inductive → Ipld.Inductive k
   | .Anon, x =>
-    ⟨ .anon ()
-    , .anon x.lvls.length
+    ⟨ ()
+    , x.lvls.length
     , x.type.anon
-    , .anon x.params
-    , .anon x.indices
+    , x.params
+    , x.indices
     , x.ctors.map (·.to)
     , x.recrs.map (fun p => .mk p.fst (Recursor.to p.snd))
-    , .anon x.recr
-    , .anon x.safe
-    , .anon x.refl ⟩
+    , x.recr
+    , x.safe
+    , x.refl ⟩
   | .Meta, x =>
-    ⟨ .meta x.name
-    , .meta x.lvls
+    ⟨ x.name
+    , x.lvls
     , x.type.meta
-    , .meta () , .meta ()
+    , () , ()
     , x.ctors.map (·.to)
     , x.recrs.map (fun p => .mk p.fst (Recursor.to p.snd))
-    , .meta () , .meta () , .meta () ⟩
+    , () , () , () ⟩
 
 def Const.to : {k : Kind} → Const → Ipld.Const k
-  | .Anon, .axiom a => .axiom ⟨.anon (), .anon a.lvls.length, a.type.anon, .anon a.safe⟩
-  | .Meta, .axiom a => .axiom ⟨.meta a.name, .meta a.lvls, a.type.meta, .meta ()⟩
-  | .Anon, .theorem t => .theorem ⟨.anon (), .anon t.lvls.length, t.type.anon, t.value.anon⟩
-  | .Meta, .theorem t => .theorem ⟨.meta t.name, .meta t.lvls, t.type.meta, t.value.meta⟩
-  | .Anon, .opaque o => .opaque ⟨.anon (), .anon o.lvls.length, o.type.anon, o.value.anon, .anon o.safe⟩
-  | .Meta, .opaque o => .opaque ⟨.meta o.name, .meta o.lvls, o.type.meta, o.value.meta, .meta ()⟩
-  | .Anon, .quotient q => .quotient ⟨.anon (), .anon q.lvls.length, q.type.anon, .anon q.kind⟩
-  | .Meta, .quotient q => .quotient ⟨.meta q.name, .meta q.lvls, q.type.meta, .meta ()⟩
+  | .Anon, .axiom a => .axiom ⟨(), a.lvls.length, a.type.anon, a.safe⟩
+  | .Meta, .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta, ()⟩
+  | .Anon, .theorem t => .theorem ⟨(), t.lvls.length, t.type.anon, t.value.anon⟩
+  | .Meta, .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
+  | .Anon, .opaque o => .opaque ⟨(), o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
+  | .Meta, .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta, ()⟩
+  | .Anon, .quotient q => .quotient ⟨(), q.lvls.length, q.type.anon, q.kind⟩
+  | .Meta, .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta, ()⟩
   | .Anon, .definition d => .definition d.to
   | .Meta, .definition d => .definition d.to
   | .Anon, .inductiveProj i => .inductiveProj
-    ⟨ .anon () , .anon i.lvls.length , i.type.anon , i.block.anon , .anon i.idx ⟩
+    ⟨ () , i.lvls.length , i.type.anon, i.block.anon, i.idx ⟩
   | .Meta, .inductiveProj i => .inductiveProj
-    ⟨ .meta i.name , .meta i.lvls , i.type.meta , i.block.meta , .meta () ⟩
+    ⟨ i.name , i.lvls , i.type.meta, i.block.meta, () ⟩
   | .Anon, .constructorProj c => .constructorProj
-    ⟨ .anon () , .anon c.lvls.length , c.type.anon , c.block.anon , .anon c.idx , .anon c.cidx ⟩
+    ⟨ () , c.lvls.length , c.type.anon, c.block.anon, c.idx , c.cidx ⟩
   | .Meta, .constructorProj c => .constructorProj
-    ⟨ .meta c.name , .meta c.lvls , c.type.meta , c.block.meta , .meta () , .meta () ⟩
+    ⟨ c.name , c.lvls , c.type.meta, c.block.meta, () , () ⟩
   | .Anon, .recursorProj r => .recursorProj
-    ⟨ .anon () , .anon r.lvls.length , r.type.anon , r.block.anon , .anon r.idx , .anon r.ridx ⟩
+    ⟨ () , r.lvls.length , r.type.anon, r.block.anon, r.idx , r.ridx ⟩
   | .Meta, .recursorProj r => .recursorProj
-    ⟨ .meta r.name , .meta r.lvls , r.type.meta , r.block.meta , .meta () , .meta () ⟩
+    ⟨ r.name , r.lvls , r.type.meta, r.block.meta, () , () ⟩
   | .Anon, .definitionProj x => .definitionProj
-    ⟨ .anon () , .anon x.lvls.length , x.type.anon , x.block.anon , .anon x.idx ⟩
+    ⟨ () , x.lvls.length , x.type.anon, x.block.anon, x.idx ⟩
   | .Meta, .definitionProj x => .definitionProj
-    ⟨ .meta x.name , .meta x.lvls , x.type.meta , x.block.meta , .meta () ⟩
+    ⟨ x.name , x.lvls , x.type.meta, x.block.meta, () ⟩
   | .Anon, .mutDefBlock ds => .mutDefBlock $
-    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.anon ∘ Definition.to)
-  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .meta $ ds.map $ Definition.to
+    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.fst ∘ Definition.to)
+  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .snd $ ds.map $ Definition.to
   | .Anon, .mutIndBlock is => .mutIndBlock (is.map Inductive.to)
   | .Meta, .mutIndBlock is => .mutIndBlock (is.map Inductive.to)
 

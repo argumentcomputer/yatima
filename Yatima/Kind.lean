@@ -26,7 +26,7 @@ def Split.proj₁ : Split A B True → A
 def Split.proj₂ : Split A B False → B
   | .snd b => b
 
-def Split.anon : A → Split A B Kind.Anon := Split.fst
-def Split.meta : B → Split A B Kind.Meta := Split.snd
+instance : Coe A (Split A B .true) where coe  := .fst
+instance : Coe B (Split A B .false) where coe := .snd
 
 end Yatima

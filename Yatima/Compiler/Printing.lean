@@ -73,10 +73,7 @@ instance : ToString Ordering where toString
 
 def isProp (expr : Expr) : CompileM Bool := do
   match expr with
-  | .sort cid =>
-    match (← get).store.univ_cache.find? cid with
-    | some Univ.zero => return true
-    | _ => return false
+  | .sort Univ.zero => return true
   | _ => return false
 
 def isAtomAux : Expr → Bool
@@ -151,13 +148,13 @@ mutual
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 
-partial def printRecursorRule (ind : Inductive) (rule : RecursorRule) : CompileM String := do
+partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
   let ctor := (← getConst rule.ctor).name
   let rhs ← getExpr rule.rhs ctor
   return s!"{ctor} {rule.fields} {← printExpr rhs}"
 
-partial def printRules (ind : Inductive) (rules : List RecursorRule) : CompileM String := do
-  let rules ← rules.mapM $ printRecursorRule ind
+partial def printRules (rules : List RecursorRule) : CompileM String := do
+  let rules ← rules.mapM $ printRecursorRule
   return "\n".intercalate rules
 
 partial def printConstructors (ctors : List Constructor) : CompileM String := do
