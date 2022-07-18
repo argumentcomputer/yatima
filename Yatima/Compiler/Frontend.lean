@@ -48,7 +48,7 @@ def constToCid (c : Const) : CompileM ConstCid := do
   return ⟨constAnonCid, constMetaCid⟩
 
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
-  let pair : UnivCid × Univ ← match l with
+  let pair ← match l with
     | .zero _      => pure (zeroCid, .zero)
     | .succ n _    => do
       let (univCid, univ) ← toYatimaUniv n
@@ -205,41 +205,68 @@ mutual
           k       := rec.k }
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
-  partial def toYatimaExpr : Lean.Expr → CompileM (ExprCid × Expr)
-    | _ => sorry
-    -- | .bvar idx _ => do
-    --   let name ← match (← read).bindCtx.get? idx with
-    --   | some name => pure name
-    --   | none => throw "Processed bvar has index greater than length of binder context"
-    --   return .var s!"{name}" idx
-    -- | .sort lvl _ => do
-    --   let univ ← toYatimaUniv lvl
-    --   let univCid ← univToCid univ
-    --   addToStore (univCid, univ)
-    --   return .sort univCid
-    -- | .const name lvls _ => do
-    --   match (← read).recrCtx.find? name with
-    --     | some i => return .var name $ (← read).bindCtx.length + i
-    --     | none   => match (← read).constMap.find?' name with
-    --       | some const => do
-    --         let (constCid, _) ← processYatimaConst const
-    --         let univs ← lvls.mapM $ toYatimaUniv
-    --         let univsCids ← univs.mapM univToCid
-    --         (univsCids.zip univs).forM fun (univCid, univ) =>
-    --           addToStore (univCid, univ)
-    --         return .const name constCid univsCids
-    --       | none => throw s!"Unknown constant '{name}'"
-    -- | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
-    -- | .lam name typ bod data =>
-    --   .lam name data.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
-    -- | .forallE name dom img data =>
-    --   .pi name data.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
-    -- | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr typ) <*> (toYatimaExpr exp) <*> (withName name $ toYatimaExpr bod)
-    -- | .lit lit _ => return .lit lit
-    -- | .mdata _ e _ => toYatimaExpr e
-    -- | .proj _ idx exp _ => .proj idx <$> toYatimaExpr exp
-    -- | .fvar .. => throw "Free variable found"
-    -- | .mvar .. => throw "Metavariable found"
+  partial def toYatimaExpr (expr : Lean.Expr) : CompileM (ExprCid × Expr) := do
+    let pair : ExprCid × Expr ← match expr with
+      | .bvar idx _ => do
+        let name ← match (← read).bindCtx.get? idx with
+        | some name =>
+          let cid := ⟨ exprToCid (.var () idx), exprToCid (.var name ()) ⟩
+          pure (cid, .var name idx)
+        | none => throw "Processed bvar has index greater than length of binder context"
+      | .sort lvl _ => do
+        let (univCid, univ) ← toYatimaUniv lvl
+        let cid := ⟨ exprToCid (.sort univCid.anon), exprToCid (.sort univCid.meta) ⟩
+        return (cid, .sort univ)
+      | .const name lvls _ => do
+        match (← read).recrCtx.find? name with
+          | some i => 
+            let idx := (← read).bindCtx.length + i
+            let cid := ⟨ exprToCid (.var () idx), exprToCid (.var name ()) ⟩
+            return (cid, .var name idx)
+          | none   => match (← read).constMap.find?' name with
+            | some const => do
+              let (constCid, _) ← processYatimaConst const
+              let pairs ← lvls.mapM $ toYatimaUniv
+              let (univCids, univs) ← pairs.foldrM (fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)) ([], [])
+              let cid := ⟨ exprToCid (.const () constCid.anon $ univCids.map UnivCid.anon)
+                         , exprToCid (.const name constCid.meta $ univCids.map UnivCid.meta) ⟩
+              return (cid, .const name constCid univs)
+            | none => throw s!"Unknown constant '{name}'"
+      | .app fnc arg _ => do
+        let (fncCid, fnc) ← toYatimaExpr fnc
+        let (argCid, arg) ← toYatimaExpr arg
+        let cid := ⟨ exprToCid (.app fncCid.anon argCid.anon), exprToCid (.app fncCid.meta argCid.meta) ⟩
+        return (cid, .app fnc arg)
+      | .lam name typ bod data =>
+        let (typCid, typ) ← toYatimaExpr typ
+        let (bodCid, bod) ← withName name $ toYatimaExpr bod
+        let bnd := data.binderInfo
+        let cid := ⟨ exprToCid (.lam () bnd typCid.anon bodCid.anon), exprToCid (.lam name () typCid.meta bodCid.meta) ⟩
+        return (cid, .lam name bnd typ bod)
+      | .forallE name dom img data =>
+        let (domCid, dom) ← toYatimaExpr dom
+        let (imgCid, img) ← withName name $ toYatimaExpr img
+        let bnd := data.binderInfo
+        let cid := ⟨ exprToCid (.pi () bnd domCid.anon imgCid.anon), exprToCid (.pi name () domCid.meta imgCid.meta) ⟩
+        return (cid, .pi name bnd dom img)
+      | .letE name typ exp bod _ => 
+        let (typCid, typ) ← toYatimaExpr typ
+        let (expCid, exp) ← toYatimaExpr exp
+        let (bodCid, bod) ← withName name $ toYatimaExpr bod
+        let cid := ⟨ exprToCid (.letE () typCid.anon expCid.anon bodCid.anon), exprToCid (.letE name typCid.meta expCid.meta bodCid.meta) ⟩
+        return (cid, .letE name typ exp bod)
+      | .lit lit _ =>
+        let cid := ⟨ exprToCid (.lit lit), exprToCid (.lit ()) ⟩
+        return (cid, .lit lit)
+      | .mdata _ e _ => toYatimaExpr e
+      | .proj _ idx exp _ => do
+        let (expCid, exp) ← toYatimaExpr exp
+        let cid := ⟨ exprToCid (.proj idx expCid.anon), exprToCid (.proj () expCid.meta) ⟩
+        return (cid, .proj idx exp)
+      | .fvar .. => throw "Free variable found"
+      | .mvar .. => throw "Metavariable found"
+    addToStore pair
+    pure pair
 
   partial def toYatimaDef (isMutual : Bool) (defn : Lean.DefinitionVal) :
       CompileM Definition := do
