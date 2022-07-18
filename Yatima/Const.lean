@@ -254,19 +254,19 @@ inductive Const where
   | mutDefBlock : List (List (Definition)) → Const
   | mutIndBlock : List (Inductive) → Const
 
-def Definition.to : {k : Kind} → Definition → Ipld.Definition k
+def Definition.toIpld : {k : Ipld.Kind} → Definition → Ipld.Definition k
   | .Anon, d => ⟨(), d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
   | .Meta, d => ⟨d.name, d.lvls, d.type.meta, d.value.meta, ()⟩
 
-def Constructor.to : {k : Kind} → Constructor → Ipld.Constructor k
+def Constructor.toIpld : {k : Ipld.Kind} → Constructor → Ipld.Constructor k
   | .Anon, x => ⟨(), x.lvls.length, x.type.anon, x.params, x.fields, x.rhs.anon⟩
   | .Meta, x => ⟨x.name, x.lvls, x.type.meta, (), (), x.rhs.meta⟩
 
-def RecursorRule.to : {k : Kind} → RecursorRule → Ipld.RecursorRule k
+def RecursorRule.toIpld : {k : Ipld.Kind} → RecursorRule → Ipld.RecursorRule k
   | .Anon, x => ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
   | .Meta, x => ⟨x.ctor.meta, (), x.rhs.meta⟩
 
-def Recursor.to : {k : Kind} → Recursor b → Ipld.Recursor k b
+def Recursor.toIpld : {k : Ipld.Kind} → Recursor b → Ipld.Recursor k b
   | .Anon, x =>
     ⟨ ()
     , x.lvls.length
@@ -277,7 +277,7 @@ def Recursor.to : {k : Kind} → Recursor b → Ipld.Recursor k b
     , x.minors
     , match b with
       | .Intr => .intr Unit.unit
-      | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.to
+      | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.toIpld
     , x.k ⟩
   | .Meta, x =>
     ⟨ x.name
@@ -286,18 +286,18 @@ def Recursor.to : {k : Kind} → Recursor b → Ipld.Recursor k b
     , (), (), (), ()
     , match b with
       | .Intr => .intr Unit.unit
-      | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.to
+      | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.toIpld
     , ()⟩
 
-def Inductive.to : {k : Kind} → Inductive → Ipld.Inductive k
+def Inductive.toIpld : {k : Ipld.Kind} → Inductive → Ipld.Inductive k
   | .Anon, x =>
     ⟨ ()
     , x.lvls.length
     , x.type.anon
     , x.params
     , x.indices
-    , x.ctors.map (·.to)
-    , x.recrs.map (fun p => .mk p.fst (Recursor.to p.snd))
+    , x.ctors.map (·.toIpld)
+    , x.recrs.map (fun p => .mk p.fst (Recursor.toIpld p.snd))
     , x.recr
     , x.safe
     , x.refl ⟩
@@ -306,11 +306,11 @@ def Inductive.to : {k : Kind} → Inductive → Ipld.Inductive k
     , x.lvls
     , x.type.meta
     , () , ()
-    , x.ctors.map (·.to)
-    , x.recrs.map (fun p => .mk p.fst (Recursor.to p.snd))
+    , x.ctors.map (·.toIpld)
+    , x.recrs.map (fun p => .mk p.fst (Recursor.toIpld p.snd))
     , () , () , () ⟩
 
-def Const.to : {k : Kind} → Const → Ipld.Const k
+def Const.toIpld : {k : Ipld.Kind} → Const → Ipld.Const k
   | .Anon, .axiom a => .axiom ⟨(), a.lvls.length, a.type.anon, a.safe⟩
   | .Meta, .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta, ()⟩
   | .Anon, .theorem t => .theorem ⟨(), t.lvls.length, t.type.anon, t.value.anon⟩
@@ -319,8 +319,8 @@ def Const.to : {k : Kind} → Const → Ipld.Const k
   | .Meta, .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta, ()⟩
   | .Anon, .quotient q => .quotient ⟨(), q.lvls.length, q.type.anon, q.kind⟩
   | .Meta, .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta, ()⟩
-  | .Anon, .definition d => .definition d.to
-  | .Meta, .definition d => .definition d.to
+  | .Anon, .definition d => .definition d.toIpld
+  | .Meta, .definition d => .definition d.toIpld
   | .Anon, .inductiveProj i => .inductiveProj
     ⟨ () , i.lvls.length , i.type.anon, i.block.anon, i.idx ⟩
   | .Meta, .inductiveProj i => .inductiveProj
@@ -338,10 +338,10 @@ def Const.to : {k : Kind} → Const → Ipld.Const k
   | .Meta, .definitionProj x => .definitionProj
     ⟨ x.name , x.lvls , x.type.meta, x.block.meta, () ⟩
   | .Anon, .mutDefBlock ds => .mutDefBlock $
-    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.inj₁ ∘ Definition.to)
-  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .inj₂ $ ds.map $ Definition.to
-  | .Anon, .mutIndBlock is => .mutIndBlock (is.map Inductive.to)
-  | .Meta, .mutIndBlock is => .mutIndBlock (is.map Inductive.to)
+    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.inj₁ ∘ Definition.toIpld)
+  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .inj₂ $ ds.map $ Definition.toIpld
+  | .Anon, .mutIndBlock is => .mutIndBlock (is.map Inductive.toIpld)
+  | .Meta, .mutIndBlock is => .mutIndBlock (is.map Inductive.toIpld)
 
 def Const.lvlsAndType : Const → Option (List Name × ExprCid)
   | .axiom           x

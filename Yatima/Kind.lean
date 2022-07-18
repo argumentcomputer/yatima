@@ -1,11 +1,13 @@
 namespace Yatima
 
+namespace Ipld
 inductive Kind where
 | Anon : Kind
 | Meta : Kind
 deriving BEq, Inhabited
 
 instance : Coe Kind Bool where coe | .Anon => .true | .Meta => .false
+end Ipld
 
 inductive Split (A : Type) (B : Type) : (b : Bool) → Type where
 | inj₁ : A → Split A B True

@@ -34,21 +34,23 @@ inductive Expr
   | proj  : Nat → Expr → Expr
   deriving BEq, Inhabited
 
+namespace Ipld
 abbrev BinderInfo? k := Split BinderInfo Unit k
 
-inductive Ipld.Expr (k : Kind)
-  | var   : Name? k → Nat? k → Ipld.Expr k
-  | sort  : UnivCid k → Ipld.Expr k
-  | const : Name? k → ConstCid k → List (UnivCid k) → Ipld.Expr k
-  | app   : Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
-  | lam   : Name? k → BinderInfo? k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
-  | pi    : Name? k → BinderInfo? k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
-  | letE  : Name? k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.ExprCid k → Ipld.Expr k
-  | lit   : Split Literal Unit k → Ipld.Expr k
-  | lty   : Split LitType Unit k → Ipld.Expr k
-  | fix   : Name? k → Ipld.ExprCid k → Ipld.Expr k
-  | proj  : Nat? k → Ipld.ExprCid k → Ipld.Expr k
+inductive Expr (k : Kind)
+  | var   : Name? k → Nat? k → Expr k
+  | sort  : UnivCid k → Expr k
+  | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
+  | app   : ExprCid k → ExprCid k → Expr k
+  | lam   : Name? k → BinderInfo? k → ExprCid k → ExprCid k → Expr k
+  | pi    : Name? k → BinderInfo? k → ExprCid k → ExprCid k → Expr k
+  | letE  : Name? k → ExprCid k → ExprCid k → ExprCid k → Expr k
+  | lit   : Split Literal Unit k → Expr k
+  | lty   : Split LitType Unit k → Expr k
+  | fix   : Name? k → ExprCid k → Expr k
+  | proj  : Nat? k → ExprCid k → Expr k
   deriving BEq, Inhabited
+end Ipld
 
 namespace Expr
 

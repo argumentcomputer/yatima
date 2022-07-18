@@ -39,10 +39,10 @@ instance : Coe Lean.QuotKind QuotKind where coe
 open ToIpld
 
 def constToCid (c : Const) : CompileM ConstCid := do
-  let constAnon := c.to
+  let constAnon := c.toIpld
   let constAnonCid := ToIpld.constToCid constAnon
   addToStore (constAnonCid, constAnon)
-  let constMeta := c.to
+  let constMeta := c.toIpld
   let constMetaCid := ToIpld.constToCid constMeta
   addToStore (constMetaCid, constMeta)
   return ⟨constAnonCid, constMetaCid⟩
