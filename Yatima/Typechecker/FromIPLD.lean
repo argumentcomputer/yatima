@@ -105,6 +105,9 @@ def Ipld.zipWith {A : Ipld.Kind → Type} (f : Ipld.Both A → ConvertM B): (as 
 instance : Coe (Split A B .true) A where coe  := Split.proj₁
 instance : Coe (Split A B .false) B where coe := Split.proj₂
 
+instance : Coe (Split A B .true) A where coe  := Split.proj₁
+instance : Coe (Split A B .false) B where coe := Split.proj₂
+
 -- Conversion functions
 partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
   match ← Key.find? $ .univ_cache $ cid with
