@@ -97,6 +97,9 @@ def List.zipWithError [Monad m] [MonadExcept ε m] (e : ε) (f : α → β → m
   | [], []     => pure []
   | _, _     => throw e
 
+instance : Coe (Split A B .true) A where coe  := Split.proj₁
+instance : Coe (Split A B .false) B where coe := Split.proj₂
+
 -- Conversion functions
 partial def univFromIpld (anonCid : Ipld.UnivCid .Anon) (metaCid : Ipld.UnivCid .Meta) :
     ConvertM Univ := do

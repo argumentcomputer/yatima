@@ -72,7 +72,7 @@ instance : Coe (Recursor k b) Ipld where coe
   | .mk n l t p i m m' rs k => .array #[n, l, t, p, i, m, m', rs, k]
 
 instance : Coe (Sigma (Recursor k)) Ipld where coe
-  | .mk b (.mk n l t p i m m' rs k) => .array #[b, n, l, t, p, i, m, m', rs, k]
+  | .mk b (.mk n l t p i m m' rs k) => .array #[(b : Bool), n, l, t, p, i, m, m', rs, k]
 
 instance : Coe (Constructor k) Ipld where coe
   | .mk n t l p f r => .array #[n, t, l, p, f, r]

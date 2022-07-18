@@ -29,7 +29,4 @@ def Split.proj₂ : Split A B False → B
 instance : Coe A (Split A B .true) where coe  := .inj₁
 instance : Coe B (Split A B .false) where coe := .inj₂
 
-instance : Coe (Split A B .true) A where coe  := Split.proj₁
-instance : Coe (Split A B .false) B where coe := Split.proj₂
-
 end Yatima
