@@ -38,23 +38,42 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 open ToIpld
 
-def univToCid (u : Univ) : CompileM UnivCid := do
-  let univAnon : UnivAnon := u.toAnon
-  let univAnonCid : UnivAnonCid := univAnonToCid univAnon
-  addToStore (univAnonCid, univAnon)
-  let univMeta : UnivMeta := u.toMeta
-  let univMetaCid : UnivMetaCid := univMetaToCid univMeta
-  addToStore (univMetaCid, univMeta)
-  return ⟨univAnonCid, univMetaCid⟩
+mutual
+  def separateUniv (u : Univ) : CompileM (Ipld.Univ .Anon × Ipld.Univ .Meta) :=
+    match u with
+    | .zero => pure (.zero, .zero)
+    | .param n i => pure (.param () i, .param n ())
+    | .succ univ => do
+      let univCid ← univToCid univ
+      pure (.succ univCid.anon, .succ univCid.meta)
+    | .max univA univB => do
+      let univACid ← univToCid univA
+      let univBCid ← univToCid univB
+      pure (.max univACid.anon univBCid.anon, .max univACid.meta univBCid.meta)
+    | .imax univA univB => do
+      let univACid ← univToCid univA
+      let univBCid ← univToCid univB
+      pure (.imax univACid.anon univBCid.anon, .imax univACid.meta univBCid.meta)
+
+  def univToCid (u : Univ) : CompileM UnivCid := do
+    let (univAnon, univMeta) ← separateUniv u
+    let univAnonCid := ToIpld.univToCid univAnon
+    addToStore (univAnonCid, univAnon)
+    let univMetaCid := ToIpld.univToCid univMeta
+    addToStore (univMetaCid, univMeta)
+    return ⟨univAnonCid, univMetaCid⟩
+end
 
 mutual
-
-  def separateExpr (e : Expr) : CompileM (ExprAnon × ExprMeta) :=
+  def separateExpr (e : Expr) : CompileM (Ipld.Expr .Anon × Ipld.Expr .Meta) :=
     match e with
-    | .var name n => return (.var n, .var name)
-    | .sort u    => return (.sort u.anon, .sort u.meta)
-    | .const name c ls =>
-      return (.const c.anon $ ls.map (·.anon),
+    | .var name n => return (.var () n, .var name ())
+    | .sort u    => do
+      let univ ← univToCid u
+      return (.sort univ.anon, .sort univ.meta)
+    | .const name c ls => do
+      let ls ← ls.mapM univToCid
+      return (.const () c.anon $ ls.map (·.anon),
         .const name c.meta $ ls.map (·.meta))
     | .app fnc arg => do
       let fncCid ← exprToCid fnc
@@ -63,78 +82,78 @@ mutual
     | .lam name bnd typ bod => do
       let typCid ← exprToCid typ
       let bodCid ← exprToCid bod
-      return (.lam typCid.anon bodCid.anon,
-        .lam name bnd typCid.meta bodCid.meta)
+      return (.lam () bnd typCid.anon bodCid.anon,
+            .lam name () typCid.meta bodCid.meta)
     | .pi name bnd dom img => do
       let domCid ← exprToCid dom
       let imgCid ← exprToCid img
-      return (.pi domCid.anon imgCid.anon,
-        .pi name bnd domCid.meta imgCid.meta)
+      return (.pi () bnd domCid.anon imgCid.anon,
+            .pi name () domCid.meta imgCid.meta)
     | .letE name typ exp bod => do
       let typCid ← exprToCid typ
       let expCid ← exprToCid exp
       let bodCid ← exprToCid bod
-      return (
-        .letE typCid.anon expCid.anon bodCid.anon, 
-        .letE name typCid.meta expCid.meta bodCid.meta
-      )
-    | .lit lit => return (.lit lit, .lit)
-    | .lty lty => return (.lty lty, .lty)
+      return (.letE () typCid.anon expCid.anon bodCid.anon,
+            .letE name typCid.meta expCid.meta bodCid.meta)
+    | .lit lit => return (.lit lit, .lit ())
+    | .lty lty => return (.lty lty, .lty ())
     | .fix name exp => do
       let expCid ← exprToCid exp
-      return (.fix expCid.anon, .fix name expCid.meta)
+      return (.fix () expCid.anon, .fix name expCid.meta)
     | .proj idx exp => do
       let expCid ← exprToCid exp
-      return (.proj idx expCid.anon, .proj idx expCid.meta)
+      return (.proj idx expCid.anon, .proj () expCid.meta)
 
   def exprToCid (e : Expr) : CompileM ExprCid := do
     let (exprAnon, exprMeta) ← separateExpr e
-    let exprAnonCid : ExprAnonCid := exprAnonToCid exprAnon
+    let exprAnonCid := ToIpld.exprToCid exprAnon
     addToStore (exprAnonCid, exprAnon)
-    let exprMetaCid : ExprMetaCid := exprMetaToCid exprMeta
+    let exprMetaCid := ToIpld.exprToCid exprMeta
     addToStore (exprMetaCid, exprMeta)
     return ⟨exprAnonCid, exprMetaCid⟩
 
 end
 
 def constToCid (c : Const) : CompileM ConstCid := do
-  let constAnon : ConstAnon := c.toAnon
-  let constAnonCid : ConstAnonCid := constAnonToCid constAnon
+  let constAnon := c.to
+  let constAnonCid := ToIpld.constToCid constAnon
   addToStore (constAnonCid, constAnon)
-  let constMeta : ConstMeta := c.toMeta
-  let constMetaCid : ConstMetaCid := constMetaToCid constMeta
+  let constMeta := c.to
+  let constMetaCid := ToIpld.constToCid constMeta
   addToStore (constMetaCid, constMeta)
   return ⟨constAnonCid, constMetaCid⟩
 
-def toYatimaUniv : Lean.Level → CompileM Univ
-  | .zero _      => return .zero
-  | .succ n _    => do
-    let univ ← toYatimaUniv n
-    let univCid ← univToCid univ
-    addToStore (univCid, univ)
-    return .succ univCid
-  | .max  a b _  => do
-    let univA ← toYatimaUniv a
-    let univACid ← univToCid univA
-    addToStore (univACid, univA)
-    let univB ← toYatimaUniv b
-    let univBCid ← univToCid univB
-    addToStore (univBCid, univB)
-    return .max univACid univBCid
-  | .imax a b _  => do
-    let univA ← toYatimaUniv a
-    let univACid ← univToCid univA
-    addToStore (univACid, univA)
-    let univB ← toYatimaUniv b
-    let univBCid ← univToCid univB
-    addToStore (univBCid, univB)
-    return .imax univACid univBCid
-  | .param name _ => do
-    let lvls := (← read).univCtx
-    match lvls.indexOf? name with
-    | some n => return .param name n
-    | none   => throw s!"'{name}' not found in '{lvls}'"
-  | .mvar .. => throw "Unfilled level metavariable"
+def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
+  let pair : UnivCid × Univ ← match l with
+    | .zero _      => pure (← univToCid .zero, .zero)
+    | .succ n _    => do
+      let (univCid, univ) ← toYatimaUniv n
+      sorry
+    | _ => sorry
+    -- | .max  a b _  => do
+    --   let univA ← toYatimaUniv a
+    --   let univACid ← univToCid univA
+    --   addToStore (univACid, univA)
+    --   let univB ← toYatimaUniv b
+    --   let univBCid ← univToCid univB
+    --   addToStore (univBCid, univB)
+    --   return .max univA univB
+    -- | .imax a b _  => do
+    --   let univA ← toYatimaUniv a
+    --   let univACid ← univToCid univA
+    --   addToStore (univACid, univA)
+    --   let univB ← toYatimaUniv b
+    --   let univBCid ← univToCid univB
+    --   addToStore (univBCid, univB)
+    --   return .imax univA univB
+    -- | .param name _ => do
+    --   let lvls := (← read).univCtx
+    --   match lvls.indexOf? name with
+    --   | some n => return .param name n
+    --   | none   => throw s!"'{name}' not found in '{lvls}'"
+    -- | .mvar .. => throw "Unfilled level metavariable"
+  addToStore pair
+  pure pair
 
 instance : HMul Ordering Ordering Ordering where
   hMul
@@ -215,7 +234,7 @@ mutual
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
   partial def toYatimaInternalRec (ctors : List Lean.Name) :
-      Lean.ConstantInfo → CompileM (Recursor true × List Constructor)
+      Lean.ConstantInfo → CompileM (Recursor .Intr × List Constructor)
     | .recInfo rec => do
       withLevels rec.levelParams do
         let type ← toYatimaExpr rec.type
@@ -245,7 +264,7 @@ mutual
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
   partial def toYatimaExternalRec :
-      Lean.ConstantInfo → CompileM (Recursor false)
+      Lean.ConstantInfo → CompileM (Recursor .Extr)
     | .recInfo rec => do
       withLevels rec.levelParams do
         let type ← toYatimaExpr rec.type
@@ -267,39 +286,40 @@ mutual
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
   partial def toYatimaExpr : Lean.Expr → CompileM Expr
-    | .bvar idx _ => do
-      let name ← match (← read).bindCtx.get? idx with
-      | some name => pure name
-      | none => throw "Processed bvar has index greater than length of binder context"
-      return .var s!"{name}" idx
-    | .sort lvl _ => do
-      let univ ← toYatimaUniv lvl
-      let univCid ← univToCid univ
-      addToStore (univCid, univ)
-      return .sort univCid
-    | .const name lvls _ => do
-      match (← read).recrCtx.find? name with
-        | some i => return .var name $ (← read).bindCtx.length + i
-        | none   => match (← read).constMap.find?' name with
-          | some const => do
-            let (constCid, _) ← processYatimaConst const
-            let univs ← lvls.mapM $ toYatimaUniv
-            let univsCids ← univs.mapM univToCid
-            (univsCids.zip univs).forM fun (univCid, univ) =>
-              addToStore (univCid, univ)
-            return .const name constCid univsCids
-          | none => throw s!"Unknown constant '{name}'"
-    | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
-    | .lam name typ bod data =>
-      .lam name data.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
-    | .forallE name dom img data =>
-      .pi name data.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
-    | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr typ) <*> (toYatimaExpr exp) <*> (withName name $ toYatimaExpr bod)
-    | .lit lit _ => return .lit lit
-    | .mdata _ e _ => toYatimaExpr e
-    | .proj _ idx exp _ => .proj idx <$> toYatimaExpr exp
-    | .fvar .. => throw "Free variable found"
-    | .mvar .. => throw "Metavariable found"
+    | _ => sorry
+    -- | .bvar idx _ => do
+    --   let name ← match (← read).bindCtx.get? idx with
+    --   | some name => pure name
+    --   | none => throw "Processed bvar has index greater than length of binder context"
+    --   return .var s!"{name}" idx
+    -- | .sort lvl _ => do
+    --   let univ ← toYatimaUniv lvl
+    --   let univCid ← univToCid univ
+    --   addToStore (univCid, univ)
+    --   return .sort univCid
+    -- | .const name lvls _ => do
+    --   match (← read).recrCtx.find? name with
+    --     | some i => return .var name $ (← read).bindCtx.length + i
+    --     | none   => match (← read).constMap.find?' name with
+    --       | some const => do
+    --         let (constCid, _) ← processYatimaConst const
+    --         let univs ← lvls.mapM $ toYatimaUniv
+    --         let univsCids ← univs.mapM univToCid
+    --         (univsCids.zip univs).forM fun (univCid, univ) =>
+    --           addToStore (univCid, univ)
+    --         return .const name constCid univsCids
+    --       | none => throw s!"Unknown constant '{name}'"
+    -- | .app fnc arg _ => .app <$> (toYatimaExpr fnc) <*> (toYatimaExpr arg)
+    -- | .lam name typ bod data =>
+    --   .lam name data.binderInfo <$> (toYatimaExpr typ) <*> (withName name $ toYatimaExpr bod)
+    -- | .forallE name dom img data =>
+    --   .pi name data.binderInfo <$> (toYatimaExpr dom) <*> (withName name $ toYatimaExpr img)
+    -- | .letE name typ exp bod _ => .letE name <$> (toYatimaExpr typ) <*> (toYatimaExpr exp) <*> (withName name $ toYatimaExpr bod)
+    -- | .lit lit _ => return .lit lit
+    -- | .mdata _ e _ => toYatimaExpr e
+    -- | .proj _ idx exp _ => .proj idx <$> toYatimaExpr exp
+    -- | .fvar .. => throw "Free variable found"
+    -- | .mvar .. => throw "Metavariable found"
 
   partial def toYatimaDef (isMutual : Bool) (defn : Lean.DefinitionVal) :
       CompileM Definition := do
@@ -307,7 +327,7 @@ mutual
     let typeCid ← exprToCid type
     addToStore (typeCid, type)
     let value ←
-      if isMutual then toYatimaExpr defn.value 
+      if isMutual then toYatimaExpr defn.value
       else withRecrs (RBMap.single defn.name 0) $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
@@ -345,11 +365,11 @@ mutual
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
             let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
-            return ((Sigma.mk true thisRec) :: recs, some thisCtors)
+            return ((Sigma.mk .Intr thisRec) :: recs, some thisCtors)
           else do
             let thisRec := ← toYatimaExternalRec r
-            return ((Sigma.mk false thisRec) :: recs, ctors)
-        | _ => throw s!"Non-recursor {r.name} extracted from children" 
+            return ((Sigma.mk .Extr thisRec) :: recs, ctors)
+        | _ => throw s!"Non-recursor {r.name} extracted from children"
     let ctors := match ctors with
       | some ctors => ctors
       | none => unreachable!
@@ -370,7 +390,7 @@ mutual
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match (← read).constMap.find? indName with
-      | some (.inductInfo ind) => 
+      | some (.inductInfo ind) =>
         let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
           fun c => match c with | .recInfo _ => true | _ => false
         let leanRecs := leanRecs.map (·.name)
@@ -436,15 +456,15 @@ mutual
     | .defnInfo struct =>
       if struct.all.length == 1 then
         addToStoreAndCache $ .definition $ ← toYatimaDef false struct
-      else 
+      else
         let mutualDefs ← struct.all.mapM fun name => do
-          match (← read).constMap.find? name with 
+          match (← read).constMap.find? name with
           | some (.defnInfo defn) => pure defn
           | _ => throw s!"Unknown definition '{name}'"
         let mutualDefs ← sortDefs [mutualDefs]
         let mut mutualIdxs : RBMap Lean.Name Nat compare := RBMap.empty
         for (i, ds) in mutualDefs.enum do
-          for d in ds do 
+          for d in ds do
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
             mutualIdxs := mutualIdxs.insert d.name i
         let definitions ← withRecrs mutualIdxs $
@@ -479,7 +499,7 @@ mutual
           | none => throw s!"'{ind.name}' not found in '{ind.all}'"
         match ind.ctors.indexOf? name with
         | some cidx =>
-          if cidx != struct.cidx then 
+          if cidx != struct.cidx then
             throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
           let indInfos ← buildInductiveInfoList ind
           let indBlock : Const := .mutIndBlock indInfos
@@ -530,7 +550,7 @@ mutual
 
       for (idx, name) in struct.all.enum do
         match (← read).constMap.find? name with
-        | some const => 
+        | some const =>
           let type ← toYatimaExpr const.type
           let typeCid ← exprToCid type
           addToStore (typeCid, type)
@@ -547,10 +567,10 @@ mutual
       | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
 
-  /-- 
+  /--
   Process a Lean constant into a Yatima constant, returning both the Yatima
   constant and its cid.
-  
+
   Different behavior is taken if the input `leanConst` is in a mutual block,
   since `toYatimaConst` returns the constant of the entire block (see
   `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
@@ -629,28 +649,28 @@ mutual
   partial def eqDef (names : Std.RBMap Lean.Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Bool := do
-    match (← cmpDef names x y) with 
-      | .eq => pure true 
+    match (← cmpDef names x y) with
+      | .eq => pure true
       | _ => pure false
 
   /-- todo -/
-  partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
+  partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
       CompileM (List (List Lean.DefinitionVal)) := do
-    let enum (ll : List (List Lean.DefinitionVal)) := 
+    let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
     let names := enum dss
-    let newDss ← (← dss.mapM fun ds => 
-      match ds with 
+    let newDss ← (← dss.mapM fun ds =>
+      match ds with
       | [] => unreachable! -- should never occur
       | [d] => return [[d]]
       | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
-    
+
     -- must normalize, see comments
     let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
     let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
-    if normDss == normNewDss then 
+    if normDss == normNewDss then
       return newDss
-    else 
+    else
       sortDefs newDss
 
 end

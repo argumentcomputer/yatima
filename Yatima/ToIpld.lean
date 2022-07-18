@@ -58,8 +58,8 @@ instance : Coe DefinitionSafety Ipld where coe
   | .partial => .number 2
 
 instance [Coe A Ipld] [Coe B Ipld] : Coe (Split A B k) Ipld where coe
-  | .anon a => .array #[.number 0, a]
-  | .meta b => .array #[.number 1, b]
+  | .inj₁ a => .array #[.number 0, a]
+  | .inj₂ b => .array #[.number 1, b]
 
 instance : Coe Unit Ipld where coe
   | .unit => .array #[]

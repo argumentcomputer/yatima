@@ -10,8 +10,8 @@ inductive RecType where
 deriving BEq, Inhabited
 
 instance : Coe RecType Bool where coe | .Intr => .true | .Extr => .false
-def Split.intr : A → Split A B RecType.Intr := Split.fst
-def Split.extr : B → Split A B RecType.Extr := Split.snd
+def Split.intr : A → Split A B RecType.Intr := Split.inj₁
+def Split.extr : B → Split A B RecType.Extr := Split.inj₂
 
 inductive DefinitionSafety where
   | safe | «unsafe» | «partial»
@@ -337,8 +337,8 @@ def Const.to : {k : Kind} → Const → Ipld.Const k
   | .Meta, .definitionProj x => .definitionProj
     ⟨ x.name , x.lvls , x.type.meta, x.block.meta, () ⟩
   | .Anon, .mutDefBlock ds => .mutDefBlock $
-    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.fst ∘ Definition.to)
-  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .snd $ ds.map $ Definition.to
+    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.inj₁ ∘ Definition.to)
+  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .inj₂ $ ds.map $ Definition.to
   | .Anon, .mutIndBlock is => .mutIndBlock (is.map Inductive.to)
   | .Meta, .mutIndBlock is => .mutIndBlock (is.map Inductive.to)
 

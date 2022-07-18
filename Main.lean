@@ -84,6 +84,5 @@
 -- def main (args : List String) : IO UInt32 :=
 --   yatimaCmd.validate args
 
-import Yatima.ToIpld
-import Yatima.Store
+import Yatima.Compiler.Frontend
 def main : IO UInt32 := pure 0
