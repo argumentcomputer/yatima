@@ -7,10 +7,10 @@ namespace Ipld
 def UNIV : (k : Kind) → UInt64
   | .Anon => 0xC0DE0001
   | .Meta => 0xC0DE0002
-def EXPR : (k : Kind) → UInt64
+def EXPR : (k : Ipld.Kind) → UInt64
   | .Anon => 0xC0DE0003
   | .Meta => 0xC0DE0004
-def CONST : (k : Kind) → UInt64
+def CONST : (k : Ipld.Kind) → UInt64
   | .Anon => 0xC0DE0005
   | .Meta => 0xC0DE0006
 
