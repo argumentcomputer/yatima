@@ -92,6 +92,7 @@ structure Inductive (k : Kind) where
   recr     : Bool? k
   safe     : Bool? k
   refl     : Bool? k
+  deriving Inhabited
 
 structure InductiveProj (k : Kind) where
   name    : Name? k

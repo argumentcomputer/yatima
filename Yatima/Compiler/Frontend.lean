@@ -286,25 +286,24 @@ mutual
 
   partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
     match expr with
-      | .forallE _ t e _  => do
-        match e with
-        | .forallE _ _ _ _  => do
-          isInternalRec e name
+      | .forallE _ t e _  => match e with
+        | .forallE ..  => isInternalRec e name
         -- t is the major premise
-        | _ => do
-          isInternalRec t name
-      | .app e _ _ => isInternalRec e name
-      | .const n _ _ => return n == name
+        | _ => isInternalRec t name
+      | .app e .. => isInternalRec e name
+      | .const n .. => return n == name
       | _ => return false
 
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
       CompileM Inductive := do
     let (typeCid, type) ← toYatimaExpr ind.type
     addToStore (typeCid, type)
-    let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
+    -- reverses once
+    let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let (recs, ctors) : (List (Sigma Recursor) × Option (List Constructor)) := ←
-        leanRecs.foldlM (init := ([], none)) fun (recs, ctors) r =>
+    let (recs, ctors) : (List (Sigma Recursor) × Option (List Constructor)) :=
+      -- reverses again, keeping original order
+      ← leanRecs.foldlM (init := ([], none)) fun (recs, ctors) r =>
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
@@ -596,9 +595,10 @@ mutual
     let names := enum dss
     let newDss ← (← dss.mapM fun ds =>
       match ds with
-      | [] => unreachable! -- should never occur
+      | []  => unreachable!
       | [d] => return [[d]]
-      | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
+      | ds  => return (← List.groupByM (eqDef names) $
+        ← ds.sortByM (cmpDef names))).joinM
 
     -- must normalize, see comments
     let normDss := dss.map fun ds => List.sort $ ds.map (·.name)

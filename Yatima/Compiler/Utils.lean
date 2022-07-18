@@ -34,36 +34,6 @@ def ConstantInfo.ctorName : ConstantInfo → String
   | ctorInfo   _ => "constructor"
   | recInfo    _ => "recursor"
 
-def getExprRefs : Expr → List Name 
-  | .mdata _ exp _ => getExprRefs exp
-  | .const name _ _ => [name]
-  | .app func arg _ => 
-    getExprRefs func ++  getExprRefs arg
-  | .lam _ type body _ => 
-    getExprRefs type ++  getExprRefs body
-  | .forallE _ type body _ => 
-    getExprRefs type ++  getExprRefs body
-  | .letE  _ type body exp _ => 
-    getExprRefs type ++  getExprRefs body ++ getExprRefs exp
-  | .proj _ _ exp _ => getExprRefs exp
-  | _ => []
-
-def getConstRefs : ConstantInfo → List Name
-  | .axiomInfo  val => getExprRefs val.type
-  | .defnInfo   val => 
-    getExprRefs val.type ++ getExprRefs val.value
-  | .thmInfo    val => 
-    getExprRefs val.type ++ getExprRefs val.value
-  | .opaqueInfo val => 
-    getExprRefs val.type ++ getExprRefs val.value
-  | .ctorInfo   val => val.induct :: getExprRefs val.type
-  | .inductInfo val => 
-    getExprRefs val.type ++ val.all
-  | .recInfo    val => 
-    getExprRefs val.type ++ val.all ++ val.rules.map RecursorRule.ctor 
-                ++ (val.rules.map (fun rule => getExprRefs rule.rhs)).join
-  | .quotInfo   val => getExprRefs val.type
-
 def ConstMap.childrenOfWith (map : ConstMap) (name : Name)
     (p : ConstantInfo → Bool) : List ConstantInfo :=
   map.fold (init := []) fun acc n c => match n with
