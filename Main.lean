@@ -78,8 +78,38 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
     IO.eprintln "Run `yatima store -h` for further information."
     return 1
 
--- instance : Coe String (Option String) where
---   coe := some
+open Yatima.Compiler in
+def buildRun (p : Cli.Parsed) : IO UInt32 := do
+  let log : Bool := p.hasFlag "log"
+  match p.variableArgsAs? String with
+  | some ⟨args⟩ =>
+    if !args.isEmpty then
+      let mut stt : CompileState := default
+      let mut errMsg : Option String := none
+      for arg in args do
+        for filePath in ← getFilePathsList ⟨arg⟩ do
+          match ← runFrontend filePath log stt with
+          | .ok stt' => match stt.union stt' with
+            | .ok stt' => stt := stt'
+            | .error msg => errMsg := some msg; break
+          | .error msg => errMsg := some msg; break
+        if errMsg.isSome then break
+      match errMsg with
+      | some msg =>
+        IO.eprintln msg
+        return 1
+      | none => pure ()
+      if log then printCompilationStats stt
+      -- todo: make use of `stt.store`
+      return 0
+    else
+      IO.eprintln "No build argument was found."
+      IO.eprintln "Run `yatima build -h` for further information."
+      return 1
+  | none =>
+    IO.eprintln "Couldn't parse build arguments."
+    IO.eprintln "Run `yatima build -h` for further information."
+    return 1
 
 def storeCmd : Cli.Cmd := `[Cli|
   store VIA storeRun; [VERSION]
@@ -91,9 +121,8 @@ def storeCmd : Cli.Cmd := `[Cli|
     l, "log";     "Logs compilation progress"
     s, "summary"; "Prints a compilation summary at the end of the process"
 
---   ARGS:
---     ...sources : String; "List of Lean files or directories"
--- ]
+  FLAGS:
+    l, log; "Flag to print compilation progress and stats"
 
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima NOOP; [VERSION]
