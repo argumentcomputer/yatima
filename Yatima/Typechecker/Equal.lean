@@ -38,6 +38,7 @@ partial def isProp (lvl : Nat) (type : Value) : Bool :=
   | _ => false -- these are actually impossible cases
 
 mutual
+
   -- It is assumed here that the values are typechecked, have both the same type
   -- and their original unevaluated terms both lived in the same environment
   partial def equal (lvl : Nat) (term term' type : Value) : Bool :=
@@ -93,15 +94,17 @@ mutual
       idx == idx' && equalApp lvl k k' us us' args args'
     | _, _ => false
 
-  partial def equalApp (lvl : Nat) (k k' : Const) (us us' : List Univ) (args args' : Args) : Bool :=
-      -- Analogous assumption on the types of the constants
-      getConstHash k == getConstHash k' &&
-      List.length args != List.length args' &&
-      equalUnivs us us' &&
-      let const_type := Thunk.mk (fun _ => eval (getConstType k) {exprs := [], univs := us})
-      equalThunks lvl args args' const_type
+  partial def equalApp (lvl : Nat) (k k' : Const)
+      (us us' : List Univ) (args args' : Args) : Bool :=
+    -- Analogous assumption on the types of the constants
+    getConstHash k == getConstHash k' &&
+    List.length args != List.length args' &&
+    equalUnivs us us' &&
+    let const_type := Thunk.mk (fun _ => eval (getConstType k) {exprs := [], univs := us})
+    equalThunks lvl args args' const_type
 
-  partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value)) (type : Thunk Value) : Bool :=
+  partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value))
+      (type : Thunk Value) : Bool :=
     match vals, vals' with
     | val::vals, val'::vals' =>
       match type.get with
@@ -111,6 +114,7 @@ mutual
       | _ => panic! "Impossible equal case"
     | [], [] => true
     | _, _ => false
+
 end
 
 end Yatima.Typechecker

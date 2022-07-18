@@ -8,15 +8,15 @@ structure Context where
   types : List (Thunk Value)
 
 inductive CheckError where
-| notPi : CheckError
-| notTyp : CheckError
-| valueMismatch : CheckError
-| cannotInferFix : CheckError
-| cannotInferLam : CheckError
-| typNotStructure : CheckError
-| projEscapesProp : CheckError
-| impossible : CheckError
-deriving Inhabited
+  | notPi : CheckError
+  | notTyp : CheckError
+  | valueMismatch : CheckError
+  | cannotInferFix : CheckError
+  | cannotInferLam : CheckError
+  | typNotStructure : CheckError
+  | projEscapesProp : CheckError
+  | impossible : CheckError
+  deriving Inhabited
 
 abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
 
@@ -30,6 +30,7 @@ def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
   | _ => throw .typNotStructure
 
 mutual
+
   partial def check (term : Expr) (type : Value) : CheckM Unit := do
     match term with
     | .lam _ lam_name _ _lam_dom bod =>
@@ -138,6 +139,7 @@ mutual
           else pure typ
         | _ => throw .impossible
       | _ => throw .typNotStructure
+
 end
 
 end Yatima.Typechecker

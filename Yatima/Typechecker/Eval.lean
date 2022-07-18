@@ -6,19 +6,20 @@ def mkConst (name : Name) (k : Const) (univs : List Univ) : Value :=
   Value.app (Neutral.const name k univs) []
 
 def extEnv (env : Env Value) (thunk : Thunk Value) : Env Value :=
-  {env with exprs := thunk :: env.exprs}
+  { env with exprs := thunk :: env.exprs }
 
 mutual
-partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value :=
-  match const with
-  | .theorem _ x =>
-    eval x.value { exprs := [] , univs }
-  | .definition _ x =>
-    match x.safety with
-    | .safe => eval x.value { exprs := [] , univs }
-    | .partial => mkConst name const univs
-    | .unsafe => panic! "Unsafe definition found"
-  | _ => mkConst name const univs
+
+  partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value :=
+    match const with
+    | .theorem _ x =>
+      eval x.value { exprs := [] , univs }
+    | .definition _ x =>
+      match x.safety with
+      | .safe => eval x.value { exprs := [] , univs }
+      | .partial => mkConst name const univs
+      | .unsafe => panic! "Unsafe definition found"
+    | _ => mkConst name const univs
 
   partial def applyConst (name : Name) (k : Const) (univs : List Univ) (arg : Thunk Value) (args : Args) : Value :=
   -- Assumes a partial application of k to args, which means in particular, that it is in normal form
@@ -76,8 +77,7 @@ partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value 
     | .lit _ lit => Value.lit lit
     | .lty _ lty => Value.lty lty
     | .proj _ idx expr =>
-      let val := eval expr env
-      match val with
+      match eval expr env with
       | .app (.const _ (.constructor _ ctor) _) args =>
         -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
         -- and, furthermore, that the index is in range of `args`
@@ -85,6 +85,7 @@ partial def evalConst (name : Name) (const : Const) (univs : List Univ) : Value 
         (List.get! args idx).get
       | .app neu args => .proj idx neu args
       | _ => panic! "Impossible case on projections"
+
 end
 
 end Yatima.Typechecker
