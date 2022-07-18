@@ -52,7 +52,7 @@ mutual
   def separateExpr (e : Expr) : CompileM (ExprAnon × ExprMeta) :=
     match e with
     | .var name n => return (.var n, .var name)
-    | .sort u    => return (.sort u.anon, .sort u.meta)
+    | .sort u     => return (.sort u.anon, .sort u.meta)
     | .const name c ls =>
       return (.const c.anon $ ls.map (·.anon),
         .const name c.meta $ ls.map (·.meta))
@@ -75,7 +75,7 @@ mutual
       let expCid ← exprToCid exp
       let bodCid ← exprToCid bod
       return (
-        .letE typCid.anon expCid.anon bodCid.anon, 
+        .letE typCid.anon expCid.anon bodCid.anon,
         .letE name typCid.meta expCid.meta bodCid.meta
       )
     | .lit lit => return (.lit lit, .lit)
@@ -185,16 +185,16 @@ def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
 mutual
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM Constructor := do
-      let type ← toYatimaExpr rule.rhs
-      let typeCid ← exprToCid type
-      addToStore (typeCid, type)
+      let rhs ← toYatimaExpr rule.rhs
+      let rhsCid ← exprToCid rhs
+      addToStore (rhsCid, rhs)
       match (← read).constMap.find?' rule.ctor with
         | some (.ctorInfo ctor) =>
           let type ← toYatimaExpr ctor.type
           let typeCid ← exprToCid type
           addToStore (typeCid, type)
           return {
-            rhs    := typeCid
+            rhs    := rhsCid
             lvls   := ctor.levelParams
             name   := ctor.name
             type   := typeCid
@@ -205,13 +205,13 @@ mutual
 
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM RecursorRule := do
-    let type ← toYatimaExpr rule.rhs
-    let typeCid ← exprToCid type
-    addToStore (typeCid, type)
+    let rhs ← toYatimaExpr rule.rhs
+    let rhsCid ← exprToCid rhs
+    addToStore (rhsCid, rhs)
     match (← read).constMap.find?' rule.ctor with
     | some const =>
       let (ctorCid, _) ← processYatimaConst const
-      return { ctor := ctorCid, fields := rule.nfields, rhs := typeCid }
+      return { ctor := ctorCid, fields := rule.nfields, rhs := rhsCid }
     | none => throw s!"Unknown constant '{rule.ctor}'"
 
   partial def toYatimaInternalRec (ctors : List Lean.Name) :
@@ -307,7 +307,7 @@ mutual
     let typeCid ← exprToCid type
     addToStore (typeCid, type)
     let value ←
-      if isMutual then toYatimaExpr defn.value 
+      if isMutual then toYatimaExpr defn.value
       else withRecrs (RBMap.single defn.name 0) $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
@@ -321,15 +321,12 @@ mutual
 
   partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
     match expr with
-      | .forallE _ t e _  => do
-        match e with
-        | .forallE _ _ _ _  => do
-          isInternalRec e name
+      | .forallE _ t e _  => match e with
+        | .forallE ..  => isInternalRec e name
         -- t is the major premise
-        | _ => do
-          isInternalRec t name
-      | .app e _ _ => isInternalRec e name
-      | .const n _ _ => return n == name
+        | _ => isInternalRec t name
+      | .app e .. => isInternalRec e name
+      | .const n .. => return n == name
       | _ => return false
 
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
@@ -337,10 +334,12 @@ mutual
     let type ← toYatimaExpr ind.type
     let typeCid ← exprToCid type
     addToStore (typeCid, type)
-    let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
+    -- reverses once
+    let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let (recs, ctors) : (List (Sigma Recursor) × Option (List Constructor)) := ←
-        leanRecs.foldlM (init := ([], none)) fun (recs, ctors) r =>
+    let (recs, ctors) : (List (Sigma Recursor) × Option (List Constructor)) :=
+      -- reverses again, keeping original order
+      ← leanRecs.foldlM (init := ([], none)) fun (recs, ctors) r =>
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
@@ -349,7 +348,7 @@ mutual
           else do
             let thisRec := ← toYatimaExternalRec r
             return ((Sigma.mk false thisRec) :: recs, ctors)
-        | _ => throw s!"Non-recursor {r.name} extracted from children" 
+        | _ => throw s!"Non-recursor {r.name} extracted from children"
     let ctors := match ctors with
       | some ctors => ctors
       | none => unreachable!
@@ -370,7 +369,7 @@ mutual
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match (← read).constMap.find? indName with
-      | some (.inductInfo ind) => 
+      | some (.inductInfo ind) =>
         let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
           fun c => match c with | .recInfo _ => true | _ => false
         let leanRecs := leanRecs.map (·.name)
@@ -436,15 +435,15 @@ mutual
     | .defnInfo struct =>
       if struct.all.length == 1 then
         addToStoreAndCache $ .definition $ ← toYatimaDef false struct
-      else 
+      else
         let mutualDefs ← struct.all.mapM fun name => do
-          match (← read).constMap.find? name with 
+          match (← read).constMap.find? name with
           | some (.defnInfo defn) => pure defn
           | _ => throw s!"Unknown definition '{name}'"
         let mutualDefs ← sortDefs [mutualDefs]
         let mut mutualIdxs : RBMap Lean.Name Nat compare := RBMap.empty
         for (i, ds) in mutualDefs.enum do
-          for d in ds do 
+          for d in ds do
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
             mutualIdxs := mutualIdxs.insert d.name i
         let definitions ← withRecrs mutualIdxs $
@@ -479,7 +478,7 @@ mutual
           | none => throw s!"'{ind.name}' not found in '{ind.all}'"
         match ind.ctors.indexOf? name with
         | some cidx =>
-          if cidx != struct.cidx then 
+          if cidx != struct.cidx then
             throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
           let indInfos ← buildInductiveInfoList ind
           let indBlock : Const := .mutIndBlock indInfos
@@ -530,7 +529,7 @@ mutual
 
       for (idx, name) in struct.all.enum do
         match (← read).constMap.find? name with
-        | some const => 
+        | some const =>
           let type ← toYatimaExpr const.type
           let typeCid ← exprToCid type
           addToStore (typeCid, type)
@@ -547,10 +546,10 @@ mutual
       | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
 
-  /-- 
+  /--
   Process a Lean constant into a Yatima constant, returning both the Yatima
   constant and its cid.
-  
+
   Different behavior is taken if the input `leanConst` is in a mutual block,
   since `toYatimaConst` returns the constant of the entire block (see
   `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
@@ -629,28 +628,29 @@ mutual
   partial def eqDef (names : Std.RBMap Lean.Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Bool := do
-    match (← cmpDef names x y) with 
-      | .eq => pure true 
+    match (← cmpDef names x y) with
+      | .eq => pure true
       | _ => pure false
 
   /-- todo -/
-  partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
+  partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
       CompileM (List (List Lean.DefinitionVal)) := do
-    let enum (ll : List (List Lean.DefinitionVal)) := 
+    let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
     let names := enum dss
-    let newDss ← (← dss.mapM fun ds => 
-      match ds with 
-      | [] => unreachable! -- should never occur
+    let newDss ← (← dss.mapM fun ds =>
+      match ds with
+      | []  => unreachable!
       | [d] => return [[d]]
-      | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
-    
+      | ds  => return (← List.groupByM (eqDef names) $
+        ← ds.sortByM (cmpDef names))).joinM
+
     -- must normalize, see comments
     let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
     let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
-    if normDss == normNewDss then 
+    if normDss == normNewDss then
       return newDss
-    else 
+    else
       sortDefs newDss
 
 end

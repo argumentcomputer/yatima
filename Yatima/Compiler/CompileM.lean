@@ -50,7 +50,7 @@ def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, levels, [], .empty⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name Nat compare) : 
+def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx⟩
 
