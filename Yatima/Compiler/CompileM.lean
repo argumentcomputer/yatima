@@ -1,5 +1,6 @@
 import Yatima.Store
-import Yatima.Compiler.Graph
+import Yatima.Compiler.Utils
+
 
 namespace Yatima.Compiler
 
@@ -28,7 +29,6 @@ def CompileState.union (s s' : CompileState) :
 
 structure CompileEnv where
   constMap : Lean.ConstMap
-  cycles   : Lean.ReferenceMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
   recrCtx  : Std.RBMap Lean.Name Nat compare
@@ -44,18 +44,18 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.cycles, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
+    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, levels, [], .empty⟩
+  withReader $ fun e => ⟨e.constMap, levels, [], .empty⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name Nat compare) : 
+def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, e.univCtx, e.bindCtx, recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, lvls, e.bindCtx, e.recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx⟩
 
 inductive YatimaStoreEntry
   | univ_cache  : UnivCid × Univ           → YatimaStoreEntry

@@ -75,7 +75,7 @@ mutual
       let expCid ← exprToCid exp
       let bodCid ← exprToCid bod
       return (
-        .letE typCid.anon expCid.anon bodCid.anon, 
+        .letE typCid.anon expCid.anon bodCid.anon,
         .letE name typCid.meta expCid.meta bodCid.meta
       )
     | .lit lit => return (.lit lit, .lit)
@@ -307,7 +307,7 @@ mutual
     let typeCid ← exprToCid type
     addToStore (typeCid, type)
     let value ←
-      if isMutual then toYatimaExpr defn.value 
+      if isMutual then toYatimaExpr defn.value
       else withRecrs (RBMap.single defn.name 0) $
         Expr.fix defn.name <$> toYatimaExpr defn.value
     let valueCid ← exprToCid value
@@ -349,7 +349,7 @@ mutual
           else do
             let thisRec := ← toYatimaExternalRec r
             return ((Sigma.mk false thisRec) :: recs, ctors)
-        | _ => throw s!"Non-recursor {r.name} extracted from children" 
+        | _ => throw s!"Non-recursor {r.name} extracted from children"
     let ctors := match ctors with
       | some ctors => ctors
       | none => unreachable!
@@ -370,7 +370,7 @@ mutual
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match (← read).constMap.find? indName with
-      | some (.inductInfo ind) => 
+      | some (.inductInfo ind) =>
         let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
           fun c => match c with | .recInfo _ => true | _ => false
         let leanRecs := leanRecs.map (·.name)
@@ -434,16 +434,17 @@ mutual
         type := typeCid
         kind := struct.kind }
     | .defnInfo struct =>
-      match (← read).cycles.find? struct.name with 
-      | some mutualNames =>
-        let mutualDefs ← mutualNames.mapM fun name => do
-          match (← read).constMap.find? name with 
+      if struct.all.length == 1 then
+        addToStoreAndCache $ .definition $ ← toYatimaDef false struct
+      else
+        let mutualDefs ← struct.all.mapM fun name => do
+          match (← read).constMap.find? name with
           | some (.defnInfo defn) => pure defn
           | _ => throw s!"Unknown definition '{name}'"
         let mutualDefs ← sortDefs [mutualDefs]
         let mut mutualIdxs : RBMap Lean.Name Nat compare := RBMap.empty
         for (i, ds) in mutualDefs.enum do
-          for d in ds do 
+          for d in ds do
             set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
             mutualIdxs := mutualIdxs.insert d.name i
         let definitions ← withRecrs mutualIdxs $
@@ -466,7 +467,6 @@ mutual
         match ret? with
         | some ret => return ret
         | none => throw s!"Constant for '{struct.name}' wasn't compiled"
-      | none => addToStoreAndCache $ .definition $ ← toYatimaDef false struct
     | .ctorInfo struct =>
       let type ← Expr.fix struct.induct <$> toYatimaExpr struct.type
       let typeCid ← exprToCid type
@@ -479,7 +479,7 @@ mutual
           | none => throw s!"'{ind.name}' not found in '{ind.all}'"
         match ind.ctors.indexOf? name with
         | some cidx =>
-          if cidx != struct.cidx then 
+          if cidx != struct.cidx then
             throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
           let indInfos ← buildInductiveInfoList ind
           let indBlock : Const := .mutIndBlock indInfos
@@ -530,7 +530,7 @@ mutual
 
       for (idx, name) in struct.all.enum do
         match (← read).constMap.find? name with
-        | some const => 
+        | some const =>
           let type ← toYatimaExpr const.type
           let typeCid ← exprToCid type
           addToStore (typeCid, type)
@@ -547,10 +547,10 @@ mutual
       | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
 
-  /-- 
+  /--
   Process a Lean constant into a Yatima constant, returning both the Yatima
   constant and its cid.
-  
+
   Different behavior is taken if the input `leanConst` is in a mutual block,
   since `toYatimaConst` returns the constant of the entire block (see
   `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
@@ -629,28 +629,28 @@ mutual
   partial def eqDef (names : Std.RBMap Lean.Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Bool := do
-    match (← cmpDef names x y) with 
-      | .eq => pure true 
+    match (← cmpDef names x y) with
+      | .eq => pure true
       | _ => pure false
 
   /-- todo -/
-  partial def sortDefs (dss : List (List Lean.DefinitionVal)) : 
+  partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
       CompileM (List (List Lean.DefinitionVal)) := do
-    let enum (ll : List (List Lean.DefinitionVal)) := 
+    let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
     let names := enum dss
-    let newDss ← (← dss.mapM fun ds => 
-      match ds with 
+    let newDss ← (← dss.mapM fun ds =>
+      match ds with
       | [] => unreachable! -- should never occur
       | [d] => return [[d]]
       | ds => do return (← List.groupByM (eqDef names) $ ← ds.sortByM (cmpDef names))).joinM
-    
+
     -- must normalize, see comments
     let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
     let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
-    if normDss == normNewDss then 
+    if normDss == normNewDss then
       return newDss
-    else 
+    else
       sortDefs newDss
 
 end
@@ -680,17 +680,7 @@ def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
       match map₀.find? n with
       | some c' => if c == c' then acc else acc.insert n c
       | none    => acc.insert n c
-  let g : Graph := Lean.referenceMap map
-  match g.scc? with
-  | .ok vss =>
-    let nss : List (List $ Lean.Name × List Lean.Name) :=
-      (vss.filter (·.length != 1)).map fun vs => 
-        vs.map fun v => (v, vs)
-    CompileM.run
-      ⟨map, Std.RBMap.ofList nss.join, [], [], .empty⟩
-      stt
-      (buildStore delta log)
-  | .error e => throw e
+  CompileM.run ⟨map, [], [], .empty⟩ stt (buildStore delta log)
 
 def getPaths : IO Lean.SearchPath := do
   let out ← IO.Process.output {
