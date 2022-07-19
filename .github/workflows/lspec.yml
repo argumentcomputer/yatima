@@ -18,5 +18,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: build LSpec binary
         run: lake build lspec
+      - name: build imported fixtures
+        run: lake build Fixtures
       - name: run LSpec
         run: ./lean_packages/LSpec/build/bin/lspec
