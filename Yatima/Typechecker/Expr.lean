@@ -3,6 +3,9 @@ import Yatima.Const
 
 namespace Yatima.Typechecker
 
+abbrev hashConst := Ipld.ConstCid .Anon
+abbrev hashExpr  := Ipld.ExprCid .Anon
+
 structure Axiom (Expr : Type) where
   name : Name
   lvls : List Name
@@ -52,7 +55,7 @@ structure Inductive (Expr : Type) where
   unit    : Bool
 
 structure RecursorRule (Expr : Type) where
-  ctor   : Ipld.ConstCid .Anon
+  ctor   : hashConst
   fields : Nat
   rhs    : Expr
 
@@ -85,28 +88,28 @@ structure Quotient (Expr : Type) where
 
 mutual
 inductive Const
-  | «axiom»     : Ipld.ConstCid .Anon → (Axiom Expr) → Const
-  | «theorem»   : Ipld.ConstCid .Anon → (Theorem Expr) → Const
-  | «inductive» : Ipld.ConstCid .Anon → (Inductive Expr) → Const
-  | «opaque»    : Ipld.ConstCid .Anon → (Opaque Expr) → Const
-  | definition  : Ipld.ConstCid .Anon → (Definition Expr) → Const
-  | constructor : Ipld.ConstCid .Anon → (Constructor Expr) → Const
-  | extRecursor : Ipld.ConstCid .Anon → (ExtRecursor Expr) → Const
-  | intRecursor : Ipld.ConstCid .Anon → (IntRecursor Expr) → Const
-  | quotient    : Ipld.ConstCid .Anon → (Quotient Expr) → Const
+  | «axiom»     : hashConst → (Axiom Expr) → Const
+  | «theorem»   : hashConst → (Theorem Expr) → Const
+  | «inductive» : hashConst → (Inductive Expr) → Const
+  | «opaque»    : hashConst → (Opaque Expr) → Const
+  | definition  : hashConst → (Definition Expr) → Const
+  | constructor : hashConst → (Constructor Expr) → Const
+  | extRecursor : hashConst → (ExtRecursor Expr) → Const
+  | intRecursor : hashConst → (IntRecursor Expr) → Const
+  | quotient    : hashConst → (Quotient Expr) → Const
 
 inductive Expr
-  | var   : Ipld.ExprCid .Anon → Name → Nat → Expr
-  | sort  : Ipld.ExprCid .Anon → Univ → Expr
-  | const : Ipld.ExprCid .Anon → Name → Const → List Univ → Expr
-  | app   : Ipld.ExprCid .Anon → Expr → Expr → Expr
-  | lam   : Ipld.ExprCid .Anon → Name → BinderInfo → Expr → Expr → Expr
-  | pi    : Ipld.ExprCid .Anon → Name → BinderInfo → Expr → Expr → Expr
-  | letE  : Ipld.ExprCid .Anon → Name → Expr → Expr → Expr → Expr
-  | lit   : Ipld.ExprCid .Anon → Literal → Expr
-  | lty   : Ipld.ExprCid .Anon → LitType → Expr
-  | fix   : Ipld.ExprCid .Anon → Name → Expr → Expr
-  | proj  : Ipld.ExprCid .Anon → Nat → Expr → Expr
+  | var   : hashExpr → Name → Nat → Expr
+  | sort  : hashExpr → Univ → Expr
+  | const : hashExpr → Name → Const → List Univ → Expr
+  | app   : hashExpr → Expr → Expr → Expr
+  | lam   : hashExpr → Name → BinderInfo → Expr → Expr → Expr
+  | pi    : hashExpr → Name → BinderInfo → Expr → Expr → Expr
+  | letE  : hashExpr → Name → Expr → Expr → Expr → Expr
+  | lit   : hashExpr → Literal → Expr
+  | lty   : hashExpr → LitType → Expr
+  | fix   : hashExpr → Name → Expr → Expr
+  | proj  : hashExpr → Nat → Expr → Expr
   deriving Inhabited
 end
 
@@ -122,7 +125,7 @@ def getConstType (k : Const) : Expr :=
   | .extRecursor _ x => x.type
   | .quotient _ x => x.type
 
-def getConstHash (k : Const) : Ipld.ConstCid .Anon :=
+def getConstHash (k : Const) : hashConst :=
   match k with
   | .axiom h _ => h
   | .theorem h _ => h

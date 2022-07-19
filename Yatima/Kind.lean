@@ -10,8 +10,8 @@ instance : Coe Kind Bool where coe | .Anon => .true | .Meta => .false
 end Ipld
 
 inductive Split (A : Type) (B : Type) : (b : Bool) → Type where
-| inj₁ : A → Split A B True
-| inj₂ : B → Split A B False
+| inj₁ : A → Split A B true
+| inj₂ : B → Split A B false
 deriving BEq
 
 instance [Inhabited A] [Inhabited B] : Inhabited (Split A B k) where
