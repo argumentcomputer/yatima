@@ -19,6 +19,16 @@ inductive DefinitionSafety where
 inductive QuotKind where
   | type | ctor | lift | ind
 
+inductive LitType
+  | nat : LitType
+  | str : LitType
+  deriving BEq, Inhabited
+
+inductive Literal
+  | nat : Nat → Literal
+  | str : String → Literal
+  deriving BEq, Inhabited
+
 namespace Ipld
 
 abbrev ListName? := Split Nat (List Name)
@@ -189,7 +199,7 @@ structure Inductive' (Expr : Type) where
   unit    : Bool
 
 structure RecursorRule' (Expr : Type) where
-  ctor   : Ipld.ConstCid .Anon
+  ctor   : Constructor' Expr
   fields : Nat
   rhs    : Expr
 

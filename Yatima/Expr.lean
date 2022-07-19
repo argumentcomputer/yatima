@@ -3,16 +3,6 @@ import Yatima.Const
 
 namespace Yatima
 
-inductive LitType
-  | nat : LitType
-  | str : LitType
-  deriving BEq, Inhabited
-
-inductive Literal
-  | nat : Nat → Literal
-  | str : String → Literal
-  deriving BEq, Inhabited
-
 namespace Ipld
 abbrev BinderInfo? k := Split BinderInfo Unit k
 
