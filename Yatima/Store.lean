@@ -5,17 +5,17 @@ namespace Yatima
 
 open Std (RBMap) in
 structure Store where
-  univ_cache  : RBMap UnivCid  Univ  compare
-  expr_cache  : RBMap ExprCid  Expr  compare
+  univ_cache  : RBMap UnivCid Univ compare
+  expr_cache  : RBMap ExprCid Expr compare
   const_cache : RBMap ConstCid Const compare
 
-  univ_anon  : RBMap UnivAnonCid  UnivAnon  compare
-  expr_anon  : RBMap ExprAnonCid  ExprAnon  compare
-  const_anon : RBMap ConstAnonCid ConstAnon compare
+  univ_anon  : RBMap (Ipld.UnivCid .Anon) (Ipld.Univ .Anon)  compare
+  expr_anon  : RBMap (Ipld.ExprCid .Anon) (Ipld.Expr .Anon)  compare
+  const_anon : RBMap (Ipld.ConstCid .Anon) (Ipld.Const .Anon) compare
 
-  univ_meta  : RBMap UnivMetaCid  UnivMeta  compare
-  expr_meta  : RBMap ExprMetaCid  ExprMeta  compare
-  const_meta : RBMap ConstMetaCid ConstMeta compare
+  univ_meta  : RBMap (Ipld.UnivCid .Meta) (Ipld.Univ .Meta)  compare
+  expr_meta  : RBMap (Ipld.ExprCid .Meta) (Ipld.Expr .Meta)  compare
+  const_meta : RBMap (Ipld.ConstCid .Meta) (Ipld.Const .Meta) compare
 
 instance : Inhabited Store where
   default := ⟨

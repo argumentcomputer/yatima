@@ -6,13 +6,9 @@ import Yatima.Univ
 import Yatima.Expr
 import Yatima.Const
 
-namespace Yatima.ToIpld
+namespace Yatima
 
-def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
-  let cbor := DagCbor.serialize ipld;
-  let hash := Multihash.sha3_256 cbor;
-  { version := 0x01, codec, hash }
-
+namespace Ipld
 instance : Coe Nat Ipld where
   coe x := .bytes x.toByteArrayBE
 
@@ -22,12 +18,10 @@ instance : Coe Bool Ipld where
 instance : Coe Name Ipld where
   coe x := .string x
 
-instance : Coe UnivAnonCid  Ipld where coe u := .link u.data
-instance : Coe UnivMetaCid  Ipld where coe u := .link u.data
-instance : Coe ExprAnonCid  Ipld where coe u := .link u.data
-instance : Coe ExprMetaCid  Ipld where coe u := .link u.data
-instance : Coe ConstAnonCid Ipld where coe u := .link u.data
-instance : Coe ConstMetaCid Ipld where coe u := .link u.data
+
+instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
+instance : Coe (ExprCid k)  Ipld where coe u := .link u.data
+instance : Coe (ConstCid k) Ipld where coe u := .link u.data
 
 instance [Coe α Ipld] [Coe β Ipld] : Coe (α ⊕ β) Ipld where coe
   | .inl i => i
@@ -63,38 +57,28 @@ instance : Coe DefinitionSafety Ipld where coe
   | .unsafe  => .number 1
   | .partial => .number 2
 
+instance [Coe A Ipld] [Coe B Ipld] : Coe (Split A B k) Ipld where coe
+  | .inj₁ a => .array #[.number 0, a]
+  | .inj₂ b => .array #[.number 1, b]
+
 instance : Coe Unit Ipld where coe
   | .unit => .array #[]
 
-instance : Coe RecursorRuleAnon Ipld where coe
-  | .mk c f r => .array #[c, f, r]
+instance : (k : Kind) → Coe (RecursorRule k) Ipld
+  | .Anon => { coe := fun | .mk c f r => .array #[c, f, r] }
+  | .Meta => { coe := fun | .mk c f r => .array #[c, f, r] }
 
-instance : Coe RecursorRuleMeta Ipld where coe
-  | .mk c r => .array #[c, r]
+instance : Coe (Recursor k b) Ipld where coe
+  | .mk n l t p i m m' rs k => .array #[n, l, t, p, i, m, m', rs, k]
 
-instance : Coe (RecursorAnon b) Ipld where coe
-  | .mk l t p i m m' rs k => .array #[l, t, p, i, m, m', match b with | .true => rs | .false => rs, k]
+instance : Coe (Sigma (Recursor k)) Ipld where coe
+  | .mk b (.mk n l t p i m m' rs k) => .array #[(b : Bool), n, l, t, p, i, m, m', rs, k]
 
-instance : Coe (Sigma RecursorAnon) Ipld where coe
-  | .mk b (.mk l t p i m m' rs k) => .array #[l, t, p, i, m, m', match b with | .true => rs | .false => rs, k]
+instance : Coe (Constructor k) Ipld where coe
+  | .mk n t l p f r => .array #[n, t, l, p, f, r]
 
-instance : Coe (RecursorMeta b) Ipld where coe
-  | .mk n l t rs => .array #[n, l, t, match b with | .true => rs | .false => rs]
-
-instance : Coe (Sigma RecursorMeta) Ipld where coe
-  | .mk b (.mk n l t rs) => .array #[b, n, l, t, match b with | .true => rs | .false => rs]
-
-instance : Coe ConstructorAnon Ipld where coe
-  | .mk t l p f r => .array #[t, l, p, f, r]
-
-instance : Coe ConstructorMeta Ipld where coe
-  | .mk n l t r => .array #[n, l, t, r]
-
-instance : Coe InductiveAnon Ipld where coe
-  | .mk l t p i cs rs r s r' => .array #[l, t, p, i, cs, rs, r, s, r']
-
-instance : Coe InductiveMeta Ipld where coe
-  | .mk n l t cs rs => .array #[n, l, t, cs, rs]
+instance : Coe (Inductive k) Ipld where coe
+  | .mk n l t p i cs rs r s r' => .array #[n, l, t, p, i, cs, rs, r, s, r']
 
 instance : Coe QuotKind Ipld where coe
   | .type => .number 0
@@ -102,94 +86,60 @@ instance : Coe QuotKind Ipld where coe
   | .lift => .number 3
   | .ind  => .number 4
 
-instance : Coe DefinitionAnon Ipld where coe
-  | .mk n l t v => .array #[n, l, t, v]
+instance : Coe (Definition k) Ipld where coe
+  | .mk n l t v s => .array #[n, l, t, v, s]
 
-instance : Coe DefinitionMeta Ipld where coe
-  | .mk n l t v => .array #[n, l, t, v]
+end Ipld
+namespace ToIpld
 
-def univAnonToIpld : UnivAnon → Ipld
-  | .zero     => .array #[.number UNIVANON, .number 0]
-  | .succ p   => .array #[.number UNIVANON, .number 1, p]
-  | .max a b  => .array #[.number UNIVANON, .number 2, a, b]
-  | .imax a b => .array #[.number UNIVANON, .number 3, a, b]
-  | .param n  => .array #[.number UNIVANON, .number 4, n]
+def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
+  let cbor := DagCbor.serialize ipld;
+  let hash := Multihash.sha3_256 cbor;
+  { version := 0x01, codec, hash }
 
-def univMetaToIpld : UnivMeta → Ipld
-  | .zero     => .array #[.number UNIVMETA, .number 0]
-  | .succ p   => .array #[.number UNIVMETA, .number 1, p]
-  | .max a b  => .array #[.number UNIVMETA, .number 2, a, b]
-  | .imax a b => .array #[.number UNIVMETA, .number 3, a, b]
-  | .param n  => .array #[.number UNIVMETA, .number 4, n]
+def univToIpld : (Ipld.Univ k) → Ipld
+  | .zero      => .array #[.number $ UNIV k, .number 0]
+  | .succ p    => .array #[.number $ UNIV k, .number 1, p]
+  | .max a b   => .array #[.number $ UNIV k, .number 2, a, b]
+  | .imax a b  => .array #[.number $ UNIV k, .number 3, a, b]
+  | .param n i => .array #[.number $ UNIV k, .number 4, n, i]
 
-def exprAnonToIpld : ExprAnon → Ipld
-  | .var n      => .array #[.number EXPRANON, .number 0, n]
-  | .sort u     => .array #[.number EXPRANON, .number 1, u]
-  | .const c ls => .array #[.number EXPRANON, .number 2, c, ls]
-  | .app f a    => .array #[.number EXPRANON, .number 3, f, a]
-  | .lam t b    => .array #[.number EXPRANON, .number 4, t, b]
-  | .pi t b     => .array #[.number EXPRANON, .number 5, t, b]
-  | .letE n t v => .array #[.number EXPRANON, .number 6, n, t, v]
-  | .lit l      => .array #[.number EXPRANON, .number 7, l]
-  | .lty l      => .array #[.number EXPRANON, .number 8, l]
-  | .fix b      => .array #[.number EXPRANON, .number 9, b]
-  | .proj n e   => .array #[.number EXPRANON, .number 10, n, e]
+def exprToIpld : (Ipld.Expr k) → Ipld
+  | .var _ i      => .array #[.number $ EXPR k, .number 0, i]
+  | .sort u       => .array #[.number $ EXPR k, .number 1, u]
+  | .const n c ls => .array #[.number $ EXPR k, .number 2, n, c, ls]
+  | .app f a      => .array #[.number $ EXPR k, .number 3, f, a]
+  | .lam n i d b  => .array #[.number $ EXPR k, .number 4, n, i, d, b]
+  | .pi n i d c   => .array #[.number $ EXPR k, .number 5, n, i, d, c]
+  | .letE n t v b => .array #[.number $ EXPR k, .number 6, n, t, v, b]
+  | .lit l        => .array #[.number $ EXPR k, .number 7, l]
+  | .lty l        => .array #[.number $ EXPR k, .number 8, l]
+  | .fix n b      => .array #[.number $ EXPR k, .number 9, n, b]
+  | .proj n e     => .array #[.number $ EXPR k, .number 10, n, e]
 
-def exprMetaToIpld : ExprMeta → Ipld
-  | .var n        => .array #[.number EXPRMETA, .number 0, n]
-  | .sort u       => .array #[.number EXPRMETA, .number 1, u]
-  | .const n c ls => .array #[.number EXPRMETA, .number 2, n, c, ls]
-  | .app f a      => .array #[.number EXPRMETA, .number 3, f, a]
-  | .lam i n t b  => .array #[.number EXPRMETA, .number 4, i, n, t, b]
-  | .pi i n t b   => .array #[.number EXPRMETA, .number 5, i, n, t, b]
-  | .letE n t v b => .array #[.number EXPRMETA, .number 6, n, t, v, b]
-  | .lit          => .array #[.number EXPRMETA, .number 7]
-  | .lty          => .array #[.number EXPRMETA, .number 8]
-  | .fix n b      => .array #[.number EXPRMETA, .number 9, n, b]
-  | .proj n e     => .array #[.number EXPRMETA, .number 10, n, e]
+def constToIpld : (Ipld.Const k) → Ipld
+  | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ CONST k, .number 0,  n, l, t, s]
+  | .theorem ⟨n, l, t, v⟩               => .array #[.number $ CONST k, .number 1,  n, l, t, v]
+  | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ CONST k, .number 2,  n, l, t, v, s]
+  | .quotient ⟨n, l, t, K⟩              => .array #[.number $ CONST k, .number 3,  n, l, t, K]
+  | .definition ⟨n, l, t, v, s⟩         => .array #[.number $ CONST k, .number 4,  n, l, t, v, s]
+  | .inductiveProj ⟨n, l, t, b, i⟩      => .array #[.number $ CONST k, .number 5, n, l, t, b, i]
+  | .constructorProj ⟨n, l, t, b, i, j⟩ => .array #[.number $ CONST k, .number 6, n, l, t, b, i, j]
+  | .recursorProj ⟨n, l, t, b, i, j⟩    => .array #[.number $ CONST k, .number 7, n, l, t, b, i, j]
+  | .definitionProj ⟨n, l, t, b, i⟩     => .array #[.number $ CONST k, .number 8, n, l, t, b, i]
+  | .mutDefBlock ds                    => .array #[.number $ CONST k, .number 9,  ds]
+  | .mutIndBlock is                    => .array #[.number $ CONST k, .number 10, is]
 
-def constAnonToIpld : ConstAnon → Ipld
-  | .axiom ⟨l, t, s⟩         => .array #[.number CONSTANON, .number 0,  l, t, s]
-  | .theorem ⟨l, t, v⟩       => .array #[.number CONSTANON, .number 1,  l, t, v]
-  | .opaque ⟨l, t, v, s⟩     => .array #[.number CONSTANON, .number 2,  l, t, v, s]
-  | .quotient ⟨l, t, k⟩      => .array #[.number CONSTANON, .number 3,  l, t, k]
-  | .definition ⟨n, l, t, v⟩ => .array #[.number CONSTANON, .number 4,  n, l, t, v]
-  | .inductiveProj ⟨l, t, b, i⟩       => .array #[.number CONSTANON, .number 5,  l, t, b, i]
-  | .constructorProj ⟨l, t, b, i, j⟩  => .array #[.number CONSTANON, .number 6,  l, t, b, i, j]
-  | .recursorProj ⟨l, t, b, i, j⟩ => .array #[.number CONSTANON, .number 7,  l, t, b, i, j]
-  | .definitionProj ⟨l, t, b, i⟩      => .array #[.number CONSTANON, .number 8,  l, t, b, i]
-  | .mutDefBlock ds => .array #[.number CONSTANON, .number 9,  ds]
-  | .mutIndBlock is => .array #[.number CONSTANON, .number 10, is]
+def univToCid (univ : Ipld.Univ k) : Ipld.UnivCid k :=
+  { data := ipldToCid (UNIV k).toNat (univToIpld univ) }
 
-def constMetaToIpld : ConstMeta → Ipld
-  | .axiom ⟨n, l, t⟩         => .array #[.number CONSTMETA, .number 0,  n, l, t]
-  | .theorem ⟨n, l, t, v⟩    => .array #[.number CONSTMETA, .number 1,  n, l, t, v]
-  | .opaque ⟨n, l, t, v⟩     => .array #[.number CONSTMETA, .number 2,  n, l, t, v]
-  | .quotient ⟨n, l, t⟩      => .array #[.number CONSTMETA, .number 3,  n, l, t]
-  | .definition ⟨n, l, t, v⟩ => .array #[.number CONSTMETA, .number 4,  n, l, t, v]
-  | .inductiveProj ⟨n, l, t, b⟩   => .array #[.number CONSTMETA, .number 5,  n, l, t, b]
-  | .constructorProj ⟨n, l, t, b⟩ => .array #[.number CONSTMETA, .number 6,  n, l, t, b]
-  | .recursorProj ⟨n, l, t, b⟩    => .array #[.number CONSTMETA, .number 7,  n, l, t, b]
-  | .definitionProj ⟨n, l, t, b⟩  => .array #[.number CONSTMETA, .number 8,  n, l, t, b]
-  | .mutDefBlock ds => .array #[.number CONSTMETA, .number 9,  ds]
-  | .mutIndBlock is => .array #[.number CONSTMETA, .number 10, is]
+def exprToCid (expr : Ipld.Expr k) : Ipld.ExprCid k :=
+  { data := ipldToCid (EXPR k).toNat (exprToIpld expr) }
 
-def univAnonToCid (univAnon : UnivAnon) : UnivAnonCid :=
-  { data := ipldToCid UNIVANON.toNat (univAnonToIpld univAnon) }
+def constToCid (const : Ipld.Const k) : Ipld.ConstCid k :=
+  { data := ipldToCid (CONST k).toNat (constToIpld const) }
 
-def univMetaToCid (univMeta : UnivMeta) : UnivMetaCid :=
-  { data := ipldToCid UNIVMETA.toNat (univMetaToIpld univMeta) }
+def zeroCid : UnivCid := ⟨ univToCid .zero, univToCid .zero ⟩
 
-def exprAnonToCid (exprAnon : ExprAnon) : ExprAnonCid :=
-  { data := ipldToCid EXPRANON.toNat (exprAnonToIpld exprAnon) }
-
-def exprMetaToCid (exprMeta : ExprMeta) : ExprMetaCid :=
-  { data := ipldToCid EXPRMETA.toNat (exprMetaToIpld exprMeta) }
-
-def constAnonToCid (constAnon : ConstAnon) : ConstAnonCid :=
-  { data := ipldToCid CONSTANON.toNat (constAnonToIpld constAnon) }
-
-def constMetaToCid (constMeta : ConstMeta) : ConstMetaCid :=
-  { data := ipldToCid CONSTMETA.toNat (constMetaToIpld constMeta) }
-
-end Yatima.ToIpld
+end ToIpld
+end Yatima

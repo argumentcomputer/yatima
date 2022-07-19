@@ -51,12 +51,12 @@ inductive Key : Type → Type
   | univ_cache  : UnivCid      → Key Univ
   | expr_cache  : ExprCid      → Key Expr
   | const_cache : ConstCid     → Key Const
-  | univ_anon   : UnivAnonCid  → Key UnivAnon
-  | expr_anon   : ExprAnonCid  → Key ExprAnon
-  | const_anon  : ConstAnonCid → Key ConstAnon
-  | univ_meta   : UnivMetaCid  → Key UnivMeta
-  | expr_meta   : ExprMetaCid  → Key ExprMeta
-  | const_meta  : ConstMetaCid → Key ConstMeta
+  | univ_anon   : Ipld.UnivCid .Anon  → Key (Ipld.Univ .Anon)
+  | expr_anon   : Ipld.ExprCid .Anon  → Key (Ipld.Expr .Anon)
+  | const_anon  : Ipld.ConstCid .Anon  → Key (Ipld.Const .Anon)
+  | univ_meta   : Ipld.UnivCid .Meta  → Key (Ipld.Univ .Meta)
+  | expr_meta   : Ipld.ExprCid .Meta  → Key (Ipld.Expr .Meta)
+  | const_meta  : Ipld.ConstCid .Meta  → Key (Ipld.Const .Meta)
 
 def Key.find? : (key : Key A) → ConvertM (Option A)
   | .univ_cache  univ  => do pure $ (← get).univ_cache.find? univ
@@ -79,8 +79,8 @@ def Key.store : (Key A) → A → ConvertM Unit
   | _, _ => throw .cannotStoreValue
 
 def getInductive : (b : Bool) →
-    (if b then Yatima.ConstAnon else Yatima.ConstMeta) → Nat →
-      ConvertM (if b then Yatima.InductiveAnon else Yatima.InductiveMeta)
+    (if b then Ipld.Const .Anon else Ipld.Const .Meta) → Nat →
+      ConvertM (if b then Ipld.Inductive .Anon else Ipld.Inductive .Meta)
   | .true, .mutIndBlock inds, idx => pure $ inds.get! idx
   | .false, .mutIndBlock inds, idx => pure $ inds.get! idx
   | _, _, _ => throw .ipldError
@@ -97,8 +97,11 @@ def List.zipWithError [Monad m] [MonadExcept ε m] (e : ε) (f : α → β → m
   | [], []     => pure []
   | _, _     => throw e
 
+instance : Coe (Split A B .true) A where coe  := Split.proj₁
+instance : Coe (Split A B .false) B where coe := Split.proj₂
+
 -- Conversion functions
-partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) :
+partial def univFromIpld (anonCid : Ipld.UnivCid .Anon) (metaCid : Ipld.UnivCid .Meta) :
     ConvertM Univ := do
   let cid := .mk anonCid metaCid
   match ← Key.find? $ .univ_cache $ cid with
@@ -115,26 +118,26 @@ partial def univFromIpld (anonCid : UnivAnonCid) (metaCid : UnivMetaCid) :
       | (.imax univAnon₁ univAnon₂, .imax univMeta₁ univMeta₂) =>
         pure $ .imax (← univFromIpld univAnon₁ univMeta₁)
           (← univFromIpld univAnon₂ univMeta₂)
-      | (.param idx, .param nam) => pure $ .var nam idx
+      | (.param () idx, .param nam ()) => pure $ .var nam idx
       | _ => throw .anonMetaMismatch
     Key.store (.univ_cache cid) univ
     return univ
   | some univ => return univ
 
-partial def univsFromIpld (anonCids : List UnivAnonCid)
-  (metaCids : List UnivMetaCid) :
+partial def univsFromIpld (anonCids : List (Ipld.UnivCid .Anon))
+  (metaCids : List (Ipld.UnivCid .Meta)) :
     ConvertM (List Univ) :=
   List.zipWithError .anonMetaMismatch univFromIpld anonCids metaCids
 
-def inductiveIsUnit (ind : InductiveAnon) : Bool :=
-  if ind.recr || ind.indices != 0 then false
+def inductiveIsUnit (ind : Ipld.Inductive .Anon) : Bool :=
+  if ind.recr || ind.indices.proj₁ != 0 then false
   else match ind.ctors with
-    | [ctor] => ctor.fields != 0
+    | [ctor] => ctor.fields.proj₁ != 0
     | _ => false
 
 mutual
 
-  partial def exprFromIpld (anonCid : ExprAnonCid) (metaCid : ExprMetaCid) :
+  partial def exprFromIpld (anonCid : Ipld.ExprCid .Anon) (metaCid : Ipld.ExprCid .Meta) :
       ConvertM Expr := do
     let cid := .mk anonCid metaCid
     match ← Key.find? $ .expr_cache $ cid with
@@ -143,10 +146,10 @@ mutual
       let anon ← Key.find $ .expr_anon anonCid
       let meta ← Key.find $ .expr_meta metaCid
       let expr ← match (anon, meta) with
-      | (.var idx, .var name) => pure $ .var anonCid name idx
+      | (.var () idx, .var name ()) => pure $ .var anonCid name idx
       | (.sort uAnonCid, .sort uMetaCid) =>
         pure $ .sort anonCid (← univFromIpld uAnonCid uMetaCid)
-      | (.const cAnonCid uAnonCids, .const name cMetaCid uMetaCids) =>
+      | (.const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids) =>
         let const ← constFromIpld cAnonCid cMetaCid
         let univs ← List.zipWithError .anonMetaMismatch univFromIpld
           uAnonCids uMetaCids
@@ -155,32 +158,32 @@ mutual
         let fnc ← exprFromIpld fncAnon fncMeta
         let arg ← exprFromIpld argAnon argMeta
         pure $ .app anonCid fnc arg
-      | (.lam domAnon bodAnon, .lam name binfo domMeta bodMeta) =>
+      | (.lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta) =>
         let dom ← exprFromIpld domAnon domMeta
         let bod ← exprFromIpld bodAnon bodMeta
         pure $ .lam anonCid name binfo dom bod
-      | (.pi domAnon codAnon, .pi name binfo domMeta codMeta) =>
+      | (.pi () binfo domAnon codAnon, .pi name () domMeta codMeta) =>
         let dom ← exprFromIpld domAnon domMeta
         let cod ← exprFromIpld codAnon codMeta
         pure $ .pi anonCid name binfo dom cod
-      | (.letE typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta) =>
+      | (.letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta) =>
         let typ ← exprFromIpld typAnon typMeta
         let val ← exprFromIpld valAnon valMeta
         let bod ← exprFromIpld bodAnon bodMeta
         pure $ .letE anonCid name typ val bod
-      | (.lit lit, .lit) => pure $ .lit anonCid lit
-      | (.lty lty, .lty) => pure $ .lty anonCid lty
-      | (.fix bodAnon, .fix name bodMeta) =>
+      | (.lit lit, .lit ()) => pure $ .lit anonCid lit
+      | (.lty lty, .lty ()) => pure $ .lty anonCid lty
+      | (.fix () bodAnon, .fix name bodMeta) =>
         let bod ← exprFromIpld bodAnon bodMeta
         pure $ .fix anonCid name bod
-      | (.proj idx bodAnon, .proj _ bodMeta) =>
+      | (.proj idx bodAnon, .proj () bodMeta) =>
         let bod ← exprFromIpld bodAnon bodMeta
         pure $ .proj anonCid idx bod
       | _ => throw .anonMetaMismatch
       Key.store (.expr_cache cid) expr
       return expr
 
-  partial def constFromIpld (anonCid : ConstAnonCid) (metaCid : ConstMetaCid) :
+  partial def constFromIpld (anonCid : Ipld.ConstCid .Anon) (metaCid : Ipld.ConstCid .Meta) :
       ConvertM Const := do
     let cid := .mk anonCid metaCid
     match ← Key.find? $ .const_cache $ cid with
@@ -256,9 +259,9 @@ mutual
         let motives := recursorAnon.motives
         let minors := recursorAnon.minors
         let k := recursorAnon.k
-        let casesExtInt : (b₁ : Bool) → (b₂ : Bool) → (RecursorAnon b₁) → (RecursorMeta b₂) → ConvertM Const 
-        | .true, .true, _, _ => pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
-        | .false, .false, recAnon, recMeta => do
+        let casesExtInt : (b₁ : RecType) → (b₂ : RecType) → (Ipld.Recursor .Anon b₁) → (Ipld.Recursor .Meta b₂) → ConvertM Const 
+        | .Intr, .Intr, _, _ => pure $ .intRecursor anonCid { name, lvls, type, params, indices, motives, minors, k }
+        | .Extr, .Extr, recAnon, recMeta => do
           let rules ← List.zipWithError .anonMetaMismatch ruleFromIpld recAnon.rules recMeta.rules
           pure $ .extRecursor anonCid { name, lvls, type, params, indices, motives, minors, rules, k }
         | _, _, _, _ => throw .ipldError
@@ -273,14 +276,14 @@ mutual
       Key.store (.const_cache cid) const
       return const
 
-  partial def ctorFromIpld (ctorAnon : ConstructorAnon)
-      (ctorMeta : ConstructorMeta) : ConvertM (Constructor Expr) := do
+  partial def ctorFromIpld (ctorAnon : Ipld.Constructor .Anon)
+      (ctorMeta : Ipld.Constructor .Meta) : ConvertM (Constructor Expr) := do
     let type ← exprFromIpld ctorAnon.type ctorMeta.type
     let rhs ← exprFromIpld ctorAnon.rhs ctorMeta.rhs
     pure { name := ctorMeta.name, type, params := ctorAnon.params, fields := ctorAnon.fields, rhs }
 
-  partial def ruleFromIpld (ruleAnon : RecursorRuleAnon)
-      (ruleMeta : RecursorRuleMeta) : ConvertM (RecursorRule Expr) := do
+  partial def ruleFromIpld (ruleAnon : Ipld.RecursorRule .Anon)
+      (ruleMeta : Ipld.RecursorRule .Meta) : ConvertM (RecursorRule Expr) := do
     let rhs ← exprFromIpld ruleAnon.rhs ruleMeta.rhs
     pure $ { rhs, ctor := ruleAnon.ctor, fields := ruleAnon.fields }
 

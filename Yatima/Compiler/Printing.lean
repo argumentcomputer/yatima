@@ -73,10 +73,7 @@ instance : ToString Ordering where toString
 
 def isProp (expr : Expr) : CompileM Bool := do
   match expr with
-  | .sort cid =>
-    match (← get).store.univ_cache.find? cid with
-    | some Univ.zero => return true
-    | _ => return false
+  | .sort Univ.zero => return true
   | _ => return false
 
 def isAtomAux : Expr → Bool
@@ -161,15 +158,15 @@ partial def printRecursorRule (b : Bool) : (if b then Constructor else RecursorR
     let rhs ← getExpr ctor.rhs ctor.name
     return s!"{ctor.name} {ctor.fields} {← printExpr rhs}"
 
-partial def printRecursor (cid : String)(ind : Inductive) (b : Bool) : Recursor b → CompileM String :=
+partial def printRecursor (cid : String) (ind : Inductive) (b : RecType) : Recursor b → CompileM String :=
   match b with
-  | .false => fun recr => do
+  | .Extr => fun recr => do
     let type ← getExpr recr.type recr.name
-    let rules ← recr.rules.mapM $ printRecursorRule .false
+    let rules ← recr.rules.proj₂.mapM $ printRecursorRule .false
     return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
             s!"external\n" ++
             s!"Rules:\n{rules}"
-  | .true => fun recr => do
+  | .Intr => fun recr => do
     let type ← getExpr recr.type recr.name
     let rules ← ind.ctors.mapM $ printRecursorRule .true
     return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
