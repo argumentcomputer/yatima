@@ -140,33 +140,33 @@ inductive Const (k : Kind) where
   | mutIndBlock : List (Inductive k) → Const k
 end Ipld
 
-structure Axiom (Expr : Type) where
+structure Axiom' (Expr : Type) where
   name : Name
   lvls : List Name
   type : Expr
   safe : Bool
 
-structure Theorem (Expr : Type) where
+structure Theorem' (Expr : Type) where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
 
-structure Opaque (Expr : Type) where
+structure Opaque' (Expr : Type) where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
   safe  : Bool
 
-structure Definition (Expr : Type) where
+structure Definition' (Expr : Type) where
   name   : Name
   lvls   : List Name
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
 
-structure Constructor (Expr : Type) where
+structure Constructor' (Expr : Type) where
   name   : Name
   lvls   : List Name
   type   : Expr
@@ -176,24 +176,24 @@ structure Constructor (Expr : Type) where
   rhs    : Expr
   safe   : Bool
 
-structure Inductive (Expr : Type) where
+structure Inductive' (Expr : Type) where
   name    : Name
   lvls    : List Name
   type    : Expr
   params  : Nat
   indices : Nat
-  ctors   : List (Constructor Expr)
+  ctors   : List (Constructor' Expr)
   recr    : Bool
   safe    : Bool
   refl    : Bool
   unit    : Bool
 
-structure RecursorRule (Expr : Type) where
+structure RecursorRule' (Expr : Type) where
   ctor   : Ipld.ConstCid .Anon
   fields : Nat
   rhs    : Expr
 
-structure ExtRecursor (Expr : Type) where
+structure ExtRecursor' (Expr : Type) where
   name    : Name
   lvls    : List Name
   type    : Expr
@@ -201,10 +201,10 @@ structure ExtRecursor (Expr : Type) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List (RecursorRule Expr)
+  rules   : List (RecursorRule' Expr)
   k       : Bool
 
-structure IntRecursor (Expr : Type) where
+structure IntRecursor' (Expr : Type) where
   name    : Name
   lvls    : List Name
   type    : Expr
@@ -214,7 +214,7 @@ structure IntRecursor (Expr : Type) where
   minors  : Nat
   k       : Bool
 
-structure Quotient (Expr : Type) where
+structure Quotient' (Expr : Type) where
   name : Name
   lvls : List Name
   type : Expr
@@ -230,15 +230,15 @@ inductive BinderInfo
 
 mutual
 inductive Const
-  | «axiom»     : Axiom Expr → Const
-  | «theorem»   : Theorem Expr → Const
-  | «inductive» : Inductive Expr → Const
-  | «opaque»    : Opaque Expr → Const
-  | definition  : Definition Expr → Const
-  | constructor : Constructor Expr → Const
-  | extRecursor : ExtRecursor Expr → Const
-  | intRecursor : IntRecursor Expr → Const
-  | quotient    : Quotient Expr → Const
+  | «axiom»     : Axiom' Expr → Const
+  | «theorem»   : Theorem' Expr → Const
+  | «inductive» : Inductive' Expr → Const
+  | «opaque»    : Opaque' Expr → Const
+  | definition  : Definition' Expr → Const
+  | constructor : Constructor' Expr → Const
+  | extRecursor : ExtRecursor' Expr → Const
+  | intRecursor : IntRecursor' Expr → Const
+  | quotient    : Quotient' Expr → Const
 
 inductive Expr
   | var   : Name → Nat → Expr
@@ -254,22 +254,33 @@ inductive Expr
   | proj  : Nat → Expr → Expr
 end
 
-def Definition.toIpld {k : Ipld.Kind} (d : Definition Expr) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
+def Axiom := Axiom' Expr
+def Theorem := Theorem' Expr
+def Inductive := Inductive' Expr
+def Opaque := Opaque' Expr
+def Definition := Definition' Expr
+def Constructor := Constructor' Expr
+def RecursorRule := RecursorRule' Expr
+def ExtRecursor := ExtRecursor' Expr
+def IntRecursor := IntRecursor' Expr
+def Quotient := Quotient' Expr
+
+def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Constructor.toIpld {k : Ipld.Kind} (c : Constructor Expr) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
+def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
 match k with
   | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.params, c.fields, rhsCid.anon⟩
   | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), rhsCid.meta⟩
 
-def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule Expr) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
+def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
 match k with
   | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
-def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor Expr) (typeCid : ExprCid) (rulesCids : List (ConstCid × ExprCid)) : Ipld.Recursor k .Extr :=
+def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List (ConstCid × ExprCid)) : Ipld.Recursor k .Extr :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -289,7 +300,7 @@ match k with
     , .inj₂ $ r.rules.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids[i]!.1 rulesCids[i]!.2
     , ()⟩
 
-def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor Expr) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
+def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -309,7 +320,7 @@ match k with
     , .inj₁ ()
     , ()⟩
 
-def Inductive.toIpld {k : Ipld.Kind} (i : Inductive Expr) (typeCid : ExprCid) (ctors : List (Ipld.Constructor k)) (recrs : List (Sigma (Ipld.Recursor k))) : Ipld.Inductive k :=
+def Inductive.toIpld {k : Ipld.Kind} (i : Inductive) (typeCid : ExprCid) (ctors : List (Ipld.Constructor k)) (recrs : List (Sigma (Ipld.Recursor k))) : Ipld.Inductive k :=
 match k with
   | .Anon =>
     ⟨ ()
