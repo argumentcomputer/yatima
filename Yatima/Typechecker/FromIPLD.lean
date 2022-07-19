@@ -85,8 +85,8 @@ def getInductive : (b : Bool) →
   | .false, .mutIndBlock inds, idx => pure $ inds.get! idx
   | _, _, _ => throw .ipldError
 
-def getInductiveAnon := getInductive True
-def getInductiveMeta := getInductive False
+def getInductiveAnon := getInductive true
+def getInductiveMeta := getInductive false
 
 def List.zipWithError [Monad m] [MonadExcept ε m] (e : ε) (f : α → β → m γ) :
     List α → List β → m (List γ)

@@ -31,30 +31,6 @@ def getConst (constCid : ConstCid) : CompileM Const := do
   | some const => return const
   | none => throw "Could not find constant of cid in context"
 
-def getCtor (proj : ConstructorProj) : CompileM (Inductive × Constructor) :=
-  do match ← getConst proj.block with
-  | .mutIndBlock inds => match inds.get? proj.idx with
-    | some ind => match ind.ctors.get? proj.cidx with
-      | some ctor => return (ind, ctor)
-      | none => throw s!"malformed constructor projection '{proj.name}': cidx {proj.cidx} ≥ '{ind.ctors.length}'"
-    | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
-  | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
-
-def getRecr (proj : RecursorProj) : CompileM (Inductive × (Sigma Recursor)) :=
-  do match ← getConst proj.block with
-  | .mutIndBlock inds => match inds.get? proj.idx with
-    | some ind =>
-      match ind.recrs.get? proj.ridx with
-      | some recr => return (ind, recr)
-      | none => throw s!"malformed recursor projection '{proj.name}': ridx {proj.ridx} ≥ '{ind.recrs.length}'"
-    | none => throw s!"malformed recursor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
-  | _ => throw s!"malformed recursor projection '{proj.name}': doesn't point to an inductive block"
-
-def getExpr (exprCid : ExprCid) (name : Name) : CompileM Expr := do
-  match (← get).store.expr_cache.find? exprCid with
-  | some expr => return expr
-  | none => throw s!"Could not find type of {name} in context"
-
 def printCid (name : Name) : CompileM String := do
   let cid ← getCid name
   pure $ s!"anon: {cid.anon.data}\n" ++
@@ -73,7 +49,7 @@ instance : ToString Ordering where toString
 
 def isProp (expr : Expr) : CompileM Bool := do
   match expr with
-  | .sort Univ.zero => return true
+  | .sort _ Univ.zero => return true
   | _ => return false
 
 def isAtomAux : Expr → Bool
@@ -82,7 +58,7 @@ def isAtomAux : Expr → Bool
 
 def isAtom : Expr → CompileM Bool
   | .const .. | .var .. | .lit .. | .lty .. => return true
-  | .proj _ e => isAtom e
+  | .proj _ _ e => isAtom e
   | e => isProp e
 
 def isBinder : Expr → Bool
@@ -90,7 +66,7 @@ def isBinder : Expr → Bool
   | _ => false
 
 def isArrow : Expr → Bool
-  | .pi name bInfo _ body =>
+  | .pi _ name bInfo _ body =>
     !(body.getBVars.contains name) && bInfo == .default
   | _ => false
 
@@ -109,8 +85,8 @@ mutual
 
   partial def printBinding (isPi : Bool) (e : Expr) : CompileM String := do
     match e, isArrow e, isPi with
-    | .pi name bInfo type body, false, true
-    | .lam name bInfo type body, _, false =>
+    | .pi _ name bInfo type body, false, true
+    | .lam _ name bInfo type body, _, false =>
       return s!" {printBinder name bInfo (← printExpr type)}" ++
              (← printBinding isPi body)
     | _, _, _ =>
@@ -121,125 +97,95 @@ mutual
     if (← isAtom e) then printExpr e
     else return s!"({← printExpr e})"
 
-  partial def printExpr : Expr → CompileM String
-    | .var name _ => return s!"{name}"
-    | .sort _ => return "Sort"
-    | .const name .. => return s!"{name}"
-    | .app func body =>
+  partial def printExpr (e : Expr) : CompileM String := match e with
+    | .var _ name _ => return s!"{name}"
+    | .sort _ _ => return "Sort"
+    | .const _ name .. => return s!"{name}"
+    | .app _ func body =>
       return s!"{← printApp func body}"
-    | .lam name bInfo type body =>
-      return s!"λ{← printBinding false (.lam name bInfo type body)}"
-    | .pi name bInfo type body => do
+    | .lam .. =>
+      return s!"λ{← printBinding false e}"
+    | .pi _ name bInfo type body => do
       let arrow := (!body.getBVars.contains name || name == "") && bInfo == .default
       if !arrow then
-        return s!"Π{← printBinding true (.pi name bInfo type body)}"
+        return s!"Π{← printBinding true e}"
       else
         return s!"{← paren type} -> " ++
           if isArrow body then ← printExpr body else ← paren body
-    | .letE name type value body =>
+    | .letE _ name type value body =>
       return s!"let {name} : {← printExpr type} := {← printExpr value} in {← printExpr body}"
-    | .lit lit => return match lit with
+    | .lit _ lit => return match lit with
       | .nat num => s!"{num}"
       | .str str => s!"\"{str}\""
-    | .lty lty => return match lty with
+    | .lty _ lty => return match lty with
       | .nat => "Nat"
       | .str => "String"
-    | .fix name body => return s!"(μ {name} {← printExpr body})"
-    | .proj idx expr => return s!"{← paren expr}.{idx})"
+    | .fix _ name body => return s!"(μ {name} {← printExpr body})"
+    | .proj _ idx expr => return s!"{← paren expr}.{idx})"
 end
 
-partial def printRecursorRule (b : Bool) : (if b then Constructor else RecursorRule) → CompileM String :=
-  match b with
-  | .false => fun rule => do
-    let ctor := (← getConst rule.ctor).name
-    let rhs ← getExpr rule.rhs ctor
-    return s!"{ctor} {rule.fields} {← printExpr rhs}"
-  | .true => fun ctor => do
-    let rhs ← getExpr ctor.rhs ctor.name
-    return s!"{ctor.name} {ctor.fields} {← printExpr rhs}"
+partial def printRecursorRule (rule : RecursorRule Expr) : CompileM String := do
+  let ctorName := (← getConst rule.ctor).name
+  return s!"{ctorName} {rule.fields} {← printExpr rule.rhs}"
 
-partial def printRecursor (cid : String) (ind : Inductive) (b : RecType) : Recursor b → CompileM String :=
-  match b with
-  | .Extr => fun recr => do
-    let type ← getExpr recr.type recr.name
-    let rules ← recr.rules.proj₂.mapM $ printRecursorRule .false
-    return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
-            s!"external\n" ++
-            s!"Rules:\n{rules}"
-  | .Intr => fun recr => do
-    let type ← getExpr recr.type recr.name
-    let rules ← ind.ctors.mapM $ printRecursorRule .true
-    return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
-            s!"internal\n" ++
-            s!"Rules:\n{rules}"
+partial def printConstructorRule (ctor : Constructor Expr) : CompileM String := do
+  return s!"{ctor.name} {ctor.fields} {← printExpr ctor.rhs}"
 
-partial def printConstructors (ctors : List Constructor) : CompileM String := do
+partial def printIntRecursor (cid : String) (ind : Inductive Expr) (recr : IntRecursor Expr) : CompileM String := do
+  let rules ← ind.ctors.mapM $ printConstructorRule
+  return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr recr.type}\n" ++
+          s!"internal\n" ++
+          s!"Rules:\n{rules}"
+
+partial def printExtRecursor (cid : String) (ind : Inductive Expr) (recr : ExtRecursor Expr) : CompileM String := do
+  let rules ← recr.rules.mapM $ printRecursorRule
+  return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr recr.type}\n" ++
+          s!"external\n" ++
+          s!"Rules:\n{rules}"
+
+partial def printConstructors (ctors : List (Constructor Expr)) : CompileM String := do
   let ctors ← ctors.mapM fun ctor => do
-    return s!"| {ctor.name} : {← printExpr (← getExpr ctor.type ctor.name)}"
+    pure s!"| {ctor.name} : {← printExpr ctor.type}"
   return "\n".intercalate ctors
 
-partial def printInductive (ind : Inductive) : CompileM String := do
-  let type ← getExpr ind.type ind.name
-  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr type}"
+partial def printInductive (ind : Inductive Expr) : CompileM String := do
+  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type}"
   return s!"{indHeader}\n{← printConstructors ind.ctors}"
 
-partial def printDefinition (defn : Definition) : CompileM String := do
-  let type ← getExpr defn.type defn.name
-  let value ← getExpr defn.value defn.name
-  return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
-          s!"  {← printExpr value}"
+partial def printDefinition (defn : Definition Expr) : CompileM String := do
+  return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr defn.type} :=\n" ++
+          s!"  {← printExpr defn.value}"
 
 partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String := do
   let cid :=
     if cids? then ← printCid const.name
     else ""
   match const with
-  | .axiom ax => do
-    let type ← getExpr ax.type ax.name
-    return s!"{cid}{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
-  | .theorem thm => do
-    let type ← getExpr thm.type thm.name
-    let value ← getExpr thm.value thm.name
-    return s!"{cid}theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
-            s!"  {← printExpr value}"
-  | .opaque opaq => do
-    let type ← getExpr opaq.type opaq.name
-    let value ← getExpr opaq.value opaq.name
-    return s!"{cid}{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
-            s!"  {← printExpr value}"
-  | .quotient quot => do
-    let type ← getExpr quot.type quot.name
-    return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
+  | .axiom _ ax => do
+    return s!"{cid}{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr ax.type}"
+  | .theorem _ thm => do
+    return s!"{cid}theorem {thm.name} {thm.lvls} : {← printExpr thm.type} :=\n" ++
+            s!"  {← printExpr thm.value}"
+  | .opaque _ opaq => do
+    return s!"{cid}{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr opaq.type} :=\n" ++
+            s!"  {← printExpr opaq.value}"
+  | .quotient _ quot => do
+    return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr quot.type} :=\n" ++
             s!"  {quot.kind}"
-  | .definition defn => return s!"{cid}{← printDefinition defn}"
-  | .inductiveProj proj => do match ← getConst proj.block with
-    | .mutIndBlock inds => match inds.get? proj.idx with
-      | some ind => return s!"{cid}{← printInductive ind}"
-      | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
-    | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
-  | .constructorProj proj => do
-    let (ind, ctor) ← getCtor proj
-    let type ← getExpr ctor.type ctor.name
-    return s!"{cid}{printIsSafe ind.safe}constructor {ctor.name} {ind.lvls} : {← printExpr type}"
-  | .recursorProj proj => do
-    let (ind, recr) ← getRecr proj
-    printRecursor cid ind recr.fst recr.snd
-  | .definitionProj proj => do match ← getConst proj.block with
-    | .mutDefBlock defs => match defs.get? proj.idx with
-      | some ds => match ds.find? (fun d => d.name == proj.name) with
-        | some d => return s!"{cid}{← printDefinition d}"
-        | none => throw s!"malformed definition projection '{proj.name}' not in weakly equal block '{proj.idx}'"
-      | none => throw s!"malformed definition projection '{proj.name}' idx {proj.idx} ≥ '{defs.length}'"
-    | _ => throw s!"malformed definition projection '{proj.name}': doesn't point to an definition block"
-  -- these two will never happen
-  | .mutDefBlock _ => do
-    throw s!"Unreachable call to print mutual pointer was reached"
-    -- let defStrings ← dss.join.mapM printDefinition
-    -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
-  | .mutIndBlock _ => do
-    throw s!"Unreachable call to print mutual pointer was reached"
-    -- let defStrings ← inds.mapM printInductive
-    -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
+  | .definition _ defn => return s!"{cid}{← printDefinition defn}"
+  | .inductive _ ind => return s!"{cid}{← printInductive ind}"
+  | .constructor _ ctor => do
+    match ← getConst ctor.ind with
+    | .inductive _ ind => pure $ s!"{cid}{printIsSafe ind.safe}constructor {ctor.name} {ind.lvls} : {← printExpr ctor.type}"
+    | _ => throw s!"malformed constructor '{ctor.name}': doesn't point to an inductive"
+  | .intRecursor _ recr =>
+    match ← getConst recr.ind with
+    | .inductive _ ind => printIntRecursor cid ind recr
+    | _ => throw s!"malformed constructor '{recr.name}': doesn't point to an inductive"
+  | .extRecursor _ recr =>
+    match ← getConst recr.ind with
+    | .inductive _ ind => printExtRecursor cid ind recr
+    | _ => throw s!"malformed constructor '{recr.name}': doesn't point to an inductive"
 
 end Yatima.Compiler.PrintYatima
 

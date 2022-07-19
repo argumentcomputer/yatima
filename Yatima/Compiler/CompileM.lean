@@ -57,28 +57,7 @@ def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx⟩
 
-inductive StoreEntry
-  | univ_cache  : UnivCid × Univ                             → StoreEntry
-  | expr_cache  : ExprCid × Expr                             → StoreEntry
-  | const_cache : ConstCid × Const                           → StoreEntry
-  | univ_anon   : (Ipld.UnivCid .Anon) × (Ipld.Univ .Anon)   → StoreEntry
-  | expr_anon   : (Ipld.ExprCid .Anon) × (Ipld.Expr .Anon)   → StoreEntry
-  | const_anon  : (Ipld.ConstCid .Anon) × (Ipld.Const .Anon) → StoreEntry
-  | univ_meta   : (Ipld.UnivCid .Meta) × (Ipld.Univ .Meta)   → StoreEntry
-  | expr_meta   : (Ipld.ExprCid .Meta) × (Ipld.Expr .Meta)   → StoreEntry
-  | const_meta  : (Ipld.ConstCid .Meta) × (Ipld.Const .Meta) → StoreEntry
-
-instance : Coe (UnivCid × Univ) StoreEntry where coe := .univ_cache
-instance : Coe (ExprCid × Expr) StoreEntry where coe := .expr_cache
-instance : Coe (ConstCid × Const) StoreEntry where coe := .const_cache
-instance : Coe ((Ipld.UnivCid .Anon) × (Ipld.Univ .Anon)) StoreEntry where coe := .univ_anon
-instance : Coe ((Ipld.ExprCid .Anon) × (Ipld.Expr .Anon)) StoreEntry where coe := .expr_anon
-instance : Coe ((Ipld.ConstCid .Anon) × (Ipld.Const .Anon)) StoreEntry where coe := .const_anon
-instance : Coe ((Ipld.UnivCid .Meta) × (Ipld.Univ .Meta)) StoreEntry where coe := .univ_meta
-instance : Coe ((Ipld.ExprCid .Meta) × (Ipld.Expr .Meta)) StoreEntry where coe := .expr_meta
-instance : Coe ((Ipld.ConstCid .Meta) × (Ipld.Const .Meta)) StoreEntry where coe := .const_meta
-
-def addToStore (y : StoreEntry) : CompileM Unit := do
+def addToStore (y : Store.Entry) : CompileM Unit := do
   let stt ← get
   let store := stt.store
   match y with
