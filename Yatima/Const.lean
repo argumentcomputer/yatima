@@ -264,28 +264,28 @@ inductive Expr
   | proj  : Nat → Expr → Expr
 end
 
-def Axiom := Axiom' Expr
-def Theorem := Theorem' Expr
-def Inductive := Inductive' Expr
-def Opaque := Opaque' Expr
-def Definition := Definition' Expr
-def Constructor := Constructor' Expr
-def RecursorRule := RecursorRule' Expr
-def ExtRecursor := ExtRecursor' Expr
-def IntRecursor := IntRecursor' Expr
-def Quotient := Quotient' Expr
+abbrev Axiom := Axiom' Expr
+abbrev Theorem := Theorem' Expr
+abbrev Inductive := Inductive' Expr
+abbrev Opaque := Opaque' Expr
+abbrev Definition := Definition' Expr
+abbrev Constructor := Constructor' Expr
+abbrev RecursorRule := RecursorRule' Expr
+abbrev ExtRecursor := ExtRecursor' Expr
+abbrev IntRecursor := IntRecursor' Expr
+abbrev Quotient := Quotient' Expr
 
-def Opaque.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
+def Opaque'.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
+def Quotient'.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
+def Axiom'.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
