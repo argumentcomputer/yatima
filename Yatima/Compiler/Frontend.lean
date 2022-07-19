@@ -353,7 +353,6 @@ mutual
     match const with
     | .axiomInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
-      addToStore (typeCid, type)
       addToStoreAndCache $ .axiom {
         name := struct.name
         lvls := struct.levelParams
@@ -361,7 +360,6 @@ mutual
         safe := not struct.isUnsafe }
     | .thmInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
-      addToStore (typeCid, type)
       withRecrs (RBMap.single struct.name 0) do
         let (valueCid, value) ← addFix struct.name <$> toYatimaExpr struct.value
         addToStore (valueCid, value)
@@ -372,7 +370,6 @@ mutual
           value := valueCid }
     | .opaqueInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
-      addToStore (typeCid, type)
       withRecrs (RBMap.single struct.name 0) do
         let (valueCid, value) ← addFix struct.name <$> toYatimaExpr struct.value
         addToStore (valueCid, value)
@@ -384,7 +381,6 @@ mutual
           safe  := not struct.isUnsafe }
     | .quotInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
-      addToStore (typeCid, type)
       addToStoreAndCache $ .quotient {
         name := struct.name
         lvls := struct.levelParams

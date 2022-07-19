@@ -22,10 +22,10 @@ instance [Ord A] [Ord B] : Ord (Split A B k) where
     | .inj₁ a, .inj₁ b => compare a b
     | .inj₂ a, .inj₂ b => compare a b
     
-def Split.proj₁ : Split A B True → A
+def Split.proj₁ : Split A B true → A
   | .inj₁ a => a
     
-def Split.proj₂ : Split A B False → B
+def Split.proj₂ : Split A B false → B
   | .inj₂ b => b
 
 instance : Coe A (Split A B .true) where coe  := .inj₁

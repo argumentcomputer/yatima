@@ -1,6 +1,6 @@
 import Yatima.Kind
+import Yatima.Univ
 import Yatima.Name
-import Yatima.Expr
 
 namespace Yatima
 
@@ -140,250 +140,201 @@ inductive Const (k : Kind) where
   | mutIndBlock : List (Inductive k) → Const k
 end Ipld
 
-structure Axiom where
+structure Axiom (Expr : Type) where
   name : Name
   lvls : List Name
-  type : ExprCid
+  type : Expr
   safe : Bool
 
-structure Theorem where
+structure Theorem (Expr : Type) where
   name  : Name
   lvls  : List Name
-  type  : ExprCid
-  value : ExprCid
+  type  : Expr
+  value : Expr
 
-structure Opaque where
+structure Opaque (Expr : Type) where
   name  : Name
   lvls  : List Name
-  type  : ExprCid
-  value : ExprCid
+  type  : Expr
+  value : Expr
   safe  : Bool
 
-structure Definition where
+structure Definition (Expr : Type) where
   name   : Name
   lvls   : List Name
-  type   : ExprCid
-  value  : ExprCid
+  type   : Expr
+  value  : Expr
   safety : DefinitionSafety
 
-structure DefinitionProj where
-  name  : Name
-  lvls  : List Name
-  type  : ExprCid
-  block : ConstCid
-  idx   : Nat
-
-structure Constructor where
+structure Constructor (Expr : Type) where
   name   : Name
   lvls   : List Name
-  type   : ExprCid
+  type   : Expr
+  idx    : Nat
   params : Nat
   fields : Nat
-  rhs    : ExprCid
+  rhs    : Expr
+  safe   : Bool
 
-structure RecursorRule where
-  ctor   : ConstCid
-  fields : Nat
-  rhs    : ExprCid
-
-structure Recursor (b : RecType) where
+structure Inductive (Expr : Type) where
   name    : Name
   lvls    : List Name
-  type    : ExprCid
+  type    : Expr
+  params  : Nat
+  indices : Nat
+  ctors   : List (Constructor Expr)
+  recr    : Bool
+  safe    : Bool
+  refl    : Bool
+  unit    : Bool
+
+structure RecursorRule (Expr : Type) where
+  ctor   : Ipld.ConstCid .Anon
+  fields : Nat
+  rhs    : Expr
+
+structure Recursor (Expr : Type) (b : RecType) where
+  name    : Name
+  lvls    : List Name
+  type    : Expr
   params  : Nat
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : Split Unit (List RecursorRule) b
+  rules   : Split Unit (List (RecursorRule Expr)) b
   k       : Bool
 
-structure Inductive where
-  name     : Name
-  lvls     : List Name
-  type     : ExprCid
-  params   : Nat
-  indices  : Nat
-  ctors    : List Constructor
-  recrs    : List (Sigma Recursor)
-  recr     : Bool
-  safe     : Bool
-  refl     : Bool
-
-structure InductiveProj where
+structure IntRecursor (Expr : Type) where
   name    : Name
   lvls    : List Name
-  type    : ExprCid
-  block   : ConstCid
-  idx     : Nat
+  type    : Expr
+  params  : Nat
+  indices : Nat
+  motives : Nat
+  minors  : Nat
+  k       : Bool
 
-structure ConstructorProj where
-  name    : Name
-  lvls    : List Name
-  type    : ExprCid
-  block   : ConstCid
-  idx     : Nat
-  cidx    : Nat
-
-structure RecursorProj where
-  name    : Name
-  lvls    : List Name
-  type    : ExprCid
-  block   : ConstCid
-  idx     : Nat
-  ridx    : Nat
-
-structure Quotient where
+structure Quotient (Expr : Type) where
   name : Name
   lvls : List Name
-  type : ExprCid
+  type : Expr
   kind : QuotKind
 
-inductive Const where
-  -- standalone constants
-  | «axiom»     : Axiom → Const
-  | «theorem»   : Theorem → Const
-  | «opaque»    : Opaque → Const
-  | quotient    : Quotient → Const
-  | definition  : Definition → Const
-  -- projections of mutual blocks
-  | inductiveProj   : InductiveProj → Const
-  | constructorProj : ConstructorProj → Const
-  | recursorProj    : RecursorProj → Const
-  | definitionProj  : DefinitionProj → Const
-  -- constants to represent mutual blocks
-  | mutDefBlock : List (List (Definition)) → Const
-  | mutIndBlock : List (Inductive) → Const
+inductive BinderInfo
+  | default
+  | implicit
+  | strictImplicit
+  | instImplicit
+  | auxDecl
+  deriving BEq, Inhabited
 
-def Definition.toIpld : {k : Ipld.Kind} → Definition → Ipld.Definition k
-  | .Anon, d => ⟨(), d.lvls.length, d.type.anon, d.value.anon, d.safety⟩
-  | .Meta, d => ⟨d.name, d.lvls, d.type.meta, d.value.meta, ()⟩
+mutual
+unsafe inductive Const
+  | «axiom»     : Axiom Expr → Const
+  | «theorem»   : Theorem Expr → Const
+  | «inductive» : Inductive Expr → Const
+  | «opaque»    : Opaque Expr → Const
+  | definition  : Definition Expr → Const
+  | constructor : Constructor Expr → Const
+  | extRecursor : Recursor Expr .Extr → Const
+  | intRecursor : Recursor Expr .Intr → Const
+  | quotient    : Quotient Expr → Const
 
-def Constructor.toIpld : {k : Ipld.Kind} → Constructor → Ipld.Constructor k
-  | .Anon, x => ⟨(), x.lvls.length, x.type.anon, x.params, x.fields, x.rhs.anon⟩
-  | .Meta, x => ⟨x.name, x.lvls, x.type.meta, (), (), x.rhs.meta⟩
+unsafe inductive Expr
+  | var   : Name → Nat → Expr
+  | sort  : Univ → Expr
+  | const : Name → Const → List Univ → Expr
+  | app   : Expr → Expr → Expr
+  | lam   : Name → BinderInfo → Expr → Expr → Expr
+  | pi    : Name → BinderInfo → Expr → Expr → Expr
+  | letE  : Name → Expr → Expr → Expr → Expr
+  | lit   : Literal → Expr
+  | lty   : LitType → Expr
+  | fix   : Name → Expr → Expr
+  | proj  : Nat → Expr → Expr
+end
 
-def RecursorRule.toIpld : {k : Ipld.Kind} → RecursorRule → Ipld.RecursorRule k
-  | .Anon, x => ⟨x.ctor.anon, x.fields, x.rhs.anon⟩
-  | .Meta, x => ⟨x.ctor.meta, (), x.rhs.meta⟩
+unsafe def Definition.toIpld {k : Ipld.Kind} (d : Definition Expr) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Recursor.toIpld : {k : Ipld.Kind} → Recursor b → Ipld.Recursor k b
-  | .Anon, x =>
+unsafe def Constructor.toIpld {k : Ipld.Kind} (c : Constructor Expr) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
+match k with
+  | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.params, c.fields, rhsCid.anon⟩
+  | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), rhsCid.meta⟩
+
+unsafe def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule Expr) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
+match k with
+  | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
+  | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
+
+unsafe def Recursor.toIpld {k : Ipld.Kind} (r : Recursor Expr b) (typeCid : ExprCid) (rulesCids : Split Unit (List (ConstCid × ExprCid)) b): Ipld.Recursor k b :=
+match k with 
+  | .Anon =>
     ⟨ ()
-    , x.lvls.length
-    , x.type.anon
-    , x.params
-    , x.indices
-    , x.motives
-    , x.minors
+    , r.lvls.length
+    , typeCid.anon
+    , r.params
+    , r.indices
+    , r.motives
+    , r.minors
     , match b with
       | .Intr => .intr Unit.unit
-      | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.toIpld
-    , x.k ⟩
-  | .Meta, x =>
-    ⟨ x.name
-    , x.lvls
-    , x.type.meta
+      | .Extr => .extr $ r.rules.proj₂.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids.proj₂[i]!.1 rulesCids.proj₂[i]!.2
+    , r.k ⟩
+  | .Meta =>
+    ⟨ r.name
+    , r.lvls
+    , typeCid.meta
     , (), (), (), ()
     , match b with
       | .Intr => .intr Unit.unit
-      | .Extr => .extr $ x.rules.proj₂.map $ RecursorRule.toIpld
+      | .Extr => .extr $ r.rules.proj₂.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids.proj₂[i]!.1 rulesCids.proj₂[i]!.2
     , ()⟩
 
-def Inductive.toIpld : {k : Ipld.Kind} → Inductive → Ipld.Inductive k
-  | .Anon, x =>
+unsafe def Inductive.toIpld {k : Ipld.Kind} (i : Inductive Expr) (typeCid : ExprCid) (ctors : List (Ipld.Constructor k)) (recrs : List (Sigma (Ipld.Recursor k))) : Ipld.Inductive k :=
+match k with
+  | .Anon =>
     ⟨ ()
-    , x.lvls.length
-    , x.type.anon
-    , x.params
-    , x.indices
-    , x.ctors.map (·.toIpld)
-    , x.recrs.map (fun p => .mk p.fst (Recursor.toIpld p.snd))
-    , x.recr
-    , x.safe
-    , x.refl ⟩
-  | .Meta, x =>
-    ⟨ x.name
-    , x.lvls
-    , x.type.meta
+    , i.lvls.length
+    , typeCid.anon
+    , i.params
+    , i.indices
+    , ctors
+    , recrs
+    , i.recr
+    , i.safe
+    , i.refl ⟩
+  | .Meta =>
+    ⟨ i.name
+    , i.lvls
+    , typeCid.meta
     , () , ()
-    , x.ctors.map (·.toIpld)
-    , x.recrs.map (fun p => .mk p.fst (Recursor.toIpld p.snd))
+    , ctors
+    , recrs
     , () , () , () ⟩
 
-def Const.toIpld : {k : Ipld.Kind} → Const → Ipld.Const k
-  | .Anon, .axiom a => .axiom ⟨(), a.lvls.length, a.type.anon, a.safe⟩
-  | .Meta, .axiom a => .axiom ⟨a.name, a.lvls, a.type.meta, ()⟩
-  | .Anon, .theorem t => .theorem ⟨(), t.lvls.length, t.type.anon, t.value.anon⟩
-  | .Meta, .theorem t => .theorem ⟨t.name, t.lvls, t.type.meta, t.value.meta⟩
-  | .Anon, .opaque o => .opaque ⟨(), o.lvls.length, o.type.anon, o.value.anon, o.safe⟩
-  | .Meta, .opaque o => .opaque ⟨o.name, o.lvls, o.type.meta, o.value.meta, ()⟩
-  | .Anon, .quotient q => .quotient ⟨(), q.lvls.length, q.type.anon, q.kind⟩
-  | .Meta, .quotient q => .quotient ⟨q.name, q.lvls, q.type.meta, ()⟩
-  | .Anon, .definition d => .definition d.toIpld
-  | .Meta, .definition d => .definition d.toIpld
-  | .Anon, .inductiveProj i => .inductiveProj
-    ⟨ () , i.lvls.length , i.type.anon, i.block.anon, i.idx ⟩
-  | .Meta, .inductiveProj i => .inductiveProj
-    ⟨ i.name , i.lvls , i.type.meta, i.block.meta, () ⟩
-  | .Anon, .constructorProj c => .constructorProj
-    ⟨ () , c.lvls.length , c.type.anon, c.block.anon, c.idx , c.cidx ⟩
-  | .Meta, .constructorProj c => .constructorProj
-    ⟨ c.name , c.lvls , c.type.meta, c.block.meta, () , () ⟩
-  | .Anon, .recursorProj r => .recursorProj
-    ⟨ () , r.lvls.length , r.type.anon, r.block.anon, r.idx , r.ridx ⟩
-  | .Meta, .recursorProj r => .recursorProj
-    ⟨ r.name , r.lvls , r.type.meta, r.block.meta, () , () ⟩
-  | .Anon, .definitionProj x => .definitionProj
-    ⟨ () , x.lvls.length , x.type.anon, x.block.anon, x.idx ⟩
-  | .Meta, .definitionProj x => .definitionProj
-    ⟨ x.name , x.lvls , x.type.meta, x.block.meta, () ⟩
-  | .Anon, .mutDefBlock ds => .mutDefBlock $
-    (ds.map fun ds => match ds.head? with | some d => [d] | none => []).join.map (.inj₁ ∘ Definition.toIpld)
-  | .Meta, .mutDefBlock ds => .mutDefBlock $ ds.map fun ds => .inj₂ $ ds.map $ Definition.toIpld
-  | .Anon, .mutIndBlock is => .mutIndBlock (is.map Inductive.toIpld)
-  | .Meta, .mutIndBlock is => .mutIndBlock (is.map Inductive.toIpld)
-
-def Const.lvlsAndType : Const → Option (List Name × ExprCid)
+unsafe def Const.name : Const → Name
   | .axiom           x
   | .theorem         x
   | .opaque          x
-  | .quotient        x
+  | .inductive       x
   | .definition      x
-  | .inductiveProj   x
-  | .constructorProj x
-  | .recursorProj    x
-  | .definitionProj  x => some (x.lvls, x.type)
-  | .mutDefBlock     _ => none
-  | .mutIndBlock     _ => none
+  | .constructor     x
+  | .extRecursor     x
+  | .intRecursor     x
+  | .quotient        x => x.name
 
-def Const.name : Const → Name
-  | .axiom           x
-  | .theorem         x
-  | .opaque          x
-  | .quotient        x
-  | .definition      x
-  | .inductiveProj   x
-  | .constructorProj x
-  | .recursorProj    x
-  | .definitionProj  x => x.name
-  | .mutDefBlock     x =>
-    let defs : List (List Name) := x.map (fun ds => ds.map (·.name))
-    s!"mutual definitions {defs}" -- TODO
-  | .mutIndBlock     x =>
-    let inds : List Name := x.map (·.name)
-    s!"mutual inductives {inds}" -- TODO
-
-def Const.ctorName : Const → String
+unsafe def Const.ctorName : Const → String
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
-  | .quotient        _ => "quotient"
   | .definition      _ => "definition"
-  | .inductiveProj   _ => "inductiveProj"
-  | .constructorProj _ => "constructorProj"
-  | .recursorProj    _ => "recursorProj"
-  | .definitionProj  _ => "definitionProj"
-  | .mutDefBlock     _ => "mutDefBlock"
-  | .mutIndBlock     _ => "mutIndBlock"
+  | .inductive       _ => "inductive"
+  | .constructor     _ => "constructor"
+  | .extRecursor     _ => "external recursor"
+  | .intRecursor     _ => "internal recursor"
+  | .quotient        _ => "quotient"
 
 end Yatima
