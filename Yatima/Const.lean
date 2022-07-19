@@ -140,27 +140,27 @@ inductive Const (k : Kind) where
   | mutIndBlock : List (Inductive k) → Const k
 end Ipld
 
-structure Axiom where
+structure Axiom (Expr : Type) where
   name : Name
   lvls : List Name
   type : Expr
   safe : Bool
   deriving Inhabited
 
-structure Theorem where
+structure Theorem (Expr : Type) where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
 
-structure Opaque where
+structure Opaque (Expr : Type) where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
   safe  : Bool
 
-structure Definition where
+structure Definition (Expr : Type) where
   name   : Name
   lvls   : List Name
   type   : Expr
@@ -215,7 +215,7 @@ structure IntRecursor where
   minors  : Nat
   k       : Bool
 
-structure Quotient where
+structure Quotient (Expr : Type) where
   name : Name
   lvls : List Name
   type : Expr
