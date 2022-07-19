@@ -1,5 +1,6 @@
 import Yatima.Store
-import Yatima.Compiler.Graph
+import Yatima.Compiler.Utils
+
 
 namespace Yatima.Compiler
 
@@ -28,7 +29,6 @@ def CompileState.union (s s' : CompileState) :
 
 structure CompileEnv where
   constMap : Lean.ConstMap
-  cycles   : Lean.ReferenceMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
   recrCtx  : Std.RBMap Lean.Name Nat compare
@@ -44,41 +44,41 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.cycles, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
+    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, levels, [], .empty⟩
+  withReader $ fun e => ⟨e.constMap, levels, [], .empty⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name Nat compare) : 
+def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, e.univCtx, e.bindCtx, recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.cycles, lvls, e.bindCtx, e.recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx⟩
 
-inductive YatimaStoreEntry
-  | univ_cache  : UnivCid × Univ           → YatimaStoreEntry
-  | expr_cache  : ExprCid × Expr           → YatimaStoreEntry
-  | const_cache : ConstCid × Const         → YatimaStoreEntry
-  | univ_anon   : UnivAnonCid × UnivAnon   → YatimaStoreEntry
-  | expr_anon   : ExprAnonCid × ExprAnon   → YatimaStoreEntry
-  | const_anon  : ConstAnonCid × ConstAnon → YatimaStoreEntry
-  | univ_meta   : UnivMetaCid × UnivMeta   → YatimaStoreEntry
-  | expr_meta   : ExprMetaCid × ExprMeta   → YatimaStoreEntry
-  | const_meta  : ConstMetaCid × ConstMeta → YatimaStoreEntry
+inductive StoreEntry
+  | univ_cache  : UnivCid × Univ                             → StoreEntry
+  | expr_cache  : ExprCid × Expr                             → StoreEntry
+  | const_cache : ConstCid × Const                           → StoreEntry
+  | univ_anon   : (Ipld.UnivCid .Anon) × (Ipld.Univ .Anon)   → StoreEntry
+  | expr_anon   : (Ipld.ExprCid .Anon) × (Ipld.Expr .Anon)   → StoreEntry
+  | const_anon  : (Ipld.ConstCid .Anon) × (Ipld.Const .Anon) → StoreEntry
+  | univ_meta   : (Ipld.UnivCid .Meta) × (Ipld.Univ .Meta)   → StoreEntry
+  | expr_meta   : (Ipld.ExprCid .Meta) × (Ipld.Expr .Meta)   → StoreEntry
+  | const_meta  : (Ipld.ConstCid .Meta) × (Ipld.Const .Meta) → StoreEntry
 
-instance : Coe (UnivCid × Univ) YatimaStoreEntry where coe := .univ_cache
-instance : Coe (ExprCid × Expr) YatimaStoreEntry where coe := .expr_cache
-instance : Coe (ConstCid × Const) YatimaStoreEntry where coe := .const_cache
-instance : Coe (UnivAnonCid × UnivAnon) YatimaStoreEntry where coe := .univ_anon
-instance : Coe (ExprAnonCid × ExprAnon) YatimaStoreEntry where coe := .expr_anon
-instance : Coe (ConstAnonCid × ConstAnon) YatimaStoreEntry where coe := .const_anon
-instance : Coe (UnivMetaCid × UnivMeta) YatimaStoreEntry where coe := .univ_meta
-instance : Coe (ExprMetaCid × ExprMeta) YatimaStoreEntry where coe := .expr_meta
-instance : Coe (ConstMetaCid × ConstMeta) YatimaStoreEntry where coe := .const_meta
+instance : Coe (UnivCid × Univ) StoreEntry where coe := .univ_cache
+instance : Coe (ExprCid × Expr) StoreEntry where coe := .expr_cache
+instance : Coe (ConstCid × Const) StoreEntry where coe := .const_cache
+instance : Coe ((Ipld.UnivCid .Anon) × (Ipld.Univ .Anon)) StoreEntry where coe := .univ_anon
+instance : Coe ((Ipld.ExprCid .Anon) × (Ipld.Expr .Anon)) StoreEntry where coe := .expr_anon
+instance : Coe ((Ipld.ConstCid .Anon) × (Ipld.Const .Anon)) StoreEntry where coe := .const_anon
+instance : Coe ((Ipld.UnivCid .Meta) × (Ipld.Univ .Meta)) StoreEntry where coe := .univ_meta
+instance : Coe ((Ipld.ExprCid .Meta) × (Ipld.Expr .Meta)) StoreEntry where coe := .expr_meta
+instance : Coe ((Ipld.ConstCid .Meta) × (Ipld.Const .Meta)) StoreEntry where coe := .const_meta
 
-def addToStore (y : YatimaStoreEntry) : CompileM Unit := do
+def addToStore (y : StoreEntry) : CompileM Unit := do
   let stt ← get
   let store := stt.store
   match y with

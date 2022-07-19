@@ -5,14 +5,14 @@ import YatimaStdLib.List
 open Yatima
 
 def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
-    IO $ Except String (List (List (Lean.Name × ConstAnonCid))) := do
+    IO $ Except String (List (List (Lean.Name × Ipld.ConstCid .Anon))) := do
   match ← Compiler.runFrontend fileName with
   | .error msg => return .error msg
   | .ok store =>
     let mut notFound : List Lean.Name := []
-    let mut cidGroups : List (List (Lean.Name × ConstAnonCid)) := []
+    let mut cidGroups : List (List (Lean.Name × Ipld.ConstCid .Anon)) := []
     for group in groups do
-      let mut cidGroup : List (Lean.Name × ConstAnonCid) := []
+      let mut cidGroup : List (Lean.Name × Ipld.ConstCid .Anon) := []
       for name in group do
         match store.cache.find? name with
         | none          => notFound := name :: notFound
@@ -23,7 +23,7 @@ def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
     else
       return .error s!"Not found: {", ".intercalate notFound}"
 
-def makeCidTests (cidGroups : List (List (Lean.Name × ConstAnonCid))) :
+def makeCidTests (cidGroups : List (List (Lean.Name × Ipld.ConstCid .Anon))) :
     TestSeq :=
   let cidEqTests := cidGroups.foldl (init := .done) fun tSeq cidGroup =>
     cidGroup.pairwise.foldl (init := tSeq) fun tSeq (x, y) =>
