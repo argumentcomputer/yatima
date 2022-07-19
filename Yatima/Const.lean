@@ -275,6 +275,26 @@ def ExtRecursor := ExtRecursor' Expr
 def IntRecursor := IntRecursor' Expr
 def Quotient := Quotient' Expr
 
+def Opaque.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+
+def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+
+def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+
+def Theorem.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
+
 def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩

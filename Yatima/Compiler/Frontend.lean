@@ -38,15 +38,6 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 open ToIpld
 
-def constToCid (c : Const) : CompileM ConstCid := do
-  let constAnon := c.toIpld
-  let constAnonCid := ToIpld.constToCid constAnon
-  addToStore (constAnonCid, constAnon)
-  let constMeta := c.toIpld
-  let constMetaCid := ToIpld.constToCid constMeta
-  addToStore (constMetaCid, constMeta)
-  return ⟨constAnonCid, constMetaCid⟩
-
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let pair ← match l with
     | .zero _      => pure (zeroCid, .zero)
@@ -114,12 +105,6 @@ def findRecursorIn (recName : Name) (indInfos : List Inductive) :
       if recName == intRec.snd.name then
         return some (i, j)
   return none
-
-def addToStoreAndCache (const : Const) : CompileM (ConstCid × Const) := do
-  let c := (← constToCid const, const)
-  addToStore c
-  addToCache const.name c
-  return c
 
 def addFix (name : Name) : ExprCid × Expr → ExprCid × Expr
   | (bodyCid, body) =>
@@ -353,11 +338,12 @@ mutual
     match const with
     | .axiomInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
-      addToStoreAndCache $ .axiom {
+      let ax := .axiom {
         name := struct.name
         lvls := struct.levelParams
         type := typeCid
         safe := not struct.isUnsafe }
+      return (sorry, ax)
     | .thmInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
       withRecrs (RBMap.single struct.name 0) do
