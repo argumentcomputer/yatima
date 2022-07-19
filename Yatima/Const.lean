@@ -193,7 +193,7 @@ structure RecursorRule (Expr : Type) where
   fields : Nat
   rhs    : Expr
 
-structure Recursor (Expr : Type) (b : RecType) where
+structure ExtRecursor (Expr : Type) where
   name    : Name
   lvls    : List Name
   type    : Expr
@@ -201,7 +201,7 @@ structure Recursor (Expr : Type) (b : RecType) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : Split Unit (List (RecursorRule Expr)) b
+  rules   : List (RecursorRule Expr)
   k       : Bool
 
 structure IntRecursor (Expr : Type) where
@@ -229,18 +229,18 @@ inductive BinderInfo
   deriving BEq, Inhabited
 
 mutual
-unsafe inductive Const
+inductive Const
   | «axiom»     : Axiom Expr → Const
   | «theorem»   : Theorem Expr → Const
   | «inductive» : Inductive Expr → Const
   | «opaque»    : Opaque Expr → Const
   | definition  : Definition Expr → Const
   | constructor : Constructor Expr → Const
-  | extRecursor : Recursor Expr .Extr → Const
-  | intRecursor : Recursor Expr .Intr → Const
+  | extRecursor : ExtRecursor Expr → Const
+  | intRecursor : IntRecursor Expr → Const
   | quotient    : Quotient Expr → Const
 
-unsafe inductive Expr
+inductive Expr
   | var   : Name → Nat → Expr
   | sort  : Univ → Expr
   | const : Name → Const → List Univ → Expr
@@ -254,22 +254,22 @@ unsafe inductive Expr
   | proj  : Nat → Expr → Expr
 end
 
-unsafe def Definition.toIpld {k : Ipld.Kind} (d : Definition Expr) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
+def Definition.toIpld {k : Ipld.Kind} (d : Definition Expr) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-unsafe def Constructor.toIpld {k : Ipld.Kind} (c : Constructor Expr) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
+def Constructor.toIpld {k : Ipld.Kind} (c : Constructor Expr) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
 match k with
   | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.params, c.fields, rhsCid.anon⟩
   | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), rhsCid.meta⟩
 
-unsafe def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule Expr) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
+def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule Expr) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
 match k with
   | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
-unsafe def Recursor.toIpld {k : Ipld.Kind} (r : Recursor Expr b) (typeCid : ExprCid) (rulesCids : Split Unit (List (ConstCid × ExprCid)) b): Ipld.Recursor k b :=
+def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor Expr) (typeCid : ExprCid) (rulesCids : List (ConstCid × ExprCid)) : Ipld.Recursor k .Extr :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -279,21 +279,37 @@ match k with
     , r.indices
     , r.motives
     , r.minors
-    , match b with
-      | .Intr => .intr Unit.unit
-      | .Extr => .extr $ r.rules.proj₂.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids.proj₂[i]!.1 rulesCids.proj₂[i]!.2
+    , .inj₂ $ r.rules.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids[i]!.1 rulesCids[i]!.2
     , r.k ⟩
   | .Meta =>
     ⟨ r.name
     , r.lvls
     , typeCid.meta
     , (), (), (), ()
-    , match b with
-      | .Intr => .intr Unit.unit
-      | .Extr => .extr $ r.rules.proj₂.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids.proj₂[i]!.1 rulesCids.proj₂[i]!.2
+    , .inj₂ $ r.rules.enum.map $ fun (i, rule) => RecursorRule.toIpld rule rulesCids[i]!.1 rulesCids[i]!.2
     , ()⟩
 
-unsafe def Inductive.toIpld {k : Ipld.Kind} (i : Inductive Expr) (typeCid : ExprCid) (ctors : List (Ipld.Constructor k)) (recrs : List (Sigma (Ipld.Recursor k))) : Ipld.Inductive k :=
+def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor Expr) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
+match k with 
+  | .Anon =>
+    ⟨ ()
+    , r.lvls.length
+    , typeCid.anon
+    , r.params
+    , r.indices
+    , r.motives
+    , r.minors
+    , .inj₁ ()
+    , r.k ⟩
+  | .Meta =>
+    ⟨ r.name
+    , r.lvls
+    , typeCid.meta
+    , (), (), (), ()
+    , .inj₁ ()
+    , ()⟩
+
+def Inductive.toIpld {k : Ipld.Kind} (i : Inductive Expr) (typeCid : ExprCid) (ctors : List (Ipld.Constructor k)) (recrs : List (Sigma (Ipld.Recursor k))) : Ipld.Inductive k :=
 match k with
   | .Anon =>
     ⟨ ()
@@ -315,7 +331,7 @@ match k with
     , recrs
     , () , () , () ⟩
 
-unsafe def Const.name : Const → Name
+def Const.name : Const → Name
   | .axiom           x
   | .theorem         x
   | .opaque          x
@@ -326,7 +342,7 @@ unsafe def Const.name : Const → Name
   | .intRecursor     x
   | .quotient        x => x.name
 
-unsafe def Const.ctorName : Const → String
+def Const.ctorName : Const → String
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
