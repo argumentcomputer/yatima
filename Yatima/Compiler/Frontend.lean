@@ -340,7 +340,7 @@ mutual
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
       | [ctor] => do
-        match ← toYatimaConst (← findConstant ctor) with
+        match ← processYatimaConst (← findConstant ctor) with
         | (_ctorCid, .constructor ctor) => pure $ some ctor
         | _ => throw "Expected {ctor} to be a constructor"
       | _ => pure none
