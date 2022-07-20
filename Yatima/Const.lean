@@ -192,11 +192,11 @@ structure Inductive' (Expr : Type) where
   type    : Expr
   params  : Nat
   indices : Nat
-  ctors   : List (Constructor' Expr)
   recr    : Bool
   safe    : Bool
   refl    : Bool
   unit    : Bool
+  struct  : Option (Constructor' Expr)
 
 structure RecursorRule' (Expr : Type) where
   ctor   : Constructor' Expr

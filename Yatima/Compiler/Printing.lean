@@ -144,7 +144,7 @@ partial def printConstructors (ctors : List Constructor) : CompileM String := do
 
 partial def printInductive (ind : Inductive) : CompileM String := do
   let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type}"
-  return s!"{indHeader}\n{← printConstructors ind.ctors}"
+  return s!"{indHeader}\n"
 
 partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String := do
   let cid :=

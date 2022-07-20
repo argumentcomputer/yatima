@@ -34,7 +34,7 @@ structure Definition (Expr : Type) where
 
 structure Constructor (Expr : Type) where
   name   : Name
-  -- lvls   : List Name
+  lvls   : List Name
   type   : Expr
   -- idx    : Nat
   params : Nat
@@ -48,11 +48,11 @@ structure Inductive (Expr : Type) where
   type    : Expr
   params  : Nat
   indices : Nat
-  ctors   : List (Constructor Expr)
   recr    : Bool
   safe    : Bool
   refl    : Bool
   unit    : Bool
+  struct  : Option (Constructor Expr)
 
 structure RecursorRule (Expr : Type) where
   ctor   : hashConst

@@ -23,12 +23,6 @@ abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
 def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : CheckM α) : CheckM α :=
   withReader (fun ctx => { lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnv ctx.env val }) m
 
-def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
-  if ind.recr || ind.indices != 0 then throw .typNotStructure
-  else match ind.ctors with
-  | [ctor] => pure ctor
-  | _ => throw .typNotStructure
-
 mutual
 
   partial def check (term : Expr) (type : Value) : CheckM Unit := do
@@ -120,7 +114,9 @@ mutual
       let exprTyp ← infer expr
       match exprTyp with
       | .app (.const _ (.inductive _ ind) univs) params =>
-        let ctor ← checkStructure ind
+        let ctor ← match ind.struct with
+          | some ctor => pure ctor
+          | none => throw .typNotStructure
         if ind.params != params.length then throw .valueMismatch else
         let mut ctorType := applyType (eval ctor.type { exprs := [], univs }) params
         for i in [:idx] do

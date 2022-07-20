@@ -132,10 +132,16 @@ partial def univsFromIpld (anonCids : List (Ipld.UnivCid .Anon))
 def inductiveIsUnit (ind : Ipld.Inductive .Anon) : Bool :=
   if ind.recr || ind.indices.proj₁ != 0 then false
   else match ind.ctors with
-    | [ctor] => ctor.fields.proj₁ != 0
+    | [ctor] => ctor.fields.proj₁ == 0
     | _ => false
 
 mutual
+  partial def inductiveIsStructure (indAnon : Ipld.Inductive .Anon) (indMeta : Ipld.Inductive .Meta) : ConvertM (Option (Constructor Expr)) :=
+    if indAnon.recr || indAnon.indices.proj₁ != 0 then pure $ none
+    else match indAnon.ctors, indMeta.ctors with
+      | [ctorAnon], [ctorMeta] => do
+        return some (← ctorFromIpld ctorAnon ctorMeta)
+      | _, _ => pure none
 
   partial def exprFromIpld (anonCid : Ipld.ExprCid .Anon) (metaCid : Ipld.ExprCid .Meta) :
       ConvertM Expr := do
@@ -212,12 +218,12 @@ mutual
         let type ← exprFromIpld inductiveAnon.type inductiveMeta.type
         let params := inductiveAnon.params
         let indices := inductiveAnon.indices
-        let ctors ← List.zipWithError .anonMetaMismatch ctorFromIpld inductiveAnon.ctors inductiveMeta.ctors
         let recr := inductiveAnon.recr
         let safe := inductiveAnon.safe
         let refl := inductiveAnon.refl
         let unit := inductiveIsUnit inductiveAnon
-        pure $ .inductive anonCid { name, lvls, type, params, indices, ctors, recr, safe, refl, unit }
+        let struct ← inductiveIsStructure inductiveAnon inductiveMeta
+        pure $ .inductive anonCid { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
       | (.opaque opaqueAnon, .opaque opaqueMeta) =>
         let name := opaqueMeta.name
         let lvls := opaqueMeta.lvls
@@ -238,12 +244,13 @@ mutual
         let constructorAnon ← ConvertM.unwrap $ inductiveAnon.ctors.get? anon.cidx;
         let constructorMeta ← ConvertM.unwrap $ inductiveMeta.ctors.get? anon.cidx;
         let name := constructorMeta.name
+        let lvls := constructorMeta.lvls
         let type ← exprFromIpld constructorAnon.type constructorMeta.type
         let params := constructorAnon.params
         let fields := constructorAnon.fields
         -- TODO correctly substitute free variables of `rhs` with inductives, constructors and recursors
         let rhs ← exprFromIpld constructorAnon.rhs constructorMeta.rhs
-        pure $ .constructor anonCid { name, type, params, fields, rhs }
+        pure $ .constructor anonCid { name, lvls, type, params, fields, rhs }
       | (.recursorProj anon, .recursorProj meta) =>
         let inductiveAnon ← getInductiveAnon (← Key.find $ .const_anon anon.block) anon.idx
         let inductiveMeta ← getInductiveMeta (← Key.find $ .const_meta meta.block) anon.idx
@@ -280,7 +287,7 @@ mutual
       (ctorMeta : Ipld.Constructor .Meta) : ConvertM (Constructor Expr) := do
     let type ← exprFromIpld ctorAnon.type ctorMeta.type
     let rhs ← exprFromIpld ctorAnon.rhs ctorMeta.rhs
-    pure { name := ctorMeta.name, type, params := ctorAnon.params, fields := ctorAnon.fields, rhs }
+    pure { name := ctorMeta.name, lvls := ctorMeta.lvls, type, params := ctorAnon.params, fields := ctorAnon.fields, rhs }
 
   partial def ruleFromIpld (ruleAnon : Ipld.RecursorRule .Anon)
       (ruleMeta : Ipld.RecursorRule .Meta) : ConvertM (RecursorRule Expr) := do
