@@ -456,7 +456,6 @@ mutual
             cidx  := struct.cidx }
           addToStoreAndCache const
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
-        throw ""
       | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     | .recInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
