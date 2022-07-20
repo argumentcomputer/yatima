@@ -62,7 +62,7 @@ mutual
       | Value.app var@(Neutral.fvar ..) args => pure $ Value.app var (arg_thunk :: args)
       | Value.app (Neutral.const name k k_univs) args => applyConst name k k_univs arg_thunk args
       -- Since terms are well-typed we know that any other case is impossible
-      | _ => throw .impossibleEvalCase 
+      | _ => throw .impossibleEvalCase
     | .lam name info _ bod => do
        let env := (← read).env
        pure $ Value.lam name info bod env
