@@ -295,17 +295,22 @@ mutual
     -- reverses once
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let (recs, ctors) : (List (Sigma $ Split ExtRecursor IntRecursor) × List Constructor) :=
+    let ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta)) : ((List (Sigma $ Ipld.Recursor .Anon) × List (Sigma $ Ipld.Recursor .Meta)) × (List (Ipld.Constructor .Anon) × List (Ipld.Constructor .Meta))) :=
       -- reverses again, keeping original order
-      ← leanRecs.foldlM (init := ([], [])) fun (recs, ctors) r =>
+      ← leanRecs.foldlM (init := (([], []), ([], []))) fun ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta)) r =>
         match r with
         | .recInfo rv => do
+          let (typeCid, type) ← toYatimaExpr rv.type
           if ← isInternalRec rv.type ind.name then do
             let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
-            return ((Sigma.mk false thisRec) :: recs, thisCtors)
+            let recsAnon := (Sigma.mk .Intr $ thisRec.toIpld typeCid) :: recsAnon
+            let recsMeta := (Sigma.mk .Intr $ thisRec.toIpld typeCid) :: recsMeta
+            return ((recsAnon, recsMeta), (sorry, sorry))
           else do
             let thisRec := ← toYatimaExternalRec r
-            return ((Sigma.mk true thisRec) :: recs, ctors)
+            let recsAnon := (Sigma.mk .Extr $ thisRec.toIpld typeCid sorry) :: recsAnon
+            let recsMeta := (Sigma.mk .Extr $ thisRec.toIpld typeCid sorry) :: recsMeta
+            return ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta))
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     return (
       ⟨ ()
@@ -313,17 +318,17 @@ mutual
       , typeCid.anon
       , ind.numParams
       , ind.numIndices
-      , ctors
-      , recs
+      , ctorsAnon
+      , recsAnon
       , ind.isRec
       , not ind.isUnsafe
-      , ind.isReflexive ⟩
+      , ind.isReflexive ⟩,
       ⟨ ind.name
       , ind.levelParams
       , typeCid.meta
       , () , ()
-      , ctors
-      , recs
+      , ctorsMeta
+      , recsMeta
       , () , () , () ⟩)
 
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
@@ -338,7 +343,7 @@ mutual
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
-            let (thisRec, thisCtors) := ← toYatimaInternalRec ind.ctors
+            let (thisRec, thisCtors) ← toYatimaInternalRec ind.ctors
             return thisCtors
           else do
             return ctors

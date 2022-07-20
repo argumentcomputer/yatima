@@ -310,7 +310,7 @@ match k with
   | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
-def ExtRecursor'.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List (ConstCid × ExprCid)) : Ipld.Recursor k .Extr :=
+def ExtRecursor'.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor k .Extr :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -320,14 +320,15 @@ match k with
     , r.indices
     , r.motives
     , r.minors
-    , .inj₂ $ r.rules.enum.map $ fun (i, rule) => RecursorRule'.toIpld rule rulesCids[i]!.1 rulesCids[i]!.2
+    , rulesCids
+    --, .inj₂ $ r.rules.enum.map $ fun (i, rule) => rule.toIpld rulesCids[i]!.1 rulesCids[i]!.2
     , r.k ⟩
   | .Meta =>
     ⟨ r.name
     , r.lvls
     , typeCid.meta
     , (), (), (), ()
-    , .inj₂ $ r.rules.enum.map $ fun (i, rule) => RecursorRule'.toIpld rule rulesCids[i]!.1 rulesCids[i]!.2
+    , rulesCids
     , ()⟩
 
 def IntRecursor'.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
