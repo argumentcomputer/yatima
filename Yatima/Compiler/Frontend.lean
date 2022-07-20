@@ -38,6 +38,11 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 open ToIpld
 
+def findConstant (name : Name) : CompileM Lean.ConstantInfo := do
+  match (← read).constMap.find? name with
+  | some const => pure const
+  | none => throw s!"Unknown constant '{name}'"
+
 def constToCid (c : Const) : CompileM ConstCid := do
   let constAnon := c.toIpld
   let constAnonCid := ToIpld.constToCid constAnon
@@ -427,8 +432,12 @@ mutual
     | .ctorInfo struct =>
       let (typeCid, type) ← addFix struct.induct <$> toYatimaExpr struct.type -- TODO
       addToStore (typeCid, type)
-      match (← read).constMap.find? struct.induct with
-      | some (.inductInfo ind) =>
+      let ind ← match (← read).constMap.find? struct.induct with
+      | some (.inductInfo ind) => pure ind
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+      | none => throw s!"Unknown constant '{struct.induct}'"
+      match ← processYatimaConst (.inductInfo ind) with
+      | (_, .inductiveProj proj) =>
         let name := struct.name
         let idx ← match ind.all.indexOf? ind.name with
           | some i => pure i
@@ -437,10 +446,7 @@ mutual
         | some cidx =>
           if cidx != struct.cidx then
             throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
-          let indInfos ← buildInductiveInfoList ind
-          let indBlock : Const := .mutIndBlock indInfos
-          let indBlockCid ← constToCid indBlock
-          addToStore (indBlockCid, indBlock)
+          let indBlockCid := proj.block
           let const : Const := .constructorProj {
             name  := name
             lvls  := struct.levelParams
@@ -450,18 +456,23 @@ mutual
             cidx  := struct.cidx }
           addToStoreAndCache const
         | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
-      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-      | none => throw s!"Unknown constant '{struct.induct}'"
+        throw ""
+      | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     | .recInfo struct =>
       let (typeCid, type) ← toYatimaExpr struct.type
       addToStore (typeCid, type)
       let inductName := struct.getInduct
-      match (← read).constMap.find? inductName with
-      | some (.inductInfo ind) =>
-        let indInfos ← buildInductiveInfoList ind
-        let indBlock : Const := .mutIndBlock indInfos
-        let indBlockCid ← constToCid indBlock
-        addToStore (indBlockCid, indBlock)
+      let ind ← match (← read).constMap.find? inductName with
+      | some (.inductInfo ind) => pure ind
+      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+      | none => throw s!"Unknown constant '{inductName}'"
+      match ← processYatimaConst (.inductInfo ind) with
+      | (_, .inductiveProj proj) =>
+        let indBlockCid := proj.block
+        let indInfos ← match (← get).store.const_cache.find? indBlockCid with
+          | some (.mutIndBlock indInfos) => pure indInfos
+          | some _ => throw "Induction block CID corresponds to something other than an inductive block. Implementation is broken."
+          | none => throw "Cannot find induction block in store. Implementation is broken."
         match findRecursorIn struct.name indInfos with
         | some (idx, ridx) =>
           let const : Const := .recursorProj {
@@ -473,8 +484,7 @@ mutual
             ridx   := ridx }
           addToStoreAndCache const
         | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
-      | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-      | none => throw s!"Unknown constant '{inductName}'"
+      | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     | .inductInfo struct =>
       let indInfos ← buildInductiveInfoList struct
       let indBlock : Const := .mutIndBlock indInfos
