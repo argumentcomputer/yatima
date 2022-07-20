@@ -311,8 +311,16 @@ mutual
             return ((recsAnon, recsMeta), (sorry, sorry))
           else do
             let thisRec := ← toYatimaExternalRec r
-            let recsAnon := (Sigma.mk .Extr $ thisRec.toIpld typeCid sorry) :: recsAnon
-            let recsMeta := (Sigma.mk .Extr $ thisRec.toIpld typeCid sorry) :: recsMeta
+            let rulesAnon ← rv.rules.mapM fun r => do 
+              let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
+              let (rhsCid, _) ← toYatimaExpr r.rhs
+              return ⟨ctorCid.anon, r.nfields, rhsCid.anon⟩
+            let rulesMeta ← rv.rules.mapM fun r => do 
+              let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
+              let (rhsCid, _) ← toYatimaExpr r.rhs
+              return ⟨ctorCid.meta, (), rhsCid.meta⟩
+            let recsAnon := (Sigma.mk .Extr $ thisRec.toIpld typeCid rulesAnon) :: recsAnon
+            let recsMeta := (Sigma.mk .Extr $ thisRec.toIpld typeCid rulesMeta) :: recsMeta
             return ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta))
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     return (
@@ -527,12 +535,6 @@ mutual
           | .inductInfo const =>
             let ind ← toYatimaInductive const
             let (typeCid, type) ← toYatimaExpr const.type
-            let const := .inductiveProj {
-              name := name
-              lvls := const.levelParams
-              type := typeCid
-              block := indBlockCid
-              idx := idx }
             let cid := ⟨constToCid $ .inductiveProj $ ind.toIpld idx typeCid indBlockCid, constToCid $ .inductiveProj $ ind.toIpld idx typeCid indBlockCid⟩
             let c ← addToStoreAndCache (cid, .inductive ind)
             if name == struct.name then ret? := some c
