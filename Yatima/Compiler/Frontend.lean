@@ -315,7 +315,7 @@ mutual
       safe     := not ind.isUnsafe }
 
   partial def buildInductiveInfoList (ind : Lean.InductiveVal) :
-      CompileM $ List Inductive := do
+      CompileM $ (List $ Ipld.Inductive .Anon) × (List $ Ipld.Inductive .Meta) := do
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match (← read).constMap.find? indName with
@@ -332,7 +332,7 @@ mutual
       | some (.inductInfo ind) => toYatimaInductive ind
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{name}'"
-    return indInfos
+    return sorry
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM (ConstCid × Const) := withResetCompileEnv const.levelParams do
@@ -464,16 +464,22 @@ mutual
         | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
         | none => throw s!"Unknown constant '{inductName}'"
       | .inductInfo struct =>
-        let indInfos ← buildInductiveInfoList struct
-        let indBlock : Const := .mutIndBlock indInfos
-        let indBlockCid ← constToCid indBlock
-        addToStore (indBlockCid, indBlock)
+        let (indInfosAnon, indInfosMeta) ← buildInductiveInfoList struct
+        let indBlockAnon : Ipld.Const .Anon := .mutIndBlock indInfosAnon
+        let indBlockMeta : Ipld.Const .Meta := .mutIndBlock indInfosMeta
+        let indBlockCidAnon := constToCid indBlockAnon
+        let indBlockCidMeta := constToCid indBlockMeta
+        let indBlockCid : ConstCid := ⟨indBlockCidAnon, indBlockCidMeta⟩
+
+        addToStore (indBlockCidAnon, indBlockAnon)
+        addToStore (indBlockCidMeta, indBlockMeta)
 
         let mut ret? : Option (ConstCid × Const) := none
 
         for (idx, name) in struct.all.enum do
           match (← read).constMap.find? name with
           | some const =>
+            let ind ← toYatimaInductive sorry
             let (typeCid, type) ← toYatimaExpr const.type
             let const := .inductiveProj {
               name := name
@@ -481,12 +487,14 @@ mutual
               type := typeCid
               block := indBlockCid
               idx := idx }
-            let c ← addToStoreAndCache const
+            let cid := ⟨constToCid $ .inductiveProj $ ind.toIpld idx typeCid indBlockCid, constToCid $ .inductiveProj $ ind.toIpld idx typeCid indBlockCid⟩
+            let c ← addToStoreAndCache (cid, .inductive ind)
             if name == struct.name then ret? := some c
           | none => throw s!"Unknown constant '{name}'"
         match ret? with
         | some ret => return ret
         | none => throw s!"Constant for '{struct.name}' wasn't compiled"
+        return (cid, .inductive ind)
     let pair' : ConstCid × Const := pair
     addToStore (pair : StoreEntry)
     pure pair'

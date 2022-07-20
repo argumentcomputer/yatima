@@ -350,27 +350,20 @@ match k with
     , .inj₁ ()
     , ()⟩
 
-def Inductive'.toIpld {k : Ipld.Kind} (i : Inductive) (typeCid : ExprCid) (ctors : List (Ipld.Constructor k)) (recrs : List (Sigma (Ipld.Recursor k))) : Ipld.Inductive k :=
+def Inductive'.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
 match k with
   | .Anon =>
     ⟨ ()
     , i.lvls.length
     , typeCid.anon
-    , i.params
-    , i.indices
-    , ctors
-    , recrs
-    , i.recr
-    , i.safe
-    , i.refl ⟩
+    , blockCid.anon
+    , idx ⟩
   | .Meta =>
     ⟨ i.name
     , i.lvls
     , typeCid.meta
-    , () , ()
-    , ctors
-    , recrs
-    , () , () , () ⟩
+    , blockCid.meta
+    , () ⟩
 
 def Const.name : Const → Name
   | .axiom           x
