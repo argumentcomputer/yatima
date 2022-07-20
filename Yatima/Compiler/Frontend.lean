@@ -38,6 +38,11 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 open ToIpld
 
+def addToStoreAndCache (const : ConstCid × Const) : CompileM (ConstCid × Const) := do
+  addToStore const
+  addToCache const.snd.name const
+  return const
+
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let pair ← match l with
     | .zero _      => pure (zeroCid, .zero)
@@ -253,8 +258,8 @@ mutual
     addToStore pair
     pure pair
 
-  partial def toYatimaDef (isMutual : Bool) (defn : Lean.DefinitionVal) :
-      CompileM (ConstCid × Definition) := do
+  partial def toYatimaDefIpld (isMutual : Bool) (defn : Lean.DefinitionVal) :
+      CompileM ((Ipld.Definition .Anon × Ipld.Definition .Meta) × Definition) := do
     let (typeCid, type) ← toYatimaExpr defn.type
     let (valueCid, value) ←
       if isMutual then toYatimaExpr defn.value
@@ -266,7 +271,12 @@ mutual
       type
       value
       safety := defn.safety }
-    let cid := ⟨constToCid $ .definition $ defn.toIpld typeCid valueCid, constToCid $ .definition $ defn.toIpld typeCid valueCid⟩
+    return (⟨defn.toIpld typeCid valueCid, defn.toIpld typeCid valueCid⟩, defn)
+
+  partial def toYatimaDef (isMutual : Bool) (defn : Lean.DefinitionVal) :
+      CompileM (ConstCid × Definition) := do
+    let ((anon, meta), defn) ← toYatimaDefIpld isMutual defn
+    let cid := ⟨constToCid $ .definition anon, constToCid $ .definition meta⟩
     return (cid, defn)
 
   partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
@@ -428,20 +438,24 @@ mutual
               set { ← get with mutDefIdx := (← get).mutDefIdx.insert d.name i }
               mutualIdxs := mutualIdxs.insert d.name i
           let definitions ← withRecrs mutualIdxs $
-            mutualDefs.mapM fun ds => ds.mapM $ toYatimaDef true
-          let block : Const := .mutDefBlock definitions
-          let blockCid ← constToCid block
-          addToStore (blockCid, block)
+            mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld true
+          let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.1] | none => []).join.map .inj₁
+          let definitionsMeta := definitions.map fun ds => .inj₂ $ ds.map $ Prod.snd ∘ Prod.fst
+          let blockAnon : Ipld.Const .Anon := .mutDefBlock definitionsAnon
+          let blockMeta : Ipld.Const .Meta := .mutDefBlock definitionsMeta
+          let blockAnonCid := constToCid blockAnon
+          let blockMetaCid := constToCid blockMeta
+          addToStore (blockAnonCid, blockAnon)
+          addToStore (blockMetaCid, blockMeta)
 
           let mut ret? : Option (ConstCid × Const) := none
 
-          for definition in definitions.join do
+          for ((defnAnon, defnMeta), definition) in definitions.join do
             let idx := match (← get).mutDefIdx.find? definition.name with
               | some i => i
               | none => unreachable!
-            let defConst := .definitionProj
-              ⟨definition.name, definition.lvls, definition.type, blockCid, idx⟩
-            let c ← addToStoreAndCache defConst
+            let cid := ⟨constToCid $ .definitionProj $ ⟨(), definition.lvls.length, defnAnon.type, blockAnonCid, idx⟩, constToCid $ .definitionProj $ ⟨definition.name, definition.lvls, defnMeta.type, blockMetaCid, ()⟩⟩
+            let c ← addToStoreAndCache (cid, .definition definition)
             if definition.name == struct.name.toString then ret? := some c
 
           match ret? with
