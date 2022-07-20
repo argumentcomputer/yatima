@@ -38,11 +38,6 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 open ToIpld
 
-def addToStoreAndCache (const : ConstCid × Const) : CompileM (ConstCid × Const) := do
-  addToStore const
-  addToCache const.snd.name const
-  return const
-
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let pair ← match l with
     | .zero _      => pure (zeroCid, .zero)
@@ -336,7 +331,7 @@ mutual
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM (ConstCid × Const) := withResetCompileEnv const.levelParams do
-    let pair : (ConstCid × Const) ← match const with
+    let pair ← match const with
       | .axiomInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         let ax := {
@@ -345,7 +340,7 @@ mutual
           type := type
           safe := not struct.isUnsafe }
         let cid := ⟨constToCid $ .axiom $ ax.toIpld typeCid, constToCid $ .axiom $ ax.toIpld typeCid⟩
-        addToStoreAndCache (cid, .axiom ax)
+        pure (cid, .axiom ax)
       | .thmInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         withRecrs (RBMap.single struct.name 0) do
@@ -357,7 +352,7 @@ mutual
             type  := type
             value := value }
           let cid := ⟨constToCid $ .theorem $ thm.toIpld typeCid valueCid, constToCid $ .theorem $ thm.toIpld typeCid valueCid⟩
-          addToStoreAndCache (cid, .theorem thm)
+          pure (cid, .theorem thm)
       | .opaqueInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         withRecrs (RBMap.single struct.name 0) do
@@ -369,7 +364,7 @@ mutual
             value := value
             safe  := not struct.isUnsafe }
             let cid := ⟨constToCid $ .opaque $ opaq.toIpld typeCid valueCid, constToCid $ .opaque $ opaq.toIpld typeCid valueCid⟩
-          addToStoreAndCache (cid, .opaque opaq)
+          pure (cid, .opaque opaq)
       | .quotInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         let quot := {
@@ -378,11 +373,11 @@ mutual
           type := type
           kind := struct.kind }
         let cid := ⟨constToCid $ .quotient $ quot.toIpld typeCid, constToCid $ .quotient $ quot.toIpld typeCid⟩
-        addToStoreAndCache (cid, .quotient quot)
+        pure (cid, .quotient quot)
       | .defnInfo struct =>
         if struct.all.length == 1 then
           let (cid, defn) ← toYatimaDef false struct
-          addToStoreAndCache (cid, .definition defn)
+          pure (cid, .definition defn)
         else
           let mutualDefs ← struct.all.mapM fun name => do
             match (← read).constMap.find? name with
@@ -495,9 +490,9 @@ mutual
         | some ret => return ret
         | none => throw s!"Constant for '{struct.name}' wasn't compiled"
         return (cid, .inductive ind)
-    let pair' : ConstCid × Const := pair
-    addToStore (pair : StoreEntry)
-    pure pair'
+    addToStore pair
+    addToCache pair.snd.name pair
+    pure pair
 
   /--
   Process a Lean constant into a Yatima constant, returning both the Yatima
