@@ -485,19 +485,12 @@ mutual
         | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
       | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     | .inductInfo struct =>
-      let firstInd := struct.all.get! 0
-      let indBlockCid ← if firstInd == const.name then
-          let indInfos ← buildInductiveInfoList struct
-          let indBlock : Const := .mutIndBlock indInfos
-          let indBlockCid ← constToCid indBlock
-          addToStore (indBlockCid, indBlock)
-          pure indBlockCid
-        else
-          match ← processYatimaConst (← findConstant firstInd) with
-          | (_, .inductiveProj proj) => pure proj.block
-          | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-      let mut ret? : Option (ConstCid × Const) := none
+      let indInfos ← buildInductiveInfoList struct
+      let indBlock : Const := .mutIndBlock indInfos
+      let indBlockCid ← constToCid indBlock
+      addToStore (indBlockCid, indBlock)
 
+      let mut ret? : Option (ConstCid × Const) := none
       for (idx, name) in struct.all.enum do
         match (← read).constMap.find? name with
         | some const =>
