@@ -482,10 +482,13 @@ mutual
           | some cidx =>
             if cidx != struct.cidx then
               throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
-            let indInfos ← buildInductiveInfoList ind
-            let indBlock : Const := .mutIndBlock indInfos
-            let indBlockCid ← constToCid indBlock
-            addToStore (indBlockCid, indBlock)
+            let (indInfosAnon, indInfosMeta) ← buildInductiveInfoList ind
+            let indBlockAnon := .mutIndBlock indInfosAnon
+            let indBlockMeta := .mutIndBlock indInfosMeta
+            let indBlockCidAnon := constToCid indBlockAnon
+            let indBlockCidMeta := constToCid indBlockMeta
+            addToStore (indBlockCidAnon, indBlockAnon)
+            addToStore (indBlockCidMeta, indBlockMeta)
             let const : Const := .constructorProj {
               name  := name
               lvls  := struct.levelParams
@@ -499,12 +502,15 @@ mutual
       | .recInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         let inductName := struct.getInduct
-        match findConstant inductName with
+        match ← findConstant inductName with
         | .inductInfo ind =>
-          let indInfos ← buildInductiveInfoList ind
-          let indBlock : Const := .mutIndBlock indInfos
-          let indBlockCid ← constToCid indBlock
-          addToStore (indBlockCid, indBlock)
+          let (indInfosAnon, indInfosMeta) ← buildInductiveInfoList ind
+          let indBlockAnon := .mutIndBlock indInfosAnon
+          let indBlockMeta := .mutIndBlock indInfosMeta
+          let indBlockCidAnon := constToCid indBlockAnon
+          let indBlockCidMeta := constToCid indBlockMeta
+          addToStore (indBlockCidAnon, indBlockAnon)
+          addToStore (indBlockCidMeta, indBlockMeta)
           match findRecursorIn struct.name indInfos with
           | some (idx, ridx) =>
             let const : Const := .recursorProj {
@@ -519,11 +525,11 @@ mutual
         | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | .inductInfo struct =>
         let (indInfosAnon, indInfosMeta) ← buildInductiveInfoList struct
-        let indBlockAnon : Ipld.Const .Anon := .mutIndBlock indInfosAnon
-        let indBlockMeta : Ipld.Const .Meta := .mutIndBlock indInfosMeta
+        let indBlockAnon := .mutIndBlock indInfosAnon
+        let indBlockMeta := .mutIndBlock indInfosMeta
         let indBlockCidAnon := constToCid indBlockAnon
         let indBlockCidMeta := constToCid indBlockMeta
-        let indBlockCid : ConstCid := ⟨indBlockCidAnon, indBlockCidMeta⟩
+        let indBlockCid := ⟨indBlockCidAnon, indBlockCidMeta⟩
 
         addToStore (indBlockCidAnon, indBlockAnon)
         addToStore (indBlockCidMeta, indBlockMeta)
