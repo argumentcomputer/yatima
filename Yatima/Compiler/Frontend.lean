@@ -279,6 +279,43 @@ mutual
       | .const n .. => return n == name
       | _ => return false
 
+  partial def toYatimaIpldInductive (ind : Lean.InductiveVal) :
+      CompileM (Ipld.Inductive .Anon × Ipld.Inductive .Meta) := do
+    let (typeCid, type) ← toYatimaExpr ind.type
+    -- reverses once
+    let leanRecs := (← read).constMap.childrenOfWith ind.name
+      fun c => match c with | .recInfo _ => true | _ => false
+    let (recs, ctors) : (List (Sigma $ Split ExtRecursor IntRecursor) × List Constructor) :=
+      -- reverses again, keeping original order
+      ← leanRecs.foldlM (init := ([], [])) fun (recs, ctors) r =>
+        match r with
+        | .recInfo rv => do
+          if ← isInternalRec rv.type ind.name then do
+            let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
+            return ((Sigma.mk false thisRec) :: recs, thisCtors)
+          else do
+            let thisRec := ← toYatimaExternalRec r
+            return ((Sigma.mk true thisRec) :: recs, ctors)
+        | _ => throw s!"Non-recursor {r.name} extracted from children"
+    return (
+      ⟨ ()
+      , ind.levelParams.length
+      , typeCid.anon
+      , ind.numParams
+      , ind.numIndices
+      , ctors
+      , recs
+      , ind.isRec
+      , not ind.isUnsafe
+      , ind.isReflexive ⟩
+      ⟨ ind.name
+      , ind.levelParams
+      , typeCid.meta
+      , () , ()
+      , ctors
+      , recs
+      , () , () , () ⟩)
+
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
       CompileM Inductive := do
     let (typeCid, type) ← toYatimaExpr ind.type
@@ -321,13 +358,14 @@ mutual
         funList := (funList.append ind.ctors).append leanRecs
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{indName}'"
-    withRecrs (RBMap.enumList $ ind.all ++ funList) do
-    let indInfos : List Inductive ← ind.all.mapM fun name => do
+    let indInfos ← ind.all.foldlM (init := ([], [])) fun acc name => do
       match (← read).constMap.find? name with
-      | some (.inductInfo ind) => toYatimaInductive ind
+      | some (.inductInfo ind) => withRecrs (RBMap.enumList $ ind.all ++ funList) do
+        let (anon, meta) ← toYatimaIpldInductive ind
+        return (anon :: acc.1, meta :: acc.2)
       | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
       | none => throw s!"Unknown constant '{name}'"
-    return sorry
+    return indInfos
 
   partial def toYatimaConst (const : Lean.ConstantInfo) :
       CompileM (ConstCid × Const) := withResetCompileEnv const.levelParams do
@@ -474,7 +512,10 @@ mutual
         for (idx, name) in struct.all.enum do
           match (← read).constMap.find? name with
           | some const =>
-            let ind ← toYatimaInductive sorry
+            let const := match const with 
+            | .inductInfo val => val
+            | _ => unreachable!
+            let ind ← toYatimaInductive const
             let (typeCid, type) ← toYatimaExpr const.type
             let const := .inductiveProj {
               name := name
@@ -489,7 +530,6 @@ mutual
         match ret? with
         | some ret => return ret
         | none => throw s!"Constant for '{struct.name}' wasn't compiled"
-        return (cid, .inductive ind)
     addToStore pair
     addToCache pair.snd.name pair
     pure pair
