@@ -618,9 +618,10 @@ mutual
     | some c => pure c
     | none   =>
       if log then
-        dbg_trace s!"↠ Queuing {name}"
+        dbg_trace s!"↡ Stacking {name}"
       let (cid, c) ← toYatimaConst const
       if log then
+        dbg_trace s!"↟ Popping  {name}"
         dbg_trace "\n========================================="
         dbg_trace    name
         dbg_trace   "========================================="
