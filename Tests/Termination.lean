@@ -1,7 +1,8 @@
 import LSpec
 import Yatima.Compiler.Frontend
 
-open Yatima.Compiler in
+open Yatima.Compiler
+
 def compile (fileName : String) : IO TestSeq := do
   return withExceptOk s!"Compiles {fileName}" (← runFrontend fileName)
     fun _ => .done
@@ -11,5 +12,6 @@ def terminationFixtures := [
   "Fixtures/Termination/Prelude.lean"
 ]
 
-def main : IO UInt32 :=
+def main : IO UInt32 := do
+  setLibsPaths
   lspecEachWith terminationFixtures compile

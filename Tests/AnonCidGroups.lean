@@ -80,5 +80,6 @@ def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
   return withExceptOk s!"Compiles '{x.1}'" (← extractCidGroups x.1 x.2)
     fun cidGroups => makeCidTests cidGroups
 
-def main : IO UInt32 :=
+def main : IO UInt32 := do
+  Compiler.setLibsPaths
   lspecEachWith allPairs generateTestSeq
