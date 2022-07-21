@@ -49,4 +49,10 @@ def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
 def extEnvHelper (thunk : Thunk Value) : CheckM Value → CheckM Value :=
   withReader (fun ctx => { ctx with env := extEnv ctx.env thunk })
 
+def withEnv (lexprs : List (Thunk Value)) (lunivs : List Univ) : CheckM α → CheckM α :=
+  withReader (fun ctx => { ctx with env := { exprs := lexprs, univs := lunivs } })
+
+def withExprs (lexprs : List (Thunk Value)) : CheckM α → CheckM α :=
+  withReader (fun ctx => { ctx with env := { exprs := lexprs, univs := ctx.env.univs } })
+
 end Yatima.Typechecker

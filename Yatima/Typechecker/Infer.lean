@@ -90,22 +90,21 @@ mutual
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
     | .const _ _ k const_univs =>
       let univs := (← read).env.univs
-      let env := { exprs := [], univs := List.map (instBulkReduce univs) const_univs }
-      eval (getConstType k) env
+      withEnv [] (List.map (instBulkReduce univs) const_univs) $ eval (getConstType k)
     | .proj nam idx expr =>
       let exprTyp ← infer expr
       match exprTyp with
       | .app (.const _ (.inductive _ ind) univs) params =>
         let ctor ← checkStructure ind
         if ind.params != params.length then throw .valueMismatch else
-        let mut ctorType := applyType (← eval ctor.type { exprs := [], univs }) params
+        let mut ctorType := applyType (← withEnv [] univs $ eval ctor.type) params
         for i in [:idx] do
           match (← ctorType) with
           | .pi _ _ _ img pi_env =>
             let env := (← read).env
-            let eval' ← eval (Expr.proj nam i expr) env
+            let eval' ← eval (Expr.proj nam i expr)
             let proj := Thunk.mk (fun _ => eval')
-            ctorType := eval img { pi_env with exprs := proj :: pi_env.exprs }
+            ctorType := withExprs (proj :: pi_env.exprs) $ eval img
           | _ => pure ()
         match (← ctorType) with
         | .pi _ _ dom _ _  =>

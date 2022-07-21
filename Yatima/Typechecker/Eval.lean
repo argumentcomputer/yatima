@@ -7,8 +7,7 @@ mutual
 
   partial def evalConst (name : Name) (const : Const) (univs : List Univ) : CheckM Value :=
     match const with
-    | .theorem _ x =>
-      eval x.value { exprs := [] , univs }
+    | .theorem _ x => withEnv [] univs $ eval x.value
     | .definition _ x =>
       match x.safety with
       | .safe => eval x.value
@@ -26,7 +25,7 @@ mutual
         match arg.get with
         | .app (Neutral.const _ (.constructor _ ctor) _) args' =>
           let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
-          eval ctor.rhs {exprs, univs}
+          withEnv exprs univs $ eval ctor.rhs
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor _ recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
@@ -37,7 +36,7 @@ mutual
           match List.find? (fun r => r.ctor == hash) recur.rules with
           | some rule =>
             let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
-            eval rule.rhs {exprs, univs}
+            withEnv exprs univs $ eval rule.rhs
           -- Since we assume expressions are previously type checked, we know that this constructor
           -- must have an associated recursion rule
           | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."

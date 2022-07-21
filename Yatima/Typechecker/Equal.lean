@@ -32,7 +32,7 @@ partial def isProp (lvl : Nat) (type : Value) : CheckM Bool :=
     let type :=
       match neu with
       | .const _ k us => do
-           let res ← eval (getConstType k) --{exprs := [], univs := us}
+           let res ← withEnv [] us $ eval (getConstType k)
            pure $ Thunk.mk (fun _ => res)
       | .fvar _ _ typ => pure typ
     let t ← type
