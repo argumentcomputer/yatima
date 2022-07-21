@@ -189,10 +189,8 @@ partial def printDefinition (defn : Definition) : CompileM String := do
   return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
           s!"  {← printExpr value}"
 
-partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String := do
-  let cid :=
-    if cids? then ← printCid const.name
-    else ""
+partial def printYatimaConst (const : Const) : CompileM String := do
+  let cid ← printCid const.name
   match const with
   | .axiom ax => do
     let type ← getExpr ax.type ax.name
@@ -250,7 +248,7 @@ open Lean
 instance : ToString Lean.RecursorRule where
   toString x := s!"{x.ctor} {x.nfields} {x.rhs}"
 
-def printDefSafety : Lean.DefinitionSafety -> String
+def printDefSafety : Lean.DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
   | .partial => "partial "
@@ -261,7 +259,7 @@ instance : ToString Lean.QuotKind where toString
   | .lift => "Quot.lift"
   | .ind  => "Quot.ind"
 
-def printLeanConst : Lean.ConstantInfo -> String
+def printLeanConst : Lean.ConstantInfo → String
   | .axiomInfo  val =>
     s!"{printIsSafe !val.isUnsafe}axiom {val.name} {val.levelParams} : {val.type}"
   | .defnInfo   val =>

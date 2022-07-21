@@ -32,6 +32,7 @@ structure CompileEnv where
   univCtx  : List Lean.Name
   bindCtx  : List Name
   recrCtx  : Std.RBMap Lean.Name Nat compare
+  log      : Bool
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -44,18 +45,18 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
+    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx, e.log⟩
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, levels, [], .empty⟩
+  withReader $ fun e => ⟨e.constMap, levels, [], .empty, e.log⟩
 
 def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx, e.log⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx, e.log⟩
 
 inductive StoreEntry
   | univ_cache  : UnivCid × Univ                             → StoreEntry
