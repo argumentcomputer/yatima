@@ -1,3 +1,3 @@
 prelude
 
-@[inline] def id {α : Sort u} (a : α) : α := a
+def id (a : α) : α := a

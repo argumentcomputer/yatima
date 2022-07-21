@@ -1,5 +1,5 @@
 import Lean
-import Lurk.Printer
+import Yatima.ForLurkRepo.Printer
 
 open Lean Elab Meta
 
@@ -216,14 +216,12 @@ elab "[Lurk| " e:lurk_expr "]" : term =>
 #eval Lurk.Expr.print [Lurk| (lambda (n) n) ]
 -- "(lambda (n) n)"
 
--- FIXME
 #eval [Lurk|
 (let ((foo (lambda (a) (a))))
   (foo "1" 2 3))
 ].print
 -- "(let ((foo (lambda (a) a))) (foo 2))"
 
--- FIXME
 #eval [Lurk|
 (let ((foo (lambda (a b c)
              (* (+ a b) c))))

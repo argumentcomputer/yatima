@@ -1,4 +1,4 @@
-import Lurk.AST
+import Yatima.ForLurkRepo.AST
 
 namespace Lurk
 
