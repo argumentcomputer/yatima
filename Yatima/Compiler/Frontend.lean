@@ -509,24 +509,6 @@ mutual
       | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
 
-  /--
-  Process a Lean constant into a Yatima constant, returning both the Yatima
-  constant and its cid.
-
-  Different behavior is taken if the input `leanConst` is in a mutual block,
-  since `toYatimaConst` returns the constant of the entire block (see
-  `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
-  corresponding the input.
-
-  Side effects: caches any new processed values in `cache`, `expr_cache`, and
-  `const_cache`.
-  -/
-  partial def processYatimaConst (const : Lean.ConstantInfo) :
-      CompileM $ ConstCid × Const := do
-    match (← get).cache.find? const.name with
-    | some c => pure c
-    | none   => toYatimaConst const
-
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | .mvar .., _ => throw "Unfilled expr metavariable"
@@ -616,22 +598,44 @@ mutual
     else
       sortDefs newDss
 
+  /--
+  Process a Lean constant into a Yatima constant, returning both the Yatima
+  constant and its cid.
+
+  Different behavior is taken if the input `leanConst` is in a mutual block,
+  since `toYatimaConst` returns the constant of the entire block (see
+  `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
+  corresponding the input.
+
+  Side effects: caches any new processed values in `cache`, `expr_cache`, and
+  `const_cache`.
+  -/
+  partial def processYatimaConst (const : Lean.ConstantInfo) :
+      CompileM $ ConstCid × Const := do
+    let name := const.name
+    let log  := (← read).log
+    match (← get).cache.find? name with
+    | some c => pure c
+    | none   =>
+      if log then
+        dbg_trace s!"↠ Queuing {name}"
+      let (cid, c) ← toYatimaConst const
+      if log then
+        dbg_trace "\n========================================="
+        dbg_trace    name
+        dbg_trace   "========================================="
+        dbg_trace s!"{PrintLean.printLeanConst const}"
+        dbg_trace   "========================================="
+        dbg_trace s!"{← PrintYatima.printYatimaConst c}"
+        dbg_trace   "=========================================\n"
+      return (cid, c)
+
 end
 
 open PrintLean PrintYatima in
-def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
-  constMap.forM fun name const => do
-    if log then
-      dbg_trace "\n========================================="
-      dbg_trace s!"Processing: {name}"
-      dbg_trace "========================================="
-    if log then
-      dbg_trace "------------- Lean constant -------------"
-      dbg_trace s!"{printLeanConst const}"
-    let (_, const) ← processYatimaConst const
-    if log then
-      dbg_trace "------------ Yatima constant ------------"
-      dbg_trace s!"{← printYatimaConst true const}"
+def buildStore (constMap : Lean.ConstMap) : CompileM Store := do
+  constMap.forM fun _ const =>
+    discard $ processYatimaConst const
   return (← get).store
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
@@ -643,7 +647,7 @@ def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
       match map₀.find? n with
       | some c' => if c == c' then acc else acc.insert n c
       | none    => acc.insert n c
-  CompileM.run ⟨map, [], [], .empty⟩ stt (buildStore delta log)
+  CompileM.run ⟨map, [], [], .empty, log⟩ stt (buildStore delta)
 
 /--
 This function must be called before `runFrontend` if the file to be compiled has

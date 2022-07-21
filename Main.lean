@@ -19,7 +19,7 @@ partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
       return acc
 
 def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
-  IO.println $ "\nCompilation stats:\n" ++
+  IO.println $ "Compilation stats:\n" ++
     s!"univ_cache size: {stt.store.univ_cache.size}\n" ++
     s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
     s!"const_cache size: {stt.store.const_cache.size}\n" ++
