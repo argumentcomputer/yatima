@@ -27,9 +27,42 @@ def TranslateM.run (store : Store) (ste : State) (m : TranslateM α) :
 
 mutual
 
-  partial def exprToLurkExpr (expr : Expr) : TranslateM Lurk.Expr :=
-    match expr with
-    | _ => sorry
+  -- Maybe useful later:
+  -- partial def telescopeApp (expr : Expr) : TranslateM $ Lurk.Expr := 
+  --   sorry 
+
+  -- partial def telescopeLam (expr : Expr) : TranslateM Lurk.Expr := 
+  --   sorry 
+  
+  partial def exprToLurkExpr (expr : Expr) : TranslateM $ Option Lurk.Expr :=
+    match expr with 
+    | .var name i     => return some $ .lit (.sym name)
+    | .sort  ..       => return none
+    | .const name ..  => return some $ .lit (.sym name)
+    | .app fn arg => do 
+      let fn ← exprToLurkExpr fn
+      let arg ← exprToLurkExpr arg 
+      match fn, arg with 
+      -- TODO: this is extremely bad lol, need to flatten
+      | some f, some a => return some $ .app f [a]
+      |      _,      _ => throw ""
+    | .lam name _ _ body => do
+      match ← exprToLurkExpr body with 
+      -- TODO: this is extremely bad lol, need to flatten
+      | some body => return some $ .lam [name] body
+      |         _ => throw ""
+    -- TODO: Do we erase?
+    | .pi    .. => sorry
+    -- TODO
+    | .letE  .. => sorry
+    | .lit lit  => match lit with 
+      -- TODO: need to include `Int` somehow
+      | .nat n => return some $ .lit (.num n)
+      | .str s => return some $ .lit (.str s)
+    | .lty   .. => return none
+    | .fix _ e  => exprToLurkExpr e
+    -- TODO
+    | .proj  .. => sorry
 
   partial def constToLurkExpr (const : Const) : TranslateM $ Option Lurk.Expr :=
     match const with
@@ -39,12 +72,25 @@ mutual
     | .opaque   x => do
       match (← read).expr_cache.find? x.value with
       | some expr => exprToLurkExpr expr
-      | none      => throw "a"
+      | none      => throw s!"opaque {x.name} not found"
     | .definition x => do
       match (← read).expr_cache.find? x.value with
       | some expr => exprToLurkExpr expr
-      | none      => throw "a"
-    | _ => sorry
+      | none      => throw s!"definition {x.name} not found"
+    /-
+    I feel like we shouldn't compile the projections.
+    We should ignore the projections and compile everything 
+    when we hit the mutual block instead. That way we get 
+    all the mutuals at once and there's no cyclic
+    weirdness in this recursion.
+    -/
+    | .inductiveProj ind
+    | .constructorProj ctor
+    | .recursorProj recr   
+    | .definitionProj defn  => return none
+    -- TODO
+    | .mutDefBlock dss => sorry 
+    | .mutIndBlock thms => sorry 
 
 end
 
