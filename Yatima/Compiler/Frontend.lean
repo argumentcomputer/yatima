@@ -108,13 +108,14 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
-def findRecursorIn (recName : Name) (indInfos : List Inductive) :
-    Option (Nat × Nat) := Id.run do
-  for (i, indInfo) in indInfos.enum do
-    for (j, intRec) in indInfo.recrs.enum do
-      if recName == intRec.snd.name then
-        return some (i, j)
-  return none
+-- TODO
+-- def findRecursorIn (recName : Name) (indInfos : List Inductive) :
+--     Option (Nat × Nat) := Id.run do
+--   for (i, indInfo) in indInfos.enum do
+--     for (j, intRec) in indInfo.recrs.enum do
+--       if recName == intRec.snd.name then
+--         return some (i, j)
+--   return none
 
 def addFix (name : Name) : ExprCid × Expr → CompileM (ExprCid × Expr)
   | (bodyCid, body) => do
@@ -471,37 +472,39 @@ mutual
           | some ret => return ret
           | none => throw s!"Constant for '{struct.name}' wasn't compiled"
       | .ctorInfo struct =>
-        --let (typeCid, type) ← addFix struct.induct <$> toYatimaExpr struct.type -- TODO
         let ind ← match (← read).constMap.find? struct.induct with
         | some (.inductInfo ind) => pure ind
         | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
         | none => throw s!"Unknown constant '{struct.induct}'"
         match ← processYatimaConst (.inductInfo ind) with
         | (cid, _) =>
-          let indBlockCid : ConstCid := match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
-          | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => ⟨projAnon.block, projMeta.block⟩
-          | _ => sorry
-          let name := struct.name
-          let idx ← match ind.all.indexOf? ind.name with
-          | some i => pure i
-          | none => throw s!"'{ind.name}' not found in '{ind.all}'"
-          match ind.ctors.indexOf? name with
-          | some cidx =>
-          if cidx != struct.cidx then
-            throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
-          let indBlockCid := proj.block
-          let const : Const := .constructorProj {
-            name  := name
-            lvls  := struct.levelParams
-            type  := typeCid
-            block := indBlockCid
-            idx   := idx
-            cidx  := struct.cidx }
-          addToStoreAndCache const
-          | none => throw s!"'{name}' wasn't found as a constructor for the inductive '{ind.name}'"
-        | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+          -- TODO: the commented code here should be used to build and store the inductive projections needed to construct the CID
+          -- let indBlockCid ← match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
+          -- | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => pure (⟨projAnon.block, projMeta.block⟩ : ConstCid)
+          -- | _ => throw s!"IPLD error: expected {ind.name} to be an inductive"
+          -- let idx ← match ind.all.indexOf? ind.name with
+          -- | some i => pure i
+          -- | none => throw s!"'{ind.name}' not found in '{ind.all}'"
+          -- match ind.ctors.indexOf? struct.name with
+          -- | some cidx =>
+          -- if cidx != struct.cidx then
+          --   throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
+          -- TODO? should not catch the inductive reference in these expressions
+          let (_, type) ← toYatimaExpr struct.type
+          let (_, rhs)  ← toYatimaExpr sorry -- TODO: get the (internal) constructor rule associated with this constructor
+          let const := {
+            name   := struct.name
+            lvls   := struct.levelParams
+            type   := type
+            idx    := struct.cidx
+            params := struct.numParams
+            fields := struct.numFields
+            rhs    := sorry
+            safe   := not struct.isUnsafe }
+          -- CID must be built from inductive projections
+          let cid := sorry
+          pure (cid, .constructor const)
       | .recInfo struct =>
-        let (typeCid, type) ← toYatimaExpr struct.type
         let inductName := struct.getInduct
         let ind ← match (← read).constMap.find? inductName with
         | some (.inductInfo ind) => pure ind
@@ -509,25 +512,44 @@ mutual
         | none => throw s!"Unknown constant '{inductName}'"
         match ← processYatimaConst (.inductInfo ind) with
         | (cid, _) =>
-          let indBlockCid : ConstCid:= match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
-          | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => ⟨projAnon.block, projMeta.block⟩
-          | _ => sorry
-          let indInfos ← match (← get).store.const_cache.find? indBlockCid with
-          | some (.mutIndBlock indInfos) => pure indInfos
-          | some _ => throw "Induction block CID corresponds to something other than an inductive block. Implementation is broken."
-          | none => throw "Cannot find induction block in store. Implementation is broken."
-          match findRecursorIn struct.name indInfos with
-          | some (idx, ridx) =>
-          let const : Const := .recursorProj {
-            name   := struct.name
-            lvls   := struct.levelParams
-            type   := typeCid
-            block  := indBlockCid
-            idx    := idx
-            ridx   := ridx }
-          addToStoreAndCache const
-          | none => throw s!"Recursor '{struct.name}' not found as a recursor of '{inductName}'"
-        | (_, const) => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+          -- TODO: the commented code here should be used to build and store the recursive projections needed to construct the CID
+          -- let indBlockCid ← match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
+          -- | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => pure (⟨projAnon.block, projMeta.block⟩: ConstCid)
+          -- | _ => throw s!"IPLD error: expected {ind.name} to be an inductive"
+          -- let indInfos ← match (← get).store.const_cache.find? indBlockCid with
+          -- | some (.mutIndBlock indInfos) => pure indInfos
+          -- | some _ => throw "Induction block CID corresponds to something other than an inductive block. Implementation is broken."
+          -- | none => throw "Cannot find induction block in store. Implementation is broken."
+          -- match findRecursorIn struct.name indInfos with
+          -- | some (idx, ridx) =>
+          let isRecInt : Bool := sorry -- Is recursor internal?
+          -- TODO? should not catch the inductive reference in these expressions
+          let (_, type) ← toYatimaExpr struct.type
+          if isRecInt then
+            let const := {
+              name    := struct.name
+              lvls    := struct.levelParams
+              type    := type
+              params  := struct.numParams
+              indices := struct.numIndices
+              motives := struct.numMotives
+              minors  := struct.numMinors
+              k       := struct.k }
+            let cid := sorry
+            pure (cid, .intRecursor const)
+          else
+            let const := {
+              name    := struct.name
+              lvls    := struct.levelParams
+              type    := type
+              params  := struct.numParams
+              indices := struct.numIndices
+              motives := struct.numMotives
+              minors  := struct.numMinors
+              rules   := sorry
+              k       := struct.k }
+            let cid := sorry
+            pure (cid, .extRecursor const)
       | .inductInfo struct =>
         let (indInfosAnon, indInfosMeta) ← buildInductiveInfoList struct
         let indBlockAnon := .mutIndBlock indInfosAnon
