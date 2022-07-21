@@ -3,20 +3,17 @@ import Yatima.Typechecker.Value
 
 namespace Yatima.Typechecker
 
-def extEnvHelper (thunk : Thunk Value) : CheckM Value → CheckM Value :=
-  withReader (fun ctx => { ctx with env := extEnv ctx.env thunk })
-
 mutual
 
   partial def evalConst (name : Name) (const : Const) (univs : List Univ) : CheckM Value :=
     match const with
     | .theorem _ x =>
-      eval x.value --{ exprs := [] , univs }
+      eval x.value { exprs := [] , univs }
     | .definition _ x =>
       match x.safety with
       | .safe => eval x.value
       | .partial => pure $ mkConst name const univs
-      | .unsafe => throw .unsafeDefinition --panic! "Unsafe definition found"
+      | .unsafe => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
 
   partial def applyConst (name : Name) (k : Const) (univs : List Univ) (arg : Thunk Value) (args : Args) : CheckM Value :=
@@ -29,7 +26,7 @@ mutual
         match arg.get with
         | .app (Neutral.const _ (.constructor _ ctor) _) args' =>
           let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
-          eval ctor.rhs --{exprs, univs}
+          eval ctor.rhs {exprs, univs}
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor _ recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
@@ -40,7 +37,7 @@ mutual
           match List.find? (fun r => r.ctor == hash) recur.rules with
           | some rule =>
             let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
-            eval rule.rhs --{exprs, univs}
+            eval rule.rhs {exprs, univs}
           -- Since we assume expressions are previously type checked, we know that this constructor
           -- must have an associated recursion rule
           | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."

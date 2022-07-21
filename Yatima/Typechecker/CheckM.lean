@@ -16,10 +16,15 @@ inductive CheckError where
   | typNotStructure : CheckError
   | projEscapesProp : CheckError
   | unsafeDefinition : CheckError
+  -- Unsafe definition found
   | hasNoRecursionRule : CheckError
+  -- Constructor has no associated recursion rule. Implementation is broken.
   | cannotApply : CheckError
+  -- Cannot apply argument list to type. Implementation broken.
   | impossibleEqualCase : CheckError
+  -- Impossible equal case
   | impossibleProjectionCase : CheckError
+  -- Impossible case on projections
   | impossibleEvalCase : CheckError
   | impossible : CheckError
   deriving Inhabited
@@ -40,5 +45,8 @@ def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
   else match ind.ctors with
   | [ctor] => pure ctor
   | _ => throw .typNotStructure
+
+def extEnvHelper (thunk : Thunk Value) : CheckM Value → CheckM Value :=
+  withReader (fun ctx => { ctx with env := extEnv ctx.env thunk })
 
 end Yatima.Typechecker

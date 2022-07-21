@@ -20,11 +20,11 @@ def applyType (type : Value) (args : List (Thunk Value)) : CheckM Value :=
     let res ← extEnvHelper arg (eval img)
     applyType res args
   | type, [] => pure type
-  | _, _ => throw .cannotApply --panic! "Cannot apply argument list to type. Implementation broken."
+  | _, _ => throw .cannotApply
 
 partial def isProp (lvl : Nat) (type : Value) : CheckM Bool :=
   match type with
-  | .pi name _ dom img env => do
+  | .pi name _ dom img _ => do
     let res ← extVar name lvl dom $ eval img
     -- A pi type is a proposition if and only if its image is a proposition
     isProp (lvl + 1) res
@@ -71,7 +71,7 @@ mutual
         let bod' ← extVar name' lvl dom $ eval bod'
         let img ← extVar pi_name lvl dom $ eval img
         equal (lvl + 1) bod bod' img
-      | _ => throw .impossibleEqualCase -- panic! "Impossible equal case"
+      | _ => throw .impossibleEqualCase
     | .lam name _ bod _, .app neu' args' =>
       match type with
       | .pi pi_name _ dom img _ =>
@@ -80,7 +80,7 @@ mutual
         let app := Value.app neu' (var :: args')
         let img ← extVar pi_name lvl dom $ eval img
         equal (lvl + 1) bod app img
-      | _ => throw .impossibleEqualCase -- panic! "Impossible equal case"
+      | _ => throw .impossibleEqualCase
     | .app neu args, .lam name _ bod _ =>
       match type with
       | .pi pi_name _ dom img _ =>
@@ -89,7 +89,7 @@ mutual
         let app := Value.app neu (var :: args)
         let img ← extVar pi_name lvl dom $ eval img
         equal (lvl + 1) app bod img
-      | _ => throw .impossibleEqualCase --panic! "Impossible equal case"
+      | _ => throw .impossibleEqualCase
     | .app (.fvar _ idx var_type) args, .app (.fvar _ idx' _) args' =>
       -- If our assumption is correct, i.e., that these values come from terms in the same environment
       -- then their types are equal when their indices are equal
@@ -126,7 +126,7 @@ mutual
         let eq ← equal lvl val.get val'.get dom.get
         let eq' ← equalThunks lvl vals vals' img
         pure $ eq && eq'
-      | _ => throw .impossibleEqualCase --panic! "Impossible equal case"
+      | _ => throw .impossibleEqualCase
     | [], [] => pure true
     | _, _ => pure false
 
