@@ -645,19 +645,23 @@ def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
       | none    => acc.insert n c
   CompileM.run ⟨map, [], [], .empty⟩ stt (buildStore delta log)
 
-def getPaths : IO Lean.SearchPath := do
+/--
+This function must be called before `runFrontend` if the file to be compiled has
+imports (the automatic imports from `Init` also count).
+-/
+def setLibsPaths : IO Unit := do
   let out ← IO.Process.output {
     cmd := "lake"
     args := #["print-paths"]
   }
   let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
-  return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
+  let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
+  Lean.initSearchPath (← Lean.findSysroot) paths
 
 def runFrontend (filePath : System.FilePath)
   (log : Bool := false) (stt : CompileState := default) :
     IO $ Except String CompileState := do
-  Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
   let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
     filePath.toString default
   if ok then

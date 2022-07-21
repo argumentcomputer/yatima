@@ -29,9 +29,11 @@ def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
 open Yatima.Compiler in
 def storeRun (p : Cli.Parsed) : IO UInt32 := do
   let log : Bool := p.hasFlag "log"
+  let pre : Bool := p.hasFlag "prelude"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
+      if !pre then setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
       for arg in args do
@@ -67,7 +69,9 @@ def storeCmd : Cli.Cmd := `[Cli|
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    l, log; "Flag to print compilation progress and stats"
+    l, `log;     "Flag to print compilation progress and stats"
+    p, `prelude; "Flag to optimize the compilation of prelude files without" ++
+      " imports (all files to be compiled must follow this rule)"
 
   ARGS:
     ...sources : String; "List of Lean files or directories"
