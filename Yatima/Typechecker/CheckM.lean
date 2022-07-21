@@ -19,7 +19,7 @@ inductive CheckError where
   | hasNoRecursionRule : CheckError
   | cannotApply : CheckError
   | impossibleEqualCase : CheckError
-  | impossibleProjectioCase : CheckError
+  | impossibleProjectionCase : CheckError
   | impossibleEvalCase : CheckError
   | impossible : CheckError
   deriving Inhabited

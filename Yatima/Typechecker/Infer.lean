@@ -14,26 +14,24 @@ mutual
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
         let var := mkVar lam_name (← read).lvl dom
-        let eval' ← eval img (extEnv env var)
+        let eval' ← extEnvHelper var $ eval img
         extCtx var dom $ check bod eval'
       | _ => throw .notPi
     | .letE _ _ exp_typ exp bod =>
       match (← infer exp_typ) with
       | Value.sort _ =>
-        let env := (← read).env
-        let exp_typ ← eval exp_typ env
+        let exp_typ ← eval exp_typ
         check exp exp_typ
-        let exp' ← eval exp env
+        let exp' ← eval exp
         let exp := Thunk.mk (fun _ => exp')
         let exp_typ := Thunk.mk (fun _ => exp_typ)
         extCtx exp exp_typ $ check bod type
       | _ => throw CheckError.notTyp
     | .fix _ _ bod => do
-      let env := (← read).env
       -- IMPORTANT: We assume that we only reduce terms after they are type checked, though here
       -- we create a thunk for an evaluation of a term before finishing its checking. How can we
       -- make sure that we only evaluate this thunk when the term is checked?
-      let eval' ← eval term env
+      let eval' ← eval term
       let itself := Thunk.mk (fun _ => eval')
       extCtx itself type $ check bod type
     | _ =>
@@ -55,10 +53,9 @@ mutual
       match fnc_typ with
       | .pi _ _ dom img env =>
         check arg dom.get
-        let ctxEnv := (← read).env
-        let eval' ← eval arg ctxEnv
+        let eval' ← eval arg
         let arg := Thunk.mk (fun _ => eval')
-        let type ← eval img (extEnv env arg)
+        let type ← extEnvHelper arg $ eval img
         pure type
       | _ => throw .notPi
     -- Should we add inference of lambda terms? Perhaps not on this checker,
@@ -70,7 +67,7 @@ mutual
         | .sort u => pure u
         | _ => throw .notTyp
       let ctx ← read
-      let eval' ← eval dom ctx.env
+      let eval' ← eval dom
       let dom := Thunk.mk (fun _ => eval')
       extCtx (mkVar name ctx.lvl dom) dom $ do
       let img_lvl ← match (← infer img) with
@@ -80,10 +77,9 @@ mutual
     | .letE _ _ exp_typ exp bod =>
       match (← infer exp_typ) with
       | Value.sort _ =>
-        let env := (← read).env
-        let exp_typ ← eval exp_typ env
+        let exp_typ ← eval exp_typ
         check exp exp_typ
-        let eval' ← eval exp env
+        let eval' ← eval exp
         let exp := Thunk.mk (fun _ => eval')
         let exp_typ := Thunk.mk (fun _ => exp_typ)
         extCtx exp exp_typ $ infer bod
