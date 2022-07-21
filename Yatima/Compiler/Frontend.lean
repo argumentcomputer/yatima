@@ -509,7 +509,7 @@ mutual
         | none => throw s!"Unknown constant '{inductName}'"
         match ← processYatimaConst (.inductInfo ind) with
         | (cid, _) =>
-          let indBlockCid : ConstCid := match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
+          let indBlockCid : ConstCid:= match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
           | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => ⟨projAnon.block, projMeta.block⟩
           | _ => sorry
           let indInfos ← match (← get).store.const_cache.find? indBlockCid with
@@ -546,8 +546,34 @@ mutual
           | .inductInfo const =>
             let ind ← toYatimaInductive const
             let (typeCid, type) ← toYatimaExpr const.type
-            let cid := ⟨constToCid $ .inductiveProj $ ind.toIpld idx typeCid indBlockCid, constToCid $ .inductiveProj $ ind.toIpld idx typeCid indBlockCid⟩
-            let c ← addToStoreAndCache (cid, .inductive ind)
+
+            let indProjAnon := .inductiveProj $ ind.toIpld idx typeCid indBlockCid
+            let indProjCidAnon := constToCid indProjAnon
+            let indProjMeta := .inductiveProj $ ind.toIpld idx typeCid indBlockCid
+            let indProjCidMeta := constToCid indProjMeta
+            addToStore (indProjCidAnon, indProjAnon)
+            addToStore (indProjCidMeta, indProjMeta)
+
+            for ctor in const.ctors do
+              let ctorProjAnon := .constructorProj $ sorry
+              let ctorProjCidAnon : Ipld.ConstCid .Anon := constToCid ctorProjAnon
+              let ctorProjMeta := .constructorProj $ sorry
+              let ctorProjCidMeta : Ipld.ConstCid .Meta := constToCid ctorProjMeta
+              addToStore (ctorProjCidAnon, ctorProjAnon)
+              addToStore (ctorProjCidMeta, ctorProjMeta)
+
+            let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
+              fun c => match c with | .recInfo _ => true | _ => false
+            let leanRecs := leanRecs.map (·.name)
+            for recr in leanRecs do
+              let recrProjAnon := .recursorProj $ sorry
+              let recrProjCidAnon : Ipld.ConstCid .Anon := constToCid recrProjAnon
+              let recrProjMeta := .recursorProj $ sorry
+              let recrProjCidMeta : Ipld.ConstCid .Meta := constToCid recrProjMeta
+              addToStore (recrProjCidAnon, recrProjAnon)
+              addToStore (recrProjCidMeta, recrProjMeta)
+
+            let c ← addToStoreAndCache (⟨indProjCidAnon, indProjCidMeta⟩, .inductive ind)
             if name == struct.name then ret? := some c
           | _ => unreachable!
         match ret? with
