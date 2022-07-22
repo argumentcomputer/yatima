@@ -1,1 +1,1 @@
-import Yatima.Compiler.FromLean
+import Yatima.Compiler.Frontend

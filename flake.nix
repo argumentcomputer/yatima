@@ -57,7 +57,7 @@
           debug = false;
           deps = [ ipld.project.${system} ];
           name = "Yatima";
-          src = ./src;
+          src = ./.;
         };
         main = leanPkgs.buildLeanPackage {
           debug = false;
