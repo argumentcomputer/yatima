@@ -1,6 +1,4 @@
-import Yatima.Kind
-import Yatima.Univ
-import Yatima.Name
+import Yatima.Expr
 
 namespace Yatima
 
@@ -18,16 +16,6 @@ inductive DefinitionSafety where
 
 inductive QuotKind where
   | type | ctor | lift | ind
-
-inductive LitType
-  | nat : LitType
-  | str : LitType
-  deriving BEq, Inhabited
-
-inductive Literal
-  | nat : Nat → Literal
-  | str : String → Literal
-  deriving BEq, Inhabited
 
 namespace Ipld
 
@@ -230,15 +218,6 @@ structure Quotient' (Expr : Type) where
   type : Expr
   kind : QuotKind
 
-inductive BinderInfo
-  | default
-  | implicit
-  | strictImplicit
-  | instImplicit
-  | auxDecl
-  deriving BEq, Inhabited
-
-mutual
 inductive Const
   | «axiom»     : Axiom' Expr → Const
   | «theorem»   : Theorem' Expr → Const
@@ -249,20 +228,6 @@ inductive Const
   | extRecursor : ExtRecursor' Expr → Const
   | intRecursor : IntRecursor' Expr → Const
   | quotient    : Quotient' Expr → Const
-
-inductive Expr
-  | var   : Name → Nat → Expr
-  | sort  : Univ → Expr
-  | const : Name → Const → List Univ → Expr
-  | app   : Expr → Expr → Expr
-  | lam   : Name → BinderInfo → Expr → Expr → Expr
-  | pi    : Name → BinderInfo → Expr → Expr → Expr
-  | letE  : Name → Expr → Expr → Expr → Expr
-  | lit   : Literal → Expr
-  | lty   : LitType → Expr
-  | fix   : Name → Expr → Expr
-  | proj  : Nat → Expr → Expr
-end
 
 abbrev Axiom := Axiom' Expr
 abbrev Theorem := Theorem' Expr
@@ -365,6 +330,7 @@ match k with
     , typeCid.meta
     , blockCid.meta
     , () ⟩
+
 
 def Const.name : Const → Name
   | .axiom           x

@@ -1,5 +1,4 @@
 import Yatima.Compiler.CompileM
-import Yatima.Cid
 
 def printIsSafe (x: Bool) : String :=
   if x then "" else "unsafe "
@@ -62,7 +61,7 @@ def isBinder : Expr → Bool
 
 def isArrow : Expr → Bool
   | .pi name bInfo _ body =>
-    !(body.getBVars.contains name) && bInfo == .default
+    !(Expr.isVarFree name body) && bInfo == .default
   | _ => false
 
 def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
@@ -92,7 +91,7 @@ mutual
     if (← isAtom e) then printExpr e
     else return s!"({← printExpr e})"
 
-  partial def printExpr : Expr → CompileM String
+  partial def printExpr (e : Expr) : CompileM String := match e with
     | .var name _ => return s!"{name}"
     | .sort _ => return "Sort"
     | .const name .. => return s!"{name}"
@@ -101,7 +100,7 @@ mutual
     | .lam name bInfo type body =>
       return s!"λ{← printBinding false (.lam name bInfo type body)}"
     | .pi name bInfo type body => do
-      let arrow := (!body.getBVars.contains name || name == "") && bInfo == .default
+      let arrow := isArrow e || (bInfo == .default && name == "")
       if !arrow then
         return s!"Π{← printBinding true (.pi name bInfo type body)}"
       else
@@ -115,7 +114,6 @@ mutual
     | .lty lty => return match lty with
       | .nat => "Nat"
       | .str => "String"
-    | .fix name body => return s!"(μ {name} {← printExpr body})"
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 
