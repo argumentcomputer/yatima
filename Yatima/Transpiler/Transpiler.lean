@@ -2,6 +2,10 @@ import Yatima.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.ForLurkRepo.Printing
 
+/-- We replace `.` with `:` since `.` is a special character in Lurk -/
+def String.fixDot (s : String) : String :=
+  s.replace "." ":"
+
 namespace Yatima.Transpiler
 
 open Yatima
@@ -18,12 +22,11 @@ mutual
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    -- Note: we replace `.` with `:` since `.` is a special character in Lurk
-    | .var name i     => return some $ .lit (.sym $ name.replace "." ":")
+    | .var name i     => return some $ .lit (.sym $ name.fixDot)
     | .const name ..  =>
       -- Arthur: I think this is where we recurse on `constToLurkExpr` and then
       -- call `appendBinding`. So I'm setting a TODO here.
-      return some $ .lit (.sym $ name.replace "." ":")
+      return some $ .lit (.sym $ name.fixDot)
     | .app fn arg => do 
       let fn ← exprToLurkExpr fn
       let arg ← exprToLurkExpr arg 
@@ -80,17 +83,30 @@ mutual
 
 end
 
-/-- Main translation function. The dependency order is reversed. -/
+/--
+Main translation function. The generated dependency order is reversed.
+
+Suppose that we have A and B such that B depends on A. `bindings` will be
+`#[(B, β), (A, α)]` where `β` and `α` are the expressions of `B` and `A`
+respectively.
+
+The reverse order was chosen for optimization reasons, since we expect to
+recursively backtrack on dependencies often and appending on arrays is faster
+than prepending.
+-/
 def transpileM : TranspileM Unit := do
   let store ← read
   store.const_cache.forM fun _ const => do
     match ← constToLurkExpr const with
-    | some expr => prependBinding (const.name, expr)
+    | some expr => prependBinding (const.name.fixDot, expr)
     | none      => pure ()
 
+/-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
 def transpile (store : Store) : Except String String :=
   match TranspileM.run store #[] (transpileM store) with
-  | .ok  ste => return ste.compile.print
+  | .ok ste =>
+    let expr : Lurk.Expr := .letE ste.reverse.data .currEnv
+    return expr.print
   | .error e => throw e
 
 end Yatima.Transpiler
