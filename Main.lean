@@ -36,11 +36,16 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
       if !pre then setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
+      let mut costs : List (String × Float) := []
       for arg in args do
         for filePath in ← getFilePathsList ⟨arg⟩ do
+          let start := Float.ofNat (← IO.monoMsNow)
           match ← runFrontend filePath log stt with
           | .ok stt' => match stt.union stt' with
-            | .ok stt' => stt := stt'
+            | .ok stt' =>
+              stt := stt'
+              costs := (filePath.toString,
+                (Float.ofNat (← IO.monoMsNow) - start) / 1000.0) :: costs
             | .error msg => errMsg := some msg; break
           | .error msg => errMsg := some msg; break
         if errMsg.isSome then break
@@ -49,7 +54,11 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         IO.eprintln msg
         return 1
       | none => pure ()
-      if log then printCompilationStats stt
+      if log then
+        printCompilationStats stt
+        IO.println s!"\nTime costs:"
+        IO.println $ "\n".intercalate $ costs.reverse.map
+          fun (f, d) => s!"{f} | {d}s"
       -- todo: make use of `stt.store`
       return 0
     else
@@ -77,8 +86,12 @@ def storeCmd : Cli.Cmd := `[Cli|
     ...sources : String; "List of Lean files or directories"
 ]
 
+def printInit (_ : α) : IO UInt32 := do
+  IO.println "Call `yatima --help` for more info"
+  return 0
+
 def yatimaCmd : Cli.Cmd := `[Cli|
-  yatima NOOP; [VERSION]
+  yatima VIA printInit; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:
