@@ -25,7 +25,10 @@ mutual
     | .var name i     => return some $ .lit (.sym $ name.fixDot)
     | .const name ..  =>
       -- Arthur: I think this is where we recurse on `constToLurkExpr` and then
-      -- call `appendBinding`. So I'm setting a TODO here.
+      -- call `prependBinding`. So I'm setting a TODO here.
+
+      -- FIX: look for cached consts here. If it's already cached, just
+      -- reference and don't prepend!
       return some $ .lit (.sym $ name.fixDot)
     | .app fn arg => do 
       let fn ← exprToLurkExpr fn
@@ -84,21 +87,16 @@ mutual
 end
 
 /--
-Main translation function. The generated dependency order is reversed.
+Main translation function.
 
-Suppose that we have A and B such that B depends on A. `bindings` will be
-`#[(B, β), (A, α)]` where `β` and `α` are the expressions of `B` and `A`
-respectively.
-
-The reverse order was chosen for optimization reasons, since we expect to
-recursively backtrack on dependencies often and appending on arrays is faster
-than prepending.
+FIX: we need to iterate on leaves of the `const_cache`, only!
+FIX: we need to cache what's already been done for efficiency and correctness!
 -/
 def transpileM : TranspileM Unit := do
   let store ← read
   store.const_cache.forM fun _ const => do
     match ← constToLurkExpr const with
-    | some expr => prependBinding (const.name.fixDot, expr)
+    | some expr => appendBinding (const.name.fixDot, expr)
     | none      => pure ()
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
