@@ -5,17 +5,23 @@ namespace Yatima.Transpiler
 
 open Yatima (Store)
 
-abbrev State := Array (String × Lurk.Expr)
+structure State where
+  appends  : Array (String × Lurk.Expr)
+  prepends : Array (String × Lurk.Expr)
+  deriving Inhabited
 
 abbrev TranspileM := ReaderT Store $ EStateM String State
 
-/-- Slow concatenation of new bindings -/
 def prependBinding (b : String × Lurk.Expr) : TranspileM Unit := do
-  set $ #[b].append (← get)
+  let s ← get
+  set { s with prepends := s.prepends.push b }
 
-/-- Fast concatenation of new bindings -/
 def appendBinding (b : String × Lurk.Expr) : TranspileM Unit := do
-  set $ (← get).push b
+  let s ← get
+  set { s with appends := s.appends.push b }
+
+def State.getBindings (s : State) : List (String × Lurk.Expr) :=
+  s.prepends.reverse.append s.appends |>.data
 
 def TranspileM.run (store : Store) (ste : State) (m : TranspileM α) :
     Except String State :=

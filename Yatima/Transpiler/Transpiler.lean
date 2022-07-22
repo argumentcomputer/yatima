@@ -103,10 +103,8 @@ def transpileM : TranspileM Unit := do
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
 def transpile (store : Store) : Except String String :=
-  match TranspileM.run store #[] (transpileM store) with
-  | .ok ste =>
-    let expr : Lurk.Expr := .letE ste.reverse.data .currEnv
-    return expr.print
+  match TranspileM.run store default (transpileM store) with
+  | .ok  ste => return Lurk.Expr.print $ .letE ste.getBindings .currEnv
   | .error e => throw e
 
 end Yatima.Transpiler
