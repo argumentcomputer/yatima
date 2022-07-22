@@ -538,7 +538,7 @@ mutual
             rules   := rules.meta
             k       := () } ⟩
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
-    
+
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
     let (rhsCid, rhs) ← toYatimaExpr rule.rhs
