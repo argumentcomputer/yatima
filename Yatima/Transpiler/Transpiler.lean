@@ -37,9 +37,13 @@ mutual
       | some body => return some $ .lam [name] body
       | _         => throw "TODO"
     -- TODO: Do we erase?
-    | .pi    .. => sorry
+    -- MP: I think we erase
+    | .pi    .. => return some $ .lit .nil
     -- TODO
-    | .letE  .. => sorry
+    | .letE name _ value body  => do
+      match (←exprToLurkExpr value), (←exprToLurkExpr body) with
+        | some val, some body => return some $ .letE [(name, val)] body
+        | _, _ => throw "TODO"
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
       | .nat n => return some $ .lit (.num n)
