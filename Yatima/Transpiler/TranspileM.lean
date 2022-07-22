@@ -16,11 +16,9 @@ structure State where
 
 abbrev TranspileM := ReaderT Store $ EStateM String State
 
-/-- Slow concatenation of new bindings -/
 def prependBinding (b : String × Lurk.Expr) : TranspileM Unit := do
   set $ { (← get) with bindings := #[b].append (← get).bindings }
 
-/-- Fast concatenation of new bindings -/
 def appendBinding (b : String × Lurk.Expr) : TranspileM Unit := do
   set $ { (← get) with bindings := (← get).bindings.push b }
 

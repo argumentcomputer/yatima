@@ -96,15 +96,10 @@ mutual
 end
 
 /--
-Main translation function. The generated dependency order is reversed.
+Main translation function.
 
-Suppose that we have A and B such that B depends on A. `bindings` will be
-`#[(B, β), (A, α)]` where `β` and `α` are the expressions of `B` and `A`
-respectively.
-
-The reverse order was chosen for optimization reasons, since we expect to
-recursively backtrack on dependencies often and appending on arrays is faster
-than prepending.
+FIX: we need to iterate on leaves of the `const_cache`, only!
+FIX: we need to cache what's already been done for efficiency and correctness!
 -/
 def transpileM : TranspileM Unit := do
   let store ← read
