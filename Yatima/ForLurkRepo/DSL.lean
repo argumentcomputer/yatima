@@ -1,5 +1,5 @@
 import Lean
-import Yatima.ForLurkRepo.Printer
+import Yatima.ForLurkRepo.Printing
 
 open Lean Elab Meta
 
