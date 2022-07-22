@@ -20,20 +20,19 @@ partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
 
 def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
   IO.println $ "Compilation stats:\n" ++
-    s!"univ_cache size: {stt.store.univ_cache.size}\n" ++
-    s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
-    s!"const_cache size: {stt.store.const_cache.size}\n" ++
-    s!"cache size: {stt.cache.size}\n" ++
-    s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
+    s!"  univ_cache size: {stt.store.univ_cache.size}\n" ++
+    s!"  expr_cache size: {stt.store.expr_cache.size}\n" ++
+    s!"  const_cache size: {stt.store.const_cache.size}\n" ++
+    s!"  cache size: {stt.cache.size}\n" ++
+    s!"  cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
 
 open Yatima.Compiler in
 def storeRun (p : Cli.Parsed) : IO UInt32 := do
-  let log : Bool := p.hasFlag "log"
-  let pre : Bool := p.hasFlag "prelude"
+  let log := p.hasFlag `log
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
-      if !pre then setLibsPaths
+      if !(p.hasFlag `prelude) then setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
       let mut costs : List (String × Float) := []
@@ -54,11 +53,11 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         IO.eprintln msg
         return 1
       | none => pure ()
-      if log then
+      if p.hasFlag `summary then
         printCompilationStats stt
         IO.println s!"\nTime costs:"
         IO.println $ "\n".intercalate $ costs.reverse.map
-          fun (f, d) => s!"{f} | {d}s"
+          fun (f, d) => s!"  {f} | {d}s"
       -- todo: make use of `stt.store`
       return 0
     else
@@ -78,7 +77,8 @@ def storeCmd : Cli.Cmd := `[Cli|
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    l, `log;     "Flag to print compilation progress and stats"
+    l, `log;     "Flag to print compilation progress"
+    s, `summary; "Flag to print compilation summary"
     p, `prelude; "Flag to optimize the compilation of prelude files without" ++
       " imports (all files to be compiled must follow this rule)"
 
