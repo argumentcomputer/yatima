@@ -43,38 +43,35 @@ def findConstant (name : Name) : CompileM Lean.ConstantInfo := do
   | some const => pure const
   | none => throw s!"Unknown constant '{name}'"
 
-def addToStoreAndCache (const : ConstCid × Const) : CompileM (ConstCid × Const) := do
-  addToStore const
-  addToCache const.snd.name const
-  return const
-
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
-  let pair ← match l with
-    | .zero _      => pure (zeroCid, .zero)
+  let (value, univ) ← match l with
+    | .zero _      => do
+      let value : Ipld.Both Ipld.Univ := ⟨ .zero, .zero ⟩
+      pure (value, .zero)
     | .succ n _    => do
       let (univCid, univ) ← toYatimaUniv n
-      let cid := ⟨ univToCid (.succ univCid.anon), univToCid (.succ univCid.meta) ⟩
-      pure (cid, .succ univ)
+      let value : Ipld.Both Ipld.Univ := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
+      pure (value, .succ univ)
     | .max  a b _  => do
       let (univACid, univA) ← toYatimaUniv a
       let (univBCid, univB) ← toYatimaUniv b
-      let cid := ⟨ univToCid (.max univACid.anon univBCid.anon), univToCid (.max univACid.meta univBCid.meta) ⟩
-      pure (cid, .max univA univB)
+      let value : Ipld.Both Ipld.Univ := ⟨ .max univACid.anon univBCid.anon, .max univACid.meta univBCid.meta ⟩
+      pure (value, .max univA univB)
     | .imax  a b _  => do
       let (univACid, univA) ← toYatimaUniv a
       let (univBCid, univB) ← toYatimaUniv b
-      let cid := ⟨ univToCid (.imax univACid.anon univBCid.anon), univToCid (.imax univACid.meta univBCid.meta) ⟩
-      pure (cid, .imax univA univB)
+      let value : Ipld.Both Ipld.Univ := ⟨ .imax univACid.anon univBCid.anon, .imax univACid.meta univBCid.meta ⟩
+      pure (value, .imax univA univB)
     | .param name _ => do
       let lvls := (← read).univCtx
       match lvls.indexOf? name with
       | some n =>
-        let cid := ⟨ univToCid (.param () n), univToCid (.param name ()) ⟩
-        pure (cid, .param name n)
+        let value : Ipld.Both Ipld.Univ := ⟨ .param () n, .param name () ⟩
+        pure (value, .param name n)
       | none   => throw s!"'{name}' not found in '{lvls}'"
     | .mvar .. => throw "Unfilled level metavariable"
-  addToStore pair
-  pure pair
+  let cid ← StoreValue.insert $ .univ value
+  pure (cid, univ)
 
 instance : HMul Ordering Ordering Ordering where
   hMul
@@ -116,13 +113,6 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
 --       if recName == intRec.snd.name then
 --         return some (i, j)
 --   return none
-
-def addFix (name : Name) : ExprCid × Expr → CompileM (ExprCid × Expr)
-  | (bodyCid, body) => do
-    let cid := ⟨ exprToCid $ .fix () bodyCid.anon, exprToCid $ .fix name bodyCid.meta ⟩
-    let value := .fix name body
-    addToStore (cid, value)
-    pure (cid, value)
 
 mutual
 
@@ -710,7 +700,7 @@ mutual
 end
 
 open PrintLean PrintYatima in
-def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
+def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Unit := do
   constMap.forM fun name const => do
     if log then
       dbg_trace "\n========================================="
@@ -723,7 +713,7 @@ def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Store := do
     if log then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true const}"
-  return (← get).store
+  return ()
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
     Except String CompileState :=

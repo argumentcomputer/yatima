@@ -12,10 +12,10 @@ def Split.intr : A → Split A B RecType.Intr := Split.inj₁
 def Split.extr : B → Split A B RecType.Extr := Split.inj₂
 
 inductive DefinitionSafety where
-  | safe | «unsafe» | «partial»
+  | safe | «unsafe» | «partial» deriving BEq
 
 inductive QuotKind where
-  | type | ctor | lift | ind
+  | type | ctor | lift | ind deriving BEq
 
 namespace Ipld
 

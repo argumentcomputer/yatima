@@ -139,7 +139,5 @@ def exprToCid (expr : Ipld.Expr k) : Ipld.ExprCid k :=
 def constToCid (const : Ipld.Const k) : Ipld.ConstCid k :=
   { data := ipldToCid (Ipld.CONST k).toNat (constToIpld const) }
 
-def zeroCid : UnivCid := ⟨ univToCid .zero, univToCid .zero ⟩
-
 end ToIpld
 end Yatima

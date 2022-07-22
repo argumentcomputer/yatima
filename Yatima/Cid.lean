@@ -20,10 +20,12 @@ structure UnivCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited
 structure ExprCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited
 structure ConstCid (k : Kind) where data : Cid deriving BEq, Ord, Inhabited
 
-structure Both (A : Kind → Type) [(k : Kind) → BEq (A k)] : Type where
+structure Both (A : Kind → Type) : Type where
   anon : A .Anon
   meta : A .Meta
-deriving BEq
+
+instance (A : Kind → Type) [(k : Kind) → BEq (A k)] : BEq (Both A) :=
+  { beq := fun a b => BEq.beq a.anon b.anon && BEq.beq a.meta b.meta }
 
 end Ipld
 
