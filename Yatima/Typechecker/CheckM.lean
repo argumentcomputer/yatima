@@ -26,6 +26,8 @@ inductive CheckError where
   | impossibleProjectionCase : CheckError
   -- Impossible case on projections
   | impossibleEvalCase : CheckError
+  -- Cannot evaluate this quotient
+  | cannotEvalQuotient : CheckError
   | impossible : CheckError
   deriving Inhabited
 
