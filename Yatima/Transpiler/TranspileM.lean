@@ -34,6 +34,6 @@ The reverse order was chosen for optimization reasons, since we expect to
 recursively backtrack on dependencies often and appending on arrays is faster
 than prepending.
 -/
-def State.compile (bindings : State) : Lurk.Expr := sorry
+def State.compile (bindings : State) : Lurk.Expr := .letE bindings.reverse.toList .currEnv
 
 end Yatima.Transpiler
