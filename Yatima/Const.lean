@@ -258,32 +258,32 @@ match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Quotient'.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
+def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Axiom'.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
+def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Theorem'.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
+def Theorem.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
 
-def Definition'.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
+def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Constructor'.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
+def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
 match k with
   | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
   | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
 
-def RecursorRule'.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
+def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
 match k with
   | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
