@@ -1,5 +1,4 @@
 import Yatima.Univ
-import Yatima.Const
 
 namespace Yatima
 

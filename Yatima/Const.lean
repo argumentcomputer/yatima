@@ -17,16 +17,6 @@ inductive DefinitionSafety where
 inductive QuotKind where
   | type | ctor | lift | ind deriving BEq
 
-inductive LitType
-  | nat : LitType
-  | str : LitType
-  deriving BEq, Inhabited
-
-inductive Literal
-  | nat : Nat → Literal
-  | str : String → Literal
-  deriving BEq, Inhabited
-
 namespace Ipld
 
 abbrev ListName? := Split Nat (List Name)

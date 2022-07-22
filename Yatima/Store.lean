@@ -20,7 +20,6 @@ structure Store where
 instance : Inhabited Store where
   default := ⟨
     .empty, .empty, .empty,
-    .empty, .empty, .empty,
     .empty, .empty, .empty
   ⟩
 
