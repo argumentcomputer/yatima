@@ -36,9 +36,10 @@ mutual
   
   partial def exprToLurkExpr (expr : Expr) : TranslateM $ Option Lurk.Expr :=
     match expr with 
-    | .var name i     => return some $ .lit (.sym name)
+    -- Note: we replace `.` with `:` since `.` is a special character in Lurk
+    | .var name i     => return some $ .lit (.sym $ name.replace "." ":")
     | .sort  ..       => return none
-    | .const name ..  => return some $ .lit (.sym name)
+    | .const name ..  => return some $ .lit (.sym $ name.replace "." ":")
     | .app fn arg => do 
       let fn ← exprToLurkExpr fn
       let arg ← exprToLurkExpr arg 
@@ -78,11 +79,11 @@ mutual
       | some expr => exprToLurkExpr expr
       | none      => throw s!"definition {x.name} not found"
     /-
-    I feel like we shouldn't compile the projections.
+    I feel like we shouldn't directly compile the projections.
     We should ignore the projections and compile everything 
-    when we hit the mutual block instead. That way we get 
-    all the mutuals at once and there's no cyclic
-    weirdness in this recursion.
+    indirectly when we hit the mutual block instead. 
+    That way we get all the mutuals at once and 
+    there's no cyclic weirdness in this recursion.
     -/
     | .inductiveProj ind
     | .constructorProj ctor
