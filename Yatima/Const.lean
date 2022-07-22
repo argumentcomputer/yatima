@@ -143,6 +143,7 @@ structure Axiom where
   lvls : List Name
   type : Expr
   safe : Bool
+  deriving Inhabited
 
 structure Theorem where
   name  : Name
@@ -228,43 +229,44 @@ inductive Const
   | extRecursor : ExtRecursor → Const
   | intRecursor : IntRecursor → Const
   | quotient    : Quotient → Const
+  deriving Inhabited
 
-def Opaque'.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
+def Opaque.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Quotient'.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
+def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Axiom'.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
+def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Theorem'.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
+def Theorem.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
 
-def Definition'.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
+def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
 match k with
   | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
   | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Constructor'.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
+def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
 match k with
   | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.params, c.fields, rhsCid.anon⟩
   | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), rhsCid.meta⟩
 
-def RecursorRule'.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
+def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
 match k with
   | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
-def ExtRecursor'.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor k .Extr :=
+def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor k .Extr :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -285,7 +287,7 @@ match k with
     , rulesCids
     , ()⟩
 
-def IntRecursor'.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
+def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -305,7 +307,7 @@ match k with
     , .inj₁ ()
     , ()⟩
 
-def Inductive'.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
+def Inductive.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
 match k with
   | .Anon =>
     ⟨ ()

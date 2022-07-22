@@ -50,6 +50,7 @@ inductive Expr
   | lit   : Literal → Expr
   | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
+  deriving Inhabited
 namespace Expr
 
 def name : Expr → Option Name

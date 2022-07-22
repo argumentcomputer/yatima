@@ -90,30 +90,24 @@ inductive StoreValue : Type → Type
   | expr   : Ipld.Both Ipld.Expr  → StoreValue (Ipld.Both Ipld.ExprCid)
   | const  : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
 
-def StoreValue.insert (value : StoreValue A) : CompileM A := do
-  let stt ← get
-  let store := stt.store
-  match value with
+def StoreValue.insert : StoreValue A → CompileM A
   | .univ  obj  =>
     let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
-    set { stt with store :=
-          { store with univ_anon  := store.univ_anon.insert cid.anon obj.anon,
-                       univ_meta  := store.univ_meta.insert cid.meta obj.meta } }
-    pure cid
+    modifyGet (fun stt => (cid, { stt with store :=
+          { stt.store with univ_anon  := stt.store.univ_anon.insert cid.anon obj.anon,
+                           univ_meta  := stt.store.univ_meta.insert cid.meta obj.meta } }))
   | .expr  obj  =>
     let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
-    set { stt with store :=
-          { store with expr_anon  := store.expr_anon.insert cid.anon obj.anon,
-                       expr_meta  := store.expr_meta.insert cid.meta obj.meta } }
-    pure cid
+    modifyGet (fun stt => (cid, { stt with store :=
+          { stt.store with expr_anon  := stt.store.expr_anon.insert cid.anon obj.anon,
+                           expr_meta  := stt.store.expr_meta.insert cid.meta obj.meta } }))
   | .const obj =>
     let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
-    set { stt with store :=
-          { store with const_anon := store.const_anon.insert cid.anon obj.anon,
-                       const_meta := store.const_meta.insert cid.meta obj.meta } }
-    pure cid
+    modifyGet (fun stt => (cid, { stt with store :=
+          { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                           const_meta := stt.store.const_meta.insert cid.meta obj.meta } }))
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
-  set { ← get with cache := (← get).cache.insert name c }
+  modifyGet (fun stt => ((), { stt with cache := stt.cache.insert name c}))
 
 end Yatima.Compiler
