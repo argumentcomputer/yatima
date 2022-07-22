@@ -365,11 +365,17 @@ mutual
         let leanRecs := leanRecs.map (·.name)
         funList := (funList.append ind.ctors).append leanRecs
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+    let constList := ind.all ++ funList
     let indInfos ← ind.all.foldlM (init := ([], [])) fun acc name => do
       match ← findConstant name with
-      | .inductInfo ind => withRecrs (RBMap.enumList $ ind.all ++ funList) do
-        let (anon, meta) ← toYatimaIpldInductive ind
-        return (anon :: acc.1, meta :: acc.2)
+      | .inductInfo ind => do
+        let mut firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray constList.length default) }))
+        let mut mutualIdxs : RBMap Lean.Name (Nat × Nat) compare := RBMap.empty
+        for (i, n) in constList.enum do
+          mutualIdxs := mutualIdxs.insert n (i, firstIdx + i)
+        withRecrs mutualIdxs do
+          let (anon, meta) ← toYatimaIpldInductive ind
+          return (anon :: acc.1, meta :: acc.2)
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     return indInfos
 
