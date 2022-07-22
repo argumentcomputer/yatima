@@ -23,9 +23,21 @@ mutual
     | .sort  ..
     | .lty   .. => return none
     | .var name i     => return some $ .lit (.sym $ name.fixDot)
-    | .const name ..  =>
-      -- Arthur: I think this is where we recurse on `constToLurkExpr` and then
-      -- call `appendBinding`. So I'm setting a TODO here.
+    | .const name cid ..  => do 
+      let visited? := (← get).visited.contains name
+      if !visited? then 
+        visit name -- cache
+        let const? := (← read).const_cache.find? cid
+        match const? with 
+        | some const => 
+          -- The binding works here because `constToLurkExpr`
+          -- will recursively process its children.
+          -- Hence we know that this binding will always come after
+          -- all of its children have already been bound 
+          match ← constToLurkExpr const with 
+          | some expr => appendBinding (name.fixDot, expr) 
+          | none => pure ()
+        | none => throw s!"constant '{name}' not found"
       return some $ .lit (.sym $ name.fixDot)
     | .app fn arg => do 
       let fn ← exprToLurkExpr fn
@@ -44,7 +56,7 @@ mutual
     | .pi    .. => return some $ .lit .nil
     -- TODO
     | .letE name _ value body  => do
-      match (←exprToLurkExpr value), (←exprToLurkExpr body) with
+      match (← exprToLurkExpr value), (← exprToLurkExpr body) with
         | some val, some body => return some $ .letE [(name, val)] body
         | _, _ => throw "TODO"
     | .lit lit  => match lit with 
@@ -98,14 +110,14 @@ def transpileM : TranspileM Unit := do
   let store ← read
   store.const_cache.forM fun _ const => do
     match ← constToLurkExpr const with
-    | some expr => prependBinding (const.name.fixDot, expr)
+    | some expr => appendBinding (const.name.fixDot, expr)
     | none      => pure ()
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
 def transpile (store : Store) : Except String String :=
-  match TranspileM.run store #[] (transpileM store) with
-  | .ok ste =>
-    let expr : Lurk.Expr := .letE ste.reverse.data .currEnv
+  match TranspileM.run store ⟨#[], .empty⟩ (transpileM store) with
+  | .ok ⟨bindings, _⟩ =>
+    let expr : Lurk.Expr := .letE bindings.reverse.data .currEnv
     return expr.print
   | .error e => throw e
 
