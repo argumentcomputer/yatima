@@ -9,6 +9,14 @@ abbrev State := Array (String × Lurk.Expr)
 
 abbrev TranspileM := ReaderT Store $ EStateM String State
 
+/-- Slow concatenation of new bindings -/
+def prependBinding (b : String × Lurk.Expr) : TranspileM Unit := do
+  set $ #[b].append (← get)
+
+/-- Fast concatenation of new bindings -/
+def appendBinding (b : String × Lurk.Expr) : TranspileM Unit := do
+  set $ (← get).push b
+
 def TranspileM.run (store : Store) (ste : State) (m : TranspileM α) :
     Except String State :=
   match EStateM.run (ReaderT.run m store) ste with
@@ -23,7 +31,8 @@ Suppose that we have A and B such that B depends on A. `bindings` will be
 respectively.
 
 The reverse order was chosen for optimization reasons, since we expect to
-recursively backtrack on dependencies often.
+recursively backtrack on dependencies often and appending on arrays is faster
+than prepending.
 -/
 def State.compile (bindings : State) : Lurk.Expr := sorry
 

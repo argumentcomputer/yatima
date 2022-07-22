@@ -1,6 +1,6 @@
 import Yatima.Store
 import Yatima.Transpiler.TranspileM
-import Yatima.ForLurkRepo.Printer
+import Yatima.ForLurkRepo.Printing
 
 namespace Yatima.Transpiler
 
@@ -21,7 +21,8 @@ mutual
     -- Note: we replace `.` with `:` since `.` is a special character in Lurk
     | .var name i     => return some $ .lit (.sym $ name.replace "." ":")
     | .const name ..  =>
-      -- TODO: I think this is where we should call `.append` on `State`
+      -- Arthur: I think this is where we recurse on `constToLurkExpr` and then
+      -- call `appendBinding`. So I'm setting a TODO here.
       return some $ .lit (.sym $ name.replace "." ":")
     | .app fn arg => do 
       let fn ← exprToLurkExpr fn
@@ -63,12 +64,10 @@ mutual
     | .axiom           _
     | .quotient        _ => return none
     | .theorem  _ => return some (.lit .t)
-    | .opaque   x => do
-      match (← read).expr_cache.find? x.value with
+    | .opaque   x => do match (← read).expr_cache.find? x.value with
       | some expr => exprToLurkExpr expr
       | none      => throw s!"opaque '{x.name}' not found"
-    | .definition x => do
-      match (← read).expr_cache.find? x.value with
+    | .definition x => do match (← read).expr_cache.find? x.value with
       | some expr => exprToLurkExpr expr
       | none      => throw s!"definition '{x.name}' not found"
     -- TODO
@@ -82,7 +81,7 @@ def transpileM : TranspileM Unit := do
   let store ← read
   store.const_cache.forM fun _ const => do
     match ← constToLurkExpr const with
-    | some expr => set $ #[(const.name, expr)].append (← get)
+    | some expr => prependBinding (const.name, expr)
     | none      => pure ()
 
 def transpile (store : Store) : Except String String :=
