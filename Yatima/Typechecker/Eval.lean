@@ -47,6 +47,21 @@ mutual
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+    | .quotient _ {name, lvls, type, kind} =>
+      let process (majorPos argPos : Nat) : CheckM Value :=
+        let arg_size := args.length + 1
+        if h : majorPos < arg_size then do
+          let major := (arg :: args).get ⟨ majorPos, h ⟩
+          match arg.get with
+            | .app (.const _ _ _) [_, majorArg] => do
+              sorry
+            | _ => throw .cannotEvalQuotient
+        else
+          throw .cannotEvalQuotient
+      match kind with
+        | .lift => process 5 3
+        | .ind  => process 4 3
+        | _ => throw .cannotEvalQuotient
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
