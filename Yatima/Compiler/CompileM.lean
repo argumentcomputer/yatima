@@ -33,7 +33,7 @@ structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Lean.Name Nat compare
+  recrCtx  : Std.RBMap Lean.Name (Nat × Nat) compare
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -52,7 +52,7 @@ def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, levels, [], .empty⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
+def withRecrs (recrCtx : RBMap Lean.Name (Nat × Nat) compare) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx⟩
 

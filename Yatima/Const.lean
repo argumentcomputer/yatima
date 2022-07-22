@@ -138,33 +138,33 @@ inductive Const (k : Kind) where
   | mutIndBlock : List (Inductive k) → Const k
 end Ipld
 
-structure Axiom' (Expr : Type) where
+structure Axiom where
   name : Name
   lvls : List Name
   type : Expr
   safe : Bool
 
-structure Theorem' (Expr : Type) where
+structure Theorem where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
 
-structure Opaque' (Expr : Type) where
+structure Opaque where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
   safe  : Bool
 
-structure Definition' (Expr : Type) where
+structure Definition where
   name   : Name
   lvls   : List Name
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
 
-structure Constructor' (Expr : Type) where
+structure Constructor where
   name   : Name
   lvls   : List Name
   type   : Expr
@@ -174,7 +174,7 @@ structure Constructor' (Expr : Type) where
   rhs    : Expr
   safe   : Bool
 
-structure Inductive' (Expr : Type) where
+structure Inductive where
   name    : Name
   lvls    : List Name
   type    : Expr
@@ -184,14 +184,14 @@ structure Inductive' (Expr : Type) where
   safe    : Bool
   refl    : Bool
   unit    : Bool
-  struct  : Option (Constructor' Expr)
+  struct  : Option Constructor
 
-structure RecursorRule' (Expr : Type) where
-  ctor   : Constructor' Expr
+structure RecursorRule where
+  ctor   : Constructor
   fields : Nat
   rhs    : Expr
 
-structure ExtRecursor' (Expr : Type) where
+structure ExtRecursor where
   name    : Name
   lvls    : List Name
   type    : Expr
@@ -199,10 +199,10 @@ structure ExtRecursor' (Expr : Type) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List (RecursorRule' Expr)
+  rules   : List RecursorRule
   k       : Bool
 
-structure IntRecursor' (Expr : Type) where
+structure IntRecursor where
   name    : Name
   lvls    : List Name
   type    : Expr
@@ -212,33 +212,22 @@ structure IntRecursor' (Expr : Type) where
   minors  : Nat
   k       : Bool
 
-structure Quotient' (Expr : Type) where
+structure Quotient where
   name : Name
   lvls : List Name
   type : Expr
   kind : QuotKind
 
 inductive Const
-  | «axiom»     : Axiom' Expr → Const
-  | «theorem»   : Theorem' Expr → Const
-  | «inductive» : Inductive' Expr → Const
-  | «opaque»    : Opaque' Expr → Const
-  | definition  : Definition' Expr → Const
-  | constructor : Constructor' Expr → Const
-  | extRecursor : ExtRecursor' Expr → Const
-  | intRecursor : IntRecursor' Expr → Const
-  | quotient    : Quotient' Expr → Const
-
-abbrev Axiom := Axiom' Expr
-abbrev Theorem := Theorem' Expr
-abbrev Inductive := Inductive' Expr
-abbrev Opaque := Opaque' Expr
-abbrev Definition := Definition' Expr
-abbrev Constructor := Constructor' Expr
-abbrev RecursorRule := RecursorRule' Expr
-abbrev ExtRecursor := ExtRecursor' Expr
-abbrev IntRecursor := IntRecursor' Expr
-abbrev Quotient := Quotient' Expr
+  | «axiom»     : Axiom → Const
+  | «theorem»   : Theorem → Const
+  | «inductive» : Inductive → Const
+  | «opaque»    : Opaque → Const
+  | definition  : Definition → Const
+  | constructor : Constructor → Const
+  | extRecursor : ExtRecursor → Const
+  | intRecursor : IntRecursor → Const
+  | quotient    : Quotient → Const
 
 def Opaque'.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
 match k with
