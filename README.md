@@ -26,5 +26,5 @@ All files to be compiled must follow this rule
 Constraints:
 * The `store` command must be triggered from within a Lean project that uses Lake
 * The compiled code must use the same toolchain as the one used to compile the `yatima` binary.
-To see the needed toolchain, call `yatima --version` and check the content before the pipe `|`.
+To see the needed toolchain, call `yatima --version` and check the content before the pipe `|`
 * To compile a file that imports others, the imported `olean` files must be available
