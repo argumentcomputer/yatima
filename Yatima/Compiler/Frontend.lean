@@ -164,7 +164,7 @@ mutual
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
   partial def toYatimaIpldExternalRec :
-      Lean.ConstantInfo → CompileM $ Ipld.Both (Ipld.Recursor · .Intr)
+      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Extr))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -282,21 +282,16 @@ mutual
           if ← isInternalRec rv.type ind.name then do
             let mut ctors := ctors
             let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
-            let recs := (⟨Sigma.mk RecType.Intr thisRec.anon, Sigma.mk RecType.Intr thisRec.meta⟩) :: recs
+            let recs := (⟨Sigma.mk .Intr thisRec.anon, Sigma.mk .Intr thisRec.meta⟩) :: recs
             return (recs, ctors)
           else do
             let thisRec := ← toYatimaIpldExternalRec r
-            let rulesAnon ← rv.rules.mapM fun r => do 
-              let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
-              let (rhsCid, _) ← toYatimaExpr r.rhs
-              return ⟨ctorCid.anon, r.nfields, rhsCid.anon⟩
-            let rulesMeta ← rv.rules.mapM fun r => do 
-              let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
-              let (rhsCid, _) ← toYatimaExpr r.rhs
-              return ⟨ctorCid.meta, (), rhsCid.meta⟩
-            let recsAnon := (Sigma.mk .Extr $ thisRec.toIpld typeCid rulesAnon) :: recsAnon
-            let recsMeta := (Sigma.mk .Extr $ thisRec.toIpld typeCid rulesMeta) :: recsMeta
-            return ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta))
+            --let rules ← rv.rules.mapM fun r => do 
+            --  let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
+            --  let (rhsCid, _) ← toYatimaExpr r.rhs
+            --  return ⟨ctorCid.anon, r.nfields, rhsCid.anon⟩
+            let recs := (⟨Sigma.mk .Extr thisRec.anon, Sigma.mk .Extr thisRec.meta⟩) :: recs
+            return (recs, ctors)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     let (typeCid, type) ← toYatimaExpr ind.type
     return {
