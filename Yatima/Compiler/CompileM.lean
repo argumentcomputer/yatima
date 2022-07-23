@@ -1,7 +1,6 @@
 import Yatima.Store
 import Yatima.Compiler.Utils
 
-
 namespace Yatima.Compiler
 
 open Std (RBMap)
@@ -12,7 +11,9 @@ structure CompileState where
   mutDefIdx : RBMap Name Nat compare
   deriving Inhabited
 
-def CompileState.union (s s' : CompileState) :
+namespace CompileState
+
+def union (s s' : CompileState) :
     Except String CompileState := Id.run do
   let mut cache := s.cache
   for (n, c') in s'.cache do
@@ -26,6 +27,20 @@ def CompileState.union (s s' : CompileState) :
     s'.mutDefIdx.fold (init := s.mutDefIdx) fun acc n i =>
       acc.insert n i
   ⟩
+
+def summary (s : CompileState) : String :=
+  let consts := ", ".intercalate $ s.store.const_cache.toList.map
+    fun (_, c) => s!"{c.name} : {c.ctorName}"
+  "Compilation state:\n" ++
+  s!"----------------------------\n" ++
+  s!"{consts}\n" ++
+  s!"----------------------------\n" ++
+  s!"  univ_cache size: {s.store.univ_cache.size}\n" ++
+  s!"  expr_cache size: {s.store.expr_cache.size}\n" ++
+  s!"  const_cache size: {s.store.const_cache.size}\n" ++
+  s!"  cache size: {s.cache.size}"
+
+end CompileState
 
 structure CompileEnv where
   constMap : Lean.ConstMap
