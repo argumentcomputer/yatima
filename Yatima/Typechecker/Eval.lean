@@ -48,6 +48,8 @@ mutual
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .quotient _ {name, lvls, type, kind} =>
+      -- This case is a version of the reduceQuotRec function from the Lean 4 source code
+      -- https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
       let process (majorPos argPos : Nat) : CheckM Value :=
         let arg_size := args.length + 1
         if h : majorPos < arg_size then do
@@ -55,6 +57,7 @@ mutual
           match arg.get with
             | .app (.const _ _ _) [_, majorArg] => do
               sorry
+            -- TODO: figure out do we need a version of getConstNoEx
             | _ => throw .cannotEvalQuotient
         else
           throw .cannotEvalQuotient
