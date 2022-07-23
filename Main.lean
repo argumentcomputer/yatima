@@ -1,7 +1,8 @@
 import Cli
 import Yatima.Compiler.Frontend
+import Yatima.Cronos
 
-opaque VERSION : String := "0.0.1"
+opaque VERSION : String := s!"{Lean.versionString}|0.0.1"
 
 open System in
 partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
@@ -18,16 +19,26 @@ partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
     else
       return acc
 
-def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
-  IO.println $ "Compilation stats:\n" ++
-    s!"  univ_cache size: {stt.store.univ_cache.size}\n" ++
-    s!"  expr_cache size: {stt.store.expr_cache.size}\n" ++
-    s!"  const_cache size: {stt.store.const_cache.size}\n" ++
-    s!"  cache size: {stt.cache.size}\n" ++
-    s!"  cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
+def getToolchain : IO $ Except String String := do
+  let out ← IO.Process.output {
+    cmd := "lake"
+    args := #["--version"]
+  }
+  if out.exitCode != 0 then
+    return .error "Couldn't run 'lake --version' command"
+  else
+    let version := out.stdout.splitOn "(Lean version " |>.get! 1
+    return .ok $ version.splitOn ")" |>.head!
 
 open Yatima.Compiler in
 def storeRun (p : Cli.Parsed) : IO UInt32 := do
+  match ← getToolchain with
+  | .error msg => IO.eprintln msg; return 1
+  | .ok toolchain =>
+    if toolchain != Lean.versionString then
+      IO.eprintln
+        s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
+      return 1
   let log := p.hasFlag `log
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
@@ -35,16 +46,16 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
       if !(p.hasFlag `prelude) then setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
-      let mut costs : List (String × Float) := []
+      let mut cronos := Cronos.new
       for arg in args do
         for filePath in ← getFilePathsList ⟨arg⟩ do
-          let start := Float.ofNat (← IO.monoMsNow)
+          let filePathStr := filePath.toString
+          cronos ← cronos.start filePathStr
           match ← runFrontend filePath log stt with
           | .ok stt' => match stt.union stt' with
             | .ok stt' =>
               stt := stt'
-              costs := (filePath.toString,
-                (Float.ofNat (← IO.monoMsNow) - start) / 1000.0) :: costs
+              cronos ← cronos.clock filePathStr
             | .error msg => errMsg := some msg; break
           | .error msg => errMsg := some msg; break
         if errMsg.isSome then break
@@ -54,11 +65,9 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         return 1
       | none => pure ()
       if p.hasFlag `summary then
-        printCompilationStats stt
-        IO.println s!"\nTime costs:"
-        IO.println $ "\n".intercalate $ costs.reverse.map
-          fun (f, d) => s!"  {f} | {d}s"
-      -- todo: make use of `stt.store`
+        IO.println s!"{stt.summary}"
+        IO.println s!"\n{cronos.summary}"
+      -- TODO: write `stt.store` on disk
       return 0
     else
       IO.eprintln "No store argument was found."
