@@ -86,10 +86,10 @@ def storeCmd : Cli.Cmd := `[Cli|
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    l, `log;     "Flag to print compilation progress"
-    s, `summary; "Flag to print compilation summary"
-    p, `prelude; "Flag to optimize the compilation of prelude files without" ++
-      " imports (all files to be compiled must follow this rule)"
+    p, `prelude; "Optimizes the compilation of prelude files without imports." ++
+      " All files to be compiled must follow this rule"
+    l, `log;     "Logs compilation progress"
+    s, `summary; "Prints a compilation summary at the end of the process"
 
   ARGS:
     ...sources : String; "List of Lean files or directories"

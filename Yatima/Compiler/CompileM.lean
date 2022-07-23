@@ -32,8 +32,9 @@ def summary (s : CompileState) : String :=
   let consts := ", ".intercalate $ s.store.const_cache.toList.map
     fun (_, c) => s!"{c.name} : {c.ctorName}"
   "Compilation state:\n" ++
-  s!"  consts: {consts}\n" ++
-  s!"  ----------------------------\n" ++
+  s!"----------------------------\n" ++
+  s!"{consts}\n" ++
+  s!"----------------------------\n" ++
   s!"  univ_cache size: {s.store.univ_cache.size}\n" ++
   s!"  expr_cache size: {s.store.expr_cache.size}\n" ++
   s!"  const_cache size: {s.store.const_cache.size}\n" ++
