@@ -136,8 +136,8 @@ mutual
     | .constructor ctor => return { ctor, fields := rule.nfields, rhs }
     | _ => throw s!"Invalid constant kind for '{const.name}'."
 
-  partial def toYatimaInternalRec (ctors : List Lean.Name) :
-      Lean.ConstantInfo → CompileM (IntRecursor × List Constructor)
+  partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
+      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -163,8 +163,8 @@ mutual
           k       := rec.k }, retCtors)
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
-  partial def toYatimaExternalRec :
-      Lean.ConstantInfo → CompileM ExtRecursor
+  partial def toYatimaIpldExternalRec :
+      Lean.ConstantInfo → CompileM $ Ipld.Both (Ipld.Recursor · .Intr)
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -270,24 +270,22 @@ mutual
       | _ => return false
 
   partial def toYatimaIpldInductive (ind : Lean.InductiveVal) :
-      CompileM (Ipld.Inductive .Anon × Ipld.Inductive .Meta) := do
-    let (typeCid, type) ← toYatimaExpr ind.type
+      CompileM $ Ipld.Both Ipld.Inductive := do
     -- reverses once
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta)) : ((List (Sigma $ Ipld.Recursor .Anon) × List (Sigma $ Ipld.Recursor .Meta)) × (List (Ipld.Constructor .Anon) × List (Ipld.Constructor .Meta))) :=
+    let (recs, ctors) : ((List $ Ipld.Both (Sigma $ Ipld.Recursor ·)) × (List $ Ipld.Both Ipld.Constructor)) :=
       -- reverses again, keeping original order
-      ← leanRecs.foldlM (init := (([], []), ([], []))) fun ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta)) r =>
+      ← leanRecs.foldlM (init := ([], [])) fun (recs, ctors) r =>
         match r with
         | .recInfo rv => do
-          let (typeCid, type) ← toYatimaExpr rv.type
           if ← isInternalRec rv.type ind.name then do
-            let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
-            let recsAnon := (Sigma.mk .Intr $ thisRec.toIpld typeCid) :: recsAnon
-            let recsMeta := (Sigma.mk .Intr $ thisRec.toIpld typeCid) :: recsMeta
-            return ((recsAnon, recsMeta), (sorry, sorry))
+            let mut ctors := ctors
+            let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
+            let recs := (⟨Sigma.mk RecType.Intr thisRec.anon, Sigma.mk RecType.Intr thisRec.meta⟩) :: recs
+            return (recs, ctors)
           else do
-            let thisRec := ← toYatimaExternalRec r
+            let thisRec := ← toYatimaIpldExternalRec r
             let rulesAnon ← rv.rules.mapM fun r => do 
               let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
               let (rhsCid, _) ← toYatimaExpr r.rhs
@@ -300,24 +298,26 @@ mutual
             let recsMeta := (Sigma.mk .Extr $ thisRec.toIpld typeCid rulesMeta) :: recsMeta
             return ((recsAnon, recsMeta), (ctorsAnon, ctorsMeta))
         | _ => throw s!"Non-recursor {r.name} extracted from children"
-    return (
-      ⟨ ()
-      , ind.levelParams.length
-      , typeCid.anon
-      , ind.numParams
-      , ind.numIndices
-      , ctorsAnon
-      , recsAnon
-      , ind.isRec
-      , not ind.isUnsafe
-      , ind.isReflexive ⟩,
-      ⟨ ind.name
-      , ind.levelParams
-      , typeCid.meta
-      , () , ()
-      , ctorsMeta
-      , recsMeta
-      , () , () , () ⟩)
+    let (typeCid, type) ← toYatimaExpr ind.type
+    return {
+      anon := ⟨ ()
+        , ind.levelParams.length
+        , typeCid.anon
+        , ind.numParams
+        , ind.numIndices
+        , ctors.map (·.anon)
+        , recs.map (·.anon)
+        , ind.isRec
+        , not ind.isUnsafe
+        , ind.isReflexive ⟩
+      meta := ⟨ ind.name
+        , ind.levelParams
+        , typeCid.meta
+        , () , ()
+        , ctors.map (·.meta)
+        , recs.map (·.meta)
+        , () , () , () ⟩
+    }
 
   partial def toYatimaInductive (ind : Lean.InductiveVal) :
       CompileM Inductive := do
@@ -346,7 +346,7 @@ mutual
       struct   := struct}
 
   partial def buildInductiveInfoList (ind : Lean.InductiveVal) :
-      CompileM $ Ipld.Both (List $ Ipld.Inductive ·) := do
+      CompileM $ List $ Ipld.Both Ipld.Inductive := do
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match ← findConstant indName with
@@ -357,7 +357,7 @@ mutual
         funList := (funList.append ind.ctors).append leanRecs
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     let constList := ind.all ++ funList
-    let indInfos ← ind.all.foldlM (init := ⟨[], []⟩) fun acc name => do
+    return ← ind.all.foldlM (init := []) fun acc name => do
       match ← findConstant name with
       | .inductInfo ind => do
         let mut firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray constList.length default) }))
@@ -365,10 +365,9 @@ mutual
         for (i, n) in constList.enum do
           mutualIdxs := mutualIdxs.insert n (i, firstIdx + i)
         withRecrs mutualIdxs do
-          let (anon, meta) ← toYatimaIpldInductive ind
-          return ⟨anon :: acc.1, meta :: acc.2⟩
+          let ipldInd ← toYatimaIpldInductive ind
+          return (ipldInd :: acc)
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-    return indInfos
 
 
   partial def toYatimaConst : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
