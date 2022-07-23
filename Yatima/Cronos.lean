@@ -10,7 +10,7 @@ namespace Cronos
 def new : Cronos :=
   default
 
-private def now : IO Float :=
+def now : IO Float :=
   return Float.ofNat (← IO.monoMsNow)
 
 variable (c : Cronos)
