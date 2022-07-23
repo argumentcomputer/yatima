@@ -65,8 +65,32 @@ mutual
       | .str s => return some $ .lit (.str s)
     | .fix _ e => exprToLurkExpr e
     -- TODO
-    | .proj  .. => sorry
+    -- MP: .proj should also go to .nil right? I am probably wrong though.
+    | .proj  .. => return some $ .lit .nil
 
+  /--
+
+  -/
+  partial def mutIndBlockToLurkExpr (inds : List Inductive) : TranspileM $ Option Lurk.Expr := do
+    let store ← read
+
+    let ctorExprs := inds |>.map Inductive.ctors 
+                           |>.foldl (· ++ ·) []
+                           |>.map (fun ctor => (ctor.name, ctor.rhs))
+
+    for (exprName, exprCid) in ctorExprs do
+      let mut ctorLurkExprs : List (String × Lurk.Expr) := [] 
+      match store.expr_cache.find? exprCid with
+        | none => throw "TODO"
+        | some expr => 
+          let lurkExpr? ← exprToLurkExpr expr
+          match lurkExpr? with
+            | none => throw "TODO"
+            | some lExpr => 
+              ctorLurkExprs := ctorLurkExprs.concat (exprName.fixDot, lExpr)
+    return none
+
+  
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
   projection separately to avoid some recursions.
@@ -90,8 +114,8 @@ mutual
       | some expr => exprToLurkExpr expr
       | none      => throw s!"definition '{x.name}' not found"
     -- TODO
-    | .mutDefBlock dss  => sorry 
-    | .mutIndBlock inds => sorry 
+    | .mutDefBlock dss  => sorry
+    | .mutIndBlock inds => mutIndBlockToLurkExpr inds 
 
 end
 
