@@ -109,15 +109,6 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none, _   => throw s!"'{x}' not found in '{lvls}'"
     | _, none   => throw s!"'{y}' not found in '{lvls}'"
 
--- TODO
--- def findRecursorIn (recName : Name) (indInfos : List Inductive) :
---     Option (Nat × Nat) := Id.run do
---   for (i, indInfo) in indInfos.enum do
---     for (j, intRec) in indInfo.recrs.enum do
---       if recName == intRec.snd.name then
---         return some (i, j)
---   return none
-
 mutual
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM Constructor := do
@@ -352,10 +343,10 @@ mutual
       refl     := ind.isReflexive
       safe     := not ind.isUnsafe
       unit     := unit
-      struct   := struct  true}
+      struct   := struct}
 
   partial def buildInductiveInfoList (ind : Lean.InductiveVal) :
-      CompileM $ (List $ Ipld.Inductive .Anon) × (List $ Ipld.Inductive .Meta) := do
+      CompileM $ Ipld.Both (List $ Ipld.Inductive ·) := do
     let mut funList : List Lean.Name := []
     for indName in ind.all do
       match ← findConstant indName with
@@ -366,7 +357,7 @@ mutual
         funList := (funList.append ind.ctors).append leanRecs
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     let constList := ind.all ++ funList
-    let indInfos ← ind.all.foldlM (init := ([], [])) fun acc name => do
+    let indInfos ← ind.all.foldlM (init := ⟨[], []⟩) fun acc name => do
       match ← findConstant name with
       | .inductInfo ind => do
         let mut firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray constList.length default) }))
@@ -375,12 +366,25 @@ mutual
           mutualIdxs := mutualIdxs.insert n (i, firstIdx + i)
         withRecrs mutualIdxs do
           let (anon, meta) ← toYatimaIpldInductive ind
-          return (anon :: acc.1, meta :: acc.2)
+          return ⟨anon :: acc.1, meta :: acc.2⟩
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     return indInfos
 
 
   partial def toYatimaConst : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
+  -- These cases are subsumed by the inductive case
+  | .ctorInfo struct => do
+    match (← read).constMap.find? struct.induct with
+    | some (.inductInfo ind) => processYatimaConst (.inductInfo ind)
+    | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+    | none => throw s!"Unknown constant '{struct.induct}'"
+    processYatimaConst (.ctorInfo struct)
+  | .recInfo struct => do
+    match (← read).constMap.find? struct.getInduct with
+    | some (.inductInfo ind) => processYatimaConst (.inductInfo ind)
+    | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+    | none => throw s!"Unknown constant '{struct.getInduct}'"
+    processYatimaConst (.recInfo struct)
   -- These cases are done in one go
   | .defnInfo struct => do
     if struct.all.length == 1 then
@@ -428,13 +432,12 @@ mutual
       | some ret => return ret
       | none => throw s!"Constant for '{struct.name}' wasn't compiled"
   | .inductInfo struct => do
-    let (indInfosAnon, indInfosMeta) ← buildInductiveInfoList struct
-    let indBlockAnon := .mutIndBlock indInfosAnon
-    let indBlockMeta := .mutIndBlock indInfosMeta
-    let indBlockCidAnon ← StoreValue.insert $ .const ⟨indBlockAnon, indBlockMeta⟩
+    let indInfos ← buildInductiveInfoList struct
+    let indBlock := ⟨.mutIndBlock indInfos.anon, .mutIndBlock indInfos.meta⟩
+    let indBlockCid ← StoreValue.insert $ .const indBlock
 
-    let indSize := struct.all.length
-    let firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray indSize default) }))
+    let blockSize := indInfos.anon.length
+    let firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray blockSize default) }))
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
 
@@ -521,88 +524,7 @@ mutual
           kind := struct.kind }
         let value := ⟨.quotient $ quot.toIpld typeCid, .quotient $ quot.toIpld typeCid⟩
         pure (value, .quotient quot)
-      | .ctorInfo struct =>
-        let ind ← match (← read).constMap.find? struct.induct with
-        | some (.inductInfo ind) => pure ind
-        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-        | none => throw s!"Unknown constant '{struct.induct}'"
-        match ← processYatimaConst (.inductInfo ind) with
-        | (cid, _) =>
-          -- TODO: the commented code here should be used to build and store the inductive projections needed to construct the CID
-          -- let indBlockCid ← match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
-          -- | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => pure (⟨projAnon.block, projMeta.block⟩ : ConstCid)
-          -- | _ => throw s!"IPLD error: expected {ind.name} to be an inductive"
-          -- let idx ← match ind.all.indexOf? ind.name with
-          -- | some i => pure i
-          -- | none => throw s!"'{ind.name}' not found in '{ind.all}'"
-          -- match ind.ctors.indexOf? struct.name with
-          -- | some cidx =>
-          -- if cidx != struct.cidx then
-          --   throw s!"constructor index mismatch: {cidx} != {struct.cidx}"
-          -- TODO? should not catch the inductive reference in these expressions
-          let (_typeCid, type) ← toYatimaExpr struct.type
-          let (_rhsCid, rhs)  ← toYatimaExpr sorry -- TODO: get the (internal) constructor rule associated with this constructor
-          let const := {
-            name   := struct.name
-            lvls   := struct.levelParams
-            type   := type
-            idx    := struct.cidx
-            params := struct.numParams
-            fields := struct.numFields
-            rhs    := sorry
-            safe   := not struct.isUnsafe }
-          -- `value` is the inductive projection
-          let value := sorry
-          pure (value, .constructor const)
-      | .recInfo struct =>
-        let inductName := struct.getInduct
-        let ind ← match (← read).constMap.find? inductName with
-        | some (.inductInfo ind) => pure ind
-        | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-        | none => throw s!"Unknown constant '{inductName}'"
-        match ← processYatimaConst (.inductInfo ind) with
-        | (cid, _) =>
-          -- TODO: the commented code here should be used to build and store the recursive projections needed to construct the CID
-          -- let indBlockCid ← match ((← get).store.const_anon.find? cid.anon, (← get).store.const_meta.find? cid.meta) with
-          -- | (some $ .inductiveProj projAnon, some $ .inductiveProj projMeta) => pure (⟨projAnon.block, projMeta.block⟩: ConstCid)
-          -- | _ => throw s!"IPLD error: expected {ind.name} to be an inductive"
-          -- let indInfos ← match (← get).store.const_cache.find? indBlockCid with
-          -- | some (.mutIndBlock indInfos) => pure indInfos
-          -- | some _ => throw "Induction block CID corresponds to something other than an inductive block. Implementation is broken."
-          -- | none => throw "Cannot find induction block in store. Implementation is broken."
-          -- match findRecursorIn struct.name indInfos with
-          -- | some (idx, ridx) =>
-          let isRecInt : Bool := sorry -- Is recursor internal?
-          -- TODO? should not catch the inductive reference in these expressions
-          let (_, type) ← toYatimaExpr struct.type
-          if isRecInt then
-            let const := {
-              name    := struct.name
-              lvls    := struct.levelParams
-              type    := type
-              params  := struct.numParams
-              indices := struct.numIndices
-              motives := struct.numMotives
-              minors  := struct.numMinors
-              k       := struct.k }
-            -- `value` is the recursor projection
-            let value := sorry
-            pure (value, .intRecursor const)
-          else
-            let const := {
-              name    := struct.name
-              lvls    := struct.levelParams
-              type    := type
-              params  := struct.numParams
-              indices := struct.numIndices
-              motives := struct.numMotives
-              minors  := struct.numMinors
-              rules   := sorry
-              k       := struct.k }
-            let value := sorry
-            pure (value, .extRecursor const)
-      | .defnInfo struct => unreachable!
-      | .inductInfo struct => unreachable!
+      | _ => unreachable!
     let cid ← StoreValue.insert $ .const values.fst
     modify (fun stt => { stt with defns := stt.defns.set! constIdx values.snd })
     addToCache const.name (cid, constIdx)
