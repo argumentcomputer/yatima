@@ -15,15 +15,13 @@ private def now : IO Float :=
 
 variable (c : Cronos)
 
-def start (tag : String) : IO Cronos :=
-  return { c with refs := c.refs.insert tag (← now) }
-
 def clock (tag : String) : IO Cronos := do
   let now ← now
   match c.refs.find? tag with
-  | some ref =>
-    return ⟨c.refs.insert tag now, c.data.insert tag ((now - ref) / 1000.0)⟩
-  | none => return ⟨c.refs.insert tag now, c.data.insert tag 0.0⟩
+  | none => return { c with refs := c.refs.insert tag now }
+  | some ref => return {
+    refs := c.refs.insert tag now,
+    data := c.data.insert tag $ (now - ref) / 1000.0 }
 
 def summary : String :=
   let timings := c.data.fold (init := "")

@@ -50,7 +50,7 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
       for arg in args do
         for filePath in ← getFilePathsList ⟨arg⟩ do
           let filePathStr := filePath.toString
-          cronos ← cronos.start filePathStr
+          cronos ← cronos.clock filePathStr
           match ← runFrontend filePath log stt with
           | .ok stt' => match stt.union stt' with
             | .ok stt' =>
