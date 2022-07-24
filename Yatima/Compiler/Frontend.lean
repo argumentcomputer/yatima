@@ -376,17 +376,19 @@ mutual
     }
 
   partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
-      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Intr) × (List $ Ipld.Both Ipld.Constructor))
+      Lean.ConstantInfo → CompileM
+        (Ipld.Both (Ipld.Recursor · .Intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
-        let ctorMap : RBMap Name Constructor compare := ← rec.rules.foldlM (init := (RBMap.empty)) fun ctorMap r => do
-          match ctors.indexOf? r.ctor with
-          | some _ =>
-            let ctor ← toYatimaConstructor r
-            return ctorMap.insert ctor.name ctor
-          -- this is an external recursor rule
-          | none => return ctorMap
+        let ctorMap : RBMap Name Constructor compare := ← rec.rules.foldlM
+          (init := .empty) fun ctorMap r => do
+            match ctors.indexOf? r.ctor with
+            | some _ =>
+              let ctor ← toYatimaConstructor r
+              return ctorMap.insert ctor.name ctor
+            -- this is an external recursor rule
+            | none => return ctorMap
         let retCtors ← ctors.mapM fun ctor => do
           match ctorMap.find? ctor with
           | some thisCtor => pure thisCtor
@@ -594,8 +596,8 @@ mutual
         ← ds.sortByM (cmpDef names))).joinM
 
     -- must normalize, see comments
-    let normDss := dss.map fun ds => List.sort $ ds.map (·.name)
-    let normNewDss := newDss.map fun ds => List.sort $ ds.map (·.name)
+    let normDss    := dss.map    fun ds => ds.map (·.name) |>.sort
+    let normNewDss := newDss.map fun ds => ds.map (·.name) |>.sort
     if normDss == normNewDss then
       return newDss
     else
@@ -617,7 +619,6 @@ def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Unit := do
     if log then
       dbg_trace "------------ Yatima constant ------------"
       dbg_trace s!"{← printYatimaConst true (← derefConst const)}"
-  return ()
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
     Except String CompileState :=
