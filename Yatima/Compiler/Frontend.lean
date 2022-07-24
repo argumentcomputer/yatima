@@ -42,7 +42,7 @@ def derefConst (idx : ConstIdx) : CompileM Const := do
   let defns := (← get).defns
   pure $ defns.get! idx
 
-def findConstant (name : Name) : CompileM Lean.ConstantInfo := do
+def findConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
   | some const => pure const
   | none => throw s!"Unknown constant '{name}'"
@@ -459,36 +459,34 @@ mutual
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
       let (rhsCid, rhs) ← toYatimaExpr rule.rhs
       match ← findConstant rule.ctor with
-        | .ctorInfo ctor =>
-          let (typeCid, type) ← toYatimaExpr ctor.type
-          let tcCtor : Const := .constructor {
-            name    := ctor.name
-            lvls    := ctor.levelParams
-            type    := type
-            idx     := ctor.cidx
-            params  := ctor.numParams
-            fields  := ctor.numFields
-            rhs     := rhs
-            safe    := not ctor.isUnsafe
-          }
-          let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | unreachable!
-          modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcCtor })
-          return ⟨
-            {
-              rhs    := rhsCid.anon
-              lvls   := ctor.levelParams.length
-              name   := ()
-              type   := typeCid.anon
-              params := ctor.numParams
-              fields := ctor.numFields },
-            {
-              rhs    := rhsCid.meta
-              lvls   := ctor.levelParams
-              name   := ctor.name
-              type   := typeCid.meta
-              params := ()
-              fields := () } ⟩
-        | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
+      | .ctorInfo ctor =>
+        let (typeCid, type) ← toYatimaExpr ctor.type
+        let tcCtor : Const := .constructor {
+          name    := ctor.name
+          lvls    := ctor.levelParams
+          type    := type
+          idx     := ctor.cidx
+          params  := ctor.numParams
+          fields  := ctor.numFields
+          rhs     := rhs
+          safe    := not ctor.isUnsafe
+        }
+        let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | unreachable!
+        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcCtor })
+        return ⟨
+          { rhs    := rhsCid.anon
+            lvls   := ctor.levelParams.length
+            name   := ()
+            type   := typeCid.anon
+            params := ctor.numParams
+            fields := ctor.numFields },
+          { rhs    := rhsCid.meta
+            lvls   := ctor.levelParams
+            name   := ctor.name
+            type   := typeCid.meta
+            params := ()
+            fields := () } ⟩
+      | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
 
   partial def toYatimaIpldExternalRec :
       Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Extr))
