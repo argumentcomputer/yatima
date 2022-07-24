@@ -8,8 +8,6 @@ def String.fixDot (s : String) : String :=
 
 namespace Yatima.Transpiler
 
-open Yatima
-
 mutual
 
   -- Maybe useful later:
@@ -35,8 +33,8 @@ mutual
           -- Hence we know that this binding will always come after
           -- all of its children have already been bound 
           match ← constToLurkExpr const with 
-          | some expr => appendBinding (name.fixDot, expr) 
-          | none => pure ()
+          | some expr => prependBinding (name.fixDot, expr) 
+          | none      => pure ()
         | none => throw s!"constant '{name}' not found"
       return some $ .lit (.sym $ name.fixDot)
     | .app fn arg => do 
@@ -110,10 +108,8 @@ def transpileM : TranspileM Unit := do
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
 def transpile (store : Store) : Except String String :=
-  match TranspileM.run store ⟨#[], .empty⟩ (transpileM store) with
-  | .ok ⟨bindings, _⟩ =>
-    let expr : Lurk.Expr := .letE bindings.reverse.data .currEnv
-    return expr.print
+  match TranspileM.run store default (transpileM store) with
+  | .ok    s => return Lurk.Expr.print $ .letE s.getBindings .currEnv
   | .error e => throw e
 
 end Yatima.Transpiler
