@@ -281,56 +281,50 @@ mutual
     for (i, n) in constList.enum do
       mutualIdxs := mutualIdxs.insert n (i, firstIdx + i)
 
-    -- This part will build the inductive block, but won't add the inductives, constructors and recursors to the cache
-    let indInfos : Ipld.Both (List $ Ipld.Inductive ·) ← initInd.all.foldlM (init := ⟨[], []⟩) fun acc name => do
+    -- This part will build the inductive block and add all inductives, constructors and recursors to `defns`
+    let indInfos : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldlM (init := []) fun acc name => do
       match ← findConstant name with
       | .inductInfo ind => do
         withRecrs mutualIdxs do
           let ipldInd ← toYatimaIpldInductive ind
-          pure ⟨ipldInd.anon :: acc.anon, ipldInd.meta :: acc.meta⟩
+          pure $ ipldInd :: acc
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-    let indBlock := ⟨.mutIndBlock indInfos.anon, .mutIndBlock indInfos.meta⟩
+    let indBlock := ⟨.mutIndBlock $ indInfos.map (·.anon), .mutIndBlock $ indInfos.map (·.meta)⟩
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
+    let mut defnIdx := firstIdx
 
-    for (idx, name) in constList.enum do
-      match ← findConstant name with
-      | .inductInfo const =>
-        let (typeCid, type) ← toYatimaExpr const.type
-        let struct ← if const.isRec || const.numIndices != 0 then pure none else
-          match const.ctors with
-          | [ctor] => sorry
-          | _ => pure none
-        let unit := match struct with
-          | some ctor => ctor.fields == 0
-          | none => false
-        let ind : Inductive := {
-          name     := const.name
-          lvls     := const.levelParams
-          indices  := const.numIndices
-          params   := const.numParams
-          type     := type
-          recr     := const.isRec
-          refl     := const.isReflexive
-          safe     := not const.isUnsafe
-          unit     := unit
-          struct   := struct}
-        let indProj := ⟨.inductiveProj $ ind.toIpld idx typeCid indBlockCid, .inductiveProj $ ind.toIpld idx typeCid indBlockCid⟩
-        let cid ← StoreValue.insert $ .const indProj
-        let some (_, constIdx) := mutualIdxs.find? name | throw ""
-        modify (fun stt => { stt with defns := stt.defns.set! constIdx (.inductive ind) })
-        addToCache const.name (cid, constIdx)
-        if name == initInd.name then ret? := some (cid, constIdx)
-      | .ctorInfo const =>
-        let ctorProj := ⟨.constructorProj sorry, .constructorProj sorry⟩
-        let ctorProjCid ← StoreValue.insert $ .const ctorProj
-        sorry
-      | .recInfo const =>
-        let recProj := ⟨.recursorProj sorry, .recursorProj sorry⟩
-        let recProjCid ← StoreValue.insert $ .const recProj
-        sorry
-      | _ => unreachable!
+    for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
+      -- Add the IPLD inductive projections and inductives to the cache
+      let name : String := indMeta.name.proj₂
+      let indProj :=
+        ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
+        , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
+      let cid ← StoreValue.insert $ .const indProj
+      addToCache name (cid, defnIdx)
+      if name == initInd.name then ret? := some (cid, indIdx)
+      defnIdx := defnIdx + 1
+
+      for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
+        -- Add the IPLD constructor projections and constructors to the cache
+        let name : String := ctorMeta.name.proj₂
+        let ctorProj :=
+          ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
+          , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
+        let cid ← StoreValue.insert $ .const ctorProj
+        addToCache name (cid, defnIdx)
+        defnIdx := defnIdx + 1
+
+      for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
+        -- Add the IPLD recursor projections and recursors to the cache
+        let name : String := recrMeta.2.name.proj₂
+        let recrProj :=
+          ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, recrIdx, default ⟩
+          , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
+        let cid ← StoreValue.insert $ .const recrProj
+        addToCache name (cid, defnIdx)
+        defnIdx := defnIdx + 1
 
     match ret? with
     | some ret => return ret

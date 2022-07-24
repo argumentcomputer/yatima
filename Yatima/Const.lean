@@ -322,7 +322,6 @@ match k with
     , blockCid.meta
     , () ⟩
 
-
 def Const.name : Const → Name
   | .axiom           x
   | .theorem         x
