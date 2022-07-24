@@ -375,63 +375,6 @@ mutual
         , () , () , () ⟩
     }
 
-  partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
-      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Intr) × (List $ Ipld.Both Ipld.Constructor))
-    | .recInfo rec => do
-      withLevels rec.levelParams do
-        let (typeCid, type) ← toYatimaExpr rec.type
-        let ctorMap : RBMap Name Constructor compare := ← rec.rules.foldlM (init := (RBMap.empty)) fun ctorMap r => do
-          match ctors.indexOf? r.ctor with
-          | some _ =>
-            let ctor ← toYatimaConstructor r
-            return ctorMap.insert ctor.name ctor
-          -- this is an external recursor rule
-          | none => return ctorMap
-        let retCtors ← ctors.mapM fun ctor => do
-          match ctorMap.find? ctor with
-          | some thisCtor => pure thisCtor
-          | none => unreachable!
-        return ({
-          name    := rec.name
-          lvls    := rec.levelParams
-          type    := type
-          params  := rec.numParams
-          indices := rec.numIndices
-          motives := rec.numMotives
-          minors  := rec.numMinors
-          k       := rec.k }, retCtors)
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
-
-  partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
-      CompileM RecursorRule := do
-    let (rhsCid, rhs) ← toYatimaExpr rule.rhs
-    let const ← findConstant rule.ctor
-    let (ctorCid, ctor) ← processYatimaConst const
-    match ← derefConst ctor with
-    | .constructor ctor => return { ctor, fields := rule.nfields, rhs }
-    | _ => throw s!"Invalid constant kind for '{const.name}'."
-
-  partial def toYatimaIpldExternalRec :
-      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Extr))
-    | .recInfo rec => do
-      withLevels rec.levelParams do
-        let (typeCid, type) ← toYatimaExpr rec.type
-        let rules := ← rec.rules.foldlM (init := []) fun rules r => do
-          let extRecrRule ← toYatimaExternalRecRule r
-          return extRecrRule::rules
-        return ⟨{
-          name    := ()
-          lvls    := rec.levelParams.length
-          type    := type
-          params  := rec.numParams
-          indices := rec.numIndices
-          motives := rec.numMotives
-          minors  := rec.numMinors
-          rules   := rules
-          k       := rec.k },
-          sorry⟩
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
-    
   partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
     match expr with
       | .forallE _ t e _  => match e with
@@ -442,21 +385,106 @@ mutual
       | .const n .. => return n == name
       | _ => return false
 
-  partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM Constructor := do
+  partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
+      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Intr) × (List $ Ipld.Both Ipld.Constructor))
+    | .recInfo rec => do
+      withLevels rec.levelParams do
+        let (typeCid, type) ← toYatimaExpr rec.type
+        let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare := ← rec.rules.foldlM (init := (RBMap.empty)) fun ctorMap r => do
+          match ctors.indexOf? r.ctor with
+          | some _ =>
+            let ctor ← toYatimaConstructor r
+            return ctorMap.insert ctor.meta.name.proj₂ ctor
+          -- this is an external recursor rule
+          | none => return ctorMap
+        let retCtors ← ctors.mapM fun ctor => do
+          match ctorMap.find? ctor with
+          | some thisCtor => pure thisCtor
+          | none => unreachable!
+        let recr := ⟨
+            { name    := ()
+              lvls    := rec.levelParams.length
+              type    := typeCid.anon
+              params  := rec.numParams
+              indices := rec.numIndices
+              motives := rec.numMotives
+              minors  := rec.numMinors
+              rules   := ()
+              k       := rec.k }
+          , { name    := rec.name
+              lvls    := rec.levelParams
+              type    := typeCid.meta
+              params  := ()
+              indices := ()
+              motives := ()
+              minors  := ()
+              rules   := ()
+              k       := () } ⟩
+        return (recr, retCtors)
+    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
+
+  partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
       let (rhsCid, rhs) ← toYatimaExpr rule.rhs
       match ← findConstant rule.ctor with
         | .ctorInfo ctor =>
           let (typeCid, type) ← toYatimaExpr ctor.type
-          return {
-            rhs    := rhs
-            idx    := ctor.cidx
-            lvls   := ctor.levelParams
-            name   := ctor.name
-            type   := type
-            safe   := not ctor.isUnsafe
-            params := ctor.numParams
-            fields := ctor.numFields }
+          return ⟨
+            {
+              rhs    := rhsCid.anon
+              lvls   := ctor.levelParams.length
+              name   := ()
+              type   := typeCid.anon
+              params := ctor.numParams
+              fields := ctor.numFields },
+            {
+              rhs    := rhsCid.meta
+              lvls   := ctor.levelParams
+              name   := ctor.name
+              type   := typeCid.meta
+              params := ()
+              fields := () } ⟩
         | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
+
+  partial def toYatimaIpldExternalRec :
+      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Extr))
+    | .recInfo rec => do
+      withLevels rec.levelParams do
+        let (typeCid, type) ← toYatimaExpr rec.type
+        let rules : Ipld.Both (fun k => List $ Ipld.RecursorRule k) ← rec.rules.foldlM (init := ⟨[], []⟩) fun rules r => do
+          let extRecrRule ← toYatimaExternalRecRule r
+          return ⟨extRecrRule.anon::rules.anon, extRecrRule.meta::rules.meta⟩
+        return ⟨
+            { name    := ()
+              lvls    := rec.levelParams.length
+              type    := typeCid.anon
+              params  := rec.numParams
+              indices := rec.numIndices
+              motives := rec.numMotives
+              minors  := rec.numMinors
+              rules   := rules.anon
+              k       := rec.k }
+          , { name    := rec.name
+              lvls    := rec.levelParams
+              type    := typeCid.meta
+              params  := ()
+              indices := ()
+              motives := ()
+              minors  := ()
+              rules   := rules.meta
+              k       := () } ⟩
+    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
+    
+  partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
+      CompileM (Ipld.Both Ipld.RecursorRule) := do
+    let (rhsCid, rhs) ← toYatimaExpr rule.rhs
+    let const ← findConstant rule.ctor
+    let (ctorCid, ctor) ← processYatimaConst const
+    return ⟨
+      { ctor := ctorCid.anon, fields := rule.nfields, rhs := rhsCid.anon },
+      { ctor := ctorCid.meta, fields := (), rhs := rhsCid.meta }⟩
+    -- match ← derefConst ctor with
+    -- | .constructor ctor => return { ctor, fields := rule.nfields, rhs }
+    -- | _ => throw s!"Invalid constant kind for '{const.name}'."
 
   partial def toYatimaDef (struct : Lean.DefinitionVal) : CompileM (ConstCid × ConstIdx) := do
     if struct.all.length == 1 then
