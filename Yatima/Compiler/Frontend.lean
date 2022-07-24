@@ -251,13 +251,13 @@ mutual
       | .lit lit _ =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
-      | .mdata _ e _ => unreachable!
       | .proj _ idx exp _ => do
         let (expCid, exp) ← toYatimaExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
       | .fvar .. => throw "Free variable found"
       | .mvar .. => throw "Metavariable found"
+      | .mdata _ _ _ => unreachable!
     let cid ← StoreValue.insert $ .expr value
     pure (cid, expr)
 
@@ -293,38 +293,37 @@ mutual
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
-    let mut defnIdx := firstIdx
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
       let name : String := indMeta.name.proj₂
+      let some (_, defnIdx) := mutualIdxs.find? name | unreachable!
       let indProj :=
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
       let cid ← StoreValue.insert $ .const indProj
       addToCache name (cid, defnIdx)
       if name == initInd.name then ret? := some (cid, indIdx)
-      defnIdx := defnIdx + 1
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Add the IPLD constructor projections and constructors to the cache
         let name : String := ctorMeta.name.proj₂
+        let some (_, defnIdx) := mutualIdxs.find? name | unreachable!
         let ctorProj :=
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const ctorProj
         addToCache name (cid, defnIdx)
-        defnIdx := defnIdx + 1
 
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Add the IPLD recursor projections and recursors to the cache
         let name : String := recrMeta.2.name.proj₂
+        let some (_, defnIdx) := mutualIdxs.find? name | unreachable!
         let recrProj :=
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, recrIdx, default ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const recrProj
         addToCache name (cid, defnIdx)
-        defnIdx := defnIdx + 1
 
     match ret? with
     | some ret => return ret
@@ -341,20 +340,40 @@ mutual
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
-            let mut ctors := ctors
             let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
             let recs := (⟨Sigma.mk .Intr thisRec.anon, Sigma.mk .Intr thisRec.meta⟩) :: recs
-            return (recs, ctors)
+            return (recs, thisCtors)
           else do
             let thisRec := ← toYatimaIpldExternalRec r
-            --let rules ← rv.rules.mapM fun r => do 
-            --  let (ctorCid, _) ← processYatimaConst $ ← findConstant r.ctor
-            --  let (rhsCid, _) ← toYatimaExpr r.rhs
-            --  return ⟨ctorCid.anon, r.nfields, rhsCid.anon⟩
             let recs := (⟨Sigma.mk .Extr thisRec.anon, Sigma.mk .Extr thisRec.meta⟩) :: recs
             return (recs, ctors)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     let (typeCid, type) ← toYatimaExpr ind.type
+    let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
+      match ind.ctors with
+      | [ctor] => do
+        let some (_, ctorIdx) := (← read).recrCtx.find? ctor | unreachable!
+        match ← derefConst ctorIdx with
+        | .constructor ctor => pure $ some ctor
+        | _ => throw "Expected {ctor} to be a constructor"
+      | _ => pure none
+    let unit := match struct with
+      | some ctor => ctor.fields == 0
+      | none => false
+    let tcInd := .inductive {
+      name    := ind.name
+      lvls    := ind.levelParams
+      type    := type
+      params  := ind.numParams
+      indices := ind.numIndices
+      recr    := ind.isRec
+      safe    := not ind.isUnsafe
+      refl    := ind.isReflexive
+      unit    := unit
+      struct  := struct
+    }
+    let some (_, defnIdx) := (← read).recrCtx.find? ind.name | unreachable!
+    modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcInd })
     return {
       anon := ⟨ ()
         , ind.levelParams.length
@@ -403,6 +422,18 @@ mutual
           match ctorMap.find? ctor with
           | some thisCtor => pure thisCtor
           | none => unreachable!
+        let tcRecr : Const := .intRecursor {
+          name    := rec.name
+          lvls    := rec.levelParams
+          type    := type
+          params  := rec.numParams
+          indices := rec.numIndices
+          motives := rec.numMotives
+          minors  := rec.numMinors
+          k       := rec.k
+        }
+        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | unreachable!
+        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
         let recr := ⟨
             { name    := ()
               lvls    := rec.levelParams.length
@@ -430,6 +461,18 @@ mutual
       match ← findConstant rule.ctor with
         | .ctorInfo ctor =>
           let (typeCid, type) ← toYatimaExpr ctor.type
+          let tcCtor : Const := .constructor {
+            name    := ctor.name
+            lvls    := ctor.levelParams
+            type    := type
+            idx     := ctor.cidx
+            params  := ctor.numParams
+            fields  := ctor.numFields
+            rhs     := rhs
+            safe    := not ctor.isUnsafe
+          }
+          let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | unreachable!
+          modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcCtor })
           return ⟨
             {
               rhs    := rhsCid.anon
@@ -452,10 +495,23 @@ mutual
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
-        let rules : Ipld.Both (fun k => List $ Ipld.RecursorRule k) := ← rec.rules.foldlM
-          (init := ⟨[], []⟩) fun rules r => do
-            let extRecrRule ← toYatimaExternalRecRule r
-            return ⟨extRecrRule.anon::rules.anon, extRecrRule.meta::rules.meta⟩
+        let (rules, tcRules) : Ipld.Both (fun k => List $ Ipld.RecursorRule k) × List RecursorRule := ← rec.rules.foldlM
+          (init := (⟨[], []⟩, [])) fun rules r => do
+            let (recrRule, tcRecrRule) ← toYatimaExternalRecRule r
+            return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
+        let tcRecr : Const := .extRecursor {
+          name    := rec.name
+          lvls    := rec.levelParams
+          type    := type
+          params  := rec.numParams
+          indices := rec.numIndices
+          motives := rec.numMotives
+          minors  := rec.numMinors
+          rules   := tcRules
+          k       := rec.k
+        }
+        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | unreachable!
+        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
         return ⟨
             { name    := ()
               lvls    := rec.levelParams.length
@@ -478,16 +534,18 @@ mutual
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
     
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
-      CompileM (Ipld.Both Ipld.RecursorRule) := do
+      CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
     let (rhsCid, rhs) ← toYatimaExpr rule.rhs
     let const ← findConstant rule.ctor
-    let (ctorCid, ctor) ← processYatimaConst const
-    return ⟨
+    let (ctorCid, ctor?) ← processYatimaConst const
+    let ctor ← match ← derefConst ctor? with
+      | .constructor ctor => pure ctor
+      | other => throw s!"Expected '{other.name}' to be a constructor"
+    let recrRule := ⟨
       { ctor := ctorCid.anon, fields := rule.nfields, rhs := rhsCid.anon },
       { ctor := ctorCid.meta, fields := (), rhs := rhsCid.meta }⟩
-    -- match ← derefConst ctor with
-    -- | .constructor ctor => return { ctor, fields := rule.nfields, rhs }
-    -- | _ => throw s!"Invalid constant kind for '{const.name}'."
+    let tcRecrRule := { ctor := ctor, fields := rule.nfields, rhs := rhs }
+    return (recrRule, tcRecrRule)
 
   partial def toYatimaDef (struct : Lean.DefinitionVal) : CompileM (ConstCid × ConstIdx) := do
     if struct.all.length == 1 then
