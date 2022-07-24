@@ -46,6 +46,17 @@ inductive Value
 deriving Inhabited
 end
 
+instance : Inhabited (Thunk Value) where
+  default := Thunk.mk $ fun _ => Value.sort Univ.zero
+
+-- [(args.get! i)]
+
+private partial def mkAppRangeAux (n : Nat) (args : List (Thunk Value)) (i : Nat) (e : Neutral) : Value :=
+  if i < n then mkAppRangeAux n args (i+1) (Value.app e [(args.get! i)]) else (Value.app e [])
+
+def mkAppRange (f : Neutral) (i j : Nat) (args : List (Thunk Value)) : Value :=
+  mkAppRangeAux j args i f
+
 -- The arguments of a stuck sequence of applications `(h a1 ... an)`
 abbrev Args := List (Thunk Value)
 

@@ -55,8 +55,9 @@ mutual
         if h : majorPos < arg_size then do
           let major := (arg :: args).get ⟨ majorPos, h ⟩
           match arg.get with
-            | .app (.const _ _ _) [_, majorArg] => do
-              sorry
+            | .app (.const majorFn a b) [_, majorArg] => do
+            -- TODO: more checking, this version is temporary, I got stuck here
+              pure $ Value.app (.const majorFn a b) (arg :: args)
             -- TODO: figure out do we need a version of getConstNoEx
             | _ => throw .cannotEvalQuotient
         else
