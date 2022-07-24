@@ -11,13 +11,35 @@ namespace Yatima.Transpiler
 mutual
 
   -- Maybe useful later:
-  -- partial def telescopeApp (expr : Expr) : TranspileM $ Lurk.Expr := 
-  --   sorry 
+  partial def telescopeApp (expr : Expr) : TranspileM $ Option Lurk.Expr := 
+    let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
+      match expr with 
+        | .app fn arg => descend fn <| argAcc.concat arg
+        | _ => (expr, argAcc)
+    do
+      let (expr, args) := descend expr []
+      let fn? ← exprToLurkExpr expr
+      let args? : Option $ List Lurk.Expr := (← args.mapM exprToLurkExpr).foldl (fun acc? arg? =>
+        match acc? , arg? with
+          | some acc, some arg => some $ acc.concat arg
+          | _, _ => none) (some [])
+      match fn?, args? with
+        | some fn, some args => return some $ .app fn args
+        | _, _ => return none
+        
+  partial def telescopeLam (expr : Expr) : TranspileM $ Option Lurk.Expr := 
+    let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
+      match expr with 
+        | .lam name _ _ body => descend body <| bindAcc.concat name
+        | _ => (expr, bindAcc)
+    do
+      let (expr, binds) := descend expr []
+      let fn? ← exprToLurkExpr expr
+      match fn? with
+        | some fn => return some $ .lam binds fn
+        | none => return none
 
-  -- partial def telescopeLam (expr : Expr) : TranspileM Lurk.Expr := 
-  --   sorry 
-  
-  partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
+  partial def exprToLurkExpr (expr : Expr) : TranspileM (Option Lurk.Expr) := match expr with
     | .sort  ..
     | .lty   .. => return none
     | .var name i     => return some $ .lit (.sym $ name.fixDot)
@@ -37,18 +59,8 @@ mutual
           | none      => pure ()
         | none => throw s!"constant '{name}' not found"
       return some $ .lit (.sym $ name.fixDot)
-    | .app fn arg => do 
-      let fn ← exprToLurkExpr fn
-      let arg ← exprToLurkExpr arg 
-      match fn, arg with 
-      -- TODO: flatten
-      | some f, some a => return some $ .app f [a]
-      | _,      _      => throw "TODO"
-    | .lam name _ _ body => do
-      match ← exprToLurkExpr body with 
-      -- TODO: flatten
-      | some body => return some $ .lam [name] body
-      | _         => throw "TODO"
+    | .app .. => telescopeApp expr
+    | .lam .. => telescopeLam expr
     -- TODO: Do we erase?
     -- MP: I think we erase
     | .pi    .. => return some $ .lit .nil
@@ -67,14 +79,15 @@ mutual
     | .proj  .. => return some $ .lit .nil
 
   /--
-
+   FIX: This is wrong, it just returns the literal name for unit type constructors, but it does 
+        help with debugging some of the above functions
   -/
   partial def mutIndBlockToLurkExpr (inds : List Inductive) : TranspileM $ Option Lurk.Expr := do
     let store ← read
 
     let ctorExprs := inds |>.map Inductive.ctors 
-                           |>.foldl (· ++ ·) []
-                           |>.map (fun ctor => (ctor.name, ctor.rhs))
+                          |>.foldl (· ++ ·) []
+                          |>.map (fun ctor => (ctor.name, ctor.rhs))
 
     for (exprName, exprCid) in ctorExprs do
       let mut ctorLurkExprs : List (String × Lurk.Expr) := [] 
