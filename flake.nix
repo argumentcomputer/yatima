@@ -7,6 +7,11 @@
       inputs.flake-utils.follows = "flake-utils";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    ipld = {
+      url = github:yatima-inc/Ipld.lean;
+      inputs.lean.follows = "lean";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     nixpkgs.url = github:nixos/nixpkgs/nixos-21.11;
     naersk = {
@@ -26,7 +31,7 @@
     };
   };
 
-  outputs = { self, lean, flake-utils, utils, nixpkgs, naersk }:
+  outputs = { self, lean, flake-utils, utils, nixpkgs, naersk, ipld }:
     let
       supportedSystems = [
         # "aarch64-linux"
@@ -50,18 +55,26 @@
         };
         project = leanPkgs.buildLeanPackage {
           debug = false;
+          deps = [ ipld.project.${system} ];
           name = "Yatima";
-          src = ".";
+          src = ./.;
+        };
+        main = leanPkgs.buildLeanPackage {
+          debug = false;
+          deps = [ project ];
+          name = "Main";
+          src = ./.;
         };
       in
       {
         inherit project;
         packages = {
           inherit yatima-rs;
-          inherit (project) modRoot sharedLib staticLib lean-package;
+          inherit (project) modRoot sharedLib staticLib lean-package executable;
           inherit (leanPkgs) lean;
+          main = main.executable;
         };
 
-        defaultPackage = yatima-rs;
+        defaultPackage = main.executable;
       });
 }
