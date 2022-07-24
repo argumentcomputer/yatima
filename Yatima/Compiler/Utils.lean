@@ -24,6 +24,12 @@ def compareNames : Name → Name → Ordering
 instance : Ord Name where
   compare := compareNames
 
+def ConstantInfo.formatAll (c : ConstantInfo) : String :=
+  match c.all with
+  | [ ]
+  | [_] => ""
+  | all => " " ++ all.toString
+
 def ConstantInfo.ctorName : ConstantInfo → String
   | axiomInfo  _ => "axiom"
   | defnInfo   _ => "definition"
