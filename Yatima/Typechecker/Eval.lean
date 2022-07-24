@@ -10,6 +10,12 @@ def getValue : List (Thunk Value) → Nat → CheckM Value
   | _::as, n+1 => getValue as n
   | _,     _   => throw .outOfRangeError
 
+def valueName (val : Value) : CheckM Name :=
+  match val with
+  | .lam name _ _ _ => pure name
+  | .pi name _ _ _ _ => pure name
+  | _ => throw .noName
+
 -- The idea is taken from the Lean compiler,
 -- see https://github.com/leanprover/lean4/blob/master/src/Lean/Expr.lean#L705
 private partial def mkAppRangeAux (n : Nat) (args : List (Thunk Value)) (i : Nat) (e : Neutral) : CheckM Value := do
@@ -65,7 +71,7 @@ mutual
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .quotient _ {name, lvls, type, kind} =>
+    | .quotient _ recVal =>
       -- This case is a version of the reduceQuotRec function from the Lean 4 source code
       -- https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
       -- The case reduces ind and lift applications
@@ -73,12 +79,13 @@ mutual
         let arg_size := args.length + 1
         if h : majorPos < arg_size then do
           let major := (arg :: args).get ⟨ majorPos, h ⟩
-          match arg.get with
-            | .app (.const majorFn a b) [_, majorArg] => do
-              -- let .some (ConstantInfo.quotInfo { kind := QuotKind.ctor, .. }) ← getConst? majorFn
+          match major.get with
+            | .app (.const majorFn _ _) [_, majorArg] => do
+              --let .some (ConstantInfo.quotInfo { kind := QuotKind.ctor, .. }) ← getConst? majorFn
               -- TODO: figure out how to enable the line above
               let f := args[argPos]!
-              let r := (.fvar _ argPos f)
+              let fName ← valueName f.get
+              let r := (.fvar fName argPos f)
               let recArity := majorPos + 1
               mkAppRange r recArity args.length (majorArg :: args)
             -- TODO: more checking, this version is temporary, I got stuck here
@@ -86,7 +93,7 @@ mutual
             | _ => throw .cannotEvalQuotient
         else
           throw .cannotEvalQuotient
-      match kind with
+      match recVal.kind with
         | .lift => process 5 3
         | .ind  => process 4 3
         | _ => throw .cannotEvalQuotient
