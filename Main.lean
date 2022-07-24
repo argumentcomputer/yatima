@@ -20,11 +20,10 @@ partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
 
 def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
   IO.println $ "\nCompilation stats:\n" ++
-    s!"univ_cache size: {stt.store.univ_cache.size}\n" ++
-    s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
-    s!"const_cache size: {stt.store.const_cache.size}\n" ++
-    s!"cache size: {stt.cache.size}\n" ++
-    s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
+    s!"univ_cache size: {stt.store.univ_anon.size}\n" ++
+    s!"expr_cache size: {stt.store.expr_anon.size}\n" ++
+    s!"const_cache size: {stt.store.const_anon.size}\n" ++
+    s!"cache size: {stt.cache.size}\n"
 
 open Yatima.Compiler in
 def storeRun (p : Cli.Parsed) : IO UInt32 := do

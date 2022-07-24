@@ -23,7 +23,7 @@ def CompileState.union (s s' : CompileState) :
     | none => cache := cache.insert n c'
   return .ok ⟨
     s.store.union s'.store,
-    s.defns ++ s'.defns,
+    s'.defns,
     cache,
     s'.mutDefIdx.fold (init := s.mutDefIdx) fun acc n i =>
       acc.insert n i
