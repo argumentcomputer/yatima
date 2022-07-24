@@ -32,6 +32,8 @@ inductive CheckError where
   | outOfRangeError : CheckError
   -- Unknown constant name
   | unknownConst : CheckError
+  -- No way to extract a name
+  | noName : CheckError
   | impossible : CheckError
   deriving Inhabited
 
