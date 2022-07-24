@@ -5,6 +5,24 @@ namespace Yatima.Typechecker
 def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   Value.app (Neutral.const name k univs) []
 
+def getValue : List (Thunk Value) → Nat → CheckM Value
+  | a::_,  0   => pure a.get
+  | _::as, n+1 => getValue as n
+  | _,     _   => throw .outOfRangeError
+
+-- The idea is taken from the Lean compiler,
+-- see https://github.com/leanprover/lean4/blob/master/src/Lean/Expr.lean#L705
+private partial def mkAppRangeAux (n : Nat) (args : List (Thunk Value)) (i : Nat) (e : Neutral) : CheckM Value := do
+  if i < n then do
+    let ith_val ← getValue args i
+    mkAppRangeAux n args (i + 1) (.fvar e.name i ith_val)
+  else (pure $ Value.app e [])
+
+def mkAppRange (f : Neutral) (i j : Nat) (args : List (Thunk Value)) : CheckM Value :=
+  mkAppRangeAux j args i f
+
+def getConst? (constName : Name) : CheckM (Option ConstantInfo) := sorry
+
 mutual
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) : CheckM Value := do
     match (← read).store.get! const with
@@ -50,14 +68,20 @@ mutual
     | .quotient _ {name, lvls, type, kind} =>
       -- This case is a version of the reduceQuotRec function from the Lean 4 source code
       -- https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
+      -- The case reduces ind and lift applications
       let process (majorPos argPos : Nat) : CheckM Value :=
         let arg_size := args.length + 1
         if h : majorPos < arg_size then do
           let major := (arg :: args).get ⟨ majorPos, h ⟩
           match arg.get with
             | .app (.const majorFn a b) [_, majorArg] => do
+              -- let .some (ConstantInfo.quotInfo { kind := QuotKind.ctor, .. }) ← getConst? majorFn
+              -- TODO: figure out how to enable the line above
+              let f := args[argPos]!
+              let r := (.fvar _ argPos f)
+              let recArity := majorPos + 1
+              mkAppRange r recArity args.length (majorArg :: args)
             -- TODO: more checking, this version is temporary, I got stuck here
-              pure $ Value.app (.const majorFn a b) (arg :: args)
             -- TODO: figure out do we need a version of getConstNoEx
             | _ => throw .cannotEvalQuotient
         else
