@@ -28,6 +28,10 @@ inductive CheckError where
   | impossibleEvalCase : CheckError
   -- Cannot evaluate this quotient
   | cannotEvalQuotient : CheckError
+  -- Out of the thunk list range
+  | outOfRangeError : CheckError
+  -- Unknown constant name
+  | unknownConst : CheckError
   | impossible : CheckError
   deriving Inhabited
 
