@@ -1,7 +1,8 @@
 import Cli
 import Yatima.Compiler.Frontend
+import Yatima.Cronos
 
-opaque VERSION : String := "0.0.1"
+opaque VERSION : String := s!"{Lean.versionString}|0.0.1"
 
 open System in
 partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
@@ -18,29 +19,43 @@ partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
     else
       return acc
 
-def printCompilationStats (stt : Yatima.Compiler.CompileState) : IO Unit := do
-  IO.println $ "Compilation stats:\n" ++
-    s!"univ_cache size: {stt.store.univ_cache.size}\n" ++
-    s!"expr_cache size: {stt.store.expr_cache.size}\n" ++
-    s!"const_cache size: {stt.store.const_cache.size}\n" ++
-    s!"cache size: {stt.cache.size}\n" ++
-    s!"cache: {stt.cache.toList.map fun (n, (_, c)) => (n, c.ctorName)}"
+def getToolchain : IO $ Except String String := do
+  let out ← IO.Process.output {
+    cmd := "lake"
+    args := #["--version"]
+  }
+  if out.exitCode != 0 then
+    return .error "Couldn't run 'lake --version' command"
+  else
+    let version := out.stdout.splitOn "(Lean version " |>.get! 1
+    return .ok $ version.splitOn ")" |>.head!
 
 open Yatima.Compiler in
 def storeRun (p : Cli.Parsed) : IO UInt32 := do
-  let log : Bool := p.hasFlag "log"
-  let pre : Bool := p.hasFlag "prelude"
+  match ← getToolchain with
+  | .error msg => IO.eprintln msg; return 1
+  | .ok toolchain =>
+    if toolchain != Lean.versionString then
+      IO.eprintln
+        s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
+      return 1
+  let log := p.hasFlag `log
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
-      if !pre then setLibsPaths
+      if !(p.hasFlag `prelude) then setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
+      let mut cronos := Cronos.new
       for arg in args do
         for filePath in ← getFilePathsList ⟨arg⟩ do
+          let filePathStr := filePath.toString
+          cronos ← cronos.clock filePathStr
           match ← runFrontend filePath log stt with
           | .ok stt' => match stt.union stt' with
-            | .ok stt' => stt := stt'
+            | .ok stt' =>
+              stt := stt'
+              cronos ← cronos.clock filePathStr
             | .error msg => errMsg := some msg; break
           | .error msg => errMsg := some msg; break
         if errMsg.isSome then break
@@ -49,8 +64,10 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         IO.eprintln msg
         return 1
       | none => pure ()
-      if log then printCompilationStats stt
-      -- todo: make use of `stt.store`
+      if p.hasFlag `summary then
+        IO.println s!"{stt.summary}"
+        IO.println s!"\n{cronos.summary}"
+      -- TODO: write `stt.store` on disk
       return 0
     else
       IO.eprintln "No store argument was found."
@@ -69,16 +86,21 @@ def storeCmd : Cli.Cmd := `[Cli|
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    l, `log;     "Flag to print compilation progress and stats"
-    p, `prelude; "Flag to optimize the compilation of prelude files without" ++
-      " imports (all files to be compiled must follow this rule)"
+    p, `prelude; "Optimizes the compilation of prelude files without imports." ++
+      " All files to be compiled must follow this rule"
+    l, `log;     "Logs compilation progress"
+    s, `summary; "Prints a compilation summary at the end of the process"
 
   ARGS:
     ...sources : String; "List of Lean files or directories"
 ]
 
+def printInit (_ : α) : IO UInt32 := do
+  IO.println "Call `yatima --help` for more info"
+  return 0
+
 def yatimaCmd : Cli.Cmd := `[Cli|
-  yatima NOOP; [VERSION]
+  yatima VIA printInit; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:

@@ -213,22 +213,57 @@ elab "test_elabLurkUnaryOp " v:lurk_unary_op : term =>
 elab "[Lurk| " e:lurk_expr "]" : term =>
   elabLurkExpr e
 
-#eval Lurk.Expr.print [Lurk| (lambda (n) n) ]
--- "(lambda (n) n)"
+#eval IO.print [Lurk| (lambda (n) n) ].print
+-- (lambda (n)
+--   n)
 
-#eval [Lurk|
-(let ((foo (lambda (a) (a))))
+#eval IO.print [Lurk|
+(let (
+    (foo (lambda (a) (a)))
+    (bar (lambda (x) (x))))
   (foo "1" 2 3))
 ].print
--- "(let ((foo (lambda (a) a))) (foo 2))"
+-- (let (
+--     (foo
+--       (lambda (a)
+--         (a)))
+--     (bar
+--       (lambda (x)
+--         (x))))
+--   (foo
+--     "1"
+--     2
+--     3))
 
-#eval [Lurk|
+#eval IO.print [Lurk|
 (let ((foo (lambda (a b c)
              (* (+ a b) c))))
   (foo "1" 2 3))
 ].print
--- "(let ((foo (lambda (a b c) (* (+ a b) c)))) (foo 2))"
+-- (let (
+--     (foo
+--       (lambda (a b c)
+--         (*
+--           (+
+--             a
+--             b)
+--           c))))
+--   (foo
+--     "1"
+--     2
+--     3))
 
-#eval [Lurk|
+#eval IO.print [Lurk|
+(let ()
+  (foo "1" 2 3))
+].print
+-- (let ()
+--   (foo
+--     "1"
+--     2
+--     3))
+
+#eval IO.print [Lurk|
 ("s")
 ].print
+-- ("s")

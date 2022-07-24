@@ -1,4 +1,5 @@
 import Yatima.ForLurkRepo.AST
+import YatimaStdLib.String
 
 namespace Lurk
 
@@ -34,34 +35,34 @@ partial def SExpr.print : SExpr → String
   | .list es    => "(" ++ " ".intercalate (es.map SExpr.print) ++ ")"
   | .cons e1 e2 => s!"{e1.print} . {e2.print}"
 
-partial def Expr.print : Expr → String
-  | .lit l => toString l
-  | .ifE test c alt => s!"(if {print test} {print c} {print alt})"
-  | .lam formals body => 
-    let formalsText := " ".intercalate (formals.map toString)
-    s!"(lambda ({formalsText}) {print body})"
-  | .letE bindings body => 
-    let bindingsTextList := bindings.map fun (name, expr) => s!"({name} {expr.print})"
-    let bindingsText := " ".intercalate bindingsTextList
-    s!"(let ({bindingsText}) {print body})"
-  | .letRecE bindings body => 
-    let bindingsTextList := bindings.map fun (name, expr) => s!"({name} {expr.print})"
-    let bindingsText := " ".intercalate bindingsTextList
-    s!"(let ({bindingsText}) {print body})"
-  | .app fn args => 
-    let args := " ".intercalate (args.map print)
-    let argPP := if args.length == 0 then "" else " "
-    s!"({print fn}{argPP}{args})"
-  | .quote datum => s!"(quote {datum.print})"
-  | .unaryOp op expr => s!"({op} {print expr})"
-  | .binOp op expr₁ expr₂ => s!"({op} {print expr₁} {print expr₂})"
-  | .emit expr => s!"(emit {print expr})"
-  | .begin exprs => 
-    let exprs_text := " ".intercalate (exprs.map print)
-    s!"(begin {exprs_text})"
-  | .currEnv => "(current-env)"
-  | .eval expr₁ expr₂? => match expr₂? with 
-    | some expr₂ => s!"(eval {print expr₁} {print expr₂})"
-    | none => s!"(eval {print expr₁})"
+open String (blankIndent) in
+partial def Expr.print (e : Expr) : String :=
+  let rec aux (n : Nat) : Expr → String
+    | .lit l => s!"{blankIndent n}{toString l}"
+    | .ifE test c alt => s!"{blankIndent n}(if\n{aux (n + 1) test}\n{aux (n + 1) c}\n{aux (n + 1) alt})"
+    | .lam formals body => s!"{blankIndent n}(lambda ({" ".intercalate formals})\n{aux (n + 1) body})"
+    | .letE bindings body =>
+      let bindingsStr := bindings.map
+        fun (name, expr) => s!"{blankIndent (n + 2)}({name}\n{aux (n + 3) expr})"
+      s!"{blankIndent n}(let ({if bindingsStr.isEmpty then "" else "\n"}{"\n".intercalate bindingsStr})\n{aux (n + 1) body})"
+    | .letRecE bindings body =>
+      let bindingsStr := bindings.map
+        fun (name, expr) => s!"{blankIndent (n + 2)}({name}\n{aux (n + 3) expr})"
+      s!"{blankIndent n}(letrec ({if bindingsStr.isEmpty then "" else "\n"}{"\n".intercalate bindingsStr})\n{aux (n + 1) body})"
+    | .app fn args =>
+      let args := "\n".intercalate $ args.map (aux (n + 1))
+      s!"{blankIndent n}({fn.print}{if args.isEmpty then "" else "\n"}{args})"
+    | .quote datum => s!"{blankIndent n}(quote {datum.print})"
+    | .unaryOp op expr => s!"{blankIndent n}({op}\n{aux (n + 1) expr})"
+    | .binOp op expr₁ expr₂ => s!"{blankIndent n}({op}\n{aux (n + 1) expr₁}\n{aux (n + 1) expr₂})"
+    | .emit expr => s!"{blankIndent n}(emit\n{aux (n + 1) expr})"
+    | .begin exprs =>
+      let exprs := "\n".intercalate (exprs.map $ aux (n + 1))
+      s!"{blankIndent n}(begin{if exprs.isEmpty then "" else "\n"}{exprs})"
+    | .currEnv => s!"{blankIndent n}(current-env)"
+    | .eval expr₁ expr₂? => match expr₂? with
+      | some expr₂ => s!"{blankIndent n}(eval\n{aux (n + 1) expr₁}\n{aux (n + 1) expr₂})"
+      | none => s!"{blankIndent n}(eval\n{aux (n + 1) expr₁})"
+  aux 0 e
 
 end Lurk

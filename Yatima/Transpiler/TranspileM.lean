@@ -5,22 +5,25 @@ namespace Yatima.Transpiler
 
 open Yatima (Store)
 
-structure State where 
-  /-- 
-  Visiting order in our dfs traversal. 
-  This is the reverse order of how the bindings should be defined.
-  -/
-  bindings : Array (String × Lurk.Expr)
+structure State where
+  prependedBindings : Array (String × Lurk.Expr)
+  appendedBindings  : Array (String × Lurk.Expr)
   /-- Contains constants that have already been processed -/
-  visited : Std.HashSet String 
+  visited : Std.RBTree String compare
+  deriving Inhabited
+
+def State.getBindings (s : State) : List (String × Lurk.Expr) :=
+  s.prependedBindings.reverse.append s.appendedBindings |>.data
 
 abbrev TranspileM := ReaderT Store $ EStateM String State
 
 def prependBinding (b : String × Lurk.Expr) : TranspileM Unit := do
-  set $ { (← get) with bindings := #[b].append (← get).bindings }
+  let s ← get
+  set $ { s with appendedBindings := s.prependedBindings.push b }
 
 def appendBinding (b : String × Lurk.Expr) : TranspileM Unit := do
-  set $ { (← get) with bindings := (← get).bindings.push b }
+  let s ← get
+  set $ { s with appendedBindings := s.appendedBindings.push b }
 
 /-- Set `name` as a visited node -/
 def visit (name : Name) : TranspileM Unit := do 
