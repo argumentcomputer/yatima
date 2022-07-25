@@ -108,20 +108,7 @@ def validate (c : Cli.Cmd) (args : List String) : IO UInt32 := do
   if args.isEmpty then
     c.printHelp
     return 0
-  else
-    let result := c.process args
-    match result with
-    | .ok (cmd, parsed) =>
-      if parsed.hasFlag "help" then
-        cmd.printHelp
-        return 0
-      if parsed.hasFlag "version" then
-        cmd.printVersion
-        return 0
-      cmd.run parsed
-    | .error (cmd, err) =>
-      cmd.printError err
-      return 1
+  c.validate args
 
 def main (args : List String) : IO UInt32 :=
   validate yatimaCmd args
