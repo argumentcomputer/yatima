@@ -15,13 +15,13 @@ mutual
     do
       let (expr, args) := descend expr []
       let fn? ← exprToLurkExpr expr
-      let args? : Option $ List Lurk.Expr := (← args.mapM exprToLurkExpr).foldl (fun acc? arg? =>
-        match acc? , arg? with
+      let args? : Option $ List Lurk.Expr := (← args.mapM exprToLurkExpr).foldl
+        (fun acc? arg? => match acc? , arg? with
           | some acc, some arg => some $ acc.concat arg
           | _, _ => none) (some [])
       match fn?, args? with
-        | some fn, some args => return some $ .app fn args
-        | _, _ => return none
+      | some fn, some args => return some $ .app fn args
+      | _, _ => return none
         
   partial def telescopeLam (expr : Expr) : TranspileM $ Option Lurk.Expr := 
     let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
@@ -35,11 +35,11 @@ mutual
         | some fn => return some $ .lam binds fn
         | none => return none
 
-  partial def exprToLurkExpr (expr : Expr) : TranspileM (Option Lurk.Expr) := match expr with
+  partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
     | .var name i     => return some $ .lit (.sym $ fixName name)
-    | .const name cid ..  => do 
+    | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
         visit name -- cache
@@ -55,8 +55,8 @@ mutual
           | none      => pure ()
         | none => throw s!"constant '{name}' not found"
       return some $ .lit (.sym $ fixName name)
-    | .app .. => telescopeApp expr
-    | .lam .. => telescopeLam expr
+    | e@(.app ..) => telescopeApp e
+    | e@(.lam ..) => telescopeLam e
     -- TODO: Do we erase?
     -- MP: I think we erase
     | .pi    .. => return some $ .lit .nil
