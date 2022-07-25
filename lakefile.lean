@@ -1,6 +1,7 @@
 import Lake
+import Std.Data.RBTree
 
-open Lake DSL
+open Lake DSL System
 
 package Yatima 
 
@@ -9,6 +10,8 @@ lean_exe yatima {
   supportInterpreter := true
   root := `Main
 }
+
+lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
   "https://github.com/yatima-inc/Ipld.lean" @ "fceb5347c88f122961902e38764bc4010aafd3c1"
@@ -77,3 +80,47 @@ script setup do
   | .err res => IO.eprintln res; return 1
 
 end Setup
+
+section ImportAll
+
+partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
+    IO $ Array FilePath := do
+  if ← fp.isDir then
+    let mut extra : Array FilePath := #[]
+    for dirEntry in ← fp.readDir do
+      for innerFp in ← getLeanFilePathsList dirEntry.path do
+        extra := extra.push innerFp
+    return acc.append extra
+  else
+    if (fp.extension.getD "") = "lean" then
+      return acc.push fp
+    else
+      return acc
+
+open Std (RBTree)
+
+def getAllFiles : ScriptM $ List String := do
+  let paths := (← getLeanFilePathsList ⟨"Yatima"⟩).map toString
+  let paths : RBTree String compare := RBTree.ofList (paths.data) -- ordering
+  return paths.toList
+
+def getImportsString : ScriptM String := do
+  let paths ← getAllFiles
+  let imports := paths.map fun p =>
+    "import " ++ (p.splitOn ".").head!.replace "/" "."
+  return s!"{"\n".intercalate imports}\n"
+
+script import_all do
+  IO.FS.writeFile ⟨"Yatima.lean"⟩ (← getImportsString)
+  return 0
+
+script import_all? do
+  let importsFromUser ← IO.FS.readFile ⟨"Yatima.lean"⟩
+  let expectedImports ← getImportsString
+  if importsFromUser != expectedImports then
+    IO.eprintln "Invalid import list in 'Yatima.lean'"
+    IO.eprintln "Try running 'lake script run import_all'"
+    return 1
+  return 0
+
+end ImportAll
