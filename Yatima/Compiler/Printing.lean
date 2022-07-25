@@ -117,16 +117,12 @@ mutual
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 
-partial def printRecursorRule (b : Bool) : (if b then Constructor else RecursorRule) → CompileM String :=
-  match b with
-  | .false => fun rule => do
-    let ctor := rule.ctor.name
-    return s!"{ctor} {rule.fields} {← printExpr rule.rhs}"
-  | .true => fun ctor => do
-    return s!"{ctor.name} {ctor.fields} {← printExpr ctor.rhs}"
+partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
+  let ctor := rule.ctor.name
+  return s!"{ctor} {rule.fields} {← printExpr rule.rhs}"
 
 partial def printExtRecursor (cid : String) (recr : ExtRecursor) : CompileM String := do
-  let rules ← recr.rules.mapM $ printRecursorRule .false
+  let rules ← recr.rules.mapM printRecursorRule
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
           s!"external\n" ++
           s!"Rules:\n{rules}"
@@ -163,7 +159,7 @@ partial def printYatimaConst (const : Const) : CompileM String := do
             s!"  {← printExpr defn.value}"
   | .inductive ind => return s!"{← printInductive ind}"
   | .constructor ctor => do
-    return s!"{cid}{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr ctor.type}"
+    return s!"{cid}{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr ctor.type}\n| internal rule: {← printExpr ctor.rhs}"
   | .extRecursor recr => do
     printExtRecursor cid recr
   | .intRecursor recr => do

@@ -119,23 +119,9 @@ mutual
   partial def processYatimaConst (const : Lean.ConstantInfo) :
       CompileM $ ConstCid × ConstIdx := do
     let name := const.name.toString
-    let log  := (← read).log
     match (← get).cache.find? name with
     | some c => pure c
-    | none   =>
-      if log then
-        dbg_trace s!"↡ Stacking {name}{const.formatAll}"
-      let (cid, c) ← toYatimaConst const
-      if log then
-        dbg_trace s!"↟ Popping  {name}"
-        dbg_trace "\n========================================="
-        dbg_trace    name
-        dbg_trace   "========================================="
-        dbg_trace s!"{PrintLean.printLeanConst const}"
-        dbg_trace   "========================================="
-        dbg_trace s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
-        dbg_trace   "=========================================\n"
-      return (cid, c)
+    | none   => toYatimaConst const
 
   partial def toYatimaConst : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
   -- These cases add multiple constants at the same time
@@ -271,14 +257,15 @@ mutual
   partial def toYatimaInductive (initInd : Lean.InductiveVal) : CompileM (ConstCid × ConstIdx) := do
     -- `constList` is the list of the names of all constants associated with an inductive block: the inductives themselves,
     -- the constructors and the recursors.
-    let mut constList : List Lean.Name := initInd.all
+    let mut constList : List Lean.Name := []
     for indName in initInd.all do
       match ← findConstant indName with
       | .inductInfo ind =>
         let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
           fun c => match c with | .recInfo _ => true | _ => false
         let leanRecs := leanRecs.map (·.name)
-        constList := (constList.append ind.ctors).append leanRecs
+        let addList := (indName :: ind.ctors).append leanRecs
+        constList := constList.append addList
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
 
     -- All inductives, constructors and recursors are done in one go, so we must append an array of `constList.length` to `defns`
@@ -289,7 +276,7 @@ mutual
       mutualIdxs := mutualIdxs.insert n (i, firstIdx + i)
 
     -- This part will build the inductive block and add all inductives, constructors and recursors to `defns`
-    let indInfos : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldlM (init := []) fun acc name => do
+    let indInfos : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldrM (init := []) fun name acc => do
       match ← findConstant name with
       | .inductInfo ind => do
         withRecrs mutualIdxs do
@@ -300,7 +287,7 @@ mutual
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
-    let mut defnIdx := 0
+    let mut defnIdx := firstIdx
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
@@ -327,7 +314,7 @@ mutual
         -- Add the IPLD recursor projections and recursors to the cache
         let name : String := recrMeta.2.name.proj₂
         let recrProj :=
-          ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, recrIdx, default ⟩
+          ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, indIdx, recrIdx ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const recrProj
         addToCache name (cid, defnIdx)
@@ -343,8 +330,7 @@ mutual
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
     let (recs, ctors) : ((List $ Ipld.Both (Sigma $ Ipld.Recursor ·)) × (List $ Ipld.Both Ipld.Constructor)) :=
-      -- reverses again, keeping original order
-      ← leanRecs.foldlM (init := ([], [])) fun (recs, ctors) r =>
+      ← leanRecs.foldrM (init := ([], [])) fun r (recs, ctors) =>
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
@@ -363,7 +349,7 @@ mutual
         let some (_, ctorIdx) := (← read).recrCtx.find? ctor | throw s!"Unknown constant '{ctor}'"
         match ← derefConst ctorIdx with
         | .constructor ctor => pure $ some ctor
-        | _ => throw "Expected {ctor} to be a constructor"
+        | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
       | _ => pure none
     let unit := match struct with
       | some ctor => ctor.fields == 0
@@ -546,7 +532,7 @@ mutual
     let (ctorCid, ctor?) ← processYatimaConst const
     let ctor ← match ← derefConst ctor? with
       | .constructor ctor => pure ctor
-      | other => throw s!"Expected '{other.name}' to be a constructor"
+      | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
     let recrRule := ⟨
       { ctor := ctorCid.anon, fields := rule.nfields, rhs := rhsCid.anon },
       { ctor := ctorCid.meta, fields := (), rhs := rhsCid.meta }⟩
@@ -700,8 +686,21 @@ end
 
 open PrintLean PrintYatima in
 def buildStore (constMap : Lean.ConstMap) : CompileM Ipld.Store := do
-  constMap.forM fun _ const =>
-    discard $ processYatimaConst const
+  let log  := (← read).log
+  constMap.forM fun _ const => do
+    let name := const.name.toString
+    let (_, c) ← processYatimaConst const
+    if log then
+      dbg_trace s!"↡ Stacking {name}{const.formatAll}"
+    if log then
+      dbg_trace s!"↟ Popping  {name}"
+      dbg_trace "\n========================================="
+      dbg_trace    name
+      dbg_trace   "========================================="
+      dbg_trace s!"{PrintLean.printLeanConst const}"
+      dbg_trace   "========================================="
+      dbg_trace s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
+      dbg_trace   "=========================================\n"
   return (← get).store
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
