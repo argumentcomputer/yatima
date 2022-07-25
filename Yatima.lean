@@ -15,9 +15,7 @@ import Yatima.Typechecker.CheckM
 import Yatima.Typechecker.Debug
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
-import Yatima.Typechecker.Expr
 import Yatima.Typechecker.FromIPLD
 import Yatima.Typechecker.Infer
-import Yatima.Typechecker.Univ
 import Yatima.Typechecker.Value
 import Yatima.Univ
