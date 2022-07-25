@@ -5,17 +5,17 @@ import Yatima.Cronos
 opaque VERSION : String := s!"{Lean.versionString}|0.0.1"
 
 open System in
-partial def getFilePathsList (fp : FilePath) (acc : List FilePath := []) :
-    IO $ List FilePath := do
+partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
+    IO $ Array FilePath := do
   if ← fp.isDir then
-    let mut extra : List FilePath := []
+    let mut extra : Array FilePath := #[]
     for dirEntry in ← fp.readDir do
-      for innerFp in ← getFilePathsList dirEntry.path do
-        extra := extra.concat innerFp
-    return acc ++ extra
+      for innerFp in ← getLeanFilePathsList dirEntry.path do
+        extra := extra.push innerFp
+    return acc.append extra
   else
     if (fp.extension.getD "") = "lean" then
-      return acc.concat fp
+      return acc.push fp
     else
       return acc
 
@@ -48,7 +48,7 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
       let mut errMsg : Option String := none
       let mut cronos := Cronos.new
       for arg in args do
-        for filePath in ← getFilePathsList ⟨arg⟩ do
+        for filePath in ← getLeanFilePathsList ⟨arg⟩ do
           let filePathStr := filePath.toString
           cronos ← cronos.clock filePathStr
           match ← runFrontend filePath log stt with
