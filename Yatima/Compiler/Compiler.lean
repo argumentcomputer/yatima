@@ -298,6 +298,7 @@ mutual
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
+    let mut defnIdx := 0
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
@@ -308,6 +309,7 @@ mutual
       let cid ← StoreValue.insert $ .const indProj
       addToCache name (cid, defnIdx)
       if name == initInd.name then ret? := some (cid, indIdx)
+      defnIdx := defnIdx + 1
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Add the IPLD constructor projections and constructors to the cache
@@ -317,6 +319,7 @@ mutual
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const ctorProj
         addToCache name (cid, defnIdx)
+        defnIdx := defnIdx + 1
 
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Add the IPLD recursor projections and recursors to the cache
@@ -326,6 +329,7 @@ mutual
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const recrProj
         addToCache name (cid, defnIdx)
+        defnIdx := defnIdx + 1
 
     match ret? with
     | some ret => return ret
