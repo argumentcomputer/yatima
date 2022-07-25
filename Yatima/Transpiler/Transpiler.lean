@@ -16,7 +16,7 @@ mutual
       let (expr, args) := descend expr []
       let fn? ← exprToLurkExpr expr
       let args? : Option $ List Lurk.Expr := (← args.mapM exprToLurkExpr).foldl
-        (fun acc? arg? => match acc? , arg? with
+        (fun acc? arg? => match acc?, arg? with
           | some acc, some arg => some $ acc.concat arg
           | _, _ => none) (some [])
       match fn?, args? with
@@ -82,7 +82,7 @@ mutual
     let store ← read
 
     let ctorExprs := inds |>.map Inductive.ctors 
-                          |>.foldl (· ++ ·) []
+                          |>.join
                           |>.map (fun ctor => (ctor.name, ctor.rhs))
 
     for (exprName, exprCid) in ctorExprs do
@@ -121,7 +121,7 @@ mutual
       | some expr => exprToLurkExpr expr
       | none      => throw s!"definition '{x.name}' not found"
     -- TODO
-    | .mutDefBlock dss  => sorry
+    | .mutDefBlock dss  => return none
     | .mutIndBlock inds => mutIndBlockToLurkExpr inds 
 
 end
