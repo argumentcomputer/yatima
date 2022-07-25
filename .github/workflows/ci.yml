@@ -1,21 +1,38 @@
-name: "LSpec CI"
+name: "CI"
 on:
   pull_request:
   push:
     branches:
       - main
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
+  checkout:
+    name: Checkout
     steps:
-      - name: install elan
+      - name: use actions/checkout@v3
+      - uses: actions/checkout@v3
+  install_elan:
+    name: Install elan
+    steps:
+      - name: download and install
         run: |
           set -o pipefail
           curl -sSfL https://github.com/leanprover/elan/releases/download/v1.3.1/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
           ./elan-init -y --default-toolchain none
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
-      - uses: actions/checkout@v2
+  build_main:
+    name: build Main.lean
+    needs: [checkout, install_elan]
+    runs-on: ubuntu-latest
+    steps:
+      # - uses: actions/checkout@v3
+      - name: build yatima
+        run: lake build
+  lspec:
+    name: LSpec
+    needs: [checkout, install_elan]
+    runs-on: ubuntu-latest
+    steps:
+      # - uses: actions/checkout@v3
       - name: build LSpec binary
         run: lake build lspec
       - name: build imported fixtures
