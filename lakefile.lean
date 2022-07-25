@@ -1,7 +1,7 @@
 import Lake
 import Std.Data.RBTree
 
-open Lake DSL System
+open Lake DSL
 
 package Yatima 
 
@@ -82,6 +82,8 @@ script setup do
 end Setup
 
 section ImportAll
+
+open System
 
 partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
     IO $ Array FilePath := do
