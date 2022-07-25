@@ -13,7 +13,9 @@ structure CompileState where
   mutDefIdx : RBMap Name Nat compare
   deriving Inhabited
 
-def CompileState.union (s s' : CompileState) :
+namespace CompileState
+
+def union (s s' : CompileState) :
     Except String CompileState := Id.run do
   let mut cache := s.cache
   for (n, c') in s'.cache do
@@ -29,11 +31,29 @@ def CompileState.union (s s' : CompileState) :
       acc.insert n i
   ⟩
 
+def summary (s : CompileState) : String :=
+  let consts := ", ".intercalate $ s.defns.toList.map
+    fun c => s!"{c.name} : {c.ctorName}"
+  "Compilation state:\n" ++
+  s!"----------------------------\n" ++
+  s!"{consts}\n" ++
+  s!"----------------------------\n" ++
+  s!"  univ_anon size: {s.store.univ_anon.size}\n" ++
+  s!"  univ_meta size: {s.store.univ_meta.size}\n" ++
+  s!"  expr_anon size: {s.store.expr_anon.size}\n" ++
+  s!"  expr_meta size: {s.store.expr_meta.size}\n" ++
+  s!"  const_anon size: {s.store.const_anon.size}\n" ++
+  s!"  const_meta size: {s.store.const_meta.size}\n" ++
+  s!"  cache size: {s.cache.size}"
+
+end CompileState
+
 structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
   recrCtx  : Std.RBMap Lean.Name (Nat × Nat) compare
+  log      : Bool
   deriving Inhabited
 
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
@@ -46,18 +66,18 @@ def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
-    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx⟩
+    ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx, e.log⟩
 
 def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, levels, [], .empty⟩
+  withReader $ fun e => ⟨e.constMap, levels, [], .empty, e.log⟩
 
 def withRecrs (recrCtx : RBMap Lean.Name (Nat × Nat) compare) :
     CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx, e.log⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
-  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx⟩
+  withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx, e.log⟩
 
 inductive StoreKey : Type → Type
   | univ   : Ipld.Both Ipld.UnivCid  → StoreKey (Ipld.Both Ipld.Univ)

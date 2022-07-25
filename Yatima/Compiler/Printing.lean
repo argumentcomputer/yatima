@@ -144,10 +144,8 @@ partial def printInductive (ind : Inductive) : CompileM String := do
   let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type}"
   return s!"{indHeader}\n"
 
-partial def printYatimaConst (cids? : Bool) (const : Const) : CompileM String := do
-  let cid :=
-    if cids? then ← printCid const.name
-    else ""
+partial def printYatimaConst (const : Const) : CompileM String := do
+  let cid ← printCid const.name
   match const with
   | .axiom ax => do
     return s!"{cid}{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr ax.type}"
@@ -180,7 +178,7 @@ open Lean
 instance : ToString Lean.RecursorRule where
   toString x := s!"{x.ctor} {x.nfields} {x.rhs}"
 
-def printDefSafety : Lean.DefinitionSafety -> String
+def printDefSafety : Lean.DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
   | .partial => "partial "
@@ -191,7 +189,7 @@ instance : ToString Lean.QuotKind where toString
   | .lift => "Quot.lift"
   | .ind  => "Quot.ind"
 
-def printLeanConst : Lean.ConstantInfo -> String
+def printLeanConst : Lean.ConstantInfo → String
   | .axiomInfo  val =>
     s!"{printIsSafe !val.isUnsafe}axiom {val.name} {val.levelParams} : {val.type}"
   | .defnInfo   val =>

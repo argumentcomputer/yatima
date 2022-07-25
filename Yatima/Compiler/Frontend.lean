@@ -118,9 +118,24 @@ mutual
   -/
   partial def processYatimaConst (const : Lean.ConstantInfo) :
       CompileM $ ConstCid × ConstIdx := do
-    match (← get).cache.find? const.name.toString with
+    let name := const.name.toString
+    let log  := (← read).log
+    match (← get).cache.find? name with
     | some c => pure c
-    | none   => toYatimaConst const
+    | none   =>
+      if log then
+        dbg_trace s!"↡ Stacking {name}{const.formatAll}"
+      let (cid, c) ← toYatimaConst const
+      if log then
+        dbg_trace s!"↟ Popping  {name}"
+        dbg_trace "\n========================================="
+        dbg_trace    name
+        dbg_trace   "========================================="
+        dbg_trace s!"{PrintLean.printLeanConst const}"
+        dbg_trace   "========================================="
+        dbg_trace s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
+        dbg_trace   "=========================================\n"
+      return (cid, c)
 
   partial def toYatimaConst : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
   -- These cases add multiple constants at the same time
@@ -684,19 +699,10 @@ mutual
 end
 
 open PrintLean PrintYatima in
-def buildStore (constMap : Lean.ConstMap) (log : Bool) : CompileM Unit := do
-  constMap.forM fun name const => do
-    if log then
-      dbg_trace "\n========================================="
-      dbg_trace s!"Processing: {name}"
-      dbg_trace "========================================="
-    if log then
-      dbg_trace "------------- Lean constant -------------"
-      dbg_trace s!"{printLeanConst const}"
-    let (_, const) ← processYatimaConst const
-    if log then
-      dbg_trace "------------ Yatima constant ------------"
-      dbg_trace s!"{← printYatimaConst true (← derefConst const)}"
+def buildStore (constMap : Lean.ConstMap) : CompileM Ipld.Store := do
+  constMap.forM fun _ const =>
+    discard $ processYatimaConst const
+  return (← get).store
 
 def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
     Except String CompileState :=
@@ -707,21 +713,25 @@ def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
       match map₀.find? n with
       | some c' => if c == c' then acc else acc.insert n c
       | none    => acc.insert n c
-  CompileM.run ⟨map, [], [], .empty⟩ stt (buildStore delta log)
+  CompileM.run ⟨map, [], [], .empty, log⟩ stt (buildStore delta)
 
-def getPaths : IO Lean.SearchPath := do
+/--
+This function must be called before `runFrontend` if the file to be compiled has
+imports (the automatic imports from `Init` also count).
+-/
+def setLibsPaths : IO Unit := do
   let out ← IO.Process.output {
     cmd := "lake"
     args := #["print-paths"]
   }
   let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
-  return split.replace "\"" "" |>.splitOn ","|>.map fun s => ⟨s⟩
+  let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
+  Lean.initSearchPath (← Lean.findSysroot) paths
 
 def runFrontend (filePath : System.FilePath)
   (log : Bool := false) (stt : CompileState := default) :
     IO $ Except String CompileState := do
-  Lean.initSearchPath (← Lean.findSysroot) (← getPaths)
   let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
     filePath.toString default
   if ok then
