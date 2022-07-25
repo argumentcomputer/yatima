@@ -5,11 +5,6 @@ on:
     branches:
       - main
 jobs:
-  checkout:
-    name: Checkout
-    steps:
-      - name: use actions/checkout@v3
-      - uses: actions/checkout@v3
   install_elan:
     name: Install elan
     steps:
@@ -21,18 +16,18 @@ jobs:
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
   build_main:
     name: build Main.lean
-    needs: [checkout, install_elan]
+    needs: install_elan
     runs-on: ubuntu-latest
     steps:
-      # - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
       - name: build yatima
         run: lake build
   lspec:
     name: LSpec
-    needs: [checkout, install_elan]
+    needs: install_elan
     runs-on: ubuntu-latest
     steps:
-      # - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
       - name: build LSpec binary
         run: lake build lspec
       - name: build imported fixtures
