@@ -42,8 +42,8 @@ def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : CheckM α) : CheckM α 
 
 def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
   if ind.recr || ind.indices != 0 then throw .typNotStructure
-  else match ind.ctors with
-  | [ctor] => pure ctor
+  else match ind.struct with
+  | .some ctor => pure ctor
   | _ => throw .typNotStructure
 
 def extEnvHelper (thunk : Thunk Value) : CheckM Value → CheckM Value :=
