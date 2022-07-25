@@ -222,8 +222,8 @@ def randCid (g : gen) : Cid × gen :=
 def randSort (g : gen) : Yatima.Expr × gen :=
   let (anonCid, g) := randCid g
   let (metaCid, g) := randCid g
-  let univCid := ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
-  (.sort univCid, g)
+  -- let univCid := ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
+  (.sort sorry, g)
 
 def randConst (g : gen) : Yatima.Expr × gen :=
   let (name, g) := randName g
@@ -327,6 +327,7 @@ def toString : Yatima.Expr → String
   | fix _ body => 
     let bodyString := body.toString
     s!"(μ.{bodyString})"
+  | _ => sorry
 
 instance : ToString Expr := {
   toString := Expr.toString
