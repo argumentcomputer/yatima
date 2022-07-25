@@ -95,17 +95,20 @@ def storeCmd : Cli.Cmd := `[Cli|
     ...sources : String; "List of Lean files or directories"
 ]
 
-def printInit (_ : α) : IO UInt32 := do
-  IO.println "Call `yatima --help` for more info"
-  return 0
-
 def yatimaCmd : Cli.Cmd := `[Cli|
-  yatima VIA printInit; [VERSION]
+  yatima NOOP; [VERSION]
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:
     storeCmd
 ]
 
+/-- A reimplementation of `Cli.Cmd.validate` to handle empty parameters. -/
+def validate (c : Cli.Cmd) (args : List String) : IO UInt32 := do
+  if args.isEmpty then
+    c.printHelp
+    return 0
+  c.validate args
+
 def main (args : List String) : IO UInt32 :=
-  yatimaCmd.validate args
+  validate yatimaCmd args
