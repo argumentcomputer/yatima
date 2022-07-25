@@ -1,16 +1,12 @@
 import Yatima.Store
 import Yatima.Transpiler.TranspileM
+import Yatima.Transpiler.Utils
 import Yatima.ForLurkRepo.Printing
-
-/-- We replace `.` with `:` since `.` is a special character in Lurk -/
-def String.fixDot (s : String) : String :=
-  s.replace "." ":"
 
 namespace Yatima.Transpiler
 
 mutual
 
-  -- Maybe useful later:
   partial def telescopeApp (expr : Expr) : TranspileM $ Option Lurk.Expr := 
     let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
       match expr with 
@@ -42,7 +38,7 @@ mutual
   partial def exprToLurkExpr (expr : Expr) : TranspileM (Option Lurk.Expr) := match expr with
     | .sort  ..
     | .lty   .. => return none
-    | .var name i     => return some $ .lit (.sym $ name.fixDot)
+    | .var name i     => return some $ .lit (.sym $ fixName name)
     | .const name cid ..  => do 
       let visited? := (← get).visited.contains name
       if !visited? then 
@@ -55,10 +51,10 @@ mutual
           -- Hence we know that this binding will always come after
           -- all of its children have already been bound 
           match ← constToLurkExpr const with 
-          | some expr => prependBinding (name.fixDot, expr) 
+          | some expr => prependBinding (fixName name, expr)
           | none      => pure ()
         | none => throw s!"constant '{name}' not found"
-      return some $ .lit (.sym $ name.fixDot)
+      return some $ .lit (.sym $ fixName name)
     | .app .. => telescopeApp expr
     | .lam .. => telescopeLam expr
     -- TODO: Do we erase?
@@ -98,7 +94,7 @@ mutual
           match lurkExpr? with
             | none => throw "TODO"
             | some lExpr => 
-              ctorLurkExprs := ctorLurkExprs.concat (exprName.fixDot, lExpr)
+              ctorLurkExprs := ctorLurkExprs.concat (fixName exprName, lExpr)
     return none
 
   
@@ -140,7 +136,7 @@ def transpileM : TranspileM Unit := do
   let store ← read
   store.const_cache.forM fun _ const => do
     match ← constToLurkExpr const with
-    | some expr => appendBinding (const.name.fixDot, expr)
+    | some expr => appendBinding (fixName const.name, expr)
     | none      => pure ()
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
