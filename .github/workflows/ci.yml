@@ -9,8 +9,8 @@ jobs:
     name: Checkout
     runs-on: ubuntu-latest
     steps:
-      - name: use actions/checkout@v3
-      - uses: actions/checkout@v3
+      - name: use actions/checkout@v2
+      - uses: actions/checkout@v2
   install_elan:
     name: Install elan
     runs-on: ubuntu-latest
