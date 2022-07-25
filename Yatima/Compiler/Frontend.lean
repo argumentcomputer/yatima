@@ -8,12 +8,6 @@ namespace Yatima.Compiler
 
 open Std (RBMap)
 
-instance : Coe Lean.Name Name where
-  coe := toString
-
-instance : Coe (List Lean.Name) (List Name) where
-  coe l := l.map toString
-
 instance : Coe Lean.BinderInfo BinderInfo where coe
   | .default        => .default
   | .auxDecl        => .auxDecl
@@ -70,8 +64,8 @@ def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
       let lvls := (← read).univCtx
       match lvls.indexOf? name with
       | some n =>
-        let value : Ipld.Both Ipld.Univ := ⟨ .param () n, .param name () ⟩
-        pure (value, .param name n)
+        let value : Ipld.Both Ipld.Univ := ⟨ .param () n, .param name.toString () ⟩
+        pure (value, .param name.toString n)
       | none   => throw s!"'{name}' not found in '{lvls}'"
     | .mvar .. => throw "Unfilled level metavariable"
   let cid ← StoreValue.insert $ .univ value
@@ -124,7 +118,7 @@ mutual
   -/
   partial def processYatimaConst (const : Lean.ConstantInfo) :
       CompileM $ ConstCid × ConstIdx := do
-    match (← get).cache.find? const.name with
+    match (← get).cache.find? const.name.toString with
     | some c => pure c
     | none   => toYatimaConst const
 
@@ -153,8 +147,8 @@ mutual
       | .axiomInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         let ax := {
-          name := struct.name
-          lvls := struct.levelParams
+          name := struct.name.toString
+          lvls := struct.levelParams.map toString
           type := type
           safe := not struct.isUnsafe }
         let value := ⟨ .axiom $ ax.toIpld typeCid, .axiom $ ax.toIpld typeCid ⟩
@@ -164,8 +158,8 @@ mutual
         -- Theorems are never truly recursive, though they can use recursive schemes
         let (valueCid, value) ← toYatimaExpr struct.value
         let thm := {
-          name  := struct.name
-          lvls  := struct.levelParams
+          name  := struct.name.toString
+          lvls  := struct.levelParams.map toString
           type  := type
           value := value }
         let value := ⟨.theorem $ thm.toIpld typeCid valueCid, .theorem $ thm.toIpld typeCid valueCid⟩
@@ -175,8 +169,8 @@ mutual
         -- TODO: Is `RBMap.single` correct? Shouldn't we add a new entry to the underlying `recrCtx`?
         let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, constIdx)) $ toYatimaExpr struct.value
         let opaq := {
-          name  := struct.name
-          lvls  := struct.levelParams
+          name  := struct.name.toString
+          lvls  := struct.levelParams.map toString
           type  := type
           value := value
           safe  := not struct.isUnsafe }
@@ -185,8 +179,8 @@ mutual
       | .quotInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         let quot := {
-          name := struct.name
-          lvls := struct.levelParams
+          name := struct.name.toString
+          lvls := struct.levelParams.map toString
           type := type
           kind := struct.kind }
         let value := ⟨.quotient $ quot.toIpld typeCid, .quotient $ quot.toIpld typeCid⟩
@@ -194,7 +188,7 @@ mutual
       | _ => unreachable!
     let cid ← StoreValue.insert $ .const values.fst
     modify (fun stt => { stt with defns := stt.defns.set! constIdx values.snd })
-    addToCache const.name (cid, constIdx)
+    addToCache const.name.toString (cid, constIdx)
     pure (cid, constIdx)
 
   partial def toYatimaExpr : Lean.Expr → CompileM (ExprCid × Expr)
@@ -217,14 +211,14 @@ mutual
         match (← read).recrCtx.find? name with
           | some (i, ref) =>
             let idx := (← read).bindCtx.length + i
-            let value : Ipld.Both Ipld.Expr := ⟨ .var () idx, .var name () ⟩
-            pure (value, .const name ref univs)
+            let value : Ipld.Both Ipld.Expr := ⟨ .var () idx, .var name.toString () ⟩
+            pure (value, .const name.toString ref univs)
           | none   => do
             let const ← findConstant name
             let (constCid, const) ← processYatimaConst const
             let value : Ipld.Both Ipld.Expr := ⟨ .const () constCid.anon $ univCids.map Ipld.Both.anon
-                       , .const name constCid.meta $ univCids.map Ipld.Both.meta ⟩
-            pure (value, .const name const univs)
+                       , .const name.toString constCid.meta $ univCids.map Ipld.Both.meta ⟩
+            pure (value, .const name.toString const univs)
       | .app fnc arg _ => do
         let (fncCid, fnc) ← toYatimaExpr fnc
         let (argCid, arg) ← toYatimaExpr arg
@@ -232,22 +226,22 @@ mutual
         pure (value, .app fnc arg)
       | .lam name typ bod data =>
         let (typCid, typ) ← toYatimaExpr typ
-        let (bodCid, bod) ← withName name $ toYatimaExpr bod
+        let (bodCid, bod) ← withName name.toString $ toYatimaExpr bod
         let bnd := data.binderInfo
-        let value : Ipld.Both Ipld.Expr := ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
-        pure (value, .lam name bnd typ bod)
+        let value : Ipld.Both Ipld.Expr := ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name.toString () typCid.meta bodCid.meta ⟩
+        pure (value, .lam name.toString bnd typ bod)
       | .forallE name dom img data =>
         let (domCid, dom) ← toYatimaExpr dom
-        let (imgCid, img) ← withName name $ toYatimaExpr img
+        let (imgCid, img) ← withName name.toString $ toYatimaExpr img
         let bnd := data.binderInfo
-        let value : Ipld.Both Ipld.Expr := ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
-        pure (value, .pi name bnd dom img)
+        let value : Ipld.Both Ipld.Expr := ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name.toString () domCid.meta imgCid.meta ⟩
+        pure (value, .pi name.toString bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← toYatimaExpr typ
         let (expCid, exp) ← toYatimaExpr exp
-        let (bodCid, bod) ← withName name $ toYatimaExpr bod
-        let value : Ipld.Both Ipld.Expr := ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
-        pure (value, .letE name typ exp bod)
+        let (bodCid, bod) ← withName name.toString $ toYatimaExpr bod
+        let value : Ipld.Both Ipld.Expr := ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name.toString typCid.meta expCid.meta bodCid.meta ⟩
+        pure (value, .letE name.toString typ exp bod)
       | .lit lit _ =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
@@ -297,7 +291,7 @@ mutual
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
       let name : String := indMeta.name.proj₂
-      let some (_, defnIdx) := mutualIdxs.find? name | unreachable!
+      let some (_, defnIdx) := mutualIdxs.find? name | throw s!"Unknown constant '{name}'"
       let indProj :=
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
@@ -308,7 +302,7 @@ mutual
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Add the IPLD constructor projections and constructors to the cache
         let name : String := ctorMeta.name.proj₂
-        let some (_, defnIdx) := mutualIdxs.find? name | unreachable!
+        let some (_, defnIdx) := mutualIdxs.find? name | throw s!"Unknown constant '{name}'"
         let ctorProj :=
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
@@ -318,7 +312,7 @@ mutual
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Add the IPLD recursor projections and recursors to the cache
         let name : String := recrMeta.2.name.proj₂
-        let some (_, defnIdx) := mutualIdxs.find? name | unreachable!
+        let some (_, defnIdx) := mutualIdxs.find? name | throw s!"Unknown constant '{name}'"
         let recrProj :=
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, recrIdx, default ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
@@ -352,7 +346,7 @@ mutual
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
       | [ctor] => do
-        let some (_, ctorIdx) := (← read).recrCtx.find? ctor | unreachable!
+        let some (_, ctorIdx) := (← read).recrCtx.find? ctor | throw s!"Unknown constant '{ctor}'"
         match ← derefConst ctorIdx with
         | .constructor ctor => pure $ some ctor
         | _ => throw "Expected {ctor} to be a constructor"
@@ -361,8 +355,8 @@ mutual
       | some ctor => ctor.fields == 0
       | none => false
     let tcInd := .inductive {
-      name    := ind.name
-      lvls    := ind.levelParams
+      name    := ind.name.toString
+      lvls    := ind.levelParams.map toString
       type    := type
       params  := ind.numParams
       indices := ind.numIndices
@@ -372,7 +366,7 @@ mutual
       unit    := unit
       struct  := struct
     }
-    let some (_, defnIdx) := (← read).recrCtx.find? ind.name | unreachable!
+    let some (_, defnIdx) := (← read).recrCtx.find? ind.name | throw s!"Unknown constant '{ind.name}'"
     modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcInd })
     return {
       anon := ⟨ ()
@@ -385,8 +379,8 @@ mutual
         , ind.isRec
         , not ind.isUnsafe
         , ind.isReflexive ⟩
-      meta := ⟨ ind.name
-        , ind.levelParams
+      meta := ⟨ ind.name.toString
+        , ind.levelParams.map toString
         , typeCid.meta
         , () , ()
         , ctors.map (·.meta)
@@ -419,12 +413,12 @@ mutual
             -- this is an external recursor rule
             | none => return ctorMap
         let retCtors ← ctors.mapM fun ctor => do
-          match ctorMap.find? ctor with
+          match ctorMap.find? ctor.toString with
           | some thisCtor => pure thisCtor
           | none => unreachable!
         let tcRecr : Const := .intRecursor {
-          name    := rec.name
-          lvls    := rec.levelParams
+          name    := rec.name.toString
+          lvls    := rec.levelParams.map toString
           type    := type
           params  := rec.numParams
           indices := rec.numIndices
@@ -432,7 +426,7 @@ mutual
           minors  := rec.numMinors
           k       := rec.k
         }
-        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | unreachable!
+        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
         modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
         let recr := ⟨
             { name    := ()
@@ -444,8 +438,8 @@ mutual
               minors  := rec.numMinors
               rules   := ()
               k       := rec.k }
-          , { name    := rec.name
-              lvls    := rec.levelParams
+          , { name    := rec.name.toString
+              lvls    := rec.levelParams.map toString
               type    := typeCid.meta
               params  := ()
               indices := ()
@@ -462,8 +456,8 @@ mutual
       | .ctorInfo ctor =>
         let (typeCid, type) ← toYatimaExpr ctor.type
         let tcCtor : Const := .constructor {
-          name    := ctor.name
-          lvls    := ctor.levelParams
+          name    := ctor.name.toString
+          lvls    := ctor.levelParams.map toString
           type    := type
           idx     := ctor.cidx
           params  := ctor.numParams
@@ -471,7 +465,7 @@ mutual
           rhs     := rhs
           safe    := not ctor.isUnsafe
         }
-        let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | unreachable!
+        let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw s!"Unknown constant '{ctor.name}'"
         modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcCtor })
         return ⟨
           { rhs    := rhsCid.anon
@@ -481,8 +475,8 @@ mutual
             params := ctor.numParams
             fields := ctor.numFields },
           { rhs    := rhsCid.meta
-            lvls   := ctor.levelParams
-            name   := ctor.name
+            lvls   := ctor.levelParams.map toString
+            name   := ctor.name.toString
             type   := typeCid.meta
             params := ()
             fields := () } ⟩
@@ -498,8 +492,8 @@ mutual
             let (recrRule, tcRecrRule) ← toYatimaExternalRecRule r
             return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
         let tcRecr : Const := .extRecursor {
-          name    := rec.name
-          lvls    := rec.levelParams
+          name    := rec.name.toString
+          lvls    := rec.levelParams.map toString
           type    := type
           params  := rec.numParams
           indices := rec.numIndices
@@ -508,7 +502,7 @@ mutual
           rules   := tcRules
           k       := rec.k
         }
-        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | unreachable!
+        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
         modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
         return ⟨
             { name    := ()
@@ -520,8 +514,8 @@ mutual
               minors  := rec.numMinors
               rules   := rules.anon
               k       := rec.k }
-          , { name    := rec.name
-              lvls    := rec.levelParams
+          , { name    := rec.name.toString
+              lvls    := rec.levelParams.map toString
               type    := typeCid.meta
               params  := ()
               indices := ()
@@ -551,7 +545,7 @@ mutual
       let (value, defn) ← withRecrs (RBMap.single struct.name (0, constIdx)) $ toYatimaDefIpld struct
       let cid ← StoreValue.insert $ .const ⟨ .definition value.anon, .definition value.meta ⟩
       modify (fun stt => { stt with defns := stt.defns.set! constIdx (.definition defn) })
-      addToCache struct.name (cid, constIdx)
+      addToCache struct.name.toString (cid, constIdx)
       pure (cid, constIdx)
     else
       let mutualDefs ← struct.all.mapM fun name => do
@@ -565,7 +559,7 @@ mutual
       for (i, ds) in mutualDefs.enum do
         for d in ds do
           -- TODO Isn't `mutDefIdx` unnecessary? Couldn't we use `mutualIdxs` instead?
-          modify (fun stt => { stt with mutDefIdx := stt.mutDefIdx.insert d.name i })
+          modify (fun stt => { stt with mutDefIdx := stt.mutDefIdx.insert d.name.toString i })
           mutualIdxs := mutualIdxs.insert d.name (i, firstIdx + i)
       let definitions ← withRecrs mutualIdxs $
         mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld
@@ -585,7 +579,7 @@ mutual
         let cid ← StoreValue.insert $ .const value
         let constIdx := idx + firstIdx
         modify (fun stt => { stt with defns := stt.defns.set! constIdx (.definition defn) })
-        addToCache struct.name (cid, constIdx)
+        addToCache struct.name.toString (cid, constIdx)
         if defn.name == struct.name.toString then ret? := some (cid, constIdx)
 
       match ret? with
@@ -597,8 +591,8 @@ mutual
     let (typeCid, type) ← toYatimaExpr defn.type
     let (valueCid, value) ← toYatimaExpr defn.value
     let defn := {
-      name   := defn.name
-      lvls   := defn.levelParams
+      name   := defn.name.toString
+      lvls   := defn.levelParams.map toString
       type
       value
       safety := defn.safety }
