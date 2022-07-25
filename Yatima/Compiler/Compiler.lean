@@ -298,7 +298,7 @@ mutual
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
-    let mut defnIdx := 0
+    let mut defnIdx := firstIdx
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
