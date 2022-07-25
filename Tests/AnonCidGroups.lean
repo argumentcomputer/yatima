@@ -14,14 +14,14 @@ def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
     for group in groups do
       let mut cidGroup : List (Lean.Name × Ipld.ConstCid .Anon) := []
       for name in group do
-        match store.cache.find? name with
+        match store.cache.find? name.toString with
         | none          => notFound := name :: notFound
         | some (cid, _) => cidGroup := (name, cid.anon) :: cidGroup
       cidGroups := cidGroup.reverse :: cidGroups
     if notFound.isEmpty then
       return .ok cidGroups.reverse
     else
-      return .error s!"Not found: {", ".intercalate notFound}"
+      return .error s!"Not found: {", ".intercalate (notFound.map toString)}"
 
 def makeCidTests (cidGroups : List (List (Lean.Name × Ipld.ConstCid .Anon))) :
     TestSeq :=

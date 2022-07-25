@@ -322,6 +322,18 @@ match k with
     , blockCid.meta
     , () ⟩
 
+def Const.type (k : Const) : Expr :=
+  match k with
+  | .axiom x => x.type
+  | .theorem x => x.type
+  | .inductive x => x.type
+  | .opaque x => x.type
+  | .definition x => x.type
+  | .constructor x => x.type
+  | .intRecursor x => x.type
+  | .extRecursor x => x.type
+  | .quotient x => x.type
+
 def Const.name : Const → Name
   | .axiom           x
   | .theorem         x

@@ -1,4 +1,4 @@
-import Yatima.Typechecker.Expr
+import Yatima.Const
 
 namespace Yatima.Typechecker
 
@@ -25,7 +25,7 @@ mutual
 inductive Neutral
 -- Here variables also carry their types, but this is purely for an optimization
 | fvar : Name → Nat → Thunk Value → Neutral
-| const : Name → Const → List Univ → Neutral
+| const : Name → ConstIdx → List Univ → Neutral
 
 -- Yatima values. We assume that values are only reduced from well-typed expressions.
 inductive Value

@@ -64,8 +64,8 @@ def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
       let lvls := (← read).univCtx
       match lvls.indexOf? name with
       | some n =>
-        let value : Ipld.Both Ipld.Univ := ⟨ .param () n, .param name.toString () ⟩
-        pure (value, .param name.toString n)
+        let value : Ipld.Both Ipld.Univ := ⟨ .var () n, .var name.toString () ⟩
+        pure (value, .var name.toString n)
       | none   => throw s!"'{name}' not found in '{lvls}'"
     | .mvar .. => throw "Unfilled level metavariable"
   let cid ← StoreValue.insert $ .univ value
@@ -429,7 +429,7 @@ mutual
         let retCtors ← ctors.mapM fun ctor => do
           match ctorMap.find? ctor.toString with
           | some thisCtor => pure thisCtor
-          | none => unreachable!
+          | none => throw s!"Unknown constant '{ctor}'"
         let tcRecr : Const := .intRecursor {
           name    := rec.name.toString
           lvls    := rec.levelParams.map toString

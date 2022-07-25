@@ -102,7 +102,7 @@ def univToIpld : (Ipld.Univ k) → Ipld
   | .succ p    => .array #[.number $ Ipld.UNIV k, .number 1, p]
   | .max a b   => .array #[.number $ Ipld.UNIV k, .number 2, a, b]
   | .imax a b  => .array #[.number $ Ipld.UNIV k, .number 3, a, b]
-  | .param n i => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
+  | .var n i   => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
 
 def exprToIpld : (Ipld.Expr k) → Ipld
   | .var _ i      => .array #[.number $ Ipld.EXPR k, .number 0, i]
