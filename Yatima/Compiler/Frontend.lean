@@ -128,16 +128,14 @@ mutual
   | .defnInfo struct => withResetCompileEnv struct.levelParams $ toYatimaDef struct
   -- These cases are subsumed by the inductive case
   | .ctorInfo struct => do
-    match (← read).constMap.find? struct.induct with
-    | some (.inductInfo ind) => processYatimaConst (.inductInfo ind)
-    | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-    | none => throw s!"Unknown constant '{struct.induct}'"
+    match ← findConstant struct.induct with
+    | .inductInfo ind => processYatimaConst (.inductInfo ind)
+    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     processYatimaConst (.ctorInfo struct)
   | .recInfo struct => do
-    match (← read).constMap.find? struct.getInduct with
-    | some (.inductInfo ind) => processYatimaConst (.inductInfo ind)
-    | some const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-    | none => throw s!"Unknown constant '{struct.getInduct}'"
+    match ← findConstant struct.getInduct with
+    | .inductInfo ind => processYatimaConst (.inductInfo ind)
+    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
     processYatimaConst (.recInfo struct)
   -- The rest adds the constants to the cache one by one
   | const => withResetCompileEnv const.levelParams do
@@ -287,37 +285,38 @@ mutual
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
+    let mut defnIdx := 0
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
       let name : String := indMeta.name.proj₂
-      let some (_, defnIdx) := mutualIdxs.find? name | throw s!"Unknown constant '{name}'"
       let indProj :=
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
       let cid ← StoreValue.insert $ .const indProj
       addToCache name (cid, defnIdx)
       if name == initInd.name then ret? := some (cid, indIdx)
+      defnIdx := defnIdx + 1
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Add the IPLD constructor projections and constructors to the cache
         let name : String := ctorMeta.name.proj₂
-        let some (_, defnIdx) := mutualIdxs.find? name | throw s!"Unknown constant '{name}'"
         let ctorProj :=
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const ctorProj
         addToCache name (cid, defnIdx)
+        defnIdx := defnIdx + 1
 
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Add the IPLD recursor projections and recursors to the cache
         let name : String := recrMeta.2.name.proj₂
-        let some (_, defnIdx) := mutualIdxs.find? name | throw s!"Unknown constant '{name}'"
         let recrProj :=
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, recrIdx, default ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const recrProj
         addToCache name (cid, defnIdx)
+        defnIdx := defnIdx + 1
 
     match ret? with
     | some ret => return ret
