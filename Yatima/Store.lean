@@ -17,8 +17,13 @@ structure Store where
   expr_cids  : RBTree (Both ExprCid) compare
   const_cids  : RBTree (Both ConstCid) compare
 
+  univ_cids  : RBTree (Both UnivCid) compare
+  expr_cids  : RBTree (Both ExprCid) compare
+  const_cids  : RBTree (Both ConstCid) compare
+
 instance : Inhabited Store where
   default := ⟨
+    .empty, .empty, .empty,
     .empty, .empty, .empty,
     .empty, .empty, .empty
   ⟩
