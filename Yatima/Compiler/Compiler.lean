@@ -724,7 +724,7 @@ def compile (filePath : System.FilePath)
         | none    => acc.insert n c
 
     -- triggering compilation
-    return CompileM.run ⟨map, [], [], .empty, log⟩ stt (compileM delta)
+    return CompileM.run (.init map log) stt (compileM delta)
 
 /--
 This function must be called before `compile` if the file to be compiled has

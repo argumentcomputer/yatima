@@ -56,6 +56,9 @@ structure CompileEnv where
   log      : Bool
   deriving Inhabited
 
+def CompileEnv.init (map : Lean.ConstMap) (log : Bool) : CompileEnv :=
+  ⟨map, [], [], .empty, log⟩
+
 abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
