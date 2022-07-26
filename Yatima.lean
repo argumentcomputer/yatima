@@ -1,6 +1,6 @@
 import Yatima.Cid
 import Yatima.Compiler.CompileM
-import Yatima.Compiler.Frontend
+import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
 import Yatima.Compiler.Utils
 import Yatima.Const
