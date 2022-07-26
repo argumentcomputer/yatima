@@ -13,18 +13,16 @@ You can choose a directory that's already in your path, for example.
 
 ## Usage
 
-### Storing Lean objects
-
-Call `yatima store arg1 arg2 ...`, where each `argN` is either a Lean file or a directory of Lean files.
-
-Optional flags:
-* `--prelude` (or `-p`) optimizes the compilation of prelude files without imports.
-All files to be compiled must follow this rule
-* `--log` (or `-l`) logs compilation progress
-* `--summary` (or `-s`) prints a compilation summary at the end of the process
+The subcommands available for the `yatima` CLI are:
+* `compile`: compile Lean 4 code to Yatima IR
+* `typecheck`: typecheck Yatima IR
+* `transpile`: transpile Yatima IR to Lurk code
+* `pipe`: chain the three subcommands above without writing Yatima IR to disk
+* `prove`: generates a Lurk proof that a certain Lean 4 declaration typechecks
+* `verify`: verify the correctness of a Lurk proof
 
 Constraints:
-* The `store` command must be triggered from within a Lean project that uses Lake
-* The compiled code must use the same toolchain as the one used to compile the `yatima` binary.
+* The `compile` subcommand must be triggered from within a Lean project that uses Lake
+* The Lean 4 code to be compiled must use the same toolchain as the one used to compile the `yatima` binary.
 To see the needed toolchain, call `yatima --version` and check the content before the pipe `|`
-* To compile a file that imports others, the imported `olean` files must be available
+* To compile a Lean 4 file that imports others, the imported `olean` files must be available
