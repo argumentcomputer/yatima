@@ -1,4 +1,4 @@
-import Yatima.Univ
+import Yatima.Datatypes.Univ
 
 namespace Yatima
 

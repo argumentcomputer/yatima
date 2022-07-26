@@ -1,5 +1,5 @@
 import Ipld.Cid
-import Yatima.Kind
+import Yatima.Datatypes.Kind
 
 namespace Yatima
 

@@ -1,16 +1,16 @@
-import Yatima.Typechecker.CheckM
+import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Equal
 
 namespace Yatima.Typechecker
 
-def checkStructure (ind : Inductive) : CheckM Constructor :=
+def checkStructure (ind : Inductive) : TypecheckM Constructor :=
   match ind.struct with
   | some ctor => pure ctor
   | none => throw .typNotStructure
 
 mutual
 
-  partial def check (term : Expr) (type : Value) : CheckM Unit := do
+  partial def check (term : Expr) (type : Value) : TypecheckM Unit := do
     match term with
     | .lam lam_name _ _lam_dom bod => do
       match type with
@@ -37,7 +37,7 @@ mutual
       then pure ()
       else throw .valueMismatch
 
-  partial def infer (term : Expr) : CheckM Value := do
+  partial def infer (term : Expr) : TypecheckM Value := do
     match term with
     | .var _ idx =>
       let type := List.get! (← read).types idx
