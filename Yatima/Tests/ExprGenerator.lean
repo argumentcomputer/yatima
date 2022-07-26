@@ -229,8 +229,8 @@ def randConst (g : gen) : Yatima.Expr × gen :=
   let (name, g) := randName g
   let (anonCid, g) := randCid g
   let (metaCid, g) := randCid g
-  let constCid := ⟨.mk anonCid, .mk metaCid⟩
-  (.const name constCid [], g)
+  -- let constCid := ⟨.mk anonCid, .mk metaCid⟩
+  (.const name sorry [], g)
 
 def randLit (g : gen) : Yatima.Expr × gen :=
   let (isNat, g) := randBool g
@@ -279,7 +279,8 @@ partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
                           (← assembleExprAux bodyHole g₃)
       | .fix bodyHole                     =>
         let (name, g) := randName g
-        return .fix name (← assembleExprAux bodyHole g) 
+        -- return .fix name (← assembleExprAux bodyHole g)
+        sorry
       | .leaf leafType => match leafType with
         | .sort        => return randSort g  |>.1
         | .const       => return randConst g |>.1
@@ -324,14 +325,10 @@ def toString : Yatima.Expr → String
       | .nat num => s!"ln:{num}"
       | .str str => s!"ls:{str}"
   | lty _ => ""
-  | fix _ body => 
-    let bodyString := body.toString
-    s!"(μ.{bodyString})"
   | _ => sorry
 
-instance : ToString Expr := {
-  toString := Expr.toString
-}
+instance : ToString Expr :=
+  ⟨Expr.toString⟩
 
 end Yatima.Expr
 
