@@ -703,14 +703,14 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
 def compile (filePath : System.FilePath)
   (log : Bool := false) (stt : CompileState := default) :
     IO $ Except String CompileState := do
-  let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
-    filePath.toString default
-  if ok then
+  match ← Lean.runFrontend (← IO.FS.readFile filePath) filePath.toString with
+  | (some err, _) => return .error s!"Errors on file {filePath}:\n\n{err}"
+  | (none, env) =>
     -- building an environment `env₀` just with the imports from `filePath`
     let importFile := env.header.imports.map (·.module) |>.foldl
       (init := "prelude\n")
       fun acc m => s!"{acc}import {m}\n"
-    let (env₀, _) ← Lean.Elab.runFrontend importFile .empty default default
+    let (_, env₀) ← Lean.runFrontend importFile
 
     -- filtering out open references
     let map  := Lean.filterConstants env.constants
@@ -725,8 +725,6 @@ def compile (filePath : System.FilePath)
 
     -- triggering compilation
     return CompileM.run ⟨map, [], [], .empty, log⟩ stt (compileM delta)
-  else
-    return .error s!"Lean frontend failed on file {filePath}"
 
 /--
 This function must be called before `compile` if the file to be compiled has
