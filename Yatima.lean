@@ -9,6 +9,7 @@ import Yatima.Expr
 import Yatima.ForLurkRepo.AST
 import Yatima.ForLurkRepo.DSL
 import Yatima.ForLurkRepo.Printing
+import Yatima.ForLurkRepo.Utils
 import Yatima.Kind
 import Yatima.Name
 import Yatima.Store
@@ -22,7 +23,7 @@ import Yatima.Typechecker.CheckM
 import Yatima.Typechecker.Debug
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
-import Yatima.Typechecker.FromIPLD
+import Yatima.Typechecker.FromIpld
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.Value
 import Yatima.Univ
