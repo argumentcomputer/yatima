@@ -3,7 +3,7 @@ import Yatima.Cid
 import Std.Data.HashMap
 
 -- Not recommended going over 15 unless generation parameters are adjusted below
-def MAX_DEPTH : Nat := 15 
+def MAX_DEPTH : Nat := 15
 
 def VARIABLE_PREFERENCE : Nat := 20
 
@@ -14,7 +14,7 @@ structure Hole where
   /-
   Maybe store the type signature of a Hole to generate type-correct Yatima expressions? (need typechecker)
   -/
-deriving Inhabited  
+deriving Inhabited
 
 instance : BEq Hole where
   beq := fun h₁ h₂ => h₁.id == h₂.id
@@ -25,7 +25,7 @@ inductive NodeType | app | lam | pi | letE | fix
 inductive VarType  | free | bdd
 inductive LeafType | sort | const | lit | var : VarType → LeafType
 
-abbrev ExprType := NodeType ⊕ LeafType 
+abbrev ExprType := NodeType ⊕ LeafType
 
 /--
 The type of **holed** Yatima expressions. Holes are basically less fancy Lean metavariables
@@ -45,7 +45,7 @@ structure State where
   maxHoleID : Nat
   head : Hole
 
-def init : State := 
+def init : State :=
   let hole : Hole := ⟨0, 0⟩
 {
   unfilledHoles := [hole]
@@ -80,7 +80,7 @@ def getNextHole : ExprGen (Option Hole) := do
     | hole :: _ => return some hole
 
 /--
-Given a `hole`, find the binder depth of 
+Given a `hole`, find the binder depth of
 -/
 partial def getBinderDepth (hole : Hole) : ExprGen (Option Nat) := do
   let head := (← get).head
@@ -92,17 +92,17 @@ partial def getBinderDepth (hole : Hole) : ExprGen (Option Nat) := do
         | none => return none
         | some expr => match expr with
           |.leaf _ => return none
-          | .lam type body  => 
+          | .lam type body  =>
             getBinderDepthAux hole type acc <||> getBinderDepthAux hole body acc.succ
           | .pi type body   =>
             getBinderDepthAux hole type acc <||> getBinderDepthAux hole body acc.succ
-          | .app func input => 
+          | .app func input =>
             getBinderDepthAux hole func acc <||> getBinderDepthAux hole input acc
-          | .letE type value body => 
-          getBinderDepthAux hole type acc  <||> 
+          | .letE type value body =>
+          getBinderDepthAux hole type acc  <||>
           getBinderDepthAux hole value acc <||>
           getBinderDepthAux hole body acc.succ
-          | .fix body  => getBinderDepthAux hole body acc 
+          | .fix body  => getBinderDepthAux hole body acc
 
 def getHoles (expr : HExpr) : ExprGen (List Hole) := do
   match expr with
@@ -116,11 +116,11 @@ def getHoles (expr : HExpr) : ExprGen (List Hole) := do
 def genHExpr (depth : Nat) (type : ExprType) : ExprGen HExpr := do
   match type with
     | .inl nodeType => match nodeType with
-        | .app  => 
+        | .app  =>
           let funcHole := (← genNewHole depth.succ)
           let bodyHole := (← genNewHole depth.succ)
           return .app funcHole bodyHole
-        | .lam  => 
+        | .lam  =>
           let typeHole := (← genNewHole depth.succ)
           let bodyHole := (← genNewHole depth.succ)
           return .lam typeHole bodyHole
@@ -128,12 +128,12 @@ def genHExpr (depth : Nat) (type : ExprType) : ExprGen HExpr := do
           let typeHole := (← genNewHole depth.succ)
           let bodyHole := (← genNewHole depth.succ)
           return .pi typeHole bodyHole
-        | .letE => 
+        | .letE =>
           let typeHole  := (← genNewHole depth.succ)
           let valueHole := (← genNewHole depth.succ)
           let bodyHole  := (← genNewHole depth.succ)
           return .letE typeHole valueHole bodyHole
-        | .fix  => 
+        | .fix  =>
           let bodyHole := (← genNewHole depth.succ)
           return .fix bodyHole
     | .inr leafType => return .leaf leafType
@@ -153,7 +153,7 @@ def fillHole (target : Hole) (type : ExprType) : ExprGen Unit := do
 
 variable {gen : Type} [RandomGen gen]
 
-def getRandomType (g : gen) (isLeaf : Bool := False) : ExprType × gen := 
+def getRandomType (g : gen) (isLeaf : Bool := False) : ExprType × gen :=
   let (randLeaf, g) := randNat g 0 100
   let cutoff := 100 - VARIABLE_PREFERENCE -- NOTE: Adjust this `cutoff` to change leaf generation order
   if isLeaf || (randLeaf ≥ cutoff) then
@@ -162,7 +162,7 @@ def getRandomType (g : gen) (isLeaf : Bool := False) : ExprType × gen :=
       | 0 => (Sum.inr .sort, g)
       | 1 => (Sum.inr .const, g)
       | 2 => (Sum.inr .lit, g)
-      | _ => 
+      | _ =>
         let (isFree, g) := randBool g
         (Sum.inr $ .var (if isFree then .free else .bdd), g)
   else
@@ -178,7 +178,7 @@ def fillNextHole (g : gen) : ExprGen gen := do
   match (← get).unfilledHoles with
     | [] => return g
     | h :: hs =>
-      if h.treeDepth ≥ MAX_DEPTH then 
+      if h.treeDepth ≥ MAX_DEPTH then
         let (exprType, g) := getRandomType (isLeaf := true) g
         fillHole h exprType
         return g
@@ -200,15 +200,15 @@ def randomAlpha (g : gen) : Char × gen :=
   let (charNat, g) := randNat g lo hi
   (.ofNat charNat, g)
 
-def someRandom {α : Type} (f : gen → α × gen) (n : Nat) (g : gen) : List α × gen := 
+def someRandom {α : Type} (f : gen → α × gen) (n : Nat) (g : gen) : List α × gen :=
   let rec someRandomAux (n : Nat) (acc : List α) (g : gen) := match n with
     | 0       => (acc, g)
-    | .succ n => 
+    | .succ n =>
       let (a, g) := f g
       someRandomAux n (a :: acc) g
   someRandomAux n [] g
 
-def randName (g : gen) : String × gen := 
+def randName (g : gen) : String × gen :=
   let (cs, g) := someRandom randomAlpha 4 g
   (.mk cs, g)
 
@@ -234,7 +234,7 @@ def randConst (g : gen) : Yatima.Expr × gen :=
 
 def randLit (g : gen) : Yatima.Expr × gen :=
   let (isNat, g) := randBool g
-  if isNat then 
+  if isNat then
     let (num, g) := randNat g 0 100
     (.lit $ .nat num, g) else
     let (str, g) := randName g
@@ -243,10 +243,10 @@ def randLit (g : gen) : Yatima.Expr × gen :=
 def randVar (depth : Option Nat) (g : gen) (isBdd : Bool := false): Yatima.Expr × gen :=
   let (name, g) := randName g
   match depth with
-    | none => 
+    | none =>
       let (idx, g) := randNat g 0 100
       (.var sorry idx, g)
-    | some dep => 
+    | some dep =>
       let (isBddR, g) := randBool g
       if isBdd || isBddR then
         let (idx, g) := randNat g 0 dep
@@ -259,23 +259,23 @@ partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
   match hExpr with
     | none => unreachable!
     | some expr => match expr with
-      | .app funcHole inputHole           => 
+      | .app funcHole inputHole           =>
         let (g₁, g₂) := RandomGen.split g
         return .app (← assembleExprAux funcHole g₁) (← assembleExprAux inputHole g₂)
       | .lam typeHole bodyHole            =>
         let (name, g) := randName g
-        let (g₁, g₂) := RandomGen.split g 
+        let (g₁, g₂) := RandomGen.split g
         return .lam sorry default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
       | .pi typeHole bodyHole             =>
-        let (name, g) := randName g 
+        let (name, g) := randName g
         let (g₁, g₂) := RandomGen.split g
         return .pi sorry default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
       | .letE typeHole valueHole bodyHole =>
         let (name, g) := randName g
         let (g₁, g₂) := RandomGen.split g
         let (g₂, g₃) := RandomGen.split g₂
-        return .letE sorry (← assembleExprAux typeHole g₁) 
-                          (← assembleExprAux valueHole g₂) 
+        return .letE sorry (← assembleExprAux typeHole g₁)
+                          (← assembleExprAux valueHole g₂)
                           (← assembleExprAux bodyHole g₃)
       | .fix bodyHole                     =>
         let (name, g) := randName g
@@ -285,7 +285,7 @@ partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
         | .sort        => return randSort g  |>.1
         | .const       => return randConst g |>.1
         | .lit         => return randLit g   |>.1
-        | .var varType => 
+        | .var varType =>
           let depth? ← getBinderDepth head
           return randVar depth? g |>.1
 
@@ -319,7 +319,7 @@ def toString : Yatima.Expr → String
     let valueString := value.toString
     let bodyString := body.toString
     let typeString := type.toString
-    s!"(let v=({valueString}) : ({typeString}) in {bodyString})" 
+    s!"(let v=({valueString}) : ({typeString}) in {bodyString})"
   | lit literal =>
     match literal with
       | .nat num => s!"ln:{num}"
