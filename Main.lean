@@ -1,5 +1,5 @@
 import Cli
-import Yatima.Compiler.Frontend
+import Yatima.Compiler.Compiler
 import Yatima.Cronos
 
 opaque VERSION : String := s!"{Lean.versionString}|0.0.1"
@@ -51,7 +51,7 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         for filePath in ← getLeanFilePathsList ⟨arg⟩ do
           let filePathStr := filePath.toString
           cronos ← cronos.clock filePathStr
-          match ← runFrontend filePath log stt with
+          match ← compile filePath log stt with
           | .ok stt' => match stt.union stt' with
             | .ok stt' =>
               stt := stt'

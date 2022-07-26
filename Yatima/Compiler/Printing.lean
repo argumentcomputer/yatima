@@ -3,6 +3,9 @@ import Yatima.Compiler.CompileM
 def printIsSafe (x: Bool) : String :=
   if x then "" else "unsafe "
 
+def rulesSep : String :=
+  "\n------------------\n"
+
 namespace Yatima.Compiler.PrintYatima
 
 open Yatima.Compiler.CompileM
@@ -124,8 +127,7 @@ partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
 partial def printExtRecursor (cid : String) (recr : ExtRecursor) : CompileM String := do
   let rules ← recr.rules.mapM printRecursorRule
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
-          s!"external\n" ++
-          s!"Rules:\n{rules}"
+          s!"\nExternal rules:{rulesSep}{rulesSep.intercalate rules}"
 
 partial def printIntRecursor (cid : String) (recr : IntRecursor) : CompileM String := do
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
@@ -205,6 +207,6 @@ def printLeanConst : Lean.ConstantInfo → String
   | .recInfo    val =>
     s!"{printIsSafe !val.isUnsafe}recursor {val.name} {val.levelParams} : {val.type} :=\n" ++
     s!"  {val.all} {val.numParams} {val.numIndices} {val.numMotives} {val.numMinors} {val.k}\n" ++
-    s!"Rules:\n" ++ "\n".intercalate (val.rules.map toString)
+    s!"\nRules:{rulesSep}{rulesSep.intercalate (val.rules.map toString)}"
 
 end Yatima.Compiler.PrintLean

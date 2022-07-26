@@ -424,29 +424,28 @@ mutual
           indices := rec.numIndices
           motives := rec.numMotives
           minors  := rec.numMinors
-          k       := rec.k
-        }
+          k       := rec.k }
         let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
         modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
         let recr := ⟨
-            { name    := ()
-              lvls    := rec.levelParams.length
-              type    := typeCid.anon
-              params  := rec.numParams
-              indices := rec.numIndices
-              motives := rec.numMotives
-              minors  := rec.numMinors
-              rules   := ()
-              k       := rec.k }
-          , { name    := rec.name.toString
-              lvls    := rec.levelParams.map toString
-              type    := typeCid.meta
-              params  := ()
-              indices := ()
-              motives := ()
-              minors  := ()
-              rules   := ()
-              k       := () } ⟩
+          { name    := ()
+            lvls    := rec.levelParams.length
+            type    := typeCid.anon
+            params  := rec.numParams
+            indices := rec.numIndices
+            motives := rec.numMotives
+            minors  := rec.numMinors
+            rules   := ()
+            k       := rec.k },
+          { name    := rec.name.toString
+            lvls    := rec.levelParams.map toString
+            type    := typeCid.meta
+            params  := ()
+            indices := ()
+            motives := ()
+            minors  := ()
+            rules   := ()
+            k       := () } ⟩
         return (recr, retCtors)
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
 
@@ -505,24 +504,24 @@ mutual
         let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
         modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
         return ⟨
-            { name    := ()
-              lvls    := rec.levelParams.length
-              type    := typeCid.anon
-              params  := rec.numParams
-              indices := rec.numIndices
-              motives := rec.numMotives
-              minors  := rec.numMinors
-              rules   := rules.anon
-              k       := rec.k }
-          , { name    := rec.name.toString
-              lvls    := rec.levelParams.map toString
-              type    := typeCid.meta
-              params  := ()
-              indices := ()
-              motives := ()
-              minors  := ()
-              rules   := rules.meta
-              k       := () } ⟩
+          { name    := ()
+            lvls    := rec.levelParams.length
+            type    := typeCid.anon
+            params  := rec.numParams
+            indices := rec.numIndices
+            motives := rec.numMotives
+            minors  := rec.numMinors
+            rules   := rules.anon
+            k       := rec.k },
+          { name    := rec.name.toString
+            lvls    := rec.levelParams.map toString
+            type    := typeCid.meta
+            params  := ()
+            indices := ()
+            motives := ()
+            minors  := ()
+            rules   := rules.meta
+            k       := () } ⟩
     | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
     
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
@@ -684,9 +683,8 @@ mutual
 
 end
 
-open PrintLean PrintYatima in
-def buildStore (constMap : Lean.ConstMap) : CompileM Ipld.Store := do
-  let log  := (← read).log
+def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
+  let log := (← read).log
   constMap.forM fun _ const => do
     let name := const.name.toString
     let (_, c) ← processYatimaConst const
@@ -701,21 +699,37 @@ def buildStore (constMap : Lean.ConstMap) : CompileM Ipld.Store := do
       dbg_trace   "========================================="
       dbg_trace s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
       dbg_trace   "=========================================\n"
-  return (← get).store
 
-def extractEnv (map map₀ : Lean.ConstMap) (log : Bool) (stt : CompileState) :
-    Except String CompileState :=
-  let map  := Lean.filterConstants map
-  let map₀ := Lean.filterConstants map₀
-  let delta : Lean.ConstMap := map.fold
-    (init := Lean.SMap.empty) fun acc n c =>
-      match map₀.find? n with
-      | some c' => if c == c' then acc else acc.insert n c
-      | none    => acc.insert n c
-  CompileM.run ⟨map, [], [], .empty, log⟩ stt (buildStore delta)
+def compile (filePath : System.FilePath)
+  (log : Bool := false) (stt : CompileState := default) :
+    IO $ Except String CompileState := do
+  let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
+    filePath.toString default
+  if ok then
+    -- building an environment `env₀` just with the imports from `filePath`
+    let importFile := env.header.imports.map (·.module) |>.foldl
+      (init := "prelude\n")
+      fun acc m => s!"{acc}import {m}\n"
+    let (env₀, _) ← Lean.Elab.runFrontend importFile .empty default default
+
+    -- filtering out open references
+    let map  := Lean.filterConstants env.constants
+    let map₀ := Lean.filterConstants env₀.constants
+
+    -- computing `delta`, which is what `map` adds in w.r.t. `map₀`
+    let delta : Lean.ConstMap := map.fold
+      (init := Lean.SMap.empty) fun acc n c =>
+        match map₀.find? n with
+        | some c' => if c == c' then acc else acc.insert n c
+        | none    => acc.insert n c
+
+    -- triggering compilation
+    return CompileM.run ⟨map, [], [], .empty, log⟩ stt (compileM delta)
+  else
+    return .error s!"Lean frontend failed on file {filePath}"
 
 /--
-This function must be called before `runFrontend` if the file to be compiled has
+This function must be called before `compile` if the file to be compiled has
 imports (the automatic imports from `Init` also count).
 -/
 def setLibsPaths : IO Unit := do
@@ -727,21 +741,5 @@ def setLibsPaths : IO Unit := do
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
   Lean.initSearchPath (← Lean.findSysroot) paths
-
-def runFrontend (filePath : System.FilePath)
-  (log : Bool := false) (stt : CompileState := default) :
-    IO $ Except String CompileState := do
-  let (env, ok) ← Lean.Elab.runFrontend (← IO.FS.readFile filePath) .empty
-    filePath.toString default
-  if ok then
-    let importFile := env.header.imports.map (·.module) |>.foldl
-      (init := "prelude\n")
-      fun acc m => s!"{acc}import {m}\n"
-    let (env₀, _) ← Lean.Elab.runFrontend importFile .empty default default
-    match extractEnv env.constants env₀.constants log stt with
-    | .ok  stt => return .ok stt
-    | .error e => return .error e
-  else
-    return .error s!"Lean frontend failed on file {filePath}"
 
 end Yatima.Compiler

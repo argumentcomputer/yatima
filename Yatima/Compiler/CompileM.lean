@@ -34,17 +34,17 @@ def union (s s' : CompileState) :
 def summary (s : CompileState) : String :=
   let consts := ", ".intercalate $ s.defns.toList.map
     fun c => s!"{c.name} : {c.ctorName}"
-  "Compilation state:\n" ++
-  s!"----------------------------\n" ++
+  "Compilation summary:\n" ++
+  s!"-----------Constants-----------\n" ++
   s!"{consts}\n" ++
-  s!"----------------------------\n" ++
-  s!"  univ_anon size: {s.store.univ_anon.size}\n" ++
-  s!"  univ_meta size: {s.store.univ_meta.size}\n" ++
-  s!"  expr_anon size: {s.store.expr_anon.size}\n" ++
-  s!"  expr_meta size: {s.store.expr_meta.size}\n" ++
+  s!"-------------Sizes-------------\n" ++
+  s!"  univ_anon  size: {s.store.univ_anon.size}\n" ++
+  s!"  univ_meta  size: {s.store.univ_meta.size}\n" ++
+  s!"  expr_anon  size: {s.store.expr_anon.size}\n" ++
+  s!"  expr_meta  size: {s.store.expr_meta.size}\n" ++
   s!"  const_anon size: {s.store.const_anon.size}\n" ++
   s!"  const_meta size: {s.store.const_meta.size}\n" ++
-  s!"  cache size: {s.cache.size}"
+  s!"  cache      size: {s.cache.size}"
 
 end CompileState
 
@@ -114,13 +114,13 @@ def StoreValue.insert : StoreValue A → CompileM A
   | .univ  obj  =>
     let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
-          { stt.store with univ_anon  := stt.store.univ_anon.insert cid.anon obj.anon,
-                           univ_meta  := stt.store.univ_meta.insert cid.meta obj.meta } }))
+          { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
+                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta } }))
   | .expr  obj  =>
     let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
-          { stt.store with expr_anon  := stt.store.expr_anon.insert cid.anon obj.anon,
-                           expr_meta  := stt.store.expr_meta.insert cid.meta obj.meta } }))
+          { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
+                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta } }))
   | .const obj =>
     let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
@@ -128,6 +128,7 @@ def StoreValue.insert : StoreValue A → CompileM A
                            const_meta := stt.store.const_meta.insert cid.meta obj.meta } }))
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
-  modifyGet (fun stt => ((), { stt with cache := stt.cache.insert name c}))
+  let stt ← get
+  set { stt with cache := stt.cache.insert name c }
 
 end Yatima.Compiler

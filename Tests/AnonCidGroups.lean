@@ -1,12 +1,12 @@
 import LSpec
-import Yatima.Compiler.Frontend
+import Yatima.Compiler.Compiler
 import YatimaStdLib.List
 
 open Yatima
 
 def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
     IO $ Except String (List (List (Lean.Name × Ipld.ConstCid .Anon))) := do
-  match ← Compiler.runFrontend fileName with
+  match ← Compiler.compile fileName with
   | .error msg => return .error msg
   | .ok store =>
     let mut notFound : List Lean.Name := []
