@@ -3,117 +3,113 @@ import Yatima.Typechecker.Equal
 
 namespace Yatima.Typechecker
 
+def checkStructure (ind : Inductive) : CheckM Constructor :=
+  match ind.struct with
+  | some ctor => pure ctor
+  | none => throw .typNotStructure
+
 mutual
 
   partial def check (term : Expr) (type : Value) : CheckM Unit := do
     match term with
-    | .lam _ lam_name _ _lam_dom bod => do
+    | .lam lam_name _ _lam_dom bod => do
       match type with
       | .pi _ _ dom img env =>
         -- TODO check that `lam_dom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
         let var := mkVar lam_name (← read).lvl dom
-        let eval' ← extEnvHelper var $ eval img
-        extCtx var dom $ check bod eval'
+        let img ← withExtEnv env var $ eval img
+        extCtx var dom $ check bod img
       | _ => throw .notPi
-    | .letE _ _ exp_typ exp bod =>
-      match (← infer exp_typ) with
+    | .letE _ exp_typ exp bod =>
+      match ← infer exp_typ with
       | Value.sort _ =>
         let exp_typ ← eval exp_typ
         check exp exp_typ
-        let exp' ← eval exp
-        let exp := Thunk.mk (fun _ => exp')
-        let exp_typ := Thunk.mk (fun _ => exp_typ)
+        let exp := suspend exp (← read)
         extCtx exp exp_typ $ check bod type
       | _ => throw CheckError.notTyp
-    | .fix _ _ bod => do
-      -- IMPORTANT: We assume that we only reduce terms after they are type checked, though here
-      -- we create a thunk for an evaluation of a term before finishing its checking. How can we
-      -- make sure that we only evaluate this thunk when the term is checked?
-      let eval' ← eval term
-      let itself := Thunk.mk (fun _ => eval')
-      extCtx itself type $ check bod type
     | _ =>
       let infer_type ← infer term
-      if (← equal (← read).lvl type infer_type (Value.sort Univ.zero))
+      let sort := Value.sort Univ.zero
+      if (← equal (← read).lvl type infer_type sort)
       then pure ()
       else throw .valueMismatch
 
   partial def infer (term : Expr) : CheckM Value := do
     match term with
-    | .var _ _ idx =>
+    | .var _ idx =>
       let type := List.get! (← read).types idx
       pure type.get
-    | .sort _ lvl =>
-      let type := Value.sort (Univ.succ lvl)
-      pure type
-    | .app _ fnc arg =>
+    | .sort lvl =>
+      let lvl := instBulkReduce (← read).env.univs (Univ.succ lvl)
+      pure $ Value.sort lvl
+    | .app fnc arg =>
       let fnc_typ ← infer fnc
       match fnc_typ with
       | .pi _ _ dom img env =>
         check arg dom.get
-        let eval' ← eval arg
-        let arg := Thunk.mk (fun _ => eval')
-        let type ← extEnvHelper arg $ eval img
+        let arg := suspend arg (← read)
+        let type ← withExtEnv env arg $ eval img
         pure type
       | _ => throw .notPi
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
     | .lam .. => throw .cannotInferLam
-    | .pi _ name _ dom img  =>
+    | .pi name _ dom img  =>
       let dom_lvl ← match (← infer dom) with
         | .sort u => pure u
         | _ => throw .notTyp
       let ctx ← read
-      let eval' ← eval dom
-      let dom := Thunk.mk (fun _ => eval')
+      let dom := suspend dom ctx
       extCtx (mkVar name ctx.lvl dom) dom $ do
-      let img_lvl ← match (← infer img) with
-        | .sort u => pure u
-        | _ => throw CheckError.notTyp
-      pure (Value.sort (Univ.imax dom_lvl img_lvl))
-    | .letE _ _ exp_typ exp bod =>
+        let img_lvl ← match ← infer img with
+          | .sort u => pure u
+          | _ => throw CheckError.notTyp
+        let lvl := reduceIMax dom_lvl img_lvl
+        pure (Value.sort lvl)
+    | .letE _ exp_typ exp bod =>
       match (← infer exp_typ) with
       | Value.sort _ =>
         let exp_typ ← eval exp_typ
         check exp exp_typ
-        let eval' ← eval exp
-        let exp := Thunk.mk (fun _ => eval')
-        let exp_typ := Thunk.mk (fun _ => exp_typ)
+        let exp := suspend exp (← read)
         extCtx exp exp_typ $ infer bod
       | _ => throw CheckError.notTyp
-    | .fix .. => throw CheckError.cannotInferFix
-    | .lit _ (Literal.nat _) => pure $ Value.lty LitType.nat
-    | .lit _ (Literal.str _) => pure $ Value.lty LitType.str
+    | .lit (Literal.nat _) => pure $ Value.lty LitType.nat
+    | .lit (Literal.str _) => pure $ Value.lty LitType.str
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
-    | .const _ _ k const_univs =>
+    | .const _ k const_univs =>
       let univs := (← read).env.univs
-      withEnv [] (List.map (instBulkReduce univs) const_univs) $ eval (getConstType k)
-    | .proj nam idx expr =>
+      let const := (← read).store.get! k
+      withEnv ⟨[], (List.map (instBulkReduce univs) const_univs)⟩ $ eval const.type
+    | .proj idx expr =>
       let exprTyp ← infer expr
       match exprTyp with
-      | .app (.const _ (.inductive _ ind) univs) params =>
-        let ctor ← checkStructure ind
-        if ind.params != params.length then throw .valueMismatch else
-        let mut ctorType := applyType (← withEnv [] univs $ eval ctor.type) params
-        for i in [:idx] do
-          match (← ctorType) with
-          | .pi _ _ _ img pi_env =>
-            let env := (← read).env
-            let eval' ← eval (Expr.proj nam i expr)
-            let proj := Thunk.mk (fun _ => eval')
-            ctorType := withExprs (proj :: pi_env.exprs) $ eval img
-          | _ => pure ()
-        match (← ctorType) with
-        | .pi _ _ dom _ _  =>
-          let lvl := (← read).lvl
-          let typ := dom.get
-          if (← isProp lvl exprTyp) && !(← isProp lvl typ)
-          then throw .projEscapesProp
-          else pure typ
-        | _ => throw .impossible
+      | .app (.const _ const univs) params => match (← read).store.get! const with
+        | .inductive ind => do
+          let ctor ← match ind.struct with
+            | some ctor => pure ctor
+            | none => throw .typNotStructure
+          if ind.params != params.length then throw .valueMismatch else
+          let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
+          for i in [:idx] do
+            match ctorType with
+            | .pi _ _ _ img pi_env =>
+              let proj := suspend (Expr.proj i expr) (← read)
+              ctorType ← withExtEnv pi_env proj $ eval img
+            | _ => pure ()
+          match ctorType with
+          | .pi _ _ dom _ _  =>
+            let lvl := (← read).lvl
+            let typ := dom.get
+            if (← isProp lvl exprTyp) && !(← isProp lvl typ)
+            then throw .projEscapesProp
+            else pure typ
+          | _ => throw .impossible
+        | _ => throw .typNotStructure
       | _ => throw .typNotStructure
 
 end

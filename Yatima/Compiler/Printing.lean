@@ -1,8 +1,10 @@
 import Yatima.Compiler.CompileM
-import Yatima.Cid
 
 def printIsSafe (x: Bool) : String :=
   if x then "" else "unsafe "
+
+def rulesSep : String :=
+  "\n------------------\n"
 
 namespace Yatima.Compiler.PrintYatima
 
@@ -24,36 +26,7 @@ def printDefSafety : Yatima.DefinitionSafety → String
 def getCid (name : Name) : CompileM ConstCid := do
   match (← get).cache.find? name with
   | some (cid, _) => pure cid
-  | none => throw s!"Could not find cid of {name} in context"
-
-def getConst (constCid : ConstCid) : CompileM Const := do
-  match (← get).store.const_cache.find? constCid with
-  | some const => return const
-  | none => throw "Could not find constant of cid in context"
-
-def getCtor (proj : ConstructorProj) : CompileM (Inductive × Constructor) :=
-  do match ← getConst proj.block with
-  | .mutIndBlock inds => match inds.get? proj.idx with
-    | some ind => match ind.ctors.get? proj.cidx with
-      | some ctor => return (ind, ctor)
-      | none => throw s!"malformed constructor projection '{proj.name}': cidx {proj.cidx} ≥ '{ind.ctors.length}'"
-    | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
-  | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
-
-def getRecr (proj : RecursorProj) : CompileM (Inductive × (Sigma Recursor)) :=
-  do match ← getConst proj.block with
-  | .mutIndBlock inds => match inds.get? proj.idx with
-    | some ind =>
-      match ind.recrs.get? proj.ridx with
-      | some recr => return (ind, recr)
-      | none => throw s!"malformed recursor projection '{proj.name}': ridx {proj.ridx} ≥ '{ind.recrs.length}'"
-    | none => throw s!"malformed recursor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
-  | _ => throw s!"malformed recursor projection '{proj.name}': doesn't point to an inductive block"
-
-def getExpr (exprCid : ExprCid) (name : Name) : CompileM Expr := do
-  match (← get).store.expr_cache.find? exprCid with
-  | some expr => return expr
-  | none => throw s!"Could not find type of {name} in context"
+  | none => throw s!"Could not find cid of {name} in cache"
 
 def printCid (name : Name) : CompileM String := do
   let cid ← getCid name
@@ -91,7 +64,7 @@ def isBinder : Expr → Bool
 
 def isArrow : Expr → Bool
   | .pi name bInfo _ body =>
-    !(body.getBVars.contains name) && bInfo == .default
+    !(Expr.isVarFree name body) && bInfo == .default
   | _ => false
 
 def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
@@ -121,7 +94,7 @@ mutual
     if (← isAtom e) then printExpr e
     else return s!"({← printExpr e})"
 
-  partial def printExpr : Expr → CompileM String
+  partial def printExpr (e : Expr) : CompileM String := match e with
     | .var name _ => return s!"{name}"
     | .sort _ => return "Sort"
     | .const name .. => return s!"{name}"
@@ -130,7 +103,7 @@ mutual
     | .lam name bInfo type body =>
       return s!"λ{← printBinding false (.lam name bInfo type body)}"
     | .pi name bInfo type body => do
-      let arrow := (!body.getBVars.contains name || name == "") && bInfo == .default
+      let arrow := isArrow e || (bInfo == .default && name == "")
       if !arrow then
         return s!"Π{← printBinding true (.pi name bInfo type body)}"
       else
@@ -144,100 +117,55 @@ mutual
     | .lty lty => return match lty with
       | .nat => "Nat"
       | .str => "String"
-    | .fix name body => return s!"(μ {name} {← printExpr body})"
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 
-partial def printRecursorRule (b : Bool) : (if b then Constructor else RecursorRule) → CompileM String :=
-  match b with
-  | .false => fun rule => do
-    let ctor := (← getConst rule.ctor).name
-    let rhs ← getExpr rule.rhs ctor
-    return s!"{ctor} {rule.fields} {← printExpr rhs}"
-  | .true => fun ctor => do
-    let rhs ← getExpr ctor.rhs ctor.name
-    return s!"{ctor.name} {ctor.fields} {← printExpr rhs}"
+partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
+  let ctor := rule.ctor.name
+  return s!"{ctor} {rule.fields} {← printExpr rule.rhs}"
 
-partial def printRecursor (cid : String) (ind : Inductive) (b : RecType) : Recursor b → CompileM String :=
-  match b with
-  | .Extr => fun recr => do
-    let type ← getExpr recr.type recr.name
-    let rules ← recr.rules.proj₂.mapM $ printRecursorRule .false
-    return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
-            s!"external\n" ++
-            s!"Rules:\n{rules}"
-  | .Intr => fun recr => do
-    let type ← getExpr recr.type recr.name
-    let rules ← ind.ctors.mapM $ printRecursorRule .true
-    return s!"{cid}{printIsSafe ind.safe}recursor {recr.name} {ind.lvls} : {← printExpr type}\n" ++
-            s!"internal\n" ++
-            s!"Rules:\n{rules}"
+partial def printExtRecursor (cid : String) (recr : ExtRecursor) : CompileM String := do
+  let rules ← recr.rules.mapM printRecursorRule
+  return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
+          s!"\nExternal rules:{rulesSep}{rulesSep.intercalate rules}"
+
+partial def printIntRecursor (cid : String) (recr : IntRecursor) : CompileM String := do
+  return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
+          s!"internal\n"
 
 partial def printConstructors (ctors : List Constructor) : CompileM String := do
   let ctors ← ctors.mapM fun ctor => do
-    return s!"| {ctor.name} : {← printExpr (← getExpr ctor.type ctor.name)}"
+    return s!"| {ctor.name} : {← printExpr ctor.type}"
   return "\n".intercalate ctors
 
 partial def printInductive (ind : Inductive) : CompileM String := do
-  let type ← getExpr ind.type ind.name
-  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr type}"
-  return s!"{indHeader}\n{← printConstructors ind.ctors}"
-
-partial def printDefinition (defn : Definition) : CompileM String := do
-  let type ← getExpr defn.type defn.name
-  let value ← getExpr defn.value defn.name
-  return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr type} :=\n" ++
-          s!"  {← printExpr value}"
+  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type}"
+  return s!"{indHeader}\n"
 
 partial def printYatimaConst (const : Const) : CompileM String := do
   let cid ← printCid const.name
   match const with
   | .axiom ax => do
-    let type ← getExpr ax.type ax.name
-    return s!"{cid}{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr type}"
+    return s!"{cid}{printIsSafe ax.safe}axiom {ax.name} {ax.lvls} : {← printExpr ax.type}"
   | .theorem thm => do
-    let type ← getExpr thm.type thm.name
-    let value ← getExpr thm.value thm.name
-    return s!"{cid}theorem {thm.name} {thm.lvls} : {← printExpr type} :=\n" ++
-            s!"  {← printExpr value}"
+    return s!"{cid}theorem {thm.name} {thm.lvls} : {← printExpr thm.type} :=\n" ++
+            s!"  {← printExpr thm.value}"
   | .opaque opaq => do
-    let type ← getExpr opaq.type opaq.name
-    let value ← getExpr opaq.value opaq.name
-    return s!"{cid}{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr type} :=\n" ++
-            s!"  {← printExpr value}"
+    return s!"{cid}{printIsSafe opaq.safe}opaque {opaq.name} {opaq.lvls} {← printExpr opaq.type} :=\n" ++
+            s!"  {← printExpr opaq.value}"
   | .quotient quot => do
-    let type ← getExpr quot.type quot.name
-    return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr type} :=\n" ++
+    return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr quot.type} :=\n" ++
             s!"  {quot.kind}"
-  | .definition defn => return s!"{cid}{← printDefinition defn}"
-  | .inductiveProj proj => do match ← getConst proj.block with
-    | .mutIndBlock inds => match inds.get? proj.idx with
-      | some ind => return s!"{cid}{← printInductive ind}"
-      | none => throw s!"malformed constructor projection '{proj.name}' idx {proj.idx} ≥ '{inds.length}'"
-    | _ => throw s!"malformed constructor projection '{proj.name}': doesn't point to an inductive block"
-  | .constructorProj proj => do
-    let (ind, ctor) ← getCtor proj
-    let type ← getExpr ctor.type ctor.name
-    return s!"{cid}{printIsSafe ind.safe}constructor {ctor.name} {ind.lvls} : {← printExpr type}"
-  | .recursorProj proj => do
-    let (ind, recr) ← getRecr proj
-    printRecursor cid ind recr.fst recr.snd
-  | .definitionProj proj => do match ← getConst proj.block with
-    | .mutDefBlock defs => match defs.get? proj.idx with
-      | some ds => match ds.find? (fun d => d.name == proj.name) with
-        | some d => return s!"{cid}{← printDefinition d}"
-        | none => throw s!"malformed definition projection '{proj.name}' not in weakly equal block '{proj.idx}'"
-      | none => throw s!"malformed definition projection '{proj.name}' idx {proj.idx} ≥ '{defs.length}'"
-    | _ => throw s!"malformed definition projection '{proj.name}': doesn't point to an definition block"
-  -- these two will never happen
-  | .mutDefBlock _ => do
-    throw s!"Unreachable call to print mutual pointer was reached"
-    -- let defStrings ← dss.join.mapM printDefinition
-    -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
-  | .mutIndBlock _ => do
-    throw s!"Unreachable call to print mutual pointer was reached"
-    -- let defStrings ← inds.mapM printInductive
-    -- return s!"{cid}mutual\n{"\n".intercalate defStrings}\nend"
+  | .definition defn => 
+    return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr defn.type} :=\n" ++
+            s!"  {← printExpr defn.value}"
+  | .inductive ind => return s!"{← printInductive ind}"
+  | .constructor ctor => do
+    return s!"{cid}{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr ctor.type}\n| internal rule: {← printExpr ctor.rhs}"
+  | .extRecursor recr => do
+    printExtRecursor cid recr
+  | .intRecursor recr => do
+    printIntRecursor cid recr
 
 end Yatima.Compiler.PrintYatima
 
@@ -279,6 +207,6 @@ def printLeanConst : Lean.ConstantInfo → String
   | .recInfo    val =>
     s!"{printIsSafe !val.isUnsafe}recursor {val.name} {val.levelParams} : {val.type} :=\n" ++
     s!"  {val.all} {val.numParams} {val.numIndices} {val.numMotives} {val.numMinors} {val.k}\n" ++
-    s!"Rules:\n" ++ "\n".intercalate (val.rules.map toString)
+    s!"\nRules:{rulesSep}{rulesSep.intercalate (val.rules.map toString)}"
 
 end Yatima.Compiler.PrintLean

@@ -1,6 +1,6 @@
 import Yatima.Cid
 import Yatima.Compiler.CompileM
-import Yatima.Compiler.Frontend
+import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
 import Yatima.Compiler.Utils
 import Yatima.Const
@@ -15,9 +15,7 @@ import Yatima.Typechecker.CheckM
 import Yatima.Typechecker.Debug
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
-import Yatima.Typechecker.Expr
 import Yatima.Typechecker.FromIPLD
 import Yatima.Typechecker.Infer
-import Yatima.Typechecker.Univ
 import Yatima.Typechecker.Value
 import Yatima.Univ

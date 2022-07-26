@@ -1,5 +1,5 @@
 import Cli
-import Yatima.Compiler.Frontend
+import Yatima.Compiler.Compiler
 import Yatima.Cronos
 
 opaque VERSION : String := s!"{Lean.versionString}|0.0.1"
@@ -39,11 +39,11 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
       IO.eprintln
         s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
       return 1
-  let log := p.hasFlag `log
+  let log := p.hasFlag "log"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
-      if !(p.hasFlag `prelude) then setLibsPaths
+      if !(p.hasFlag "prelude") then setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
       let mut cronos := Cronos.new
@@ -51,7 +51,7 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         for filePath in ← getLeanFilePathsList ⟨arg⟩ do
           let filePathStr := filePath.toString
           cronos ← cronos.clock filePathStr
-          match ← runFrontend filePath log stt with
+          match ← compile filePath log stt with
           | .ok stt' => match stt.union stt' with
             | .ok stt' =>
               stt := stt'
@@ -64,7 +64,7 @@ def storeRun (p : Cli.Parsed) : IO UInt32 := do
         IO.eprintln msg
         return 1
       | none => pure ()
-      if p.hasFlag `summary then
+      if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
       -- TODO: write `stt.store` on disk
@@ -86,10 +86,10 @@ def storeCmd : Cli.Cmd := `[Cli|
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
-    p, `prelude; "Optimizes the compilation of prelude files without imports." ++
+    p, "prelude"; "Optimizes the compilation of prelude files without imports." ++
       " All files to be compiled must follow this rule"
-    l, `log;     "Logs compilation progress"
-    s, `summary; "Prints a compilation summary at the end of the process"
+    l, "log";     "Logs compilation progress"
+    s, "summary"; "Prints a compilation summary at the end of the process"
 
   ARGS:
     ...sources : String; "List of Lean files or directories"

@@ -1,4 +1,5 @@
 import Yatima.Store
+import Yatima.ToIpld
 import Yatima.Compiler.Utils
 
 namespace Yatima.Compiler
@@ -6,8 +7,9 @@ namespace Yatima.Compiler
 open Std (RBMap)
 
 structure CompileState where
-  store     : Yatima.Store
-  cache     : RBMap Name (ConstCid × Const) compare
+  store     : Ipld.Store
+  defns     : Array Const
+  cache     : RBMap Name (ConstCid × ConstIdx) compare
   mutDefIdx : RBMap Name Nat compare
   deriving Inhabited
 
@@ -23,22 +25,26 @@ def union (s s' : CompileState) :
     | none => cache := cache.insert n c'
   return .ok ⟨
     s.store.union s'.store,
+    s'.defns,
     cache,
     s'.mutDefIdx.fold (init := s.mutDefIdx) fun acc n i =>
       acc.insert n i
   ⟩
 
 def summary (s : CompileState) : String :=
-  let consts := ", ".intercalate $ s.store.const_cache.toList.map
-    fun (_, c) => s!"{c.name} : {c.ctorName}"
-  "Compilation state:\n" ++
-  s!"----------------------------\n" ++
+  let consts := ", ".intercalate $ s.defns.toList.map
+    fun c => s!"{c.name} : {c.ctorName}"
+  "Compilation summary:\n" ++
+  s!"-----------Constants-----------\n" ++
   s!"{consts}\n" ++
-  s!"----------------------------\n" ++
-  s!"  univ_cache size: {s.store.univ_cache.size}\n" ++
-  s!"  expr_cache size: {s.store.expr_cache.size}\n" ++
-  s!"  const_cache size: {s.store.const_cache.size}\n" ++
-  s!"  cache size: {s.cache.size}"
+  s!"-------------Sizes-------------\n" ++
+  s!"  univ_anon  size: {s.store.univ_anon.size}\n" ++
+  s!"  univ_meta  size: {s.store.univ_meta.size}\n" ++
+  s!"  expr_anon  size: {s.store.expr_anon.size}\n" ++
+  s!"  expr_meta  size: {s.store.expr_meta.size}\n" ++
+  s!"  const_anon size: {s.store.const_anon.size}\n" ++
+  s!"  const_meta size: {s.store.const_meta.size}\n" ++
+  s!"  cache      size: {s.cache.size}"
 
 end CompileState
 
@@ -46,17 +52,20 @@ structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Lean.Name Nat compare
+  recrCtx  : Std.RBMap Lean.Name (Nat × Nat) compare
   log      : Bool
   deriving Inhabited
 
-abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
+def CompileEnv.init (map : Lean.ConstMap) (log : Bool) : CompileEnv :=
+  ⟨map, [], [], .empty, log⟩
+
+abbrev CompileM := ReaderT CompileEnv $ ExceptT String $ StateT CompileState IO
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    Except String CompileState :=
-  match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ ste  => .ok ste
-  | .error e _ => .error e
+    IO $ Except String CompileState := do
+  match ← StateT.run (ReaderT.run m env) ste with
+  | (.ok _,  ste) => return .ok ste
+  | (.error e, _) => return .error e
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
@@ -66,58 +75,66 @@ def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, levels, [], .empty, e.log⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name Nat compare) :
+def withRecrs (recrCtx : RBMap Lean.Name (Nat × Nat) compare) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx, e.log⟩
 
 def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx, e.log⟩
 
-inductive StoreEntry
-  | univ_cache  : UnivCid × Univ                             → StoreEntry
-  | expr_cache  : ExprCid × Expr                             → StoreEntry
-  | const_cache : ConstCid × Const                           → StoreEntry
-  | univ_anon   : (Ipld.UnivCid .Anon) × (Ipld.Univ .Anon)   → StoreEntry
-  | expr_anon   : (Ipld.ExprCid .Anon) × (Ipld.Expr .Anon)   → StoreEntry
-  | const_anon  : (Ipld.ConstCid .Anon) × (Ipld.Const .Anon) → StoreEntry
-  | univ_meta   : (Ipld.UnivCid .Meta) × (Ipld.Univ .Meta)   → StoreEntry
-  | expr_meta   : (Ipld.ExprCid .Meta) × (Ipld.Expr .Meta)   → StoreEntry
-  | const_meta  : (Ipld.ConstCid .Meta) × (Ipld.Const .Meta) → StoreEntry
+inductive StoreKey : Type → Type
+  | univ   : Ipld.Both Ipld.UnivCid  → StoreKey (Ipld.Both Ipld.Univ)
+  | expr   : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
+  | const  : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
 
-instance : Coe (UnivCid × Univ) StoreEntry where coe := .univ_cache
-instance : Coe (ExprCid × Expr) StoreEntry where coe := .expr_cache
-instance : Coe (ConstCid × Const) StoreEntry where coe := .const_cache
-instance : Coe ((Ipld.UnivCid .Anon) × (Ipld.Univ .Anon)) StoreEntry where coe := .univ_anon
-instance : Coe ((Ipld.ExprCid .Anon) × (Ipld.Expr .Anon)) StoreEntry where coe := .expr_anon
-instance : Coe ((Ipld.ConstCid .Anon) × (Ipld.Const .Anon)) StoreEntry where coe := .const_anon
-instance : Coe ((Ipld.UnivCid .Meta) × (Ipld.Univ .Meta)) StoreEntry where coe := .univ_meta
-instance : Coe ((Ipld.ExprCid .Meta) × (Ipld.Expr .Meta)) StoreEntry where coe := .expr_meta
-instance : Coe ((Ipld.ConstCid .Meta) × (Ipld.Const .Meta)) StoreEntry where coe := .const_meta
+def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
+  | .univ  univCid => do
+    let store := (← get).store
+    match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
+    | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
+    | _, _ => pure none
+  | .expr  exprCid => do
+    let store := (← get).store
+    match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
+    | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
+    | _, _ => pure none
+  | .const constCid => do
+    let store := (← get).store
+    match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
+    | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
+    | _, _ => pure none
 
-def addToStore (y : StoreEntry) : CompileM Unit := do
+def StoreKey.find! (key : StoreKey A) : CompileM A := do
+  let some value ← StoreKey.find? key | throw "Cannot find key in store"
+  pure value
+
+inductive StoreValue : Type → Type
+  | univ   : Ipld.Both Ipld.Univ  → StoreValue (Ipld.Both Ipld.UnivCid)
+  | expr   : Ipld.Both Ipld.Expr  → StoreValue (Ipld.Both Ipld.ExprCid)
+  | const  : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
+
+def StoreValue.insert : StoreValue A → CompileM A
+  | .univ  obj  =>
+    let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
+    modifyGet (fun stt => (cid, { stt with store :=
+          { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
+                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta,
+                           univ_cids := stt.store.univ_cids.insert cid } }))
+  | .expr  obj  =>
+    let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
+    modifyGet (fun stt => (cid, { stt with store :=
+          { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
+                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta,
+                           expr_cids := stt.store.expr_cids.insert cid } }))
+  | .const obj =>
+    let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
+    modifyGet (fun stt => (cid, { stt with store :=
+          { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                           const_meta := stt.store.const_meta.insert cid.meta obj.meta,
+                           const_cids := stt.store.const_cids.insert cid } }))
+
+def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   let stt ← get
-  let store := stt.store
-  match y with
-  | .univ_cache  (cid, obj) => set { stt with store :=
-    { store with univ_cache  := store.univ_cache.insert cid obj  } }
-  | .univ_anon   (cid, obj) => set { stt with store :=
-    { store with univ_anon   := store.univ_anon.insert cid obj   } }
-  | .univ_meta   (cid, obj) => set { stt with store :=
-    { store with univ_meta   := store.univ_meta.insert cid obj   } }
-  | .expr_cache  (cid, obj) => set { stt with store :=
-    { store with expr_cache  := store.expr_cache.insert cid obj  } }
-  | .expr_anon   (cid, obj) => set { stt with store :=
-    { store with expr_anon   := store.expr_anon.insert cid obj   } }
-  | .expr_meta   (cid, obj) => set { stt with store :=
-    { store with expr_meta   := store.expr_meta.insert cid obj   } }
-  | .const_cache (cid, obj) => set { stt with store :=
-    { store with const_cache := store.const_cache.insert cid obj } }
-  | .const_anon  (cid, obj) => set { stt with store :=
-    { store with const_anon  := store.const_anon.insert cid obj  } }
-  | .const_meta  (cid, obj) => set { stt with store :=
-    { store with const_meta  := store.const_meta.insert cid obj  } }
-
-def addToCache (name : Name) (c : ConstCid × Const) : CompileM Unit := do
-  set { ← get with cache := (← get).cache.insert name c }
+  set { stt with cache := stt.cache.insert name c }
 
 end Yatima.Compiler
