@@ -4,29 +4,28 @@ namespace Yatima.Typechecker
 
 def printExpr (expr : Expr) : String :=
   match expr with
-  | .var _ nam idx => s!"{nam}#{idx}"
-  | .sort _ .. => s!"Sort"
-  | .const _ nam .. => s!"{nam}"
-  | .app _ fnc arg => s!"({printExpr fnc} {printExpr arg})"
-  | .lam _ nam binfo dom bod =>
+  | .var nam idx => s!"{nam}#{idx}"
+  | .sort .. => s!"Sort"
+  | .const nam .. => s!"{nam}"
+  | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
+  | .lam nam binfo dom bod =>
     match binfo with
     | .implicit => s!"(λ\{{nam}: {printExpr dom}}. {printExpr bod})"
     | .strictImplicit => s!"(λ⦃{nam}: {printExpr dom}⦄. {printExpr bod})"
     | .instImplicit => s!"(λ[{nam}: {printExpr dom}]. {printExpr bod})"
     | _ => s!"(λ({nam}: {printExpr dom}). {printExpr bod})"
-  | .pi _ nam binfo dom cod =>
+  | .pi nam binfo dom cod =>
     match binfo with
     | .implicit => s!"(\{{nam}: {printExpr dom}} → {printExpr cod})"
     | .strictImplicit => s!"(⦃{nam}: {printExpr dom}⦄ → {printExpr cod})"
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
-  | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
-  | .lit _ (.nat x) => s!"{x}"
-  | .lit _ (.str x) => s!"\"{x}\""
-  | .lty _ .nat => s!"Nat"
-  | .lty _ .str => s!"String"
-  | .fix _ nam bod => s!"(μ{nam}. {printExpr bod})"
-  | .proj _ idx val => s!"{printExpr val}.{idx}"
+  | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
+  | .lit (.nat x) => s!"{x}"
+  | .lit (.str x) => s!"\"{x}\""
+  | .lty .nat => s!"Nat"
+  | .lty .str => s!"String"
+  | .proj idx val => s!"{printExpr val}.{idx}"
 
 mutual
 partial def printVal (val : Value) : String :=
@@ -54,34 +53,33 @@ partial def printVal (val : Value) : String :=
 
 partial def printLamBod (expr : Expr) (env : Env Value) : String :=
   match expr with
-  | .var _ nam 0 => s!"{nam}#0"
-  | .var _ nam idx =>
+  | .var nam 0 => s!"{nam}#0"
+  | .var nam idx =>
     match env.exprs.get? (idx-1) with
    | some val => printVal val.get
    | none => s!"{nam}#{idx}"
-  | .sort _ .. => s!"Sort"
-  | .const _ nam .. => s!"{nam}"
-  | .app _ fnc arg => s!"({printLamBod fnc env} {printLamBod arg env})"
-  | .lam _ nam binfo dom bod =>
+  | .sort .. => s!"Sort"
+  | .const nam .. => s!"{nam}"
+  | .app fnc arg => s!"({printLamBod fnc env} {printLamBod arg env})"
+  | .lam nam binfo dom bod =>
     match binfo with
     | .implicit => s!"(λ\{{nam}: {printLamBod dom env}}. {printLamBod bod env})"
     | .strictImplicit => s!"(λ⦃{nam}: {printLamBod dom env}⦄. {printLamBod bod env})"
     | .instImplicit => s!"(λ[{nam}: {printLamBod dom env}]. {printLamBod bod env})"
     | _ => s!"(λ({nam}: {printLamBod dom env}). {printLamBod bod env})"
-  | .pi _ nam binfo dom cod =>
+  | .pi nam binfo dom cod =>
     match binfo with
     | .implicit => s!"(\{{nam}: {printLamBod dom env}} → {printLamBod cod env})"
     | .strictImplicit => s!"(⦃{nam}: {printLamBod dom env}⦄ → {printLamBod cod env})"
     | .instImplicit => s!"([{nam}: {printLamBod dom env}] → {printLamBod cod env})"
     | _ => s!"(({nam}: {printLamBod dom env}) → {printLamBod cod env})"
   -- | .letE _ nam typ val bod => s!""
-  | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
-  | .lit _ (.nat x) => s!"{x}"
-  | .lit _ (.str x) => s!"\"{x}\""
-  | .lty _ .nat => s!"Nat"
-  | .lty _ .str => s!"String"
-  | .fix _ nam bod => s!"(μ{nam}. {printLamBod bod env})"
-  | .proj _ idx val => s!"{printLamBod val env}.{idx}"
+  | .letE nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
+  | .lit (.nat x) => s!"{x}"
+  | .lit (.str x) => s!"\"{x}\""
+  | .lty .nat => s!"Nat"
+  | .lty .str => s!"String"
+  | .proj idx val => s!"{printLamBod val env}.{idx}"
   
 partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with

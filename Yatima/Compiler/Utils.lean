@@ -176,4 +176,21 @@ instance : BEq ConstantInfo where
   | .quotInfo   l, .quotInfo   r => l.kind == r.kind
   | _, _ => false
 
+open Elab in
+def runFrontend (input : String) (fileName : String := default) :
+    IO $ Option String × Environment := do
+  let inputCtx := Parser.mkInputContext input fileName
+  let (header, parserState, messages) ← Parser.parseHeader inputCtx
+  let (env, messages) ← processHeader header default messages inputCtx 0
+  let env := env.setMainModule default
+  let commandState := Command.mkState env messages default
+
+  let s ← IO.processCommands inputCtx parserState commandState
+  let msgs := s.commandState.messages
+  let errMsg := if msgs.hasErrors
+    then some $ "\n\n".intercalate $
+      (← msgs.toList.mapM (·.toString)).map String.trim
+    else none
+  return (errMsg, s.commandState.env)
+
 end Lean

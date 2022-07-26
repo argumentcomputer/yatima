@@ -6,12 +6,12 @@ structure Context where
   lvl   : Nat
   env   : Env Value
   types : List (Thunk Value)
+  store : Array Const
 
 inductive CheckError where
   | notPi : CheckError
   | notTyp : CheckError
   | valueMismatch : CheckError
-  | cannotInferFix : CheckError
   | cannotInferLam : CheckError
   | typNotStructure : CheckError
   | projEscapesProp : CheckError
@@ -29,30 +29,32 @@ inductive CheckError where
   | impossible : CheckError
   deriving Inhabited
 
-def mkConst (name : Name) (k : Const) (univs : List Univ) : Value :=
-  Value.app (Neutral.const name k univs) []
+abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
+instance : Monad CheckM :=
+  let i := inferInstanceAs (Monad CheckM)
+  { pure := i.pure, bind := i.bind }
 
-def extEnv (env : Env Value) (thunk : Thunk Value) : Env Value :=
+def CheckM.run (m : CheckM α) (ctx : Context) : Except CheckError α :=
+  ExceptT.run (ReaderT.run m ctx)
+
+def CheckM.run! [Inhabited α] (m : CheckM α) (ctx : Context) (str : String) : α :=
+  match CheckM.run m ctx with
+  | .ok a => a
+  | _ => panic! str
+
+def extEnvHelper (env : Env Value) (thunk : Thunk Value) : Env Value :=
   { env with exprs := thunk :: env.exprs }
 
-abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
-
 def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : CheckM α) : CheckM α :=
-  withReader (fun ctx => { lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnv ctx.env val }) m
+  withReader (fun ctx => { ctx with lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnvHelper ctx.env val }) m
 
-def checkStructure (ind : Inductive Expr) : CheckM (Constructor Expr) :=
-  if ind.recr || ind.indices != 0 then throw .typNotStructure
-  else match ind.ctors with
-  | [ctor] => pure ctor
-  | _ => throw .typNotStructure
+def extEnv (thunk : Thunk Value) : CheckM α → CheckM α :=
+  withReader (fun ctx => { ctx with env := extEnvHelper ctx.env thunk })
 
-def extEnvHelper (thunk : Thunk Value) : CheckM Value → CheckM Value :=
-  withReader (fun ctx => { ctx with env := extEnv ctx.env thunk })
+def withExtEnv (env : Env Value) (thunk : Thunk Value) : CheckM α → CheckM α :=
+  withReader (fun ctx => { ctx with env := extEnvHelper env thunk })
 
-def withEnv (lexprs : List (Thunk Value)) (lunivs : List Univ) : CheckM α → CheckM α :=
-  withReader (fun ctx => { ctx with env := { exprs := lexprs, univs := lunivs } })
-
-def withExprs (lexprs : List (Thunk Value)) : CheckM α → CheckM α :=
-  withReader (fun ctx => { ctx with env := { exprs := lexprs, univs := ctx.env.univs } })
+def withEnv (env : Env Value) : CheckM α → CheckM α :=
+  withReader (fun ctx => { ctx with env := env })
 
 end Yatima.Typechecker
