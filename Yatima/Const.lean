@@ -59,9 +59,11 @@ structure Constructor (k : Kind) where
   name   : Name? k
   lvls   : ListName? k
   type   : ExprCid k
+  idx    : Nat? k
   params : Nat? k
   fields : Nat? k
   rhs    : ExprCid k
+  safe   : Bool? k
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
@@ -258,8 +260,8 @@ match k with
 
 def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
 match k with
-  | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.params, c.fields, rhsCid.anon⟩
-  | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), rhsCid.meta⟩
+  | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
+  | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
 
 def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
 match k with
