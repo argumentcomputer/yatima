@@ -70,7 +70,7 @@ def importPair :=
   ("Fixtures/AnonCidGroups/ToImport.lean", [[`Nat, `MyNat, `MyOtherNat]])
 
 def allPairs := [
-  definitionsPair,
+  -- definitionsPair,
   partialDefinitionsPair,
   unsafeDefinitionsPair,
   inductivesPair,

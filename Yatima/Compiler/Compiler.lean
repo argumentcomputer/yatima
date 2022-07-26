@@ -6,6 +6,12 @@ import Lean
 
 namespace Yatima.Compiler
 
+instance : Coe Lean.Name String where
+  coe := Lean.Name.toString
+
+instance : Coe Lean.Name Name where
+  coe := Lean.Name.toString
+
 open Std (RBMap)
 
 instance : Coe Lean.BinderInfo BinderInfo where coe
