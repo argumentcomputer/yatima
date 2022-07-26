@@ -300,7 +300,7 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
       discard $ constFromIpld cid
     cidMap.forM collect
 
-def convertStoreIO (store : Ipld.Store) : IO (Array Const) :=
+def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   match convertStore store with
   | .ok stt => pure stt.defns
   | .error err => .error $ toString err
