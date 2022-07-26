@@ -689,16 +689,16 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
     let name := const.name.toString
     let (_, c) ← processYatimaConst const
     if log then
-      dbg_trace s!"↡ Stacking {name}{const.formatAll}"
+      IO.println s!"↡ Stacking {name}{const.formatAll}"
     if log then
-      dbg_trace s!"↟ Popping  {name}"
-      dbg_trace "\n========================================="
-      dbg_trace    name
-      dbg_trace   "========================================="
-      dbg_trace s!"{PrintLean.printLeanConst const}"
-      dbg_trace   "========================================="
-      dbg_trace s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
-      dbg_trace   "=========================================\n"
+      IO.println s!"↟ Popping  {name}"
+      IO.println "\n========================================="
+      IO.println    name
+      IO.println   "========================================="
+      IO.println s!"{PrintLean.printLeanConst const}"
+      IO.println   "========================================="
+      IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
+      IO.println   "=========================================\n"
 
 def compile (filePath : System.FilePath)
   (log : Bool := false) (stt : CompileState := default) :
@@ -724,7 +724,7 @@ def compile (filePath : System.FilePath)
         | none    => acc.insert n c
 
     -- triggering compilation
-    return CompileM.run (.init map log) stt (compileM delta)
+    CompileM.run (.init map log) stt (compileM delta)
 
 /--
 This function must be called before `compile` if the file to be compiled has

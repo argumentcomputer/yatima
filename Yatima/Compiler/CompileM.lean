@@ -59,13 +59,13 @@ structure CompileEnv where
 def CompileEnv.init (map : Lean.ConstMap) (log : Bool) : CompileEnv :=
   ⟨map, [], [], .empty, log⟩
 
-abbrev CompileM := ReaderT CompileEnv $ EStateM String CompileState
+abbrev CompileM := ReaderT CompileEnv $ ExceptT String $ StateT CompileState IO
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    Except String CompileState :=
-  match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ ste  => .ok ste
-  | .error e _ => .error e
+    IO $ Except String CompileState := do
+  match ← StateT.run (ReaderT.run m env) ste with
+  | (.ok _,  ste) => return .ok ste
+  | (.error e, _) => return .error e
 
 def withName (name : Name) : CompileM α → CompileM α :=
   withReader $ fun e =>
