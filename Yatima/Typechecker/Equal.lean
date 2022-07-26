@@ -1,4 +1,4 @@
-import Yatima.Typechecker.CheckM
+import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Eval
 
 namespace Yatima.Typechecker
@@ -6,17 +6,18 @@ namespace Yatima.Typechecker
 def mkVar (name : Name) (idx : Nat) (type : Thunk Value) : Value :=
   Value.app (Neutral.fvar name idx type) []
 
-def withExtVar (env : Env Value) (name : Name) (idx : Nat) (type : Thunk Value) : CheckM α → CheckM α :=
-  withExtEnv env (mkVar name idx type)
+def withExtVar (env : Env Value) (name : Name) (i : Nat) (type : Thunk Value) :
+    TypecheckM α → TypecheckM α :=
+  withExtEnv env (mkVar name i type)
 
-def isUnit (type : Value) : CheckM Bool := do
+def isUnit (type : Value) : TypecheckM Bool := do
   match type with
   | .app (.const _ const _) _ => match (← read).store.get! const with
     | .inductive induct => pure induct.unit
     | _ => pure false
   | _ => pure false
 
-def applyType (type : Value) (args : List (Thunk Value)) : CheckM Value :=
+def applyType (type : Value) (args : List (Thunk Value)) : TypecheckM Value :=
   match type, args with
   | .pi _ _ _ img img_env, arg :: args => do
     let res ← withEnv (extEnvHelper img_env arg) (eval img)
@@ -24,7 +25,7 @@ def applyType (type : Value) (args : List (Thunk Value)) : CheckM Value :=
   | type, [] => pure type
   | _, _ => throw .cannotApply
 
-partial def isProp (lvl : Nat) (type : Value) : CheckM Bool :=
+partial def isProp (lvl : Nat) (type : Value) : TypecheckM Bool :=
   match type with
   | .pi name _ dom img env => do
     let res ← withExtVar env name lvl dom $ eval img
@@ -50,7 +51,7 @@ mutual
 
   -- It is assumed here that the values are typechecked, have both the same type
   -- and their original unevaluated terms both lived in the same environment
-  partial def equal (lvl : Nat) (term term' type : Value) : CheckM Bool := do
+  partial def equal (lvl : Nat) (term term' type : Value) : TypecheckM Bool := do
     let isU ← isUnit type
     let isP ← isProp lvl type
     if isU || isP then pure true else
@@ -95,8 +96,9 @@ mutual
         equal (lvl + 1) app bod img
       | _ => throw .impossibleEqualCase
     | .app (.fvar _ idx var_type) args, .app (.fvar _ idx' _) args' =>
-      -- If our assumption is correct, i.e., that these values come from terms in the same environment
-      -- then their types are equal when their indices are equal
+      -- If our assumption is correct, i.e., that these values come from terms
+      -- in the same environment then their types are equal when their indices
+      -- are equal
       let eq ← equalThunks lvl args args' var_type
       pure $ idx == idx' &&
       List.length args == List.length args' && eq
@@ -108,7 +110,7 @@ mutual
     | _, _ => pure false
 
   partial def equalApp (lvl : Nat) (k k' : ConstIdx)
-      (us us' : List Univ) (args args' : Args) : CheckM Bool := do
+      (us us' : List Univ) (args args' : Args) : TypecheckM Bool := do
     -- Analogous assumption on the types of the constants
     let const := (← read).store.get! k
     let ctx := { (← read) with env := ⟨ [], us ⟩ }
@@ -121,7 +123,7 @@ mutual
       eq
 
   partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value))
-      (type : Thunk Value) : CheckM Bool :=
+      (type : Thunk Value) : TypecheckM Bool :=
     match vals, vals' with
     | val::vals, val'::vals' =>
       match type.get with

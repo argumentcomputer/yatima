@@ -1,28 +1,23 @@
-import Yatima.Const
+import Yatima.Datatypes.Const
 
 namespace Yatima
 
 namespace Ipld
+
 open Std (RBMap RBTree) in
 structure Store where
-  univ_anon  : RBMap (UnivCid .Anon) (Univ .Anon)  compare
-  expr_anon  : RBMap (ExprCid .Anon) (Expr .Anon)  compare
+  univ_anon  : RBMap (UnivCid  .Anon) (Univ  .Anon) compare
+  expr_anon  : RBMap (ExprCid  .Anon) (Expr  .Anon) compare
   const_anon : RBMap (ConstCid .Anon) (Const .Anon) compare
 
-  univ_meta  : RBMap (UnivCid .Meta) (Univ .Meta)  compare
-  expr_meta  : RBMap (ExprCid .Meta) (Expr .Meta)  compare
+  univ_meta  : RBMap (UnivCid  .Meta) (Univ  .Meta) compare
+  expr_meta  : RBMap (ExprCid  .Meta) (Expr  .Meta) compare
   const_meta : RBMap (ConstCid .Meta) (Const .Meta) compare
 
-  univ_cids  : RBTree (Both UnivCid) compare
-  expr_cids  : RBTree (Both ExprCid) compare
-  const_cids  : RBTree (Both ConstCid) compare
-
-instance : Inhabited Store where
-  default := ⟨
-    .empty, .empty, .empty,
-    .empty, .empty, .empty,
-    .empty, .empty, .empty
-  ⟩
+  univ_cids  : RBTree (Both  UnivCid) compare
+  expr_cids  : RBTree (Both  ExprCid) compare
+  const_cids : RBTree (Both ConstCid) compare
+  deriving Inhabited
 
 def Store.union (s s' : Store) : Store := ⟨
   s'.univ_anon.fold   (init := s.univ_anon)   fun acc cid x => acc.insert cid x,

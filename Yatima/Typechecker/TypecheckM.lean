@@ -7,6 +7,10 @@ structure Context where
   env   : Env Value
   types : List (Thunk Value)
   store : Array Const
+  deriving Inhabited
+
+def Context.init (store : Array Const) : Context :=
+  { (default : Context) with store := store }
 
 def Context.find? (ctx : Context) (constName : Name) : Option Const :=
   ctx.store.find? (fun const => const.name == constName)
@@ -40,32 +44,30 @@ inductive CheckError where
   | impossible : CheckError
   deriving Inhabited
 
-abbrev CheckM := ReaderT Context <| ExceptT CheckError Id
-instance : Monad CheckM :=
-  let i := inferInstanceAs (Monad CheckM)
-  { pure := i.pure, bind := i.bind }
+abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
 
-def CheckM.run (m : CheckM α) (ctx : Context) : Except CheckError α :=
+def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except CheckError α :=
   ExceptT.run (ReaderT.run m ctx)
 
-def CheckM.run! [Inhabited α] (m : CheckM α) (ctx : Context) (str : String) : α :=
-  match CheckM.run m ctx with
+-- TODO: drop this panicking function
+def TypecheckM.run! [Inhabited α] (ctx : Context) (str : String) (m : TypecheckM α) : α :=
+  match TypecheckM.run ctx m with
   | .ok a => a
   | _ => panic! str
 
 def extEnvHelper (env : Env Value) (thunk : Thunk Value) : Env Value :=
   { env with exprs := thunk :: env.exprs }
 
-def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : CheckM α) : CheckM α :=
+def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : TypecheckM α) : TypecheckM α :=
   withReader (fun ctx => { ctx with lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnvHelper ctx.env val }) m
 
-def extEnv (thunk : Thunk Value) : CheckM α → CheckM α :=
+def extEnv (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
   withReader (fun ctx => { ctx with env := extEnvHelper ctx.env thunk })
 
-def withExtEnv (env : Env Value) (thunk : Thunk Value) : CheckM α → CheckM α :=
+def withExtEnv (env : Env Value) (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
   withReader (fun ctx => { ctx with env := extEnvHelper env thunk })
 
-def withEnv (env : Env Value) : CheckM α → CheckM α :=
+def withEnv (env : Env Value) : TypecheckM α → TypecheckM α :=
   withReader (fun ctx => { ctx with env := env })
 
 end Yatima.Typechecker

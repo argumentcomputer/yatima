@@ -28,6 +28,7 @@ def printExpr (expr : Expr) : String :=
   | .proj idx val => s!"{printExpr val}.{idx}"
 
 mutual
+
 partial def printVal (val : Value) : String :=
   match val with
   | .sort _ => s!"Sort"
@@ -85,6 +86,7 @@ partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}#{idx}" args
   | .const nam .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}" args
+
 end
 
 end Yatima.Typechecker
