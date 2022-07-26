@@ -137,6 +137,10 @@ def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
 def addToDefns (idx : Nat) (c : Const): CompileM Unit := do
-  modify (fun stt => { stt with defns := stt.defns.set! idx c })
+  let defns := (← get).defns
+  if h : (idx < defns.size) then
+    modify (fun stt => { stt with defns := defns.set ⟨idx, h⟩ c })
+  else
+    throw s!"CompileState.defns index {idx} out of range for array of size '{defns.size}'"
 
 end Yatima.Compiler
