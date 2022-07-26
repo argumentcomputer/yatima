@@ -219,8 +219,8 @@ mutual
           | none   => do
             let const ← findConstant name
             let (constCid, const) ← processYatimaConst const
-            let value : Ipld.Both Ipld.Expr := ⟨ .const () constCid.anon $ univCids.map Ipld.Both.anon
-                       , .const name.toString constCid.meta $ univCids.map Ipld.Both.meta ⟩
+            let value : Ipld.Both Ipld.Expr := ⟨ .const () constCid.anon $ univCids.map (·.anon)
+                       , .const name.toString constCid.meta $ univCids.map (·.meta) ⟩
             pure (value, .const name.toString const univs)
       | .app fnc arg _ => do
         let (fncCid, fnc) ← toYatimaExpr fnc
@@ -475,14 +475,18 @@ mutual
             lvls   := ctor.levelParams.length
             name   := ()
             type   := typeCid.anon
+            idx    := ctor.cidx
             params := ctor.numParams
-            fields := ctor.numFields },
+            fields := ctor.numFields
+            safe   := not ctor.isUnsafe },
           { rhs    := rhsCid.meta
             lvls   := ctor.levelParams.map toString
             name   := ctor.name.toString
             type   := typeCid.meta
+            idx    := ()
             params := ()
-            fields := () } ⟩
+            fields := ()
+            safe   := () } ⟩
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
 
   partial def toYatimaIpldExternalRec :
@@ -566,8 +570,8 @@ mutual
           mutualIdxs := mutualIdxs.insert d.name (i, firstIdx + i)
       let definitions ← withRecrs mutualIdxs $
         mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld
-      let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [Ipld.Both.anon d.1] | none => []).join
-      let definitionsMeta := definitions.map fun ds => ds.map $ Ipld.Both.meta ∘ Prod.fst
+      let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join
+      let definitionsMeta := definitions.map fun ds => ds.map $ (·.meta) ∘ Prod.fst
       let block : Ipld.Both Ipld.Const := ⟨ .mutDefBlock definitionsAnon, .mutDefBlock definitionsMeta ⟩
       let blockCid ← StoreValue.insert $ .const block
 

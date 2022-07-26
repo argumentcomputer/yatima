@@ -118,17 +118,20 @@ def StoreValue.insert : StoreValue A → CompileM A
     let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
-                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta } }))
+                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta,
+                           univ_cids := stt.store.univ_cids.insert cid } }))
   | .expr  obj  =>
     let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
-                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta } }))
+                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta,
+                           expr_cids := stt.store.expr_cids.insert cid } }))
   | .const obj =>
     let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                           const_meta := stt.store.const_meta.insert cid.meta obj.meta } }))
+                           const_meta := stt.store.const_meta.insert cid.meta obj.meta,
+                           const_cids := stt.store.const_cids.insert cid } }))
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   let stt ← get
