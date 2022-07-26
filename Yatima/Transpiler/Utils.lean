@@ -1,4 +1,5 @@
 import Std.Data.RBTree
+import Yatima.Name
 
 namespace Yatima.Transpiler
 
@@ -17,16 +18,17 @@ def validCharsTree : RBTree Char compare :=
     'k', 'l', 'Y', 'Z', 'S', 'T', 'g', 'h',
     'I', 'J', 'a', 'b', 'K', 'L', 'O', 'P',
     'U', 'V', '0', '1', 'u', 'v', 'c', 'd',
-    'q', 'r', 'w', 'x', 'Q', 'R', '-', ':']
+    'q', 'r', 'w', 'x', 'Q', 'R', '-', ':',
+    '_']
 
 /-- Generates a sequence of valid characters in Lurk from a given character. -/
 def charToValidChars (c : Char) : List Char :=
   if validCharsTree.contains c then [c]
-  else s!"::{charToHex c}::".replace "*" "-" |>.data
+  else s!"--{charToHex c}--".replace "*" "-" |>.data
 
 /-- Turns a `String` into a valid variable identifier in Lurk. -/
-def fixName (name : String) : String :=
-  let name := name.replace "." ":" |>.replace "_" "-"
+def fixName (name : Name) : String :=
+  let name := name.toString.replace "." "-" -- |>.replace "_" "??" FIX: If they haven't merged the change yet, we need to revist this. 
   let charsArray : Array Char := name.foldl (init := #[]) fun acc c =>
     acc.append ⟨charToValidChars c⟩
   ⟨charsArray.data⟩

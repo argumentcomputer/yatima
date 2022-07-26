@@ -1,27 +1,30 @@
-import Yatima.Store
 import Yatima.ForLurkRepo.AST
+import Yatima.Compiler.Utils
+import Yatima.Typechecker.FromIpld
 
 namespace Yatima.Transpiler
 
-open Yatima (Store)
-
 structure State where
-  prependedBindings : Array (String × Lurk.Expr)
-  appendedBindings  : Array (String × Lurk.Expr)
+  prependedBindings : Array (Name × Lurk.Expr)
+  appendedBindings  : Array (Name × Lurk.Expr)
   /-- Contains constants that have already been processed -/
-  visited : Std.RBTree String compare
+  visited : Std.RBTree Name compare
   deriving Inhabited
 
-def State.getBindings (s : State) : List (String × Lurk.Expr) :=
-  s.prependedBindings.reverse.append s.appendedBindings |>.data
 
-abbrev TranspileM := ReaderT Store $ EStateM String State
+def State.getStringBindings (s : State) : List (String × Lurk.Expr) :=
+  s.prependedBindings.reverse.append s.appendedBindings |>.data |>.map
+    fun (name, lexpr) => (name.toString, lexpr)
 
-def prependBinding (b : String × Lurk.Expr) : TranspileM Unit := do
+open Yatima.Typechecker
+
+abbrev TranspileM := ReaderT ConvertState $ EStateM String State
+
+def prependBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
   let s ← get
   set $ { s with appendedBindings := s.prependedBindings.push b }
 
-def appendBinding (b : String × Lurk.Expr) : TranspileM Unit := do
+def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
 
@@ -29,7 +32,7 @@ def appendBinding (b : String × Lurk.Expr) : TranspileM Unit := do
 def visit (name : Name) : TranspileM Unit := do 
   set $ { (← get) with visited := (← get).visited.insert name }
 
-def TranspileM.run (store : Store) (ste : State) (m : TranspileM α) :
+def TranspileM.run (store : ConvertState) (ste : State) (m : TranspileM α) :
     Except String State :=
   match EStateM.run (ReaderT.run m store) ste with
   | .ok _ ste  => .ok ste
