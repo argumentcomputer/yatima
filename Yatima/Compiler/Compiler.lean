@@ -687,9 +687,9 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
   let log := (← read).log
   constMap.forM fun _ const => do
     let name := const.name.toString
-    let (_, c) ← processYatimaConst const
     if log then
       IO.println s!"↡ Stacking {name}{const.formatAll}"
+    let (_, c) ← processYatimaConst const
     if log then
       IO.println s!"↟ Popping  {name}"
       IO.println "\n========================================="
