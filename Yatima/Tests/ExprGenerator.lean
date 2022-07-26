@@ -230,7 +230,7 @@ def randConst (g : gen) : Yatima.Expr × gen :=
   let (anonCid, g) := randCid g
   let (metaCid, g) := randCid g
   -- let constCid := ⟨.mk anonCid, .mk metaCid⟩
-  (.const name sorry [], g)
+  (.const sorry sorry [], g)
 
 def randLit (g : gen) : Yatima.Expr × gen :=
   let (isNat, g) := randBool g
@@ -245,14 +245,14 @@ def randVar (depth : Option Nat) (g : gen) (isBdd : Bool := false): Yatima.Expr 
   match depth with
     | none => 
       let (idx, g) := randNat g 0 100
-      (.var name idx, g)
+      (.var sorry idx, g)
     | some dep => 
       let (isBddR, g) := randBool g
       if isBdd || isBddR then
         let (idx, g) := randNat g 0 dep
-        (.var name idx, g) else
+        (.var sorry idx, g) else
         let (idx, g) := randNat g (dep + 1) 100
-        (.var name idx, g)
+        (.var sorry idx, g)
 
 partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
   let hExpr ← getValue? head
@@ -265,16 +265,16 @@ partial def assembleExprAux (head : Hole) (g : gen) : ExprGen Yatima.Expr := do
       | .lam typeHole bodyHole            =>
         let (name, g) := randName g
         let (g₁, g₂) := RandomGen.split g 
-        return .lam name default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
+        return .lam sorry default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
       | .pi typeHole bodyHole             =>
         let (name, g) := randName g 
         let (g₁, g₂) := RandomGen.split g
-        return .pi name default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
+        return .pi sorry default (← assembleExprAux typeHole g₁) (← assembleExprAux bodyHole g₂)
       | .letE typeHole valueHole bodyHole =>
         let (name, g) := randName g
         let (g₁, g₂) := RandomGen.split g
         let (g₂, g₃) := RandomGen.split g₂
-        return .letE name (← assembleExprAux typeHole g₁) 
+        return .letE sorry (← assembleExprAux typeHole g₁) 
                           (← assembleExprAux valueHole g₂) 
                           (← assembleExprAux bodyHole g₃)
       | .fix bodyHole                     =>
