@@ -16,7 +16,7 @@ instance : Coe Bool Ipld where
   coe x := .bool x
 
 instance : Coe Name Ipld where
-  coe x := .string x
+  coe x := .string (Lean.Name.toString x)
 
 
 instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
@@ -50,7 +50,7 @@ instance : Coe LitType Ipld where coe
 
 instance : Coe Literal Ipld where coe
   | .nat n => n
-  | .str s => s
+  | .str s => .string s
 
 instance : Coe DefinitionSafety Ipld where coe
   | .safe    => .number 0

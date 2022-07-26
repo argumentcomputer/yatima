@@ -1,5 +1,5 @@
 namespace Yatima
 
-abbrev Name := String
+abbrev Name := Lean.Name
 
 end Yatima

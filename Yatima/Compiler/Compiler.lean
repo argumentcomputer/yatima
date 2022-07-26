@@ -9,9 +9,6 @@ namespace Yatima.Compiler
 instance : Coe Lean.Name String where
   coe := Lean.Name.toString
 
-instance : Coe Lean.Name Name where
-  coe := Lean.Name.toString
-
 open Std (RBMap)
 
 instance : Coe Lean.BinderInfo BinderInfo where coe
@@ -157,7 +154,7 @@ mutual
         let (typeCid, type) ← toYatimaExpr struct.type
         let ax := {
           name := struct.name.toString
-          lvls := struct.levelParams.map toString
+          lvls := struct.levelParams
           type := type
           safe := not struct.isUnsafe }
         let value := ⟨ .axiom $ ax.toIpld typeCid, .axiom $ ax.toIpld typeCid ⟩
@@ -168,7 +165,7 @@ mutual
         let (valueCid, value) ← toYatimaExpr struct.value
         let thm := {
           name  := struct.name.toString
-          lvls  := struct.levelParams.map toString
+          lvls  := struct.levelParams
           type  := type
           value := value }
         let value := ⟨.theorem $ thm.toIpld typeCid valueCid, .theorem $ thm.toIpld typeCid valueCid⟩
@@ -179,7 +176,7 @@ mutual
         let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, constIdx)) $ toYatimaExpr struct.value
         let opaq := {
           name  := struct.name.toString
-          lvls  := struct.levelParams.map toString
+          lvls  := struct.levelParams
           type  := type
           value := value
           safe  := not struct.isUnsafe }
@@ -189,7 +186,7 @@ mutual
         let (typeCid, type) ← toYatimaExpr struct.type
         let quot := {
           name := struct.name.toString
-          lvls := struct.levelParams.map toString
+          lvls := struct.levelParams
           type := type
           kind := struct.kind }
         let value := ⟨.quotient $ quot.toIpld typeCid, .quotient $ quot.toIpld typeCid⟩
@@ -366,7 +363,7 @@ mutual
       | none => false
     let tcInd := .inductive {
       name    := ind.name.toString
-      lvls    := ind.levelParams.map toString
+      lvls    := ind.levelParams
       type    := type
       params  := ind.numParams
       indices := ind.numIndices
@@ -390,7 +387,7 @@ mutual
         , not ind.isUnsafe
         , ind.isReflexive ⟩
       meta := ⟨ ind.name.toString
-        , ind.levelParams.map toString
+        , ind.levelParams
         , typeCid.meta
         , () , ()
         , ctors.map (·.meta)
@@ -428,7 +425,7 @@ mutual
           | none => throw s!"Unknown constant '{ctor}'"
         let tcRecr : Const := .intRecursor {
           name    := rec.name.toString
-          lvls    := rec.levelParams.map toString
+          lvls    := rec.levelParams
           type    := type
           params  := rec.numParams
           indices := rec.numIndices
@@ -448,7 +445,7 @@ mutual
             rules   := ()
             k       := rec.k },
           { name    := rec.name.toString
-            lvls    := rec.levelParams.map toString
+            lvls    := rec.levelParams
             type    := typeCid.meta
             params  := ()
             indices := ()
@@ -466,7 +463,7 @@ mutual
         let (typeCid, type) ← toYatimaExpr ctor.type
         let tcCtor : Const := .constructor {
           name    := ctor.name.toString
-          lvls    := ctor.levelParams.map toString
+          lvls    := ctor.levelParams
           type    := type
           idx     := ctor.cidx
           params  := ctor.numParams
@@ -486,7 +483,7 @@ mutual
             fields := ctor.numFields
             safe   := not ctor.isUnsafe },
           { rhs    := rhsCid.meta
-            lvls   := ctor.levelParams.map toString
+            lvls   := ctor.levelParams
             name   := ctor.name.toString
             type   := typeCid.meta
             idx    := ()
@@ -506,7 +503,7 @@ mutual
             return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
         let tcRecr : Const := .extRecursor {
           name    := rec.name.toString
-          lvls    := rec.levelParams.map toString
+          lvls    := rec.levelParams
           type    := type
           params  := rec.numParams
           indices := rec.numIndices
@@ -528,7 +525,7 @@ mutual
             rules   := rules.anon
             k       := rec.k },
           { name    := rec.name.toString
-            lvls    := rec.levelParams.map toString
+            lvls    := rec.levelParams
             type    := typeCid.meta
             params  := ()
             indices := ()
@@ -605,7 +602,7 @@ mutual
     let (valueCid, value) ← toYatimaExpr defn.value
     let defn := {
       name   := defn.name.toString
-      lvls   := defn.levelParams.map toString
+      lvls   := defn.levelParams
       type
       value
       safety := defn.safety }
