@@ -34,7 +34,11 @@ open ToIpld
 
 def derefConst (idx : ConstIdx) : CompileM Const := do
   let defns := (← get).defns
-  pure $ defns.get! idx
+  let size := defns.size
+  if h : idx < size then
+    return defns[idx]'h
+  else
+    throw s!"Invalid index {idx} for dereferring a constant. Must be < {size}."
 
 def findConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
