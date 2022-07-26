@@ -10,11 +10,12 @@ import Yatima.ForLurkRepo.AST
 import Yatima.ForLurkRepo.DSL
 import Yatima.ForLurkRepo.Printing
 import Yatima.ForLurkRepo.Utils
+import Yatima.Ipld.FromIpld
+import Yatima.Ipld.ToIpld
 import Yatima.Kind
 import Yatima.Name
 import Yatima.Store
 import Yatima.Tests.ExprGenerator
-import Yatima.ToIpld
 import Yatima.Transpiler.Test
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Transpiler
@@ -23,7 +24,6 @@ import Yatima.Typechecker.CheckM
 import Yatima.Typechecker.Debug
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
-import Yatima.Typechecker.FromIpld
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.Value
 import Yatima.Univ

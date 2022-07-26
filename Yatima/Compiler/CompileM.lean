@@ -1,5 +1,5 @@
 import Yatima.Store
-import Yatima.ToIpld
+import Yatima.Ipld.ToIpld
 import Yatima.Compiler.Utils
 
 namespace Yatima.Compiler
@@ -134,7 +134,9 @@ def StoreValue.insert : StoreValue A → CompileM A
                            const_cids := stt.store.const_cids.insert cid } }))
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
-  let stt ← get
-  set { stt with cache := stt.cache.insert name c }
+  modify fun stt => { stt with cache := stt.cache.insert name c }
+
+def addToDefns (idx : Nat) (c : Const): CompileM Unit := do
+  modify (fun stt => { stt with defns := stt.defns.set! idx c })
 
 end Yatima.Compiler

@@ -2,7 +2,7 @@ import Yatima.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
 import Yatima.ForLurkRepo.Utils
-import Yatima.Typechecker.FromIpld
+import Yatima.Ipld.FromIpld
 
 namespace Yatima.Transpiler
 

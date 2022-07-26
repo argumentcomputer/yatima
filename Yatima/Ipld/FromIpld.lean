@@ -254,7 +254,7 @@ mutual
         let motives := recursorAnon.motives
         let minors := recursorAnon.minors
         let k := recursorAnon.k
-        let casesExtInt : (b₁ : RecType) → (b₂ : RecType) → (Ipld.Recursor .Anon b₁) → (Ipld.Recursor .Meta b₂) → ConvertM Const
+        let casesExtInt : (b₁ : RecType) → (b₂ : RecType) → (Ipld.Recursor b₁ .Anon) → (Ipld.Recursor b₂ .Meta) → ConvertM Const
         | .Intr, .Intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
         | .Extr, .Extr, recAnon, recMeta => do
           let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
@@ -300,7 +300,7 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
       discard $ constFromIpld cid
     cidMap.forM collect
 
-def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
+def convertStoreIO (store : Ipld.Store) : IO (Array Const) :=
   match convertStore store with
   | .ok stt => pure stt.defns
   | .error err => .error $ toString err

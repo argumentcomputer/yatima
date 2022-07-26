@@ -1,6 +1,6 @@
 import Yatima.ForLurkRepo.AST
 import Yatima.Compiler.Utils
-import Yatima.Typechecker.FromIpld
+import Yatima.Ipld.FromIpld
 
 namespace Yatima.Transpiler
 

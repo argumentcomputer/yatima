@@ -8,6 +8,97 @@ import Yatima.Const
 
 namespace Yatima
 
+def Opaque.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+
+def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+
+def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+
+def Theorem.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
+
+def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
+match k with
+  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
+  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+
+def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
+match k with
+  | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
+  | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
+
+def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
+match k with
+  | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
+  | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
+
+def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor .Extr k :=
+match k with 
+  | .Anon =>
+    ⟨ ()
+    , r.lvls.length
+    , typeCid.anon
+    , r.params
+    , r.indices
+    , r.motives
+    , r.minors
+    , rulesCids
+    --, .inj₂ $ r.rules.enum.map $ fun (i, rule) => rule.toIpld rulesCids[i]!.1 rulesCids[i]!.2
+    , r.k ⟩
+  | .Meta =>
+    ⟨ r.name
+    , r.lvls
+    , typeCid.meta
+    , (), (), (), ()
+    , rulesCids
+    , ()⟩
+
+def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor .Intr k :=
+match k with 
+  | .Anon =>
+    ⟨ ()
+    , r.lvls.length
+    , typeCid.anon
+    , r.params
+    , r.indices
+    , r.motives
+    , r.minors
+    , .inj₁ ()
+    , r.k ⟩
+  | .Meta =>
+    ⟨ r.name
+    , r.lvls
+    , typeCid.meta
+    , (), (), (), ()
+    , .inj₁ ()
+    , ()⟩
+
+def Inductive.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
+match k with
+  | .Anon =>
+    ⟨ ()
+    , i.lvls.length
+    , typeCid.anon
+    , blockCid.anon
+    , idx ⟩
+  | .Meta =>
+    ⟨ i.name
+    , i.lvls
+    , typeCid.meta
+    , blockCid.meta
+    , () ⟩
+
 namespace Ipld
 instance : Coe Nat Ipld where
   coe x := .bytes x.toByteArrayBE
@@ -68,10 +159,10 @@ instance : (k : Kind) → Coe (RecursorRule k) Ipld
   | .Anon => { coe := fun | .mk c f r => .array #[c, f, r] }
   | .Meta => { coe := fun | .mk c f r => .array #[c, f, r] }
 
-instance : Coe (Recursor k b) Ipld where coe
+instance : Coe (Recursor b k) Ipld where coe
   | .mk n l t p i m m' rs k => .array #[n, l, t, p, i, m, m', rs, k]
 
-instance : Coe (Sigma (Recursor k)) Ipld where coe
+instance : Coe (Sigma (Recursor · k)) Ipld where coe
   | .mk b (.mk n l t p i m m' rs k) => .array #[(b : Bool), n, l, t, p, i, m, m', rs, k]
 
 instance : Coe (Constructor k) Ipld where coe
