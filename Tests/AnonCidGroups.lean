@@ -14,7 +14,7 @@ def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
     for group in groups do
       let mut cidGroup : List (Lean.Name × Ipld.ConstCid .Anon) := []
       for name in group do
-        match store.cache.find? name.toString with
+        match store.cache.find? name with
         | none          => notFound := name :: notFound
         | some (cid, _) => cidGroup := (name, cid.anon) :: cidGroup
       cidGroups := cidGroup.reverse :: cidGroups
