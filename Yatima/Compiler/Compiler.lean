@@ -593,7 +593,7 @@ mutual
         let cid ← StoreValue.insert $ .const value
         let constIdx := idx + firstIdx
         modify (fun stt => { stt with defns := stt.defns.set! constIdx (.definition defn) })
-        addToCache struct.name (cid, constIdx)
+        addToCache defn.name (cid, constIdx)
         if defn.name == struct.name then ret? := some (cid, constIdx)
 
       match ret? with
