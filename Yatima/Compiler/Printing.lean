@@ -26,7 +26,7 @@ def printDefSafety : Yatima.DefinitionSafety → String
 def getCid (name : Name) : CompileM ConstCid := do
   match (← get).cache.find? name with
   | some (cid, _) => pure cid
-  | none => throw s!"Could not find cid of {name} in context"
+  | none => throw s!"Could not find cid of {name} in cache"
 
 def printCid (name : Name) : CompileM String := do
   let cid ← getCid name
