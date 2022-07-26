@@ -8,6 +8,9 @@ structure Context where
   types : List (Thunk Value)
   store : Array Const
 
+def Context.find? (ctx : Context) (constName : Name) : Option Const :=
+  ctx.store.find? (fun const => const.name == constName)
+
 inductive CheckError where
   | notPi : CheckError
   | notTyp : CheckError
@@ -26,6 +29,14 @@ inductive CheckError where
   | impossibleProjectionCase : CheckError
   -- Impossible case on projections
   | impossibleEvalCase : CheckError
+  -- Cannot evaluate this quotient
+  | cannotEvalQuotient : CheckError
+  -- Out of the thunk list range
+  | outOfRangeError : CheckError
+  -- Unknown constant name
+  | unknownConst : CheckError
+  -- No way to extract a name
+  | noName : CheckError
   | impossible : CheckError
   deriving Inhabited
 
