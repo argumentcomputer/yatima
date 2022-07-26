@@ -8,6 +8,9 @@ structure Context where
   types : List (Thunk Value)
   store : Array Const
 
+def Context.find? (ctx : Context) (constName : Name) : Option Const :=
+  ctx.store.find? (fun const => const.name == constName)
+
 inductive CheckError where
   | notPi : CheckError
   | notTyp : CheckError

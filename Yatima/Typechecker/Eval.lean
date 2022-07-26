@@ -27,7 +27,10 @@ private partial def mkAppRangeAux (n : Nat) (args : List (Thunk Value)) (i : Nat
 def mkAppRange (f : Neutral) (i j : Nat) (args : List (Thunk Value)) : CheckM Value :=
   mkAppRangeAux j args i f
 
-def getConst? (constName : Name) : CheckM (Option ConstantInfo) := sorry
+def getConst? (constName : Name) : CheckM (Option Const) := do
+  let env ← read
+  match env.find? constName with
+    | x => pure x
 
 mutual
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) : CheckM Value := do
@@ -71,7 +74,7 @@ mutual
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .quotient _ recVal =>
+    | .quotient recVal =>
       -- This case is a version of the reduceQuotRec function from the Lean 4 source code
       -- https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
       -- The case reduces ind and lift applications
@@ -81,15 +84,15 @@ mutual
           let major := (arg :: args).get ⟨ majorPos, h ⟩
           match major.get with
             | .app (.const majorFn _ _) [_, majorArg] => do
-              --let .some (ConstantInfo.quotInfo { kind := QuotKind.ctor, .. }) ← getConst? majorFn
-              -- TODO: figure out how to enable the line above
-              let f := args[argPos]!
-              let fName ← valueName f.get
-              let r := (.fvar fName argPos f)
-              let recArity := majorPos + 1
-              mkAppRange r recArity args.length (majorArg :: args)
-            -- TODO: more checking, this version is temporary, I got stuck here
-            -- TODO: figure out do we need a version of getConstNoEx
+              let opConst ← getConst? majorFn
+              match opConst with
+                | .some (Const.quotient {kind := QuotKind.ctor, ..}) => do
+                  let f := args[argPos]!
+                  let fName ← valueName f.get
+                  let r := (Neutral.fvar fName argPos f)
+                  let recArity := majorPos + 1
+                  mkAppRange r recArity args.length (majorArg :: args)
+                | _ => throw .noName
             | _ => throw .cannotEvalQuotient
         else
           throw .cannotEvalQuotient
