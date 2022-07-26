@@ -32,6 +32,33 @@ def getConst? (constName : Name) : CheckM (Option Const) := do
   match env.find? constName with
     | x => pure x
 
+/--
+This case is a version of the reduceQuotRec function from the Lean 4 source code
+https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
+The case reduces ind and lift applications
+-/
+def reduceQuot (arg : Thunk Value) (args : Args) (majorPos argPos : Nat) :
+    CheckM Value :=
+  let args' := arg :: args
+  if h : majorPos < args'.length then
+    let major := args'[majorPos]'h
+    match major.get with
+    | .app (.const majorFn _ _) [_, majorArg] => do
+      let opConst ← getConst? majorFn
+      match opConst with
+      | .some (Const.quotient {kind := QuotKind.ctor, ..}) =>
+        if h : argPos < args.length then
+          let f := args[argPos]'h
+          let fName ← valueName f.get
+          let r := (Neutral.fvar fName argPos f)
+          let recArity := majorPos + 1
+          mkAppRange r recArity args.length (majorArg :: args)
+        else throw .cannotEvalQuotient
+      | _ => throw .noName
+    | _ => throw .cannotEvalQuotient
+  else
+    throw .cannotEvalQuotient
+
 mutual
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) : CheckM Value := do
     match (← read).store.get! const with
@@ -74,32 +101,10 @@ mutual
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .quotient recVal =>
-      -- This case is a version of the reduceQuotRec function from the Lean 4 source code
-      -- https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
-      -- The case reduces ind and lift applications
-      let process (majorPos argPos : Nat) : CheckM Value :=
-        let arg_size := args.length + 1
-        if h : majorPos < arg_size then do
-          let major := (arg :: args).get ⟨ majorPos, h ⟩
-          match major.get with
-            | .app (.const majorFn _ _) [_, majorArg] => do
-              let opConst ← getConst? majorFn
-              match opConst with
-                | .some (Const.quotient {kind := QuotKind.ctor, ..}) => do
-                  let f := args[argPos]!
-                  let fName ← valueName f.get
-                  let r := (Neutral.fvar fName argPos f)
-                  let recArity := majorPos + 1
-                  mkAppRange r recArity args.length (majorArg :: args)
-                | _ => throw .noName
-            | _ => throw .cannotEvalQuotient
-        else
-          throw .cannotEvalQuotient
-      match recVal.kind with
-        | .lift => process 5 3
-        | .ind  => process 4 3
-        | _ => throw .cannotEvalQuotient
+    | .quotient quotVal => match quotVal.kind with
+      | .lift => reduceQuot arg args 5 3
+      | .ind  => reduceQuot arg args 4 3
+      | _ => throw .cannotEvalQuotient
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
