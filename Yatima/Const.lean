@@ -252,7 +252,7 @@ inductive Const where
   | definitionProj  : DefinitionProj → Const
   -- constants to represent mutual blocks
   | mutDefBlock : List (List (Definition)) → Const
-  | mutIndBlock : List (Inductive) → Const
+  | mutIndBlock : List Inductive → Const
 
 def Definition.toIpld : {k : Ipld.Kind} → Definition → Ipld.Definition k
   | .Anon, d => ⟨(), d.lvls.length, d.type.anon, d.value.anon, d.safety⟩

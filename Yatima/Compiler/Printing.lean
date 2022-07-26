@@ -122,7 +122,7 @@ mutual
     else return s!"({← printExpr e})"
 
   partial def printExpr : Expr → CompileM String
-    | .var name _ => return s!"{name}"
+    | .var name i => return s!"{name}.{i}"
     | .sort _ => return "Sort"
     | .const name .. => return s!"{name}"
     | .app func body =>

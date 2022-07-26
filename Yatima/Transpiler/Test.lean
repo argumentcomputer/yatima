@@ -13,5 +13,7 @@ def test : IO Unit := do
         | .error msg => IO.println msg
     | .error msg => IO.println msg
 
+
+#eval test
 -- Last run:
 --(let ((id (lambda (α) (lambda (a) a))) (id:_cstage1 (lambda (α) (lambda (a) a))) (test:recOn (lambda (motive) (lambda (t) (lambda (c1) (lambda (c2) ((((test:rec motive) c1) c2) t))))))) (current-env))

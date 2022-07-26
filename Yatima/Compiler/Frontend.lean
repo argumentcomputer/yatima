@@ -312,10 +312,10 @@ mutual
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
-            let (thisRec, thisCtors) := ← toYatimaInternalRec (ind.ctors) r
+            let (thisRec, thisCtors) := ← toYatimaInternalRec ind.ctors r
             return ((Sigma.mk .Intr thisRec) :: recs, some thisCtors)
           else do
-            let thisRec := ← toYatimaExternalRec r
+            let thisRec ← toYatimaExternalRec r
             return ((Sigma.mk .Extr thisRec) :: recs, ctors)
         | _ => throw s!"Non-recursor {r.name} extracted from children"
     let ctors := match ctors with

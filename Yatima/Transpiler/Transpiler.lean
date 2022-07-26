@@ -1,7 +1,7 @@
 import Yatima.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
-import Yatima.ForLurkRepo.Printing
+import Yatima.ForLurkRepo.Utils
 
 namespace Yatima.Transpiler
 
@@ -26,7 +26,7 @@ mutual
   partial def telescopeLam (expr : Expr) : TranspileM $ Option Lurk.Expr := 
     let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
       match expr with 
-        | .lam name _ _ body => descend body <| bindAcc.concat name
+        | .lam name _ _ body => descend body <| bindAcc.concat (fixName name)
         | _ => (expr, bindAcc)
     do
       let (expr, binds) := descend expr []
@@ -35,10 +35,51 @@ mutual
         | some fn => return some $ .lam binds fn
         | none => return none
 
+  partial def ctorToLurkExpr (idx : Nat) (ctor : Constructor) : TranspileM Unit := do 
+    let store ← read
+    match store.expr_cache.find? ctor.type with 
+    | some expr => 
+      -- For example, the type of `Nat.succ` is `Nat → Nat`,
+      -- but we don't want to translate the type; 
+      -- we want to build a lambda out of this type
+      -- which requires (a bit awkwardly) descending into
+      -- the foralls and reconstructing a `lambda` term
+      let (expr, ⟨binds⟩) := descend expr #[]
+      let lExpr ← exprToLurkExpr expr
+      match lExpr with 
+      | none => throw s!"unexpected failure, `exprToLurkExpr` failed"
+      | some _ => 
+        let args := Lurk.SExpr.list $ 
+          [.str (fixName ctor.name), .num idx] ++ binds.map fun n => .atom n
+        appendBinding (fixName ctor.name, .lam binds $ .quote args)
+    | none => 
+      throw $ s!"unexpected failure, {ctor.name} not in cache"
+  where 
+    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
+      match expr with 
+        | .pi name _ _ body => descend body <| bindAcc.push (fixName name)
+        | _ => (expr, bindAcc)
+
+  -- Very delicate, requires logic on the 
+  -- indices/major/minor arguments of the inductive
+  -- in order to insert the argument correctly.
+  -- See lines 27 and 38 in `TypeChecker.Eval`
+  partial def ruleRHSToLurkExpr (rhs : Expr) : Lurk.Expr := sorry
+
+  partial def recrToLurkExpr (recr : Recursor b) (ind : Inductive) : 
+      TranspileM Unit := do 
+    let store ← read
+    match b with 
+    | .Intr => 
+      let rules := ind.ctors.enum.map 
+        fun (i, ctor) => (ctor.name, i, ctor.rhs)
+      throw "TODO"
+    | .Extr => throw "TODO"
+
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    | .var name i     => return some $ .lit (.sym $ fixName name)
+    | .var name _     => return some $ .lit (.sym $ fixName name)
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
@@ -63,7 +104,7 @@ mutual
     -- TODO
     | .letE name _ value body  => do
       match (← exprToLurkExpr value), (← exprToLurkExpr body) with
-        | some val, some body => return some $ .letE [(name, val)] body
+        | some val, some body => return some $ .letE [(fixName name, val)] body
         | _, _ => throw "TODO"
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
@@ -80,21 +121,31 @@ mutual
   -/
   partial def mutIndBlockToLurkExpr (inds : List Inductive) : TranspileM $ Option Lurk.Expr := do
     let store ← read
+    for ind in inds do 
+      for (i, ctor) in ind.ctors.enum do 
+        ctorToLurkExpr i ctor
+      for ⟨b, recr⟩ in ind.recrs do 
+        return none
 
-    let ctorExprs := inds |>.map Inductive.ctors 
-                          |>.join
-                          |>.map (fun ctor => (ctor.name, ctor.rhs))
+    -- Winston: Idk how the implementation for mutuals
+    -- makes everything interact, so for now I just 
+    -- commented this out to focus on 1 inductive
+    -- @Matej
+    
+    -- let ctorExprs := inds |>.map Inductive.ctors 
+    --                       |>.join
+    --                       |>.map (fun ctor => (ctor.name, ctor.rhs))
 
-    for (exprName, exprCid) in ctorExprs do
-      let mut ctorLurkExprs : List (String × Lurk.Expr) := [] 
-      match store.expr_cache.find? exprCid with
-        | none => throw "TODO"
-        | some expr => 
-          let lurkExpr? ← exprToLurkExpr expr
-          match lurkExpr? with
-            | none => throw "TODO"
-            | some lExpr => 
-              ctorLurkExprs := ctorLurkExprs.concat (fixName exprName, lExpr)
+    -- for (exprName, exprCid) in ctorExprs do
+    --   let mut ctorLurkExprs : List (String × Lurk.Expr) := [] 
+    --   match store.expr_cache.find? exprCid with
+    --     | none => throw "TODO"
+    --     | some expr => 
+    --       let lurkExpr? ← exprToLurkExpr expr
+    --       match lurkExpr? with
+    --         | none => throw "TODO"
+    --         | some lExpr => 
+    --           ctorLurkExprs := ctorLurkExprs.concat (fixName exprName, lExpr)
     return none
 
   
