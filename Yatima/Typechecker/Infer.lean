@@ -14,7 +14,7 @@ mutual
     match term with
     | .lam lam_name _ _lam_dom bod => do
       match type with
-      | .pi _ _ dom img _ =>
+      | .pi _ _ dom img env =>
         -- TODO check that `lam_dom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
@@ -48,7 +48,7 @@ mutual
     | .app fnc arg =>
       let fnc_typ ← infer fnc
       match fnc_typ with
-      | .pi _ _ dom img _ =>
+      | .pi _ _ dom img env =>
         check arg dom.get
         let arg := suspend arg (← read)
         let type ← withExtEnv env arg $ eval img
