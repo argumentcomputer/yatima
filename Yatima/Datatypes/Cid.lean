@@ -16,9 +16,9 @@ def CONST : (k : Kind) → UInt64
 
 def ENV: UInt64 := 0xC0DE0007
 
-structure UnivCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited
-structure ExprCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited
-structure ConstCid (k : Kind) where data : Cid deriving BEq, Ord, Inhabited
+structure UnivCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr
+structure ExprCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr
+structure ConstCid (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr
 
 structure AnonMeta (A : Type) (B : Type) : Type where
   anon : A
