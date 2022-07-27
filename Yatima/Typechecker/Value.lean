@@ -78,10 +78,6 @@ inductive Value
 deriving Inhabited
 end
 
-def Neutral.name : Neutral → Name
-  | .fvar  n .. => n
-  | .const n .. => n
-
 -- The arguments of a stuck sequence of applications `(h a1 ... an)`
 abbrev Args := List (Thunk Value)
 
