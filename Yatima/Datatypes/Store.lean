@@ -20,16 +20,16 @@ structure Store where
   deriving Inhabited
 
 def Store.union (s s' : Store) : Store := ⟨
-  s'.univ_anon.fold   (init := s.univ_anon)   fun acc cid x => acc.insert cid x,
-  s'.expr_anon.fold   (init := s.expr_anon)   fun acc cid x => acc.insert cid x,
-  s'.const_anon.fold  (init := s.const_anon)  fun acc cid x => acc.insert cid x,
-  s'.univ_meta.fold   (init := s.univ_meta)   fun acc cid x => acc.insert cid x,
-  s'.expr_meta.fold   (init := s.expr_meta)   fun acc cid x => acc.insert cid x,
-  s'.const_meta.fold  (init := s.const_meta)  fun acc cid x => acc.insert cid x,
-  s'.univ_cids.union   s.univ_cids,
-  s'.expr_cids.union   s.expr_cids,
-  s'.const_cids.union  s.const_cids
-⟩
+  s'.univ_anon.fold   (init := s.univ_anon)  fun acc cid x => acc.insert cid x,
+  s'.expr_anon.fold   (init := s.expr_anon)  fun acc cid x => acc.insert cid x,
+  s'.const_anon.fold  (init := s.const_anon) fun acc cid x => acc.insert cid x,
+  s'.univ_meta.fold   (init := s.univ_meta)  fun acc cid x => acc.insert cid x,
+  s'.expr_meta.fold   (init := s.expr_meta)  fun acc cid x => acc.insert cid x,
+  s'.const_meta.fold  (init := s.const_meta) fun acc cid x => acc.insert cid x,
+  s'.univ_cids.union  s.univ_cids,
+  s'.expr_cids.union  s.expr_cids,
+  s'.const_cids.union s.const_cids ⟩
+
 end Ipld
 
 end Yatima
