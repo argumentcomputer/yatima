@@ -12,9 +12,6 @@ structure Context where
 def Context.init (store : Array Const) : Context :=
   { (default : Context) with store := store }
 
-def Context.find? (ctx : Context) (constName : Name) : Option Const :=
-  ctx.store.find? (fun const => const.name == constName)
-
 inductive CheckError where
   | notPi : CheckError
   | notTyp : CheckError
@@ -22,25 +19,24 @@ inductive CheckError where
   | cannotInferLam : CheckError
   | typNotStructure : CheckError
   | projEscapesProp : CheckError
-  | unsafeDefinition : CheckError
   -- Unsafe definition found
-  | hasNoRecursionRule : CheckError
+  | unsafeDefinition : CheckError
   -- Constructor has no associated recursion rule. Implementation is broken.
-  | cannotApply : CheckError
+  | hasNoRecursionRule : CheckError
   -- Cannot apply argument list to type. Implementation broken.
-  | impossibleEqualCase : CheckError
+  | cannotApply : CheckError
   -- Impossible equal case
-  | impossibleProjectionCase : CheckError
+  | impossibleEqualCase : CheckError
   -- Impossible case on projections
-  | impossibleEvalCase : CheckError
+  | impossibleProjectionCase : CheckError
+  -- Cannot apply arguments to something other than a lambda or partial application
+  | impossibleApplyCase : CheckError
   -- Cannot evaluate this quotient
   | cannotEvalQuotient : CheckError
   -- Out of the thunk list range
   | outOfRangeError : CheckError
-  -- Unknown constant name
-  | unknownConst : CheckError
-  -- No way to extract a name
-  | noName : CheckError
+  -- Out of the range of definitions
+  | outOfDefnRange : CheckError
   | impossible : CheckError
   deriving Inhabited
 
