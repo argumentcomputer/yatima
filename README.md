@@ -1,6 +1,6 @@
 # yatima-lang
 
-A compiler and typechecker for the Yatima language.
+A WIP compiler and typechecker for the Yatima language.
 
 ## Build
 
@@ -13,7 +13,7 @@ You can choose a directory that's already in your path, for example.
 
 ## Usage
 
-The subcommands available for the `yatima` CLI are:
+The subcommands planned to be available for the `yatima` CLI are:
 * `compile`: compile Lean 4 code to Yatima IR
 * `typecheck`: typecheck Yatima IR
 * `transpile`: transpile Yatima IR to Lurk code
