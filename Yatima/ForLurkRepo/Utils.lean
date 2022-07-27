@@ -45,3 +45,11 @@ partial def toListExpr (e : Expr) : List Expr :=
     | _ => []
 
 end Lean.Expr
+
+namespace Array 
+
+@[inline]
+def concat {α : Type u} (ass : Array $ Array α) : Array α :=
+  ass.foldl (init := empty) fun as a => as ++ a
+
+end Array 
