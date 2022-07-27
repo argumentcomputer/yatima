@@ -1,12 +1,14 @@
 prelude
 
+def id {α : Type} (a : α) : α := a
+
 inductive Nat where 
   | zero : Nat 
   | succ : Nat → Nat 
 
-inductive Vector (A : Type) : (n : Nat) → Type where
-  | nil : Vector A Nat.zero
-  | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
+-- inductive Vector (A : Type) : (n : Nat) → Type where
+--   | nil : Vector A Nat.zero
+--   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
 
 /- 
 # Example: Three
@@ -135,4 +137,4 @@ else if `v`.cidx == 1
 
 -/
 
-#check Nat
+-- #check Nat

@@ -8,6 +8,8 @@ namespace Yatima.Transpiler
 
 open Yatima.Typechecker
 
+def lurkExprMatch (lexprs : List Lurk.Expr) (max : Fin lexprs.length) : Lurk.Expr := sorry
+
 mutual
 
   partial def telescopeApp (expr : Expr) : TranspileM $ Option Lurk.Expr := 
@@ -38,8 +40,7 @@ mutual
         | some fn => return some $ .lam (binds.map fixName) fn
         | none => return none
 
-  partial def ctorToLurkExpr (idx : Nat) (ctor : Constructor) : TranspileM Unit := do 
-    let store ← read
+  partial def ctorToLurkExpr (idx : Nat) (ctor : Constructor) : TranspileM Lurk.Expr := do 
       -- For example, the type of `Nat.succ` is `Nat → Nat`,
       -- but we don't want to translate the type; 
       -- we want to build a lambda out of this type
@@ -52,7 +53,9 @@ mutual
       | some _ => 
         let args := Lurk.SExpr.list $ 
           [.str (fixName ctor.name), .num idx] ++ binds.map fun n => .atom n.toString
-        appendBinding (fixName ctor.name, .lam (binds.map fixName) $ .quote args)
+        let ctorExpr : Lurk.Expr := .lam (binds.map fixName) $ .quote args
+        appendBinding (fixName ctor.name, ctorExpr)
+        return ctorExpr
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -63,11 +66,11 @@ mutual
   -- indices/major/minor arguments of the inductive
   -- in order to insert the argument correctly.
   -- See lines 27 and 38 in `TypeChecker.Eval`
-  partial def ruleRHSToLurkExpr (rhs : Expr) : Lurk.Expr := sorry
+  -- partial def ruleRHSToLurkExpr (rhs : Expr) : Lurk.Expr := sorry
 
-  partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
+  -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
-  partial def intRecrToLurkExpr (recr : IntRecursor) (ind : Inductive) : TranspileM Unit := sorry
+  -- partial def intRecrToLurkExpr (recr : IntRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
@@ -152,10 +155,10 @@ mutual
     | .theorem  _ => return some (.lit .t)
     | .opaque   x => exprToLurkExpr x.value
     | .definition x => exprToLurkExpr x.value
-    | .inductive x => sorry
-    | .constructor x => sorry
-    | .extRecursor x => sorry
-    | .intRecursor x => sorry
+    | .inductive x => return none -- I think since we're making the constructors and recursors constants now, we can nil this out?
+    | .constructor x => return some (← ctorToLurkExpr x.idx x)
+    | .extRecursor x => return none
+    | .intRecursor x => return none
     -- TODO
 
 end

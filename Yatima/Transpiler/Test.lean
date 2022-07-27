@@ -13,3 +13,5 @@ def test : IO Unit := do
         | .ok convState => match transpile convState with
           | .error msg => IO.eprintln msg
           | .ok out => IO.println out
+
+#eval test
