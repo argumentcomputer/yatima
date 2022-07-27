@@ -1,7 +1,9 @@
 import Yatima.Store
 import YatimaStdLib.RBMap
 
-namespace Yatima.Typechecker
+namespace Yatima
+
+namespace FromIpld
 
 open Std (RBMap)
 
@@ -305,4 +307,5 @@ def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   | .ok stt => pure stt.defns
   | .error err => .error $ toString err
 
-end Yatima.Typechecker
+end FromIpld
+end Yatima

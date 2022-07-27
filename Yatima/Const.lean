@@ -145,13 +145,14 @@ structure Axiom where
   lvls : List Name
   type : Expr
   safe : Bool
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 structure Theorem where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
+  deriving BEq
 
 structure Opaque where
   name  : Name
@@ -159,6 +160,7 @@ structure Opaque where
   type  : Expr
   value : Expr
   safe  : Bool
+  deriving BEq
 
 structure Definition where
   name   : Name
@@ -166,6 +168,7 @@ structure Definition where
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
+  deriving BEq
 
 structure Constructor where
   name   : Name
@@ -176,6 +179,7 @@ structure Constructor where
   fields : Nat
   rhs    : Expr
   safe   : Bool
+  deriving BEq
 
 structure Inductive where
   name    : Name
@@ -188,11 +192,13 @@ structure Inductive where
   refl    : Bool
   unit    : Bool
   struct  : Option Constructor
+  deriving BEq
 
 structure RecursorRule where
   ctor   : Constructor
   fields : Nat
   rhs    : Expr
+  deriving BEq
 
 structure ExtRecursor where
   name    : Name
@@ -204,6 +210,7 @@ structure ExtRecursor where
   minors  : Nat
   rules   : List RecursorRule
   k       : Bool
+  deriving BEq
 
 structure IntRecursor where
   name    : Name
@@ -214,12 +221,14 @@ structure IntRecursor where
   motives : Nat
   minors  : Nat
   k       : Bool
+  deriving BEq
 
 structure Quotient where
   name : Name
   lvls : List Name
   type : Expr
   kind : QuotKind
+  deriving BEq
 
 inductive Const
   | «axiom»     : Axiom → Const
@@ -231,7 +240,7 @@ inductive Const
   | extRecursor : ExtRecursor → Const
   | intRecursor : IntRecursor → Const
   | quotient    : Quotient → Const
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 def Const.type (k : Const) : Expr :=
   match k with
