@@ -294,8 +294,8 @@ mutual
           let ipldInd ← toYatimaIpldInductive ind
           pure $ ipldInd :: acc
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
-    let indBlock := ⟨.mutIndBlock $ indInfos.map (·.anon), .mutIndBlock $ indInfos.map (·.meta)⟩
-    let indBlockCid ← StoreValue.insert $ .const indBlock
+    let indBlock : Ipld.Both Ipld.Const := ⟨.mutIndBlock $ indInfos.map (·.anon), .mutIndBlock $ indInfos.map (·.meta)⟩
+    let indBlockConst : Ipld.Both Ipld.ConstCid := ⟨ ToIpld.constToCid indBlock.anon, ToIpld.constToCid indBlock.meta ⟩
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
     let mut defnIdx := firstIdx
@@ -304,8 +304,8 @@ mutual
       -- Add the IPLD inductive projections and inductives to the cache
       let name := indMeta.name.proj₂
       let indProj :=
-        ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
-        , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
+        ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockConst.anon, indIdx ⟩
+        , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockConst.meta, () ⟩ ⟩
       let cid ← StoreValue.insert $ .const indProj
       addToCache name (cid, defnIdx)
       if name == initInd.name then ret? := some (cid, indIdx)
@@ -315,8 +315,8 @@ mutual
         -- Add the IPLD constructor projections and constructors to the cache
         let name := ctorMeta.name.proj₂
         let ctorProj :=
-          ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
-          , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
+          ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockConst.anon, indIdx, ctorIdx ⟩
+          , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockConst.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const ctorProj
         addToCache name (cid, defnIdx)
         defnIdx := defnIdx + 1
@@ -325,8 +325,8 @@ mutual
         -- Add the IPLD recursor projections and recursors to the cache
         let name := recrMeta.2.name.proj₂
         let recrProj :=
-          ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, indIdx, recrIdx ⟩
-          , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
+          ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockConst.anon, indIdx, recrIdx ⟩
+          , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockConst.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const recrProj
         addToCache name (cid, defnIdx)
         defnIdx := defnIdx + 1
