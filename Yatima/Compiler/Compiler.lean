@@ -582,9 +582,7 @@ mutual
       let mut ret? : Option (ConstCid × ConstIdx) := none
 
       for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do
-        let idx : Nat := match mutualIdxs.find? defn.name with
-          | some (i, _) => i
-          | none => unreachable!
+        let some (idx, _) := mutualIdxs.find? defn.name | throw $ .cantFindMutDefIndex defn.name
         let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
                      , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, ()⟩ ⟩
         let cid ← StoreValue.insert $ .const value
