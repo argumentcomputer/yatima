@@ -2,9 +2,9 @@ import Ipld.Cid
 import Ipld.Ipld
 import Ipld.DagCbor
 import Ipld.Multihash
-import Yatima.Univ
-import Yatima.Expr
-import Yatima.Const
+import Yatima.Datatypes.Univ
+import Yatima.Datatypes.Expr
+import Yatima.Datatypes.Const
 
 namespace Yatima
 

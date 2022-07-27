@@ -1,4 +1,4 @@
-import Yatima.Store
+import Yatima.Datatypes.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
 import Yatima.ForLurkRepo.Utils
@@ -6,7 +6,7 @@ import Yatima.Ipld.FromIpld
 
 namespace Yatima.Transpiler
 
-open Yatima.Typechecker
+open Yatima.FromIpld
 
 mutual
 

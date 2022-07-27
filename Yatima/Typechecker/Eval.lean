@@ -1,33 +1,36 @@
-import Yatima.Typechecker.CheckM
+import Yatima.Typechecker.TypecheckM
 
 namespace Yatima.Typechecker
 
 def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   Value.app (Neutral.const name k univs) []
 
-def getValue : List (Thunk Value) → Nat → CheckM Value
+def getValue : List (Thunk Value) → Nat → TypecheckM Value
   | a::_,  0   => pure a.get
   | _::as, n+1 => getValue as n
   | _,     _   => throw .outOfRangeError
 
-def valueName (val : Value) : CheckM Name :=
-  match val with
-  | .lam name _ _ _ => pure name
-  | .pi name _ _ _ _ => pure name
+def valueName : Value → TypecheckM Name
+  | .lam name .. => pure name
+  | .pi  name .. => pure name
   | _ => throw .noName
 
--- The idea is taken from the Lean compiler,
--- see https://github.com/leanprover/lean4/blob/master/src/Lean/Expr.lean#L705
-private partial def mkAppRangeAux (n : Nat) (args : List (Thunk Value)) (i : Nat) (e : Neutral) : CheckM Value := do
+/--
+The idea is taken from the Lean compiler,
+see https://github.com/leanprover/lean4/blob/master/src/Lean/Expr.lean#L705
+-/
+partial def mkAppRangeAux (n : Nat) (args : List (Thunk Value)) (i : Nat)
+    (e : Neutral) : TypecheckM Value := do
   if i < n then do
     let ith_val ← getValue args i
     mkAppRangeAux n args (i + 1) (.fvar e.name i ith_val)
   else (pure $ Value.app e [])
 
-def mkAppRange (f : Neutral) (i j : Nat) (args : List (Thunk Value)) : CheckM Value :=
+def mkAppRange (f : Neutral) (i j : Nat) (args : List (Thunk Value)) :
+    TypecheckM Value :=
   mkAppRangeAux j args i f
 
-def getConst? (constName : Name) : CheckM (Option Const) := do
+def getConst? (constName : Name) : TypecheckM (Option Const) := do
   let env ← read
   match env.find? constName with
     | x => pure x
@@ -38,7 +41,7 @@ https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/WHNF.lean#L203
 The case reduces ind and lift applications
 -/
 def reduceQuot (arg : Thunk Value) (args : Args) (majorPos argPos : Nat) :
-    CheckM Value :=
+    TypecheckM Value :=
   let args' := arg :: args
   if h : majorPos < args'.length then
     let major := args'[majorPos]'h
@@ -60,7 +63,8 @@ def reduceQuot (arg : Thunk Value) (args : Args) (majorPos argPos : Nat) :
     throw .cannotEvalQuotient
 
 mutual
-  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) : CheckM Value := do
+  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+      TypecheckM Value := do
     match (← read).store.get! const with
     | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
     | .definition x =>
@@ -70,7 +74,7 @@ mutual
       | .unsafe => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
 
-  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : CheckM Value := do
+  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
     -- Assumes a partial application of k to args, which means in particular, that it is in normal form
     match (← read).store.get! k with
     | .intRecursor recur =>
@@ -108,17 +112,16 @@ mutual
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
-    Thunk.mk (fun _ => CheckM.run! (eval expr) ctx "Panic in eval. Implementation broken")
+    Thunk.mk (fun _ => TypecheckM.run! ctx "Panic in eval. Implementation broken" (eval expr))
 
-  partial def eval (term : Expr) : CheckM Value :=
-    match term with
+  partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
       let ctx ← read
       let arg_thunk := suspend arg ctx
       match (← eval fnc) with
-      | Value.lam _ _ bod lam_env => withExtEnv lam_env arg_thunk (eval bod)
-      | Value.app var@(Neutral.fvar ..) args => pure $ Value.app var (arg_thunk :: args)
-      | Value.app (Neutral.const name k k_univs) args => applyConst name k k_univs arg_thunk args
+      | .lam _ _ bod lam_env => withExtEnv lam_env arg_thunk (eval bod)
+      | .app var@(.fvar ..) args => pure $ Value.app var (arg_thunk :: args)
+      | .app (.const name k k_univs) args => applyConst name k k_univs arg_thunk args
       -- Since terms are well-typed we know that any other case is impossible
       | _ => throw .impossibleEvalCase 
     | .lam name info _ bod => do
@@ -130,7 +133,7 @@ mutual
       pure thunk.get
     | .const name k const_univs => do
       let env := (← read).env
-      evalConst name k (List.map (instBulkReduce env.univs) const_univs)
+      evalConst name k (const_univs.map (instBulkReduce env.univs))
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
       extEnv thunk (eval bod)
@@ -147,7 +150,6 @@ mutual
       match (← eval expr) with
       | .app neu@(.const _ ctor _) args => match (← read).store.get! ctor with
         | .constructor ctor =>
-
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx

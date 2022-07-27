@@ -1,4 +1,4 @@
-import Yatima.Store
+import Yatima.Datatypes.Store
 import Yatima.Ipld.ToIpld
 import Yatima.Compiler.Utils
 
@@ -7,16 +7,14 @@ namespace Yatima.Compiler
 open Std (RBMap)
 
 structure CompileState where
-  store     : Ipld.Store
-  defns     : Array Const
-  cache     : RBMap Name (ConstCid × ConstIdx) compare
-  mutDefIdx : RBMap Name Nat compare
+  store : Ipld.Store
+  defns : Array Const
+  cache : RBMap Name (ConstCid × ConstIdx) compare
   deriving Inhabited
 
 namespace CompileState
 
-def union (s s' : CompileState) :
-    Except String CompileState := Id.run do
+def union (s s' : CompileState) : Except String CompileState := Id.run do
   let mut cache := s.cache
   for (n, c') in s'.cache do
     match s.cache.find? n with
@@ -26,9 +24,7 @@ def union (s s' : CompileState) :
   return .ok ⟨
     s.store.union s'.store,
     s'.defns,
-    cache,
-    s'.mutDefIdx.fold (init := s.mutDefIdx) fun acc n i =>
-      acc.insert n i
+    cache
   ⟩
 
 def summary (s : CompileState) : String :=

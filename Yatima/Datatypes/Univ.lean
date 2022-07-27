@@ -1,5 +1,5 @@
-import Yatima.Cid
-import Yatima.Name
+import Yatima.Datatypes.Cid
+import Yatima.Datatypes.Name
 
 namespace Yatima
 

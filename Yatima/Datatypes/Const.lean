@@ -1,4 +1,4 @@
-import Yatima.Expr
+import Yatima.Datatypes.Expr
 
 namespace Yatima
 

@@ -1,4 +1,4 @@
-import Yatima.Store
+import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
 
 namespace Yatima

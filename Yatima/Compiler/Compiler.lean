@@ -572,8 +572,6 @@ mutual
       let mut mutualIdxs : RBMap Lean.Name (Nat × Nat) compare := RBMap.empty
       for (i, ds) in mutualDefs.enum do
         for d in ds do
-          -- TODO Isn't `mutDefIdx` unnecessary? Couldn't we use `mutualIdxs` instead?
-          modify (fun stt => { stt with mutDefIdx := stt.mutDefIdx.insert d.name i })
           mutualIdxs := mutualIdxs.insert d.name (i, firstIdx + i)
       let definitions ← withRecrs mutualIdxs $
         mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld
@@ -585,7 +583,7 @@ mutual
       let mut ret? : Option (ConstCid × ConstIdx) := none
 
       for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do
-        let some idx := (← get).mutDefIdx.find? defn.name | throw s!"Could not find mutual definition '{defn.name}' in index"
+        let some (idx, _) := mutualIdxs.find? defn.name | throw s!"Could not find mutual definition '{defn.name}' in index"
         let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
                      , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, ()⟩ ⟩
         let cid ← StoreValue.insert $ .const value
