@@ -14,6 +14,13 @@ inductive Univ (k : Kind) where
   | imax  : UnivCid k → UnivCid k → Univ k
   | var   : Name? k → Nat? k → Univ k
   deriving BEq, Inhabited
+
+def Univ.ctorName : Univ k → String
+  | .zero .. => "zero"
+  | .succ .. => "succ"
+  | .max .. => "max"
+  | .imax .. => "imax"
+  | .var .. => "var"
 end Ipld
 
 inductive Univ where
