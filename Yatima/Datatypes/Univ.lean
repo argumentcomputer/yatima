@@ -38,6 +38,7 @@ def reduceMax (a b : Univ) : Univ :=
   | Univ.zero, _ => b
   | _, Univ.zero => a
   | Univ.succ a, Univ.succ b => Univ.succ (reduceMax a b)
+  | Univ.var _ idx, Univ.var _ idx' => if idx == idx' then a else Univ.max a b
   | _, _ => Univ.max a b
 
 -- Reduces as an `imax` applied to two values.
@@ -48,6 +49,9 @@ def reduceIMax (a b : Univ) : Univ :=
   | Univ.zero => Univ.zero
   -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..)
   | Univ.succ _ => reduceMax a b
+  | Univ.var _ idx => match a with
+    | Univ.var _ idx' => if idx == idx' then a else Univ.imax a b
+    | _ => Univ.imax a b
   -- Otherwise, IMax(a, b) is stuck, with a and b reduced
   | _ => Univ.imax a b
 
