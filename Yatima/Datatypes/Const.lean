@@ -12,7 +12,7 @@ def Split.intr : A → Split A B RecType.Intr := Split.inj₁
 def Split.extr : B → Split A B RecType.Extr := Split.inj₂
 
 inductive DefinitionSafety where
-  | safe | «unsafe» | «partial» deriving BEq
+  | safe | «unsafe» | «partial» deriving BEq, Inhabited
 
 inductive QuotKind where
   | type | ctor | lift | ind deriving BEq
@@ -47,6 +47,7 @@ structure Definition (k : Kind) where
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
+  deriving Inhabited
 
 structure DefinitionProj (k : Kind) where
   name  : Name? k
@@ -138,6 +139,19 @@ inductive Const (k : Kind) where
   -- constants to represent mutual blocks
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
+
+def Const.ctorName : Ipld.Const k → String
+  | .axiom           _ => "axiom"
+  | .theorem         _ => "theorem"
+  | .opaque          _ => "opaque"
+  | .quotient        _ => "quotient"
+  | .definition      _ => "definition"
+  | .definitionProj  _ => "definition projection"
+  | .inductiveProj   _ => "inductive projection"
+  | .constructorProj _ => "constructor projection"
+  | .recursorProj    _ => "recursor projection"
+  | .mutDefBlock     _ => "mutual definition block"
+  | .mutIndBlock     _ => "mutual inductive block"
 end Ipld
 
 structure Axiom where

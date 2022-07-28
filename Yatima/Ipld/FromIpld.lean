@@ -96,6 +96,15 @@ def getInductive : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Ind
   | ⟨.mutIndBlock indsAnon, .mutIndBlock indsMeta⟩, idx => pure ⟨indsAnon.get! idx, indsMeta.get! idx⟩
   | _, _ => throw .ipldError
 
+def getDefinition : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Definition)
+  | ⟨.mutDefBlock defsAnon, .mutDefBlock defsMeta⟩, idx => do
+    let defsMeta' := (defsMeta.map (·.proj₂)).join
+    let defsAnon' := (defsMeta.enum.map (fun (i, defMeta) => List.replicate defMeta.proj₂.length $ (defsAnon.get! i).proj₁)).join
+    match defsAnon'.get? idx, defsMeta'.get? idx with
+      | some defAnon, some defMeta => pure ⟨defAnon, defMeta⟩
+      | _, _                       => throw .ipldError
+  | _, _ => throw .ipldError
+
 def Ipld.zipWith {A : Ipld.Kind → Type} (f : Ipld.Both A → ConvertM B): (as : Ipld.Both (List $ A ·)) → ConvertM (List B)
   | ⟨anon::anons, meta::metas⟩ => do
     let b  ← f ⟨anon, meta⟩
@@ -228,6 +237,15 @@ mutual
         let value ← exprFromIpld ⟨definitionAnon.value, definitionMeta.value⟩
         let safety := definitionAnon.safety
         pure $ .definition { name, lvls, type, value, safety }
+      | .definitionProj definitionAnon, .definitionProj definitionMeta =>
+        let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionAnon.idx
+        let name := defn.meta.name
+        let lvls := defn.meta.lvls
+        -- TODO correctly substitute free variables with mutual definitions
+        let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+        let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
+        let safety := defn.anon.safety
+        pure $ .definition { name, lvls, type, value, safety }
       | .constructorProj anon, .constructorProj meta =>
         let induct ← getInductive (← Key.find $ .const_store ⟨anon.block, meta.block⟩) anon.idx
         let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx;
@@ -269,7 +287,7 @@ mutual
         let type ← exprFromIpld ⟨quotientAnon.type, quotientMeta.type⟩
         let kind := quotientAnon.kind
         pure $ .quotient { name, lvls, type, kind }
-      | _, _ => throw .anonMetaMismatch
+      | a, b => dbg_trace s!"{a.ctorName}, {b.ctorName}"; throw .anonMetaMismatch
       Key.store (.const_cache cid) constIdx
       modify (fun stt => { stt with defns := stt.defns.set! constIdx const })
       pure constIdx
@@ -299,7 +317,13 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run store default do
     let cidMap := (← read).const_cids
     let collect := fun cid => do
-      discard $ constFromIpld cid
+      let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
+      let is_block := match anon, meta with
+      | .mutIndBlock _, .mutIndBlock _ => true
+      | .mutDefBlock _, .mutDefBlock _ => true
+      | _, _                           => false
+      if !is_block then
+        discard $ constFromIpld cid
     cidMap.forM collect
 
 def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
