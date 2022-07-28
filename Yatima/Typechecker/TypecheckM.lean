@@ -41,6 +41,7 @@ inductive CheckError where
   | unknownConst : CheckError
   -- No way to extract a name
   | noName : CheckError
+  | evalError : CheckError
   | impossible : CheckError
   deriving Inhabited
 

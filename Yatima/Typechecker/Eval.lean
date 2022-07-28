@@ -111,13 +111,16 @@ mutual
       | _ => throw .cannotEvalQuotient
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
-  partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
-    Thunk.mk (fun _ => TypecheckM.run! ctx "Panic in eval. Implementation broken" (eval expr))
+  partial def suspend (expr : Expr) (ctx : Context) : TypecheckM (Thunk Value) := do
+    let value ← match TypecheckM.run ctx (eval expr) with
+      | .ok a => pure a
+      | _ => throw .evalError
+    pure $ Thunk.mk (fun _ => value)
 
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
       let ctx ← read
-      let arg_thunk := suspend arg ctx
+      let arg_thunk ← suspend arg ctx
       match (← eval fnc) with
       | .lam _ _ bod lam_env => withExtEnv lam_env arg_thunk (eval bod)
       | .app var@(.fvar ..) args => pure $ Value.app var (arg_thunk :: args)
@@ -135,11 +138,11 @@ mutual
       let env := (← read).env
       evalConst name k (const_univs.map (instBulkReduce env.univs))
     | .letE _ _ val bod => do
-      let thunk := suspend val (← read)
+      let thunk ← suspend val (← read)
       extEnv thunk (eval bod)
     | .pi name info dom img => do
       let ctx ← read
-      let dom' := suspend dom ctx
+      let dom' ← suspend dom ctx
       pure $ Value.pi name info dom' img ctx.env
     | .sort univ => do
       let env := (← read).env
