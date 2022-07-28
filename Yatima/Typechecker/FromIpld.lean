@@ -12,6 +12,8 @@ inductive ConvertError where
   | anonMetaMismatch : ConvertError
   | ipldError : ConvertError
   | cannotStoreValue : ConvertError
+  | mutDefBlockFound : ConvertError
+  | mutIndBlockFound : ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
@@ -20,6 +22,8 @@ instance : ToString ConvertError where toString
   | .anonMetaMismatch => "Anon/meta are of different kind"
   | .ipldError => "IPLD broken"
   | .cannotStoreValue => "Cannot store value"
+  | .mutDefBlockFound => "Found a mutual definition block inside an expression"
+  | .mutIndBlockFound => "Found a mutual inductive block inside an expression"
 
 structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare
@@ -267,6 +271,8 @@ mutual
         let type ← exprFromIpld ⟨quotientAnon.type, quotientMeta.type⟩
         let kind := quotientAnon.kind
         pure $ .quotient { name, lvls, type, kind }
+      | .mutDefBlock .., .mutDefBlock .. => throw .mutDefBlockFound
+      | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
       | _, _ => throw .anonMetaMismatch
       Key.store (.const_cache cid) constIdx
       modify (fun stt => { stt with defns := stt.defns.set! constIdx const })
@@ -296,8 +302,12 @@ end
 def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run store default do
     let cidMap := (← read).const_cids
+    let catchMut err := match err with
+      | .mutDefBlockFound => pure ()
+      | .mutIndBlockFound => pure ()
+      | _ => throw err
     let collect := fun cid => do
-      discard $ constFromIpld cid
+      tryCatch (discard $ constFromIpld cid) catchMut
     cidMap.forM collect
 
 def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
