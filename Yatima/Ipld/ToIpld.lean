@@ -205,7 +205,6 @@ def exprToIpld : (Ipld.Expr k) → Ipld
   | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
   | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
   | .lty l        => .array #[.number $ Ipld.EXPR k, .number 8, l]
-  | .fix n b      => .array #[.number $ Ipld.EXPR k, .number 9, n, b]
   | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
 
 def constToIpld : (Ipld.Const k) → Ipld

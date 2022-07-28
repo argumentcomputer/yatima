@@ -33,9 +33,20 @@ inductive Expr (k : Kind)
   | letE  : Name? k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | lty   : Split LitType Unit k → Expr k
-  | fix   : Name? k → ExprCid k → Expr k
   | proj  : Nat? k → ExprCid k → Expr k
   deriving BEq, Inhabited
+
+def Expr.ctorName : Expr k → String
+  | .var .. => "var"
+  | .sort .. => "sort"
+  | .const .. => "const"
+  | .app .. => "app"
+  | .lam .. => "lam"
+  | .pi .. => "pi"
+  | .letE .. => "let"
+  | .lit .. => "lit"
+  | .lty .. => "lty"
+  | .proj .. => "proj"
 end Ipld
 
 abbrev ConstIdx := Nat

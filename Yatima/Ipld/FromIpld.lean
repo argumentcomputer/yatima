@@ -11,17 +11,21 @@ open Std (RBMap)
 inductive ConvertError where
   | cannotFindAnon : ConvertError
   | cannotFindMeta : ConvertError
-  | anonMetaMismatch : ConvertError
   | ipldError : ConvertError
   | cannotStoreValue : ConvertError
+  | mutDefBlockFound : ConvertError
+  | mutIndBlockFound : ConvertError
+  | anonMetaMismatch : String -> String -> ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
   | .cannotFindAnon => "Cannot find anon"
   | .cannotFindMeta => "Cannot find meta"
-  | .anonMetaMismatch => "Anon/meta are of different kind"
+  | .anonMetaMismatch anon meta => s!"Anon/Meta mismatch: Anon is of kind {anon} but Meta is of kind {meta}"
   | .ipldError => "IPLD broken"
   | .cannotStoreValue => "Cannot store value"
+  | .mutDefBlockFound => "Found a mutual definition block inside an expression"
+  | .mutIndBlockFound => "Found a mutual inductive block inside an expression"
 
 structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare
@@ -132,7 +136,7 @@ partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
         pure $ .imax (← univFromIpld ⟨univAnon₁, univMeta₁⟩)
           (← univFromIpld ⟨univAnon₂, univMeta₂⟩)
       | .var () idx, .var nam () => pure $ .var nam idx
-      | _, _ => throw .anonMetaMismatch
+      | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
     Key.store (.univ_cache cid) univ
     pure univ
   | some univ => pure univ
@@ -186,7 +190,7 @@ mutual
         | .proj idx bodAnon, .proj () bodMeta =>
           let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
           pure $ .proj idx bod
-        | _, _ => throw .anonMetaMismatch
+        | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
       Key.store (.expr_cache cid) expr
       pure expr
 
@@ -287,7 +291,9 @@ mutual
         let type ← exprFromIpld ⟨quotientAnon.type, quotientMeta.type⟩
         let kind := quotientAnon.kind
         pure $ .quotient { name, lvls, type, kind }
-      | a, b => dbg_trace s!"{a.ctorName}, {b.ctorName}"; throw .anonMetaMismatch
+      | .mutDefBlock .., .mutDefBlock .. => throw .mutDefBlockFound
+      | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
+      | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
       Key.store (.const_cache cid) constIdx
       modify (fun stt => { stt with defns := stt.defns.set! constIdx const })
       pure constIdx
@@ -315,16 +321,10 @@ end
 
 def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run store default do
-    let cidMap := (← read).const_cids
+    let defns := (← read).defns
     let collect := fun cid => do
-      let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
-      let is_block := match anon, meta with
-      | .mutIndBlock _, .mutIndBlock _ => true
-      | .mutDefBlock _, .mutDefBlock _ => true
-      | _, _                           => false
-      if !is_block then
-        discard $ constFromIpld cid
-    cidMap.forM collect
+      discard $ constFromIpld cid
+    defns.forM collect
 
 def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   match convertStore store with

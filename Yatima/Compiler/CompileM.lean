@@ -114,20 +114,26 @@ def StoreValue.insert : StoreValue A → CompileM A
     let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
-                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta,
-                           univ_cids := stt.store.univ_cids.insert cid } }))
+                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta, } }))
   | .expr  obj  =>
     let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
-                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta,
-                           expr_cids := stt.store.expr_cids.insert cid } }))
+                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta, } }))
   | .const obj =>
     let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
-    modifyGet (fun stt => (cid, { stt with store :=
-          { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                           const_meta := stt.store.const_meta.insert cid.meta obj.meta,
-                           const_cids := stt.store.const_cids.insert cid } }))
+    match obj.anon, obj.meta with
+    -- Mutual definition/inductive blocks do not get added to the set of definitions
+    | .mutDefBlock .., .mutDefBlock ..
+    | .mutIndBlock .., .mutIndBlock .. =>
+      modifyGet (fun stt => (cid, { stt with store :=
+            { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                             const_meta := stt.store.const_meta.insert cid.meta obj.meta } }))
+    | _, _ =>
+      modifyGet (fun stt => (cid, { stt with store :=
+            { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                             const_meta := stt.store.const_meta.insert cid.meta obj.meta,
+                             defns      := stt.store.defns.insert cid } }))
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   modify fun stt => { stt with cache := stt.cache.insert name c }
