@@ -1,5 +1,5 @@
-import Yatima.ForLurkRepo.AST
-import Yatima.Compiler.Utils
+import Yatima.ForLurkRepo.DSL
+import Yatima.Compiler.Compiler
 import Yatima.Ipld.FromIpld
 
 namespace Yatima.Transpiler

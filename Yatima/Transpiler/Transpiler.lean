@@ -1,7 +1,6 @@
 import Yatima.Datatypes.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
-import Yatima.ForLurkRepo.DSL
 
 namespace Yatima.Transpiler
 
@@ -49,17 +48,9 @@ mutual
     match lExpr with 
       | none => throw s!"unexpected failure, `exprToLurkExpr` failed"
       | some _ => 
-<<<<<<< HEAD
-        let args := Lurk.SExpr.list $ 
-          [.str (fixName ctor.name), .num idx] ++ binds.map fun n => .atom n.toString
-        let ctorExpr : Lurk.Expr := .lam (binds.map fixName) $ .quote args
-        appendBinding (fixName ctor.name, ctorExpr)
-        return ctorExpr
-=======
         let name := fixName ctor.name
         let binds := binds.map fixName
-        appendBinding (name, ⟦(lambda ($binds) ,($name . $idx . $binds))⟧)
->>>>>>> main
+        return ⟦(lambda ($binds) ,($name . $idx . $binds))⟧
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 

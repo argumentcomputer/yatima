@@ -81,7 +81,7 @@ instance : HMul Ordering Ordering Ordering where
   | .lt, _ => .lt
   | .eq, x => x
 
-def concatOrds : List Ordering -> Ordering :=
+def concatOrds : List Ordering → Ordering :=
   List.foldl (fun x y => x * y) .eq
 
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
