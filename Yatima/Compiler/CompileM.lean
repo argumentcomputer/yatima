@@ -2,6 +2,39 @@ import Yatima.ToIpld
 import Yatima.Datatypes.Store
 import Yatima.Compiler.Utils
 
+def Yatima.Ipld.Const.ctorType : Const k → String
+  | «axiom»         .. => "axiom"
+  | «theorem»       .. => "theorem"
+  | «opaque»        .. => "opaque"
+  | quotient        .. => "quotient"
+  | definition      .. => "definition"
+  | inductiveProj   .. => "inductiveProj"
+  | constructorProj .. => "constructorProj"
+  | recursorProj    .. => "recursorProj"
+  | definitionProj  .. => "definitionProj"
+  | mutDefBlock     .. => "mutDefBlock"
+  | mutIndBlock     .. => "mutIndBlock"
+
+def Yatima.Ipld.Univ.ctorType : Univ k → String
+  | succ .. => "succ"
+  | zero .. => "zero"
+  | imax .. => "imax"
+  | max  .. => "max"
+  | var  .. => "var"
+
+def Yatima.Ipld.Expr.ctorType : Expr k → String
+  | var   .. => "var"
+  | sort  .. => "sort"
+  | const .. => "const"
+  | app   .. => "app"
+  | lam   .. => "lam"
+  | pi    .. => "pi"
+  | letE  .. => "let"
+  | lit   .. => "lit"
+  | lty   .. => "lty"
+  | proj  .. => "proj"
+  | fix   .. => "fix"
+
 namespace Yatima.Compiler
 
 open Std (RBMap)
@@ -110,19 +143,22 @@ inductive StoreValue : Type → Type
   | const  : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
 
 def StoreValue.insert : StoreValue A → CompileM A
-  | .univ  obj  =>
+  | .univ  obj  => do
+    if obj.anon.ctorType != obj.meta.ctorType then dbg_trace s!"Expected equal universes, got {obj.anon.ctorType} and {obj.meta.ctorType}"
     let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
                            univ_meta := stt.store.univ_meta.insert cid.meta obj.meta,
                            univ_cids := stt.store.univ_cids.insert cid } }))
-  | .expr  obj  =>
+  | .expr  obj  => do
+    if obj.anon.ctorType != obj.meta.ctorType then dbg_trace s!"Expected equal expressions, got {obj.anon.ctorType} and {obj.meta.ctorType}"
     let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
                            expr_meta := stt.store.expr_meta.insert cid.meta obj.meta,
                            expr_cids := stt.store.expr_cids.insert cid } }))
-  | .const obj =>
+  | .const obj => do
+    if obj.anon.ctorType != obj.meta.ctorType then dbg_trace s!"Expected equal constants, got {obj.anon.ctorType} and {obj.meta.ctorType}"
     let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
