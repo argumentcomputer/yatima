@@ -377,7 +377,7 @@ mutual
       struct  := struct
     }
     let some (_, defnIdx) := (← read).recrCtx.find? ind.name | throw $ .unknownConstant ind.name
-    modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcInd })
+    addToDefns defnIdx tcInd
     return {
       anon := ⟨ ()
         , ind.levelParams.length
@@ -436,7 +436,7 @@ mutual
           minors  := rec.numMinors
           k       := rec.k }
         let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
-        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
+        addToDefns defnIdx tcRecr
         let recr := ⟨
           { name    := ()
             lvls    := rec.levelParams.length
@@ -475,7 +475,7 @@ mutual
           safe    := not ctor.isUnsafe
         }
         let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
-        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcCtor })
+        addToDefns defnIdx tcCtor
         return ⟨
           { rhs    := rhsCid.anon
             lvls   := ctor.levelParams.length
@@ -516,7 +516,7 @@ mutual
           k       := rec.k
         }
         let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
-        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
+        addToDefns defnIdx tcRecr
         return ⟨
           { name    := ()
             lvls    := rec.levelParams.length
