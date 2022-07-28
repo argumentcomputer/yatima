@@ -1,5 +1,6 @@
-import Yatima.ToIpld
 import Yatima.Datatypes.Store
+import Yatima.Compiler.CompileError
+import Yatima.Ipld.ToIpld
 import Yatima.Compiler.Utils
 
 def Yatima.Ipld.Const.ctorType : Const k → String
@@ -33,7 +34,6 @@ def Yatima.Ipld.Expr.ctorType : Expr k → String
   | lit   .. => "lit"
   | lty   .. => "lty"
   | proj  .. => "proj"
-  | fix   .. => "fix"
 
 namespace Yatima.Compiler
 
@@ -88,10 +88,11 @@ structure CompileEnv where
 def CompileEnv.init (map : Lean.ConstMap) (log : Bool) : CompileEnv :=
   ⟨map, [], [], .empty, log⟩
 
-abbrev CompileM := ReaderT CompileEnv $ ExceptT String $ StateT CompileState IO
+abbrev CompileM := ReaderT CompileEnv $
+  ExceptT CompileError $ StateT CompileState IO
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    IO $ Except String CompileState := do
+    IO $ Except CompileError CompileState := do
   match ← StateT.run (ReaderT.run m env) ste with
   | (.ok _,  ste) => return .ok ste
   | (.error e, _) => return .error e
@@ -116,26 +117,27 @@ inductive StoreKey : Type → Type
   | expr   : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
   | const  : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
 
-def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
-  | .univ  univCid => do
-    let store := (← get).store
-    match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
-    | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
-    | _, _ => pure none
-  | .expr  exprCid => do
-    let store := (← get).store
-    match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
-    | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
-    | _, _ => pure none
-  | .const constCid => do
-    let store := (← get).store
-    match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
-    | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
-    | _, _ => pure none
+-- TODO: do we need these?
+-- def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
+--   | .univ  univCid => do
+--     let store := (← get).store
+--     match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
+--     | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
+--     | _, _ => pure none
+--   | .expr  exprCid => do
+--     let store := (← get).store
+--     match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
+--     | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
+--     | _, _ => pure none
+--   | .const constCid => do
+--     let store := (← get).store
+--     match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
+--     | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
+--     | _, _ => pure none
 
-def StoreKey.find! (key : StoreKey A) : CompileM A := do
-  let some value ← StoreKey.find? key | throw "Cannot find key in store"
-  pure value
+-- def StoreKey.find! (key : StoreKey A) : CompileM A := do
+--   let some value ← StoreKey.find? key | throw "Cannot find key in store"
+--   return value
 
 inductive StoreValue : Type → Type
   | univ   : Ipld.Both Ipld.Univ  → StoreValue (Ipld.Both Ipld.UnivCid)
@@ -143,30 +145,39 @@ inductive StoreValue : Type → Type
   | const  : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
 
 def StoreValue.insert : StoreValue A → CompileM A
-  | .univ  obj  => do
-    if obj.anon.ctorType != obj.meta.ctorType then dbg_trace s!"Expected equal universes, got {obj.anon.ctorType} and {obj.meta.ctorType}"
+  | .univ  obj  =>
     let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
-                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta,
-                           univ_cids := stt.store.univ_cids.insert cid } }))
-  | .expr  obj  => do
-    if obj.anon.ctorType != obj.meta.ctorType then dbg_trace s!"Expected equal expressions, got {obj.anon.ctorType} and {obj.meta.ctorType}"
+                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta, } }))
+  | .expr  obj  =>
     let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
-                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta,
-                           expr_cids := stt.store.expr_cids.insert cid } }))
-  | .const obj => do
-    if obj.anon.ctorType != obj.meta.ctorType then dbg_trace s!"Expected equal constants, got {obj.anon.ctorType} and {obj.meta.ctorType}"
+                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta, } }))
+  | .const obj =>
     let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
-    modifyGet (fun stt => (cid, { stt with store :=
-          { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                           const_meta := stt.store.const_meta.insert cid.meta obj.meta,
-                           const_cids := stt.store.const_cids.insert cid } }))
+    match obj.anon, obj.meta with
+    -- Mutual definition/inductive blocks do not get added to the set of definitions
+    | .mutDefBlock .., .mutDefBlock ..
+    | .mutIndBlock .., .mutIndBlock .. =>
+      modifyGet (fun stt => (cid, { stt with store :=
+            { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                             const_meta := stt.store.const_meta.insert cid.meta obj.meta } }))
+    | _, _ =>
+      modifyGet (fun stt => (cid, { stt with store :=
+            { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                             const_meta := stt.store.const_meta.insert cid.meta obj.meta,
+                             defns      := stt.store.defns.insert cid } }))
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
-  let stt ← get
-  set { stt with cache := stt.cache.insert name c }
+  modify fun stt => { stt with cache := stt.cache.insert name c }
+
+def addToDefns (idx : Nat) (c : Const): CompileM Unit := do
+  let defns := (← get).defns
+  if h : (idx < defns.size) then
+    modify (fun stt => { stt with defns := defns.set ⟨idx, h⟩ c })
+  else
+    throw $ .invalidDereferringIndex idx defns.size
 
 end Yatima.Compiler

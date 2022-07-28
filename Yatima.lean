@@ -7,6 +7,7 @@ import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.Utils
 import Yatima.Cli.VerifyCmd
 import Yatima.Cli.Version
+import Yatima.Compiler.CompileError
 import Yatima.Compiler.CompileM
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
@@ -22,14 +23,14 @@ import Yatima.ForLurkRepo.AST
 import Yatima.ForLurkRepo.DSL
 import Yatima.ForLurkRepo.Printing
 import Yatima.ForLurkRepo.Utils
-import Yatima.ToIpld
+import Yatima.Ipld.FromIpld
+import Yatima.Ipld.ToIpld
 import Yatima.Transpiler.Test
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Transpiler
 import Yatima.Transpiler.Utils
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
-import Yatima.Typechecker.FromIpld
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.Printing
 import Yatima.Typechecker.TypecheckM

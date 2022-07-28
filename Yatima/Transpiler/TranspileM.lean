@@ -1,5 +1,6 @@
 import Yatima.ForLurkRepo.AST
-import Yatima.Compiler.Compiler
+import Yatima.Compiler.Utils
+import Yatima.Ipld.FromIpld
 
 namespace Yatima.Transpiler
 
@@ -16,6 +17,7 @@ def State.getStringBindings (s : State) : List (String × Lurk.Expr) :=
     fun (name, lexpr) => (name.toString, lexpr)
 
 open Yatima.Compiler
+open Yatima.FromIpld
 
 abbrev TranspileM := ReaderT CompileState $ EStateM String State
 

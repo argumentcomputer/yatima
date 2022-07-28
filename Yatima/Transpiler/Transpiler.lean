@@ -1,12 +1,13 @@
 import Yatima.Datatypes.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
-import Yatima.ForLurkRepo.Utils
+import Yatima.ForLurkRepo.DSL
 
 namespace Yatima.Transpiler
 
 def lurkExprMatch (lexprs : List Lurk.Expr) (max : Fin lexprs.length) : Lurk.Expr := sorry
 
+open Yatima.FromIpld
 mutual
 
   partial def telescopeApp (expr : Expr) : TranspileM $ Option Lurk.Expr := 
@@ -48,11 +49,17 @@ mutual
     match lExpr with 
       | none => throw s!"unexpected failure, `exprToLurkExpr` failed"
       | some _ => 
+<<<<<<< HEAD
         let args := Lurk.SExpr.list $ 
           [.str (fixName ctor.name), .num idx] ++ binds.map fun n => .atom n.toString
         let ctorExpr : Lurk.Expr := .lam (binds.map fixName) $ .quote args
         appendBinding (fixName ctor.name, ctorExpr)
         return ctorExpr
+=======
+        let name := fixName ctor.name
+        let binds := binds.map fixName
+        appendBinding (name, ⟦(lambda ($binds) ,($name . $idx . $binds))⟧)
+>>>>>>> main
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -72,7 +79,7 @@ mutual
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    | .var name _     => return some $ .lit (.sym $ fixName name)
+    | .var name _     => return some ⟦$(fixName name)⟧
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
@@ -85,12 +92,12 @@ mutual
         match ← constToLurkExpr const with 
           | some expr => prependBinding (fixName name, expr)
           | none      => pure ()
-      return some $ .lit (.sym $ fixName name)
+      return some ⟦$(fixName name)⟧
     | e@(.app ..) => telescopeApp e
     | e@(.lam ..) => telescopeLam e
     -- TODO: Do we erase?
     -- MP: I think we erase
-    | .pi    .. => return some $ .lit .nil
+    | .pi    .. => return some ⟦nil⟧
     -- TODO
     | .letE name _ value body  => do
       match (← exprToLurkExpr value), (← exprToLurkExpr body) with
@@ -98,11 +105,11 @@ mutual
         | _, _ => throw "TODO"
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
-      | .nat n => return some $ .lit (.num n)
-      | .str s => return some $ .lit (.str s)
+      | .nat n => return some ⟦$n⟧
+      | .str s => return some ⟦$s⟧
     -- TODO
     -- MP: .proj should also go to .nil right? I am probably wrong though.
-    | .proj  .. => return some $ .lit .nil
+    | .proj  .. => return some ⟦nil⟧
 
   -- /--
   --  FIX: This is wrong, it just returns the literal name for unit type constructors, but it does 

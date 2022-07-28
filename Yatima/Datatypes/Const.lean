@@ -12,7 +12,7 @@ def Split.intr : A → Split A B RecType.Intr := Split.inj₁
 def Split.extr : B → Split A B RecType.Extr := Split.inj₂
 
 inductive DefinitionSafety where
-  | safe | «unsafe» | «partial» deriving BEq, Repr
+  | safe | «unsafe» | «partial» deriving BEq, Inhabited, Repr
 
 inductive QuotKind where
   | type | ctor | lift | ind deriving BEq
@@ -50,7 +50,7 @@ structure Definition (k : Kind) where
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
-deriving Repr
+  deriving Inhabited
 
 structure DefinitionProj (k : Kind) where
   name  : Name? k
@@ -77,7 +77,7 @@ structure RecursorRule (k : Kind) where
   rhs    : ExprCid k
 deriving Repr
 
-structure Recursor (k : Kind) (b : RecType) where
+structure Recursor (b : RecType) (k : Kind) where
   name    : Name? k
   lvls    : ListName? k
   type    : ExprCid k
@@ -96,7 +96,7 @@ structure Inductive (k : Kind) where
   params   : Nat? k
   indices  : Nat? k
   ctors    : List (Constructor k)
-  recrs    : List (Sigma (Recursor k))
+  recrs    : List (Sigma (Recursor · k))
   recr     : Bool? k
   safe     : Bool? k
   refl     : Bool? k
@@ -155,8 +155,20 @@ inductive Const (k : Kind) where
   -- constants to represent mutual blocks
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
-deriving Repr
 
+def Const.ctorName : Ipld.Const k → String
+  | .axiom           _ => "axiom"
+  | .theorem         _ => "theorem"
+  | .opaque          _ => "opaque"
+  | .quotient        _ => "quotient"
+  | .definition      _ => "definition"
+  | .definitionProj  _ => "definition projection"
+  | .inductiveProj   _ => "inductive projection"
+  | .constructorProj _ => "constructor projection"
+  | .recursorProj    _ => "recursor projection"
+  | .mutDefBlock     _ => "mutual definition block"
+  | .mutIndBlock     _ => "mutual inductive block"
+    
 end Ipld
 
 structure Axiom where
@@ -164,13 +176,14 @@ structure Axiom where
   lvls : List Name
   type : Expr
   safe : Bool
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 structure Theorem where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
+  deriving BEq
 
 structure Opaque where
   name  : Name
@@ -178,6 +191,7 @@ structure Opaque where
   type  : Expr
   value : Expr
   safe  : Bool
+  deriving BEq
 
 structure Definition where
   name   : Name
@@ -185,6 +199,7 @@ structure Definition where
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
+  deriving BEq
 
 structure Constructor where
   name   : Name
@@ -195,6 +210,7 @@ structure Constructor where
   fields : Nat
   rhs    : Expr
   safe   : Bool
+  deriving BEq
 
 structure Inductive where
   name    : Name
@@ -207,11 +223,13 @@ structure Inductive where
   refl    : Bool
   unit    : Bool
   struct  : Option Constructor
+  deriving BEq
 
 structure RecursorRule where
   ctor   : Constructor
   fields : Nat
   rhs    : Expr
+  deriving BEq
 
 structure ExtRecursor where
   name    : Name
@@ -223,6 +241,7 @@ structure ExtRecursor where
   minors  : Nat
   rules   : List RecursorRule
   k       : Bool
+  deriving BEq
 
 structure IntRecursor where
   name    : Name
@@ -233,12 +252,14 @@ structure IntRecursor where
   motives : Nat
   minors  : Nat
   k       : Bool
+  deriving BEq
 
 structure Quotient where
   name : Name
   lvls : List Name
   type : Expr
   kind : QuotKind
+  deriving BEq
 
 inductive Const
   | «axiom»     : Axiom → Const
@@ -250,98 +271,7 @@ inductive Const
   | extRecursor : ExtRecursor → Const
   | intRecursor : IntRecursor → Const
   | quotient    : Quotient → Const
-  deriving Inhabited
-
-def Opaque.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
-match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
-
-def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
-match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
-
-def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
-match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
-
-def Theorem.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
-match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
-
-def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
-match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
-
-def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
-match k with
-  | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
-  | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
-
-def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
-match k with
-  | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
-  | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
-
-def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor k .Extr :=
-match k with 
-  | .Anon =>
-    ⟨ ()
-    , r.lvls.length
-    , typeCid.anon
-    , r.params
-    , r.indices
-    , r.motives
-    , r.minors
-    , rulesCids
-    --, .inj₂ $ r.rules.enum.map $ fun (i, rule) => rule.toIpld rulesCids[i]!.1 rulesCids[i]!.2
-    , r.k ⟩
-  | .Meta =>
-    ⟨ r.name
-    , r.lvls
-    , typeCid.meta
-    , (), (), (), ()
-    , rulesCids
-    , ()⟩
-
-def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor k .Intr :=
-match k with 
-  | .Anon =>
-    ⟨ ()
-    , r.lvls.length
-    , typeCid.anon
-    , r.params
-    , r.indices
-    , r.motives
-    , r.minors
-    , .inj₁ ()
-    , r.k ⟩
-  | .Meta =>
-    ⟨ r.name
-    , r.lvls
-    , typeCid.meta
-    , (), (), (), ()
-    , .inj₁ ()
-    , ()⟩
-
-def Inductive.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
-match k with
-  | .Anon =>
-    ⟨ ()
-    , i.lvls.length
-    , typeCid.anon
-    , blockCid.anon
-    , idx ⟩
-  | .Meta =>
-    ⟨ i.name
-    , i.lvls
-    , typeCid.meta
-    , blockCid.meta
-    , () ⟩
+  deriving Inhabited, BEq
 
 def Const.type (k : Const) : Expr :=
   match k with
