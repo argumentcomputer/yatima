@@ -238,7 +238,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     let e := (← e.mapM elabLurkExpr).toList
     match e with 
     | []   => 
-      let s ← mkAppM ``Lurk.Literal.str #[mkStrLit "()"]
+      let s ← mkAppM ``Lurk.Literal.sym #[mkStrLit "()"]
       mkAppM ``Lurk.Expr.lit #[s]
     | e::es => 
       let type := Lean.mkConst ``Lurk.Expr
