@@ -7,7 +7,7 @@ open Yatima
 def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
     IO $ Except String (List (List (Lean.Name × Ipld.ConstCid .Anon))) := do
   match ← Compiler.compile fileName with
-  | .error msg => return .error msg
+  | .error msg => return .error (toString msg)
   | .ok store =>
     let mut notFound : List Lean.Name := []
     let mut cidGroups : List (List (Lean.Name × Ipld.ConstCid .Anon)) := []

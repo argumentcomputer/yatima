@@ -33,7 +33,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
               stt := stt'
               cronos ← cronos.clock filePathStr
             | .error msg => errMsg := some msg; break
-          | .error msg => errMsg := some msg; break
+          | .error msg => errMsg := some (toString msg); break
         if errMsg.isSome then break
       match errMsg with
       | some msg =>

@@ -1,4 +1,5 @@
 import Yatima.Datatypes.Store
+import Yatima.Compiler.CompileError
 import Yatima.Ipld.ToIpld
 import Yatima.Compiler.Utils
 
@@ -55,10 +56,11 @@ structure CompileEnv where
 def CompileEnv.init (map : Lean.ConstMap) (log : Bool) : CompileEnv :=
   ⟨map, [], [], .empty, log⟩
 
-abbrev CompileM := ReaderT CompileEnv $ ExceptT String $ StateT CompileState IO
+abbrev CompileM := ReaderT CompileEnv $
+  ExceptT CompileError $ StateT CompileState IO
 
 def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    IO $ Except String CompileState := do
+    IO $ Except CompileError CompileState := do
   match ← StateT.run (ReaderT.run m env) ste with
   | (.ok _,  ste) => return .ok ste
   | (.error e, _) => return .error e
@@ -83,26 +85,27 @@ inductive StoreKey : Type → Type
   | expr   : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
   | const  : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
 
-def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
-  | .univ  univCid => do
-    let store := (← get).store
-    match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
-    | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
-    | _, _ => pure none
-  | .expr  exprCid => do
-    let store := (← get).store
-    match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
-    | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
-    | _, _ => pure none
-  | .const constCid => do
-    let store := (← get).store
-    match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
-    | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
-    | _, _ => pure none
+-- TODO: do we need these?
+-- def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
+--   | .univ  univCid => do
+--     let store := (← get).store
+--     match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
+--     | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
+--     | _, _ => pure none
+--   | .expr  exprCid => do
+--     let store := (← get).store
+--     match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
+--     | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
+--     | _, _ => pure none
+--   | .const constCid => do
+--     let store := (← get).store
+--     match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
+--     | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
+--     | _, _ => pure none
 
-def StoreKey.find! (key : StoreKey A) : CompileM A := do
-  let some value ← StoreKey.find? key | throw "Cannot find key in store"
-  pure value
+-- def StoreKey.find! (key : StoreKey A) : CompileM A := do
+--   let some value ← StoreKey.find? key | throw "Cannot find key in store"
+--   return value
 
 inductive StoreValue : Type → Type
   | univ   : Ipld.Both Ipld.Univ  → StoreValue (Ipld.Both Ipld.UnivCid)
@@ -143,6 +146,6 @@ def addToDefns (idx : Nat) (c : Const): CompileM Unit := do
   if h : (idx < defns.size) then
     modify (fun stt => { stt with defns := defns.set ⟨idx, h⟩ c })
   else
-    throw s!"CompileState.defns index {idx} out of range for array of size '{defns.size}'"
+    throw $ .invalidDereferringIndex idx defns.size
 
 end Yatima.Compiler
