@@ -1,5 +1,5 @@
 import Std.Data.RBTree
-import Yatima.Name
+import Yatima.Datatypes.Name
 
 namespace Yatima.Transpiler
 

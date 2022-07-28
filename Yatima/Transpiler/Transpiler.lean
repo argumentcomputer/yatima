@@ -1,12 +1,12 @@
-import Yatima.Store
+import Yatima.Datatypes.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
-import Yatima.ForLurkRepo.DSL
-import Yatima.Typechecker.FromIpld
+import Yatima.ForLurkRepo.Utils
+import Yatima.Ipld.FromIpld
 
 namespace Yatima.Transpiler
 
-open Yatima.Typechecker
+open Yatima.FromIpld
 
 mutual
 
@@ -72,7 +72,7 @@ mutual
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    | .var name _     => return some ⟦$name⟧
+    | .var name _     => return some $ .lit (.sym $ fixName name)
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
@@ -85,7 +85,7 @@ mutual
         match ← constToLurkExpr const with 
           | some expr => prependBinding (fixName name, expr)
           | none      => pure ()
-      return some ⟦$name⟧
+      return some $ .lit (.sym $ fixName name)
     | e@(.app ..) => telescopeApp e
     | e@(.lam ..) => telescopeLam e
     -- TODO: Do we erase?

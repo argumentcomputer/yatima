@@ -1,5 +1,5 @@
 import Yatima.Compiler.Printing
-import Yatima.ToIpld
+import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
 
 import Lean
@@ -162,7 +162,7 @@ mutual
           type := type
           safe := not struct.isUnsafe }
         let value := ⟨ .axiom $ ax.toIpld typeCid, .axiom $ ax.toIpld typeCid ⟩
-        pure (value, Const.axiom ax)
+        pure (value, .axiom ax)
       | .thmInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
         -- Theorems are never truly recursive, though they can use recursive schemes
@@ -197,7 +197,7 @@ mutual
         pure (value, .quotient quot)
       | _ => unreachable!
     let cid ← StoreValue.insert $ .const values.fst
-    modify (fun stt => { stt with defns := stt.defns.set! constIdx values.snd })
+    addToDefns constIdx values.snd
     addToCache const.name (cid, constIdx)
     pure (cid, constIdx)
 
@@ -340,7 +340,7 @@ mutual
     -- reverses once
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let (recs, ctors) : ((List $ Ipld.Both (Sigma $ Ipld.Recursor ·)) × (List $ Ipld.Both Ipld.Constructor)) :=
+    let (recs, ctors) : ((List $ Ipld.Both (Sigma fun x => Ipld.Recursor x ·)) × (List $ Ipld.Both Ipld.Constructor)) :=
       ← leanRecs.foldrM (init := ([], [])) fun r (recs, ctors) =>
         match r with
         | .recInfo rv => do
@@ -378,7 +378,7 @@ mutual
       struct  := struct
     }
     let some (_, defnIdx) := (← read).recrCtx.find? ind.name | throw s!"Unknown constant '{ind.name}'"
-    modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcInd })
+    addToDefns defnIdx tcInd
     return {
       anon := ⟨ ()
         , ind.levelParams.length
@@ -411,7 +411,7 @@ mutual
 
   partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
       Lean.ConstantInfo → CompileM
-        (Ipld.Both (Ipld.Recursor · .Intr) × (List $ Ipld.Both Ipld.Constructor))
+        (Ipld.Both (Ipld.Recursor .Intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -437,7 +437,7 @@ mutual
           minors  := rec.numMinors
           k       := rec.k }
         let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
-        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
+        addToDefns defnIdx tcRecr
         let recr := ⟨
           { name    := ()
             lvls    := rec.levelParams.length
@@ -476,7 +476,7 @@ mutual
           safe    := not ctor.isUnsafe
         }
         let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw s!"Unknown constant '{ctor.name}'"
-        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcCtor })
+        addToDefns defnIdx tcCtor
         return ⟨
           { rhs    := rhsCid.anon
             lvls   := ctor.levelParams.length
@@ -497,7 +497,7 @@ mutual
       | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
 
   partial def toYatimaIpldExternalRec :
-      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor · .Extr))
+      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .Extr))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -517,7 +517,7 @@ mutual
           k       := rec.k
         }
         let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
-        modify (fun stt => { stt with defns := stt.defns.set! defnIdx tcRecr })
+        addToDefns defnIdx tcRecr
         return ⟨
           { name    := ()
             lvls    := rec.levelParams.length
@@ -558,8 +558,8 @@ mutual
       let constIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.push default }))
       let (value, defn) ← withRecrs (RBMap.single struct.name (0, constIdx)) $ toYatimaDefIpld struct
       let cid ← StoreValue.insert $ .const ⟨ .definition value.anon, .definition value.meta ⟩
-      modify (fun stt => { stt with defns := stt.defns.set! constIdx (.definition defn) })
       addToCache struct.name (cid, constIdx)
+      addToDefns constIdx $ .definition defn
       pure (cid, constIdx)
     else
       let mutualDefs ← struct.all.mapM fun name => do
@@ -572,8 +572,6 @@ mutual
       let mut mutualIdxs : RBMap Lean.Name (Nat × Nat) compare := RBMap.empty
       for (i, ds) in mutualDefs.enum do
         for d in ds do
-          -- TODO Isn't `mutDefIdx` unnecessary? Couldn't we use `mutualIdxs` instead?
-          modify (fun stt => { stt with mutDefIdx := stt.mutDefIdx.insert d.name i })
           mutualIdxs := mutualIdxs.insert d.name (i, firstIdx + i)
       let definitions ← withRecrs mutualIdxs $
         mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld
@@ -585,14 +583,12 @@ mutual
       let mut ret? : Option (ConstCid × ConstIdx) := none
 
       for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do
-        let idx : Nat := match (← get).mutDefIdx.find? defn.name with
-          | some i => i
-          | none => unreachable!
+        let some (idx, _) := mutualIdxs.find? defn.name | throw s!"Could not find mutual definition '{defn.name}' in index"
         let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
                      , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, ()⟩ ⟩
         let cid ← StoreValue.insert $ .const value
         let constIdx := idx + firstIdx
-        modify (fun stt => { stt with defns := stt.defns.set! constIdx (.definition defn) })
+        addToDefns constIdx $ .definition defn
         addToCache defn.name (cid, constIdx)
         if defn.name == struct.name then ret? := some (cid, constIdx)
 

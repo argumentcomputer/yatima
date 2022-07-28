@@ -1,4 +1,4 @@
-import Yatima.Const
+import Yatima.Datatypes.Const
 
 namespace Yatima.Typechecker
 
@@ -18,6 +18,7 @@ structure Env (Value : Type) where
   -- Since we also have universes with free variables, we need to add an
   -- environment for universe variables as well:
   univs : List Univ
+  deriving Inhabited
 
 mutual
 -- A neutral term is either a variable or a constant with not enough arguments to reduce.
@@ -45,6 +46,10 @@ inductive Value
 | proj : Nat → Neutral → List (Thunk Value) → Value
 deriving Inhabited
 end
+
+def Neutral.name : Neutral → Name
+  | .fvar  n .. => n
+  | .const n .. => n
 
 -- The arguments of a stuck sequence of applications `(h a1 ... an)`
 abbrev Args := List (Thunk Value)

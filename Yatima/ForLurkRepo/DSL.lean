@@ -173,19 +173,20 @@ partial def antiquoteToLurkExpr (e : Expr) : TermElabM Expr := do
 
 #check Lean.mkConst
 
+/-- 
+There are no type guarentees. 
+-/
 partial def elabLurkIdents (i : TSyntax `ident) : TermElabM $ Array Expr := do 
   if i.raw.isAntiquot then 
     let stx := i.raw.getAntiquotTerm
     let e ← elabTerm stx none
     let e ← whnf e
     let type ← inferType e
-    if ← isDefEq type (mkConst ``String) then
-      return ⟨[e]⟩
-    else if ← isDefEq type (← mkAppM ``List #[mkConst ``String]) then
+    match type.getAppFn with 
+    | .const ``List _ _ => 
       let es := Expr.toListExpr e 
       return ⟨es⟩
-    else
-      throwUnsupportedSyntax
+    | _ => return ⟨[e]⟩
   else 
     return #[mkStrLit i.getId.toString] 
 
@@ -281,6 +282,13 @@ elab "test_elabLurkUnaryOp " v:lurk_unary_op : term =>
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
 
+def names := ["a", "b", "c"]
+def name := "d"
+
+#eval IO.print ⟦
+  (lambda ($names $name e) ())
+⟧.print
+
 #eval IO.print ⟦ (lambda (n) n) ⟧.print
 -- (lambda (n)
 --   n)
@@ -352,10 +360,3 @@ def test := [SExpr|
   (quote ($test 1))
 ⟧.print
 -- (quote ((((1 2) ()) 1 "s") 1))
-
-def names := ["a", "b", "c"]
-def name := "d"
-
-#eval IO.print ⟦
-  (lambda ($names $name e) ())
-⟧.print
