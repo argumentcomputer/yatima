@@ -7,7 +7,6 @@ namespace Yatima.Typechecker
 mutual
 
   partial def check (term : Expr) (type : Value) : TypecheckM Unit := do
-    dbg_trace "checking {term} against {type}"
     match term with
     | .lam lam_name _ _lam_dom bod => do
       match type with
@@ -33,10 +32,10 @@ mutual
       else throw $ .valueMismatch infer_type type
 
   partial def infer (term : Expr) : TypecheckM Value := do
-    dbg_trace "infering {term}"
     match term with
-    | .var _ idx =>
-      let type := List.get! (← read).types idx
+    | .var name idx =>
+      let ctx := (← read).types
+      let some type := List.get? ctx idx | throw $ .outOfContextRange name idx ctx.length
       pure type.get
     | .sort lvl =>
       let lvl := instBulkReduce (← read).env.univs (Univ.succ lvl)
@@ -71,14 +70,18 @@ mutual
     | .lit (Literal.nat _) => pure $ Value.lty LitType.nat
     | .lit (Literal.str _) => pure $ Value.lty LitType.str
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
-    | .const _ k const_univs =>
+    | .const name k const_univs =>
       let univs := (← read).env.univs
-      let const := (← read).store.get! k
+      let store := (← read).store
+      let some const := store.get? k | throw $ .outOfDefnRange name k store.size
       withEnv ⟨[], (List.map (instBulkReduce univs) const_univs)⟩ $ eval const.type
     | .proj idx expr =>
       let exprTyp ← infer expr
       match exprTyp with
-      | .app (.const _ const univs) params => match (← read).store.get! const with
+      | .app (.const name k univs) params => 
+        let store := (← read).store
+        let some const := store.get? k | throw $ .outOfDefnRange name k store.size
+        match const with
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
@@ -109,16 +112,16 @@ mutual
 
 end
 
-def checkValueType (value type : Expr) : TypecheckM Unit := do
-  let univ ← isSort type
-  tryCatch (check value (.sort univ)) (fun e => dbg_trace s!"✗ {value} : {type}"; throw e)
-  dbg_trace s!"✓ {value} : {type}"
+def checkValueType (name : Name) (value type : Expr) : TypecheckM Unit := do
+  let _ ← isSort type
+  tryCatch (check value (← eval type)) (fun e => dbg_trace s!"✗ {value} : {type}"; throw e)
+  dbg_trace s!"✓ {name} : {type}"
 
 def checkConst : Const → TypecheckM Unit
   | .axiom      struct => discard $ isSort struct.type
-  | .theorem    struct => checkValueType struct.value struct.type
-  | .opaque     struct => checkValueType struct.value struct.type
-  | .definition struct => checkValueType struct.value struct.type
+  | .theorem    struct => checkValueType struct.name struct.value struct.type
+  | .opaque     struct => checkValueType struct.name struct.value struct.type
+  | .definition struct => checkValueType struct.name struct.value struct.type
   -- TODO: check that inductives, constructors and recursors are well-formed
   | .inductive       _ => pure ()
   | .constructor     _ => pure ()

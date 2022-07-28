@@ -5,11 +5,11 @@ namespace Yatima.Typechecker
 def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   Value.app (Neutral.const name k univs) []
 
-def getConst! (constIdx : ConstIdx) : TypecheckM Const := do
-  let env ← read
-  match env.store.get? constIdx with
+def getConst? (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
+  let store := (← read).store
+  match store.get? constIdx with
   | some const => pure const
-  | none => throw .outOfDefnRange
+  | none => throw $ .outOfDefnRange name constIdx store.size
 
 mutual
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
@@ -23,9 +23,9 @@ mutual
     | .lam name info _ bod => do
        let env := (← read).env
        pure $ Value.lam name info bod env
-    | .var _ idx => do
-      let env := (← read).env
-      let thunk := List.get! env.exprs idx
+    | .var name idx => do
+      let exprs := (← read).env.exprs
+      let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
       pure thunk.get
     | .const name k const_univs => do
       let env := (← read).env
@@ -44,19 +44,21 @@ mutual
     | .lty lty => pure $ Value.lty lty
     | .proj idx expr => do
       match (← eval expr) with
-      | .app neu@(.const _ ctor _) args => match (← read).store.get! ctor with
+      | .app neu@(.const name k _) args =>
+        match ← getConst? name k with
         | .constructor ctor =>
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx
-          pure $ (List.get! args idx).get
+          let some arg := args.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
+          pure $ arg.get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
       | _ => throw .impossible
 
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    match (← read).store.get! const with
+    match ← getConst? name const with
     | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
@@ -75,13 +77,13 @@ mutual
 
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
     -- Assumes a partial application of k to args, which means in particular, that it is in normal form
-    match (← read).store.get! k with
+    match ← getConst? name k with
     | .intRecursor recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         match arg.get with
-        | .app (Neutral.const _ ctor _) args' => match (← read).store.get! ctor with
+        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
           | .constructor ctor =>
             let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
             withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
@@ -92,7 +94,7 @@ mutual
       if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         match arg.get with
-        | .app (Neutral.const _ ctor _) args' => match (← read).store.get! ctor with
+        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
             match List.find? (fun r => r.ctor.idx == ctor.idx) recur.rules with
