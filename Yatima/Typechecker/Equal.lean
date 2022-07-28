@@ -34,8 +34,8 @@ partial def isProp (lvl : Nat) (type : Value) : TypecheckM Bool :=
   | .app neu args => do
     let type :=
       match neu with
-      | .const _ k us => do
-           let const := (← read).store.get! k
+      | .const k_name k us => do
+           let const := ← getConst? k_name k
            let ctx := { (← read) with env := ⟨ [], us ⟩ }
            pure $ suspend const.type ctx
       | .fvar _ _ typ => pure typ

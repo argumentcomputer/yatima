@@ -23,9 +23,11 @@ inductive CheckError where
   | unsafeDefinition : CheckError
   | hasNoRecursionRule : CheckError
   | cannotApply : CheckError
-  | outOfRangeError : CheckError
-  | outOfDefnRange : CheckError
+  | outOfRangeError : Name → Nat → Nat → CheckError
+  | outOfContextRange : Name → Nat → Nat → CheckError
+  | outOfDefnRange : Name → Nat → Nat → CheckError
   | impossible : CheckError
+  | custom : String → CheckError
   deriving Inhabited
   
 instance : ToString CheckError where
@@ -39,9 +41,11 @@ instance : ToString CheckError where
   | .unsafeDefinition .. => "Unsafe definition found"
   | .hasNoRecursionRule .. => "Constructor has no associated recursion rule. Implementation is broken."
   | .cannotApply .. => "Cannot apply argument list to type. Implementation broken."
-  | .outOfRangeError .. => "Out of the thunk list range"
-  | .outOfDefnRange .. => "Out of the range of definitions"
+  | .outOfRangeError name idx len => s!"'{name}' (index {idx}) out of the thunk list range (size {len})"
+  | .outOfDefnRange name idx len => s!"'{name}' (index {idx}) out of the range of definitions (size {len})"
+  | .outOfContextRange name idx len => s!"'{name}' (index {idx}) out of context range (size {len})"
   | .impossible .. => "Impossible case. Implementation broken."
+  | .custom str => str
 
 abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
 
