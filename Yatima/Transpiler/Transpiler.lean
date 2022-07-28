@@ -2,11 +2,8 @@ import Yatima.Datatypes.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
 import Yatima.ForLurkRepo.Utils
-import Yatima.Typechecker.FromIpld
 
 namespace Yatima.Transpiler
-
-open Yatima.Typechecker
 
 def lurkExprMatch (lexprs : List Lurk.Expr) (max : Fin lexprs.length) : Lurk.Expr := sorry
 
@@ -176,8 +173,9 @@ def transpileM : TranspileM Unit := do
     | some expr => appendBinding (fixName const.name, expr)
     | none      => pure ()
 
+open Yatima.Compiler in 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
-def transpile (store : ConvertState) : Except String String :=
+def transpile (store : CompileState) : Except String String :=
   match TranspileM.run store default (transpileM store) with
   | .ok    s => return Lurk.Expr.print $ .letE s.getStringBindings .currEnv
   | .error e => throw e

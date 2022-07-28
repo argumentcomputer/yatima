@@ -1,6 +1,5 @@
 import Yatima.ForLurkRepo.AST
-import Yatima.Compiler.Utils
-import Yatima.Typechecker.FromIpld
+import Yatima.Compiler.Compiler
 
 namespace Yatima.Transpiler
 
@@ -16,9 +15,9 @@ def State.getStringBindings (s : State) : List (String × Lurk.Expr) :=
   s.prependedBindings.reverse.append s.appendedBindings |>.data |>.map
     fun (name, lexpr) => (name.toString, lexpr)
 
-open Yatima.Typechecker
+open Yatima.Compiler
 
-abbrev TranspileM := ReaderT ConvertState $ EStateM String State
+abbrev TranspileM := ReaderT CompileState $ EStateM String State
 
 def prependBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
   let s ← get
@@ -32,7 +31,7 @@ def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
 def visit (name : Name) : TranspileM Unit := do 
   set $ { (← get) with visited := (← get).visited.insert name }
 
-def TranspileM.run (store : ConvertState) (ste : State) (m : TranspileM α) :
+def TranspileM.run (store : CompileState) (ste : State) (m : TranspileM α) :
     Except String State :=
   match EStateM.run (ReaderT.run m store) ste with
   | .ok _ ste  => .ok ste
