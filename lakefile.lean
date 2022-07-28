@@ -34,6 +34,7 @@ lean_lib Fixtures {
 lean_exe Tests.AnonCidGroups { supportInterpreter := true }
 lean_exe Tests.Termination   { supportInterpreter := true }
 lean_exe Tests.FromIpld      { supportInterpreter := true }
+lean_exe Tests.Typechecker   { supportInterpreter := true }
 
 end Testing
 
