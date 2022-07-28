@@ -38,12 +38,12 @@ def derefConst (idx : ConstIdx) : CompileM Const := do
   if h : idx < size then
     return defns[idx]'h
   else
-    throw s!"Invalid index {idx} for dereferring a constant. Must be < {size}."
+    throw $ .invalidDereferringIndex idx size
 
 def findConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
   | some const => pure const
-  | none => throw s!"Unknown constant '{name}'"
+  | none => throw $ .unknownConstant name
 
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let (value, univ) ← match l with
@@ -70,8 +70,8 @@ def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
       | some n =>
         let value : Ipld.Both Ipld.Univ := ⟨ .var () n, .var name () ⟩
         pure (value, .var name n)
-      | none   => throw s!"'{name}' not found in '{lvls}'"
-    | .mvar .. => throw "Unfilled level metavariable"
+      | none   => throw $ .levelNotFound name lvls
+    | .mvar .. => throw $ .unfilledLevelMetavariable l
   let cid ← StoreValue.insert $ .univ value
   pure (cid, univ)
 
@@ -86,26 +86,26 @@ def concatOrds : List Ordering -> Ordering :=
 
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   match x, y with
-  | .mvar .., _ => throw "Unfilled level metavariable"
-  | _, .mvar .. => throw "Unfilled level metavariable"
+  | .mvar .., _ => throw $ .unfilledLevelMetavariable x
+  | _, .mvar .. => throw $ .unfilledLevelMetavariable y
   | .zero _, .zero _ => return .eq
   | .zero _, _ => return .lt
   | _, .zero _  => return .gt
   | .succ x _, .succ y _ => cmpLevel x y
-  | .succ _ _, _ => return .lt
-  | _, .succ _ _ => return .gt
+  | .succ .., _ => return .lt
+  | _, .succ .. => return .gt
   | .max lx ly _, .max rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
-  | .max _ _ _, _ => return .lt
-  | _, .max _ _ _ => return .gt
+  | .max .., _ => return .lt
+  | _, .max .. => return .gt
   | .imax lx ly _, .imax rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
-  | .imax _ _ _, _ => return .lt
-  | _, .imax _ _ _ => return .gt
+  | .imax .., _ => return .lt
+  | _, .imax .. => return .gt
   | .param x _, .param y _ => do
     let lvls := (← read).univCtx
     match (lvls.indexOf? x), (lvls.indexOf? y) with
     | some xi, some yi => return (compare xi yi)
-    | none, _   => throw s!"'{x}' not found in '{lvls}'"
-    | _, none   => throw s!"'{y}' not found in '{lvls}'"
+    | none,    _       => throw $ .levelNotFound x lvls
+    | _,       none    => throw $ .levelNotFound y lvls
 
 mutual
   /--
@@ -142,12 +142,12 @@ mutual
   | .ctorInfo struct => do
     match ← findConstant struct.induct with
     | .inductInfo ind => processYatimaConst (.inductInfo ind)
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+    | const => throw $ .invalidConstantKind const "inductive"
     processYatimaConst (.ctorInfo struct)
   | .recInfo struct => do
     match ← findConstant struct.getInduct with
     | .inductInfo ind => processYatimaConst (.inductInfo ind)
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+    | const => throw $ .invalidConstantKind const "inductive"
     processYatimaConst (.recInfo struct)
   -- The rest adds the constants to the cache one by one
   | const => withResetCompileEnv const.levelParams do
@@ -210,7 +210,7 @@ mutual
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx, .var name () ⟩
           pure (value, .var name idx)
-        | none => throw "Processed bvar has index greater than length of binder context"
+        | none => throw $ .invalidBVarIndex idx
       | .sort lvl _ => do
         let (univCid, univ) ← toYatimaUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
@@ -259,9 +259,9 @@ mutual
         let (expCid, exp) ← toYatimaExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
-      | .fvar .. => throw "Free variable found"
-      | .mvar .. => throw "Metavariable found"
-      | .mdata _ _ _ => unreachable!
+      | .fvar .. => throw $ .freeVariableExpr expr
+      | .mvar .. => throw $ .metaVariableExpr expr
+      | .mdata .. => throw $ .metaDataExpr expr
     let cid ← StoreValue.insert $ .expr value
     pure (cid, expr)
 
@@ -277,7 +277,7 @@ mutual
         let leanRecs := leanRecs.map (·.name)
         let addList := (indName :: ind.ctors).append leanRecs
         constList := constList.append addList
-      | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+      | const => throw $ .invalidConstantKind const "inductive"
 
     -- All inductives, constructors and recursors are done in one go, so we must append an array of `constList.length` to `defns`
     -- and save the mapping of all names in `constList` to their respective indices
@@ -293,7 +293,7 @@ mutual
         withRecrs mutualIdxs do
           let ipldInd ← toYatimaIpldInductive ind
           pure $ ipldInd :: acc
-      | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'inductive' but got '{const.ctorName}'"
+      | const => throw $ .invalidConstantKind const "inductive"
     let indBlock := ⟨.mutIndBlock $ indInfos.map (·.anon), .mutIndBlock $ indInfos.map (·.meta)⟩
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
@@ -333,11 +333,10 @@ mutual
 
     match ret? with
     | some ret => return ret
-    | none => throw s!"Constant for '{initInd.name}' wasn't compiled"
+    | none => throw $ .constantNotCompiled initInd.name
 
   partial def toYatimaIpldInductive (ind : Lean.InductiveVal) :
       CompileM $ Ipld.Both Ipld.Inductive := do
-    -- reverses once
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
     let (recs, ctors) : ((List $ Ipld.Both (Sigma fun x => Ipld.Recursor x ·)) × (List $ Ipld.Both Ipld.Constructor)) :=
@@ -352,15 +351,15 @@ mutual
             let thisRec := ← toYatimaIpldExternalRec r
             let recs := (⟨Sigma.mk .Extr thisRec.anon, Sigma.mk .Extr thisRec.meta⟩) :: recs
             return (recs, ctors)
-        | _ => throw s!"Non-recursor {r.name} extracted from children"
+        | _ => throw $ .nonRecursorExtractedFromChildren r.name
     let (typeCid, type) ← toYatimaExpr ind.type
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
       | [ctor] => do
-        let some (_, ctorIdx) := (← read).recrCtx.find? ctor | throw s!"Unknown constant '{ctor}'"
+        let some (_, ctorIdx) := (← read).recrCtx.find? ctor | throw $ .unknownConstant ctor
         match ← derefConst ctorIdx with
         | .constructor ctor => pure $ some ctor
-        | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
+        | const => throw $ .invalidConstantKind' const "constructor"
       | _ => pure none
     let unit := match struct with
       | some ctor => ctor.fields == 0
@@ -377,7 +376,7 @@ mutual
       unit    := unit
       struct  := struct
     }
-    let some (_, defnIdx) := (← read).recrCtx.find? ind.name | throw s!"Unknown constant '{ind.name}'"
+    let some (_, defnIdx) := (← read).recrCtx.find? ind.name | throw $ .unknownConstant ind.name
     addToDefns defnIdx tcInd
     return {
       anon := ⟨ ()
@@ -415,7 +414,7 @@ mutual
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
-        let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare := ← rec.rules.foldlM
+        let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             match ctors.indexOf? r.ctor with
             | some _ =>
@@ -426,7 +425,7 @@ mutual
         let retCtors ← ctors.mapM fun ctor => do
           match ctorMap.find? ctor with
           | some thisCtor => pure thisCtor
-          | none => throw s!"Unknown constant '{ctor}'"
+          | none => throw $ .unknownConstant ctor
         let tcRecr : Const := .intRecursor {
           name    := rec.name
           lvls    := rec.levelParams
@@ -436,7 +435,7 @@ mutual
           motives := rec.numMotives
           minors  := rec.numMinors
           k       := rec.k }
-        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
+        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
         addToDefns defnIdx tcRecr
         let recr := ⟨
           { name    := ()
@@ -458,7 +457,7 @@ mutual
             rules   := ()
             k       := () } ⟩
         return (recr, retCtors)
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
+    | const => throw $ .invalidConstantKind const "recursor"
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
       let (rhsCid, rhs) ← toYatimaExpr rule.rhs
@@ -475,7 +474,7 @@ mutual
           rhs     := rhs
           safe    := not ctor.isUnsafe
         }
-        let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw s!"Unknown constant '{ctor.name}'"
+        let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
         addToDefns defnIdx tcCtor
         return ⟨
           { rhs    := rhsCid.anon
@@ -494,7 +493,7 @@ mutual
             params := ()
             fields := ()
             safe   := () } ⟩
-      | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
+      | const => throw $ .invalidConstantKind const "constructor"
 
   partial def toYatimaIpldExternalRec :
       Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .Extr))
@@ -516,7 +515,7 @@ mutual
           rules   := tcRules
           k       := rec.k
         }
-        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw s!"Unknown constant '{rec.name}'"
+        let some (_, defnIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
         addToDefns defnIdx tcRecr
         return ⟨
           { name    := ()
@@ -537,7 +536,7 @@ mutual
             minors  := ()
             rules   := rules.meta
             k       := () } ⟩
-    | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'recursor' but got '{const.ctorName}'"
+    | const => throw $ .invalidConstantKind const "recursor"
     
   partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
       CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
@@ -546,7 +545,7 @@ mutual
     let (ctorCid, ctor?) ← processYatimaConst const
     let ctor ← match ← derefConst ctor? with
       | .constructor ctor => pure ctor
-      | const => throw s!"Invalid constant kind for '{const.name}'. Expected 'constructor' but got '{const.ctorName}'"
+      | const => throw $ .invalidConstantKind' const "constructor"
     let recrRule := ⟨
       { ctor := ctorCid.anon, fields := rule.nfields, rhs := rhsCid.anon },
       { ctor := ctorCid.meta, fields := (), rhs := rhsCid.meta }⟩
@@ -565,7 +564,7 @@ mutual
       let mutualDefs ← struct.all.mapM fun name => do
         match ← findConstant name with
         | .defnInfo defn => pure defn
-        | _ => throw s!"Unknown definition '{name}'"
+        | const => throw $ .invalidConstantKind const "definition"
       let mutualDefs ← sortDefs [mutualDefs]
       let mutualSize := struct.all.length
       let mut firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray mutualSize default) }))
@@ -583,7 +582,7 @@ mutual
       let mut ret? : Option (ConstCid × ConstIdx) := none
 
       for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do
-        let some (idx, _) := mutualIdxs.find? defn.name | throw s!"Could not find mutual definition '{defn.name}' in index"
+        let some (idx, _) := mutualIdxs.find? defn.name | throw $ .cantFindMutDefIndex defn.name
         let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
                      , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, ()⟩ ⟩
         let cid ← StoreValue.insert $ .const value
@@ -594,7 +593,7 @@ mutual
 
       match ret? with
       | some ret => return ret
-      | none => throw s!"Constant for '{struct.name}' wasn't compiled"
+      | none => throw $ .constantNotCompiled struct.name
 
   partial def toYatimaDefIpld (defn : Lean.DefinitionVal) :
       CompileM (Ipld.Both Ipld.Definition × Definition) := do
@@ -610,19 +609,19 @@ mutual
 
   partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
-    | .mvar .., _ => throw "Unfilled expr metavariable"
-    | _, .mvar .. => throw "Unfilled expr metavariable"
-    | .fvar .., _ => throw "expr free variable"
-    | _, .fvar .. => throw "expr free variable"
+    | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
+    | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
+    | e@(.fvar ..), _ => throw $ .freeVariableExpr e
+    | _, e@(.fvar ..) => throw $ .freeVariableExpr e
     | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
     | .mdata _ x _, y  => cmpExpr names x y
     | x, .mdata _ y _  => cmpExpr names x y
     | .bvar x _, .bvar y _ => return (compare x y)
-    | .bvar _ _, _ => return .lt
-    | _, .bvar _ _ => return .gt
+    | .bvar .., _ => return .lt
+    | _, .bvar .. => return .gt
     | .sort x _, .sort y _ => cmpLevel x y
-    | .sort _ _, _ => return .lt
-    | _, .sort _ _ => return .gt
+    | .sort .., _ => return .lt
+    | _, .sort .. => return .gt
     | .const x xls _, .const y yls _ => do
       let univs ← concatOrds <$> (List.zip xls yls).mapM (fun (x,y) => cmpLevel x y)
       if univs != .eq then return univs
@@ -634,24 +633,24 @@ mutual
         let xCid := (← processYatimaConst (← findConstant x)).fst
         let yCid := (← processYatimaConst (← findConstant y)).fst
         return (compare xCid.anon yCid.anon)
-    | .const _ _ _, _ => return .lt
-    | _, .const _ _ _ => return .gt
+    | .const .., _ => return .lt
+    | _, .const .. => return .gt
     | .app xf xa _, .app yf ya _ => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
-    | .app _ _ _, _ => return .lt
-    | _, .app _ _ _ => return .gt
+    | .app .., _ => return .lt
+    | _, .app .. => return .gt
     | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
-    | .lam _ _ _ _, _ => return .lt
-    | _, .lam _ _ _ _ => return .gt
+    | .lam .., _ => return .lt
+    | _, .lam .. => return .gt
     | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
-    | .forallE _ _ _ _, _ => return .lt
-    | _, .forallE _ _ _ _ => return .gt
+    | .forallE .., _ => return .lt
+    | _, .forallE .. => return .gt
     | .letE _ xt xv xb _, .letE _ yt yv yb _ => (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
-    | .letE _ _ _ _ _, _ => return .lt
-    | _, .letE _ _ _ _ _ => return .gt
+    | .letE .., _ => return .lt
+    | _, .letE .. => return .gt
     | .lit x _, .lit y _ =>
       return if x < y then .lt else if x == y then .eq else .gt
-    | .lit _ _, _ => return .lt
-    | _, .lit _ _ => return .gt
+    | .lit .., _ => return .lt
+    | _, .lit .. => return .gt
     | .proj _ nx tx _, .proj _ ny ty _ => do
       let ts ← cmpExpr names tx ty
       return concatOrds [ compare nx ny , ts ]
@@ -707,11 +706,11 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
       IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
       IO.println   "=========================================\n"
 
-def compile (filePath : System.FilePath)
-  (log : Bool := false) (stt : CompileState := default) :
-    IO $ Except String CompileState := do
-  match ← Lean.runFrontend (← IO.FS.readFile filePath) filePath.toString with
-  | (some err, _) => return .error s!"Errors on file {filePath}:\n\n{err}"
+def compile (filePath : System.FilePath) (log : Bool := false)
+    (stt : CompileState := default) : IO $ Except CompileError CompileState := do
+  let filePathStr := filePath.toString
+  match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
+  | (some err, _) => return .error $ .errorsOnFile filePathStr err
   | (none, env) =>
     -- building an environment `env₀` just with the imports from `filePath`
     let importFile := env.header.imports.map (·.module) |>.foldl

@@ -8,7 +8,7 @@ open Yatima
 def getConstPairs (fileName : String) (consts : List Lean.Name) :
     IO $ Except String (List (Const × Const)) := do
   match ← Compiler.compile fileName with
-  | .error msg => return .error msg
+  | .error msg => return .error (toString msg)
   | .ok state =>
     let store := state.store
     let convState ← do match FromIpld.convertStore store with
