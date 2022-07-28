@@ -282,6 +282,8 @@ elab "test_elabLurkUnaryOp " v:lurk_unary_op : term =>
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
 
+namespace Lurk.SExpr.Tests
+
 def names := ["a", "b", "c"]
 def name := "d"
 
