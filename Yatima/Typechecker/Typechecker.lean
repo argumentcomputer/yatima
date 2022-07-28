@@ -8,11 +8,16 @@ def typecheckM : TypecheckM Unit := do
   let defns := (← read).store
   defns.forM checkConst
 
-def typecheck (store : Ipld.Store) : Bool × Option String :=
+def typecheck (store : Ipld.Store) : IO UInt32 :=
   match FromIpld.extractConstArray store with
   | .ok store => match TypecheckM.run (.init store) typecheckM with
-    | .ok _ => (true, none)
-    | .error msg => (false, some s!"{toString msg}")
-  | .error msg => (false, some msg)
+    | .ok _ => do
+      pure 0
+    | .error msg => do
+      IO.eprintln s!"{toString msg}"
+      pure 1
+  | .error msg => do
+    IO.eprintln msg
+    pure 1
 
 end Yatima.Typechecker

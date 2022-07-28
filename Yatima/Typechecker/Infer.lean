@@ -1,11 +1,13 @@
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Equal
+import Yatima.Typechecker.Printing
 
 namespace Yatima.Typechecker
 
 mutual
 
   partial def check (term : Expr) (type : Value) : TypecheckM Unit := do
+    dbg_trace "checking {term} against {type}"
     match term with
     | .lam lam_name _ _lam_dom bod => do
       match type with
@@ -31,6 +33,7 @@ mutual
       else throw $ .valueMismatch infer_type type
 
   partial def infer (term : Expr) : TypecheckM Value := do
+    dbg_trace "infering {term}"
     match term with
     | .var _ idx =>
       let type := List.get! (← read).types idx
@@ -108,7 +111,8 @@ end
 
 def checkValueType (value type : Expr) : TypecheckM Unit := do
   let univ ← isSort type
-  check value (.sort univ)
+  tryCatch (check value (.sort univ)) (fun e => dbg_trace s!"✗ {value} : {type}"; throw e)
+  dbg_trace s!"✓ {value} : {type}"
 
 def checkConst : Const → TypecheckM Unit
   | .axiom      struct => discard $ isSort struct.type

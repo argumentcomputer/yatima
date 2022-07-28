@@ -2,10 +2,18 @@ import Yatima.Typechecker.Value
 
 namespace Yatima.Typechecker
 
+def printUniv (univ : Univ) : String :=
+  match univ with
+  | .var nam _ => s!"{nam}"
+  | .succ a => s!"(succ {printUniv a})"
+  | .zero     => s!"0"
+  | .imax a b => s!"(imax {printUniv a} {printUniv b})"
+  | .max a b => s!"(max {printUniv a} {printUniv b})"
+
 def printExpr (expr : Expr) : String :=
   match expr with
   | .var nam idx => s!"{nam}#{idx}"
-  | .sort .. => s!"Sort"
+  | .sort u => s!"(Sort {printUniv u})"
   | .const nam .. => s!"{nam}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
   | .lam nam binfo dom bod =>
@@ -31,7 +39,7 @@ mutual
 
 partial def printVal (val : Value) : String :=
   match val with
-  | .sort _ => s!"Sort"
+  | .sort u => s!"(Sort {printUniv u})"
   | .app neu args => printSpine neu args
   | .lam nam binfo bod env =>
     match binfo with
@@ -59,7 +67,7 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
     match env.exprs.get? (idx-1) with
    | some val => printVal val.get
    | none => s!"{nam}#{idx}"
-  | .sort .. => s!"Sort"
+  | .sort u => s!"(Sort {printUniv u})"
   | .const nam .. => s!"{nam}"
   | .app fnc arg => s!"({printLamBod fnc env} {printLamBod arg env})"
   | .lam nam binfo dom bod =>
@@ -88,5 +96,9 @@ partial def printSpine (neu : Neutral) (args : Args) : String :=
   | .const nam .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}" args
 
 end
+
+instance : ToString Expr where toString := printExpr
+instance : ToString Univ where toString := printUniv
+instance : ToString Value where toString := printVal
 
 end Yatima.Typechecker
