@@ -78,12 +78,13 @@ def inductivesPair :=
 def importPair :=
   ("Fixtures/AnonCidGroups/ToImport.lean", [`Nat, `MyNat, `MyOtherNat])
 
-def allPairs := [
+def allPairs : List (String × List Lean.Name) := [
   --definitionsPair,
-  partialDefinitionsPair,
-  unsafeDefinitionsPair,
-  inductivesPair,
-  importPair]
+  --partialDefinitionsPair,
+  --unsafeDefinitionsPair,
+  --inductivesPair,
+  --importPair
+]
 
 def generateTestSeq (x : String × List Lean.Name) : IO TestSeq :=
   return withExceptOk s!"Compiles '{x.1}'" (← getConstPairs x.1 x.2)
