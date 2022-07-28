@@ -52,7 +52,7 @@ mutual
           pure $ (List.get! args idx).get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
-      | _ => throw .impossibleProjectionCase --panic! "Impossible case on projections"
+      | _ => throw .impossible
 
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
@@ -71,7 +71,7 @@ mutual
     | .app (.const name k k_univs) args' => applyConst name k k_univs arg args'
     | .app var@(.fvar ..) args' => pure $ Value.app var (arg :: args')
     -- Since terms are well-typed we know that any other case is impossible
-    | _ => throw .impossibleApplyCase
+    | _ => throw .impossible
 
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
     -- Assumes a partial application of k to args, which means in particular, that it is in normal form
@@ -107,7 +107,7 @@ mutual
     | .quotient quotVal => match quotVal.kind with
       | .lift => reduceQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
       | .ind  => reduceQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | _ => throw .cannotEvalQuotient
+      | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def reduceQuot (major? : Thunk Value) (args : Args) (reduceSize : Nat) (argPos : Nat) (default : Value) :

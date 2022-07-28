@@ -76,7 +76,7 @@ mutual
         let bod' ← withExtVar env' name' lvl dom $ eval bod'
         let img ← withExtVar pi_env pi_name lvl dom $ eval img
         equal (lvl + 1) bod bod' img
-      | _ => throw .impossibleEqualCase
+      | _ => throw .impossible
     | .lam name _ bod env, .app neu' args' =>
       match type with
       | .pi pi_name _ dom img pi_env =>
@@ -85,7 +85,7 @@ mutual
         let app := Value.app neu' (var :: args')
         let img ← withExtVar pi_env pi_name lvl dom $ eval img
         equal (lvl + 1) bod app img
-      | _ => throw .impossibleEqualCase
+      | _ => throw .impossible
     | .app neu args, .lam name _ bod env =>
       match type with
       | .pi pi_name _ dom img pi_env =>
@@ -94,7 +94,7 @@ mutual
         let app := Value.app neu (var :: args)
         let img ← withExtVar pi_env pi_name lvl dom $ eval img
         equal (lvl + 1) app bod img
-      | _ => throw .impossibleEqualCase
+      | _ => throw .impossible
     | .app (.fvar _ idx var_type) args, .app (.fvar _ idx' _) args' =>
       -- If our assumption is correct, i.e., that these values come from terms
       -- in the same environment then their types are equal when their indices
@@ -132,7 +132,7 @@ mutual
         let eq ← equal lvl val.get val'.get dom.get
         let eq' ← equalThunks lvl vals vals' img
         pure $ eq && eq'
-      | _ => throw .impossibleEqualCase
+      | _ => throw .impossible
     | [], [] => pure true
     | _, _ => pure false
 

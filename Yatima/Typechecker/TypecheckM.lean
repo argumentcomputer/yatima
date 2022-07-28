@@ -1,4 +1,5 @@
 import Yatima.Typechecker.Value
+import Yatima.Typechecker.Printing
 
 namespace Yatima.Typechecker
 
@@ -13,32 +14,34 @@ def Context.init (store : Array Const) : Context :=
   { (default : Context) with store := store }
 
 inductive CheckError where
-  | notPi : CheckError
-  | notTyp : CheckError
-  | valueMismatch : CheckError
+  | notPi : Value → CheckError
+  | notTyp : Value → CheckError
+  | valueMismatch : Value → Value → CheckError
   | cannotInferLam : CheckError
-  | typNotStructure : CheckError
-  | projEscapesProp : CheckError
-  -- Unsafe definition found
+  | typNotStructure : Value → CheckError
+  | projEscapesProp : Expr → CheckError
   | unsafeDefinition : CheckError
-  -- Constructor has no associated recursion rule. Implementation is broken.
   | hasNoRecursionRule : CheckError
-  -- Cannot apply argument list to type. Implementation broken.
   | cannotApply : CheckError
-  -- Impossible equal case
-  | impossibleEqualCase : CheckError
-  -- Impossible case on projections
-  | impossibleProjectionCase : CheckError
-  -- Cannot apply arguments to something other than a lambda or partial application
-  | impossibleApplyCase : CheckError
-  -- Cannot evaluate this quotient
-  | cannotEvalQuotient : CheckError
-  -- Out of the thunk list range
   | outOfRangeError : CheckError
-  -- Out of the range of definitions
   | outOfDefnRange : CheckError
   | impossible : CheckError
   deriving Inhabited
+  
+instance : ToString CheckError where
+  toString 
+  | .notPi val => s!"Expected a pi type, found {printVal val}"
+  | .notTyp val => s!"Expected a sort type, found {printVal val}"
+  | .valueMismatch val₁ val₂ => s!"Expected a {printVal val₁}, found {printVal val₂}"
+  | .cannotInferLam .. => "Cannot infer the type of a lambda term"
+  | .typNotStructure val => s!"Expected a structure type, found {printVal val}"
+  | .projEscapesProp term => s!"Projection {printExpr term} not allowed"
+  | .unsafeDefinition .. => "Unsafe definition found"
+  | .hasNoRecursionRule .. => "Constructor has no associated recursion rule. Implementation is broken."
+  | .cannotApply .. => "Cannot apply argument list to type. Implementation broken."
+  | .outOfRangeError .. => "Out of the thunk list range"
+  | .outOfDefnRange .. => "Out of the range of definitions"
+  | .impossible .. => "Impossible case. Implementation broken."
 
 abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
 
