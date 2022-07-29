@@ -41,6 +41,7 @@ inductive CheckError where
   | unknownConst : CheckError
   -- No way to extract a name
   | noName : CheckError
+  | evalError : CheckError
   | impossible : CheckError
   deriving Inhabited
 
@@ -48,12 +49,6 @@ abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
 
 def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except CheckError α :=
   ExceptT.run (ReaderT.run m ctx)
-
--- TODO: drop this panicking function
-def TypecheckM.run! [Inhabited α] (ctx : Context) (str : String) (m : TypecheckM α) : α :=
-  match TypecheckM.run ctx m with
-  | .ok a => a
-  | _ => panic! str
 
 def extEnvHelper (env : Env Value) (thunk : Thunk Value) : Env Value :=
   { env with exprs := thunk :: env.exprs }
