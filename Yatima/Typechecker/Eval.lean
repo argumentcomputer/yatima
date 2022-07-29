@@ -112,10 +112,11 @@ mutual
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
-    let value := match TypecheckM.run ctx (eval expr) with
+    Thunk.mk (fun _ => 
+      let value := match TypecheckM.run ctx (eval expr) with
       | .ok a => a
       | _ => .incorrectValue
-    Thunk.mk (fun _ => value)
+      )
 
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
