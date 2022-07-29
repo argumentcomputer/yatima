@@ -129,6 +129,15 @@ def checkConst : Const → TypecheckM Unit
   | .intRecursor     _ => pure ()
   -- TODO: check that quotient is well-formed. I guess it is possible to do this while converting from Ipld
   -- by checking the cids of the quotient constants with precomputed ones
-  | .quotient        _ => pure ()
+  | .quotient        struct => do
+    let level ← isSort struct.type
+    let type ← eval struct.type
+    let inferredType ← match struct.kind with
+      | .type => pure $ .pi _ _ _ _ _
+      | .ctor => pure $ .pi _ _ _ _ _
+      | .ind  => pure $ .pi _ _ _ _ _
+      | .lift => pure $ .pi _ _ _ _ _
+    let eq ← equal 0 type inferredType (.sort level)
+    if !eq then throw $ .valueMismatch inferredType type
 
 end Yatima.Typechecker
