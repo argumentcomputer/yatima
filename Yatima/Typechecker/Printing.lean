@@ -51,7 +51,7 @@ partial def printVal (val : Value) : String :=
   | .lty .nat => s!"Nat"
   | .lty .str => s!"String"
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"
-  | .exception _ => s!"exception"
+  | .exception _ => "exception"
 
 partial def printLamBod (expr : Expr) (env : Env Value) : String :=
   match expr with
