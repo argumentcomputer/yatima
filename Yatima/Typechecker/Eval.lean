@@ -102,7 +102,7 @@ mutual
               withEnv ⟨exprs, univs⟩ $ eval rule.rhs
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
+            | none => throw .hasNoRecursionRule
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .quotient quotVal => match quotVal.kind with
@@ -126,7 +126,7 @@ mutual
       | .app var@(.fvar ..) args => pure $ Value.app var (arg_thunk :: args)
       | .app (.const name k k_univs) args => applyConst name k k_univs arg_thunk args
       -- Since terms are well-typed we know that any other case is impossible
-      | _ => throw .impossibleEvalCase 
+      | _ => throw .impossibleEvalCase
     | .lam name info _ bod => do
        let env := (← read).env
        pure $ Value.lam name info bod env
@@ -159,7 +159,7 @@ mutual
           pure $ (List.get! args idx).get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
-      | _ => throw .impossibleProjectionCase --panic! "Impossible case on projections"
+      | _ => throw .impossibleProjectionCase
 
 end
 
