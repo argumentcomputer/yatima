@@ -20,6 +20,36 @@ structure Env (Value : Type) where
   univs : List Univ
   deriving Inhabited
 
+inductive CheckError where
+  | notPi : CheckError
+  | notTyp : CheckError
+  | valueMismatch : CheckError
+  | cannotInferLam : CheckError
+  | typNotStructure : CheckError
+  | projEscapesProp : CheckError
+  | unsafeDefinition : CheckError
+  -- Unsafe definition found
+  | hasNoRecursionRule : CheckError
+  -- Constructor has no associated recursion rule. Implementation is broken.
+  | cannotApply : CheckError
+  -- Cannot apply argument list to type. Implementation broken.
+  | impossibleEqualCase : CheckError
+  -- Impossible equal case
+  | impossibleProjectionCase : CheckError
+  -- Impossible case on projections
+  | impossibleEvalCase : CheckError
+  -- Cannot evaluate this quotient
+  | cannotEvalQuotient : CheckError
+  -- Out of the thunk list range
+  | outOfRangeError : CheckError
+  -- Unknown constant name
+  | unknownConst : CheckError
+  -- No way to extract a name
+  | noName : CheckError
+  | evalError : CheckError
+  | impossible : CheckError
+  deriving Inhabited
+
 mutual
 -- A neutral term is either a variable or a constant with not enough arguments to reduce.
 -- They appear as the head of a stuck application.
@@ -44,7 +74,7 @@ inductive Value
 | lit : Literal → Value
 | lty : LitType → Value
 | proj : Nat → Neutral → List (Thunk Value) → Value
-| incorrectValue : Value
+| exception : CheckError → Value
 deriving Inhabited
 end
 
