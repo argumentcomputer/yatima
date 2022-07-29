@@ -362,3 +362,9 @@ def test := [SExpr|
   (quote ($test 1))
 ⟧.print
 -- (quote ((((1 2) ()) 1 "s") 1))
+
+def name2 := ["hi"]
+
+#eval IO.print ⟦
+  (lambda ($name2) ,($name . 3 . $name2))
+⟧.print

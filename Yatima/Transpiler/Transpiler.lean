@@ -4,8 +4,6 @@ import Yatima.Transpiler.Utils
 
 namespace Yatima.Transpiler
 
-def lurkExprMatch (lexprs : List Lurk.Expr) (max : Fin lexprs.length) : Lurk.Expr := sorry
-
 open Yatima.FromIpld
 mutual
 
@@ -45,8 +43,10 @@ mutual
       -- the foralls and reconstructing a `lambda` term
     let (_, ⟨binds⟩) := descend ctor.type #[]
     let name := fixName ctor.name
-    let binds := binds.map fixName
-    appendBinding (name, ⟦(lambda ($binds) ,($name . $ctor.idx . $binds))⟧)
+    let binds := binds.map fixName 
+    -- MP: This doesn't work for some reason? let expr := ⟦(lambda ($binds) ,($name . $ctor.idx . $binds))⟧
+    let expr : Lurk.Expr := .lam binds (.quote (.list [.str name, .num ctor.idx, .list $ binds.map Lurk.SExpr.atom])) -- This is painful :(
+    appendBinding (name, expr)
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -63,13 +63,16 @@ mutual
 
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List (Nat × Expr)) : TranspileM Unit := do 
     let (_, ⟨binds⟩) := descend recr.type #[]
+    dbg_trace s!"got bindings {binds}"
     let argName : Lurk.Expr := .lit $ .sym (fixName binds[0]!)
     let ifThens ← rhs.mapM fun (i, e) => do 
       match ← exprToLurkExpr e with 
       | some e => return (⟦(= (cdr (car $argName)) $i)⟧, e) -- extract snd element
       | none => throw "failed to convert rhs of rule {i}"
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
+    let expr : Lurk.Expr := .lam (binds.map ToString.toString) cases
+    appendBinding (recr.name, expr)
+    -- appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
   where
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -209,7 +212,7 @@ def transpileM : TranspileM Unit := do
 open Yatima.Compiler in 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
 def transpile (store : CompileState) : Except String String :=
-  match TranspileM.run store default (transpileM store) with
+  match TranspileM.run store default transpileM with
   | .ok    s => return Lurk.Expr.print $ .letE s.getStringBindings .currEnv
   | .error e => throw e
 

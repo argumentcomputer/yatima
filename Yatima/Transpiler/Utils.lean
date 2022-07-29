@@ -25,14 +25,14 @@ def validCharsTree : RBTree Char compare :=
 /-- Generates a sequence of valid characters in Lurk from a given character. -/
 def charToValidChars (c : Char) : List Char :=
   if validCharsTree.contains c then [c]
-  else s!"--{charToHex c}--".replace "*" "-" |>.data
+  else s!"--{charToHex c}--".replace "*" ":" |>.data
 
 /-- Turns a `Name` into a valid variable identifier in Lurk. -/
 def fixName (name : Name) (pretty := true) : String :=
   if pretty then 
     toString name 
   else 
-    let name := name.toString.replace "." "-" -- |>.replace "_" "??" FIX: If they haven't merged the change yet, we need to revist this.
+    let name := name.toString.replace "." "_" -- |>.replace "_" "??" FIX: If they haven't merged the change yet, we need to revist this.
     let charsArray : Array Char := name.foldl (init := #[]) fun acc c =>
       acc.append ⟨charToValidChars c⟩
     ⟨charsArray.data⟩
