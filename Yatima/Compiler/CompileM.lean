@@ -117,27 +117,26 @@ inductive StoreKey : Type → Type
   | expr   : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
   | const  : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
 
--- TODO: do we need these?
--- def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
---   | .univ  univCid => do
---     let store := (← get).store
---     match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
---     | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
---     | _, _ => pure none
---   | .expr  exprCid => do
---     let store := (← get).store
---     match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
---     | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
---     | _, _ => pure none
---   | .const constCid => do
---     let store := (← get).store
---     match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
---     | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
---     | _, _ => pure none
+def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
+  | .univ  univCid => do
+    let store := (← get).store
+    match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
+    | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
+    | _, _ => pure none
+  | .expr  exprCid => do
+    let store := (← get).store
+    match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
+    | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
+    | _, _ => pure none
+  | .const constCid => do
+    let store := (← get).store
+    match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
+    | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
+    | _, _ => pure none
 
--- def StoreKey.find! (key : StoreKey A) : CompileM A := do
---   let some value ← StoreKey.find? key | throw "Cannot find key in store"
---   return value
+def StoreKey.find! (key : StoreKey A) : CompileM A := do
+  let some value ← StoreKey.find? key | throw $ .custom "Cannot find key in store"
+  return value
 
 inductive StoreValue : Type → Type
   | univ   : Ipld.Both Ipld.Univ  → StoreValue (Ipld.Both Ipld.UnivCid)

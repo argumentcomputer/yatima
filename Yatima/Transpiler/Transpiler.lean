@@ -28,7 +28,7 @@ mutual
   partial def telescopeLam (expr : Expr) : TranspileM $ Option Lurk.Expr := 
     let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
       match expr with 
-        | .lam name _ _ body => descend body <| bindAcc.concat (fixName name)
+        | .lam name _ _ body => descend body <| bindAcc.concat name
         | _ => (expr, bindAcc)
     do
       let (expr, binds) := descend expr []
@@ -37,20 +37,16 @@ mutual
         | some fn => return some $ .lam (binds.map fixName) fn
         | none => return none
 
-  partial def ctorToLurkExpr (idx : Nat) (ctor : Constructor) : TranspileM Lurk.Expr := do 
+  partial def ctorToLurkExpr (ctor : Constructor) : TranspileM Unit := do 
       -- For example, the type of `Nat.succ` is `Nat → Nat`,
       -- but we don't want to translate the type; 
       -- we want to build a lambda out of this type
       -- which requires (a bit awkwardly) descending into
       -- the foralls and reconstructing a `lambda` term
-    let (expr, ⟨binds⟩) := descend ctor.type #[]
-    let lExpr ← exprToLurkExpr expr
-    match lExpr with 
-      | none => throw s!"unexpected failure, `exprToLurkExpr` failed"
-      | some _ => 
-        let name := fixName ctor.name
-        let binds := binds.map fixName
-        return ⟦(lambda ($binds) ,($name . $idx . $binds))⟧
+    let (_, ⟨binds⟩) := descend ctor.type #[]
+    let name := fixName ctor.name
+    let binds := binds.map fixName
+    appendBinding (name, ⟦(lambda ($binds) ,($name . $ctor.idx . $binds))⟧)
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -65,15 +61,29 @@ mutual
 
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
-  -- partial def intRecrToLurkExpr (recr : IntRecursor) (ind : Inductive) : TranspileM Unit := sorry
+  partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List (Nat × Expr)) : TranspileM Unit := do 
+    let (_, ⟨binds⟩) := descend recr.type #[]
+    let argName : Lurk.Expr := .lit $ .sym (fixName binds[0]!)
+    let ifThens ← rhs.mapM fun (i, e) => do 
+      match ← exprToLurkExpr e with 
+      | some e => return (⟦(= (cdr (car $argName)) $i)⟧, e) -- extract snd element
+      | none => throw "failed to convert rhs of rule {i}"
+    let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
+    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
+  where
+    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
+      match expr with 
+        | .pi name _ _ body => descend body <| bindAcc.push (fixName name)
+        | _ => (expr, bindAcc)
 
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    | .var name _     => return some ⟦$(fixName name)⟧
+    | .var name _     => return some $ .lit $ .sym (fixName name)
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
+        dbg_trace s!"visit {name}"
         visit name -- cache
         let const := (← read).defns[cid]! -- TODO: Add proof later
         -- The binding works here because `constToLurkExpr`
@@ -83,7 +93,7 @@ mutual
         match ← constToLurkExpr const with 
           | some expr => prependBinding (fixName name, expr)
           | none      => pure ()
-      return some ⟦$(fixName name)⟧
+      return some $ .lit $ .sym (fixName name)
     | e@(.app ..) => telescopeApp e
     | e@(.lam ..) => telescopeLam e
     -- TODO: Do we erase?
@@ -106,13 +116,34 @@ mutual
   --  FIX: This is wrong, it just returns the literal name for unit type constructors, but it does 
   --       help with debugging some of the above functions
   -- -/
-  -- partial def mutIndBlockToLurkExpr (inds : List Inductive) : TranspileM $ Option Lurk.Expr := do
-  --   let store ← read
-  --   for ind in inds do 
-  --     for (i, ctor) in ind.ctors.enum do 
-  --       ctorToLurkExpr i ctor
-  --     for ⟨b, recr⟩ in ind.recrs do 
-  --       return none
+  partial def mutIndBlockToLurkExpr (inds : List (Name × List Name × Name × List Name)) : 
+      TranspileM Unit := do
+    let store ← read
+    for (ind, ctors, intR, extRs) in inds do
+      dbg_trace s!"beep boop: {ind} being processed"
+      let ctors ← ctors.mapM fun ctor => 
+        match store.cache.find? ctor with 
+        | some (_, idx) => match store.defns[idx]! with 
+          | .constructor ctor => return ctor 
+          | _ => throw s!"{ctor} not a constructor"
+        | none => throw s!"{ctor} not found in cache"
+      let irecr : IntRecursor := ← match store.cache.find? intR with 
+        | some (_, idx) => match store.defns[idx]! with 
+          | .intRecursor recr => return recr 
+          | _ => throw s!"{intR} not a internal recursor"
+        | none => throw s!"{intR} not found in cache"
+      for ctor in ctors do
+        ctorToLurkExpr ctor
+      dbg_trace s!"ctors are good"
+      intRecrToLurkExpr irecr (ctors.map fun c => (c.idx, c.rhs))
+      dbg_trace s!"irecr is good"
+      
+      -- for recr in extRs do 
+      --   match store.cache.find? recr with 
+      --   | some (_, idx) => match store.defns[idx]! with 
+      --     | .intRecursor recr => intRecrToLurkExpr recr 
+      --     | _ => throw ""
+      --   | none => throw ""
 
     -- Winston: Idk how the implementation for mutuals
     -- makes everything interact, so for now I just 
@@ -135,7 +166,6 @@ mutual
     --           ctorLurkExprs := ctorLurkExprs.concat (fixName exprName, lExpr)
     -- return none
 
-  
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
   projection separately to avoid some recursions.
@@ -150,8 +180,12 @@ mutual
     | .theorem  _ => return some (.lit .t)
     | .opaque   x => exprToLurkExpr x.value
     | .definition x => exprToLurkExpr x.value
-    | .inductive x => return none -- I think since we're making the constructors and recursors constants now, we can nil this out?
-    | .constructor x => return some (← ctorToLurkExpr x.idx x)
+    | .inductive x => do 
+      let u ← getMutualIndInfo x
+      dbg_trace u
+      mutIndBlockToLurkExpr u
+      return none -- I think since we're making the constructors and recursors constants now, we can nil this out?
+    | .constructor x => return none
     | .extRecursor x => return none
     | .intRecursor x => return none
     -- TODO
@@ -167,6 +201,7 @@ FIX: we need to cache what's already been done for efficiency and correctness!
 def transpileM : TranspileM Unit := do
   let store ← read
   store.defns.forM fun const => do
+    dbg_trace s!"processing {const.name}"
     match ← constToLurkExpr const with
     | some expr => appendBinding (fixName const.name, expr)
     | none      => pure ()
