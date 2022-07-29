@@ -133,10 +133,10 @@ def checkConst : Const → TypecheckM Unit
     let level ← isSort struct.type
     let type ← eval struct.type
     let inferredType ← match struct.kind with
-      | .type => pure $ .pi _ _ _ _ _
-      | .ctor => pure $ .pi _ _ _ _ _
-      | .ind  => pure $ .pi _ _ _ _ _
-      | .lift => pure $ .pi _ _ _ _ _
+      | .type => pure ()
+      | .ctor => pure ()
+      | .ind  => pure ()
+      | .lift => pure ()
     let eq ← equal 0 type inferredType (.sort level)
     if !eq then throw $ .valueMismatch inferredType type
 
