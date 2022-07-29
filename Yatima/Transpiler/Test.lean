@@ -2,7 +2,7 @@ import Yatima.ForLurkRepo.Printing
 import Yatima.Transpiler.Transpiler
 import Yatima.Compiler.Compiler
 
-open Yatima.Compiler Yatima.FromIpld Yatima.Transpiler
+open Yatima.Compiler Yatima.FromIpld Yatima.Transpiler 
 
 def test : IO Unit := do
   match (← compile "./Fixtures/LurkTranslation/SimplePrelude.lean") with 
@@ -10,5 +10,3 @@ def test : IO Unit := do
     | .ok compState => match transpile compState with
       | .error msg => IO.eprintln msg
       | .ok out => IO.println out
-
-#eval test

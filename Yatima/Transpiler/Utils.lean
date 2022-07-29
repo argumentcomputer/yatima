@@ -88,3 +88,13 @@ def getMutualIndInfo (ind : Inductive) :
   | _ => throw ""
 
 end Yatima.Transpiler
+
+namespace List 
+
+def last! [Inhabited α] : List α → α
+| [] => panic! "empty list"
+| [a] => a
+| [_, b] => b
+| _ :: _ :: l => last! l
+
+end List 

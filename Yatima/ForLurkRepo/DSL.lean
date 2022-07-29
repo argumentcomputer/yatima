@@ -180,7 +180,7 @@ partial def elabLurkIdents (i : TSyntax `ident) : TermElabM $ Array Expr := do
   if i.raw.isAntiquot then 
     let stx := i.raw.getAntiquotTerm
     let e ← elabTerm stx none
-    let e ← whnf e
+    let e ← reduce e -- TODO: may be very expensive, but I think we have to?
     let type ← inferType e
     match type.getAppFn with 
     | .const ``List _ _ => 
@@ -282,7 +282,16 @@ elab "test_elabLurkUnaryOp " v:lurk_unary_op : term =>
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
 
-namespace Lurk.SExpr.Tests
+namespace Lurk.Tests
+
+#eval toString `zero
+def WTF := [`motive, `zero, `succ, `t]
+#eval WTF.map toString
+#eval do 
+  let wtf := WTF.map toString
+  IO.println wtf
+  IO.print ⟦(lambda ($wtf) ())⟧.print
+  return ()
 
 def names := ["a", "b", "c"]
 def name := "d"

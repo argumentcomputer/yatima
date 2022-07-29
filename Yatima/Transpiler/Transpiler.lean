@@ -44,13 +44,13 @@ mutual
       -- which requires (a bit awkwardly) descending into
       -- the foralls and reconstructing a `lambda` term
     let (_, ⟨binds⟩) := descend ctor.type #[]
-    let name := fixName ctor.name
+    let name := fixName ctor.name -- we need the string name too
     let binds := binds.map fixName
-    appendBinding (name, ⟦(lambda ($binds) ,($name . $ctor.idx . $binds))⟧)
+    appendBinding (ctor.name, ⟦(lambda ($binds) ,($name . $ctor.idx . $binds))⟧)
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push (fixName name)
+        | .pi name _ _ body => descend body <| bindAcc.push name
         | _ => (expr, bindAcc)
 
   -- Very delicate, requires logic on the 
@@ -61,19 +61,24 @@ mutual
 
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
-  partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List (Nat × Expr)) : TranspileM Unit := do 
+  partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
     let (_, ⟨binds⟩) := descend recr.type #[]
-    let argName : Lurk.Expr := .lit $ .sym (fixName binds[0]!)
-    let ifThens ← rhs.mapM fun (i, e) => do 
-      match ← exprToLurkExpr e with 
-      | some e => return (⟦(= (cdr (car $argName)) $i)⟧, e) -- extract snd element
-      | none => throw "failed to convert rhs of rule {i}"
+    let argName : Lurk.Expr := .lit $ .sym (fixName binds.last!)
+    let ifThens ← rhs.mapM fun ctor => do 
+      let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
+      match ← exprToLurkExpr rhs with 
+      | some rhs => 
+        let args := ⟦(cdr (cdr $argName))⟧
+        -- (List.drop (recur.indices + 1) binds) ++ (List.take ctor.fields args)
+        return (⟦(= (cdr (car $argName)) $idx)⟧, ⟦($rhs)⟧) -- extract snd element
+      | none => throw "failed to convert rhs of rule {idx}"
+    let binds := binds.map fixName
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
+    appendBinding (recr.name, Lurk.Expr.lam binds cases) 
   where
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push (fixName name)
+        | .pi name _ _ body => descend body <| bindAcc.push name
         | _ => (expr, bindAcc)
 
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
@@ -91,7 +96,7 @@ mutual
         -- Hence we know that this binding will always come after
         -- all of its children have already been bound 
         match ← constToLurkExpr const with 
-          | some expr => prependBinding (fixName name, expr)
+          | some expr => appendBinding (name, expr)
           | none      => pure ()
       return some $ .lit $ .sym (fixName name)
     | e@(.app ..) => telescopeApp e
@@ -203,7 +208,7 @@ def transpileM : TranspileM Unit := do
   store.defns.forM fun const => do
     dbg_trace s!"processing {const.name}"
     match ← constToLurkExpr const with
-    | some expr => appendBinding (fixName const.name, expr)
+    | some expr => appendBinding (const.name, expr)
     | none      => pure ()
 
 open Yatima.Compiler in 
