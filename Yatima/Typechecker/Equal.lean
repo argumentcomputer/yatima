@@ -37,7 +37,7 @@ partial def isProp (lvl : Nat) (type : Value) : TypecheckM Bool :=
       | .const _ k us => do
            let const := (← read).store.get! k
            let ctx := { (← read) with env := ⟨ [], us ⟩ }
-           suspend const.type ctx
+           pure $ suspend const.type ctx
       | .fvar _ _ typ => pure typ
     let t ← type
     match (← applyType t.get args) with
@@ -114,7 +114,7 @@ mutual
     -- Analogous assumption on the types of the constants
     let const := (← read).store.get! k
     let ctx := { (← read) with env := ⟨ [], us ⟩ }
-    let const_type ← suspend const.type ctx
+    let const_type := suspend const.type ctx
     let eq ← equalThunks lvl args args' const_type
     pure $
       k == k' &&

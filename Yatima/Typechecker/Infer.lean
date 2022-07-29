@@ -27,7 +27,7 @@ mutual
       | Value.sort _ =>
         let exp_typ ← eval exp_typ
         check exp exp_typ
-        let exp ← suspend exp (← read)
+        let exp := suspend exp (← read)
         extCtx exp exp_typ $ check bod type
       | _ => throw CheckError.notTyp
     | _ =>
@@ -50,7 +50,7 @@ mutual
       match fnc_typ with
       | .pi _ _ dom img env =>
         check arg dom.get
-        let arg ← suspend arg (← read)
+        let arg := suspend arg (← read)
         let type ← withExtEnv env arg $ eval img
         pure type
       | _ => throw .notPi
@@ -63,7 +63,7 @@ mutual
         | .sort u => pure u
         | _ => throw .notTyp
       let ctx ← read
-      let dom ← suspend dom ctx
+      let dom := suspend dom ctx
       extCtx (mkVar name ctx.lvl dom) dom $ do
         let img_lvl ← match ← infer img with
           | .sort u => pure u
@@ -75,7 +75,7 @@ mutual
       | Value.sort _ =>
         let exp_typ ← eval exp_typ
         check exp exp_typ
-        let exp ← suspend exp (← read)
+        let exp := suspend exp (← read)
         extCtx exp exp_typ $ infer bod
       | _ => throw CheckError.notTyp
     | .lit (Literal.nat _) => pure $ Value.lty LitType.nat
@@ -98,7 +98,7 @@ mutual
           for i in [:idx] do
             match ctorType with
             | .pi _ _ _ img pi_env =>
-              let proj ← suspend (Expr.proj i expr) (← read)
+              let proj := suspend (Expr.proj i expr) (← read)
               ctorType ← withExtEnv pi_env proj $ eval img
             | _ => pure ()
           match ctorType with

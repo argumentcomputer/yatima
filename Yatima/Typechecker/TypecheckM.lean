@@ -15,36 +15,6 @@ def Context.init (store : Array Const) : Context :=
 def Context.find? (ctx : Context) (constName : Name) : Option Const :=
   ctx.store.find? (fun const => const.name == constName)
 
-inductive CheckError where
-  | notPi : CheckError
-  | notTyp : CheckError
-  | valueMismatch : CheckError
-  | cannotInferLam : CheckError
-  | typNotStructure : CheckError
-  | projEscapesProp : CheckError
-  | unsafeDefinition : CheckError
-  -- Unsafe definition found
-  | hasNoRecursionRule : CheckError
-  -- Constructor has no associated recursion rule. Implementation is broken.
-  | cannotApply : CheckError
-  -- Cannot apply argument list to type. Implementation broken.
-  | impossibleEqualCase : CheckError
-  -- Impossible equal case
-  | impossibleProjectionCase : CheckError
-  -- Impossible case on projections
-  | impossibleEvalCase : CheckError
-  -- Cannot evaluate this quotient
-  | cannotEvalQuotient : CheckError
-  -- Out of the thunk list range
-  | outOfRangeError : CheckError
-  -- Unknown constant name
-  | unknownConst : CheckError
-  -- No way to extract a name
-  | noName : CheckError
-  | evalError : CheckError
-  | impossible : CheckError
-  deriving Inhabited
-
 abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
 
 def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except CheckError α :=
