@@ -1,7 +1,7 @@
 import Yatima.ForLurkRepo.AST
 import YatimaStdLib.String
 
-namespace Lurk
+namespace Lurk.Expr
 
 instance : ToString UnaryOp where toString
   | .car  => "car"
@@ -27,16 +27,8 @@ instance : ToString Literal where toString
   | .str s  => s!"\"{s}\""
   | .char c => s!"#\\{c}"
 
-partial def SExpr.print : SExpr → String
-  | .atom s     => s
-  | .num  n     => s!"{n}"
-  | .str  s     => s!"\"{s}\""
-  | .char c     => s!"\'{c}\'"
-  | .list es    => "(" ++ " ".intercalate (es.map SExpr.print) ++ ")"
-  | .cons e1 e2 => s!"{e1.print} . {e2.print}"
-
 open String (blankIndent) in
-partial def Expr.print (e : Expr) : String :=
+partial def print (e : Expr) : String :=
   let rec aux (n : Nat) : Expr → String
     | .lit l => s!"{blankIndent n}{toString l}"
     | .ifE test c alt => s!"{blankIndent n}(if\n{aux (n + 1) test}\n{aux (n + 1) c}\n{aux (n + 1) alt})"
@@ -65,4 +57,7 @@ partial def Expr.print (e : Expr) : String :=
       | none => s!"{blankIndent n}(eval\n{aux (n + 1) expr₁})"
   aux 0 e
 
-end Lurk
+instance : ToString Expr where 
+  toString := print
+
+end Lurk.Expr

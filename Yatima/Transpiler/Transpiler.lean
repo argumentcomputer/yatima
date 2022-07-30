@@ -72,7 +72,7 @@ mutual
       | none => throw "failed to convert rhs of rule {idx}"
     let binds := binds.map fixName
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recr.name, Lurk.Expr.lam binds cases) 
+    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
   where
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -138,7 +138,7 @@ mutual
       for ctor in ctors do
         ctorToLurkExpr ctor
       dbg_trace s!"ctors are good"
-      intRecrToLurkExpr irecr (ctors.map fun c => (c.idx, c.rhs))
+      intRecrToLurkExpr irecr ctors
       dbg_trace s!"irecr is good"
       
       -- for recr in extRs do 

@@ -1,3 +1,5 @@
+import Yatima.ForLurkRepo.SExpr
+
 namespace Lurk
 
 /-- Unary operations on Lurk expressions -/
@@ -20,15 +22,6 @@ inductive Literal
   | char    : Char → Literal
   -- Symbols
   | sym     : String → Literal
-  deriving Repr
-
-inductive SExpr where
-  | atom : String → SExpr
-  | num  : Int → SExpr
-  | str  : String → SExpr
-  | char : Char → SExpr
-  | list : List SExpr → SExpr
-  | cons : SExpr → SExpr → SExpr
   deriving Repr
 
 /-- Basic Lurk expression AST -/
@@ -60,3 +53,23 @@ inductive Expr where
   -- `eval <expr> <env>`
   | eval    : Expr → Option Expr → Expr
   deriving Repr
+
+namespace Expr 
+
+class ToExpr (α : Type u) where 
+  toExpr : α → Expr 
+
+instance : ToExpr Nat where 
+  toExpr n := .lit $ .num n
+  
+instance : ToExpr Int where 
+  toExpr n := .lit $ .num n
+
+instance : ToExpr String where 
+  toExpr s := .lit $ .str s
+
+instance : ToExpr Char where 
+  toExpr c := .lit $ .char c
+
+instance : ToExpr Expr where 
+  toExpr s := s
