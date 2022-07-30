@@ -114,11 +114,15 @@ end
 
 def checkValueType (name : Name) (value type : Expr) : TypecheckM Unit := do
   let _ ← isSort type
-  tryCatch (check value (← eval type)) (fun e => dbg_trace s!"✗ {name} : {type}"; throw e)
+  let trace := fun e => dbg_trace s!"✗ {name} : {type}"; throw e
+  tryCatch (check value (← eval type)) trace
   dbg_trace s!"✓ {name} : {type}"
 
 def checkConst : Const → TypecheckM Unit
-  | .axiom       struct => tryCatch (discard $ isSort struct.type) (fun e => dbg_trace s!"✗ {struct.name} : {struct.type}"; throw e)
+  | .axiom       struct => do
+    let trace := fun e => dbg_trace s!"✗ {struct.name} : {struct.type}"; throw e
+    tryCatch (discard $ isSort struct.type) trace
+    dbg_trace s!"✓ {struct.name} : {struct.type}"
   | .theorem     struct => checkValueType struct.name struct.value struct.type
   | .opaque      struct => checkValueType struct.name struct.value struct.type
   | .definition  struct => checkValueType struct.name struct.value struct.type

@@ -24,7 +24,7 @@ def printExpr (expr : Expr) : String :=
   match expr with
   | .var nam idx => s!"{nam}^{idx}"
   | .sort u => s!"(Sort {printUniv u})"
-  | .const nam _ univs => s!"{nam}.{univs.map printUniv}"
+  | .const nam k univs => s!"{nam}&{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
   | .lam nam binfo dom bod =>
     match binfo with
@@ -78,7 +78,7 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
    | some val => printVal val.get
    | none => s!"!{nam}^{idx}!"
   | .sort u => s!"(Sort {printUniv u})"
-  | .const nam _ univs => s!"{nam}.{univs.map printUniv}"
+  | .const nam k univs => s!"{nam}&{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printLamBod fnc env} {printLamBod arg env})"
   | .lam nam binfo dom bod =>
     match binfo with
@@ -103,7 +103,7 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
 partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}#{idx}" args
-  | .const nam _ univs => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}.{univs.map printUniv}" args
+  | .const nam k univs => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}&{k}.{univs.map printUniv}" args
 
 end
 
