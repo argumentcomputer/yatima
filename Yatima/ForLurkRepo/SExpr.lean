@@ -1,9 +1,10 @@
 import Lean
+import Yatima.ForLurkRepo.FixName
 
 namespace Lurk 
 
 inductive SExpr where
-  | atom : String → SExpr
+  | atom : Name → SExpr
   | num  : Int → SExpr
   | str  : String → SExpr
   | char : Char → SExpr
@@ -14,7 +15,7 @@ inductive SExpr where
 namespace SExpr
 
 partial def print : SExpr → String
-  | .atom s     => s
+  | .atom s     => fixName s
   | .num  n     => s!"{n}"
   | .str  s     => s!"\"{s}\""
   | .char c     => s!"\'{c}\'"
@@ -32,6 +33,9 @@ instance : ToSExpr Nat where
   
 instance : ToSExpr Int where 
   toSExpr := .num
+
+instance : ToSExpr Name where 
+  toSExpr := .atom
 
 instance : ToSExpr String where 
   toSExpr := .str
@@ -67,10 +71,6 @@ syntax "/"                 : sexpr
 syntax "="                 : sexpr
 
 open Lurk.SExpr in 
-partial def antiquoteToSExpr (e : Expr) : TermElabM Expr := do
-  let e ← whnf e
-  mkAppM ``ToSExpr.toSExpr #[e]
-
 partial def elabSExpr : Syntax → TermElabM Expr
   | `(sexpr| -$n:num) => match n.getNat with
     | 0     => do
@@ -79,12 +79,13 @@ partial def elabSExpr : Syntax → TermElabM Expr
       mkAppM ``Lurk.SExpr.num #[← mkAppM ``Int.negSucc #[mkNatLit n]]
   | `(sexpr| $n:num) => do
     mkAppM ``Lurk.SExpr.num #[← mkAppM ``Int.ofNat #[mkNatLit n.getNat]]
-  | `(sexpr| $i:ident) => mkAppM ``Lurk.SExpr.atom #[mkStrLit i.getId.toString]
-  | `(sexpr| +) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "+"]
-  | `(sexpr| -) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "-"]
-  | `(sexpr| *) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "*"]
-  | `(sexpr| /) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "/"]
-  | `(sexpr| =) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "/"]
+  | `(sexpr| $i:ident) => do 
+    mkAppM ``Lurk.SExpr.atom #[← mkNameLit i.getId.toString]
+  | `(sexpr| +) => do mkAppM ``Lurk.SExpr.atom #[← mkNameLit "+"]
+  | `(sexpr| -) => do mkAppM ``Lurk.SExpr.atom #[← mkNameLit "-"]
+  | `(sexpr| *) => do mkAppM ``Lurk.SExpr.atom #[← mkNameLit "*"]
+  | `(sexpr| /) => do mkAppM ``Lurk.SExpr.atom #[← mkNameLit "/"]
+  | `(sexpr| =) => do mkAppM ``Lurk.SExpr.atom #[← mkNameLit "/"]
   | `(sexpr| $s:str) => mkAppM ``Lurk.SExpr.str #[mkStrLit s.getString]
   | `(sexpr| $c:char)  => do
     mkAppM ``Lurk.SExpr.char
@@ -98,10 +99,14 @@ partial def elabSExpr : Syntax → TermElabM Expr
     if i.raw.isAntiquot then 
       let stx := i.raw.getAntiquotTerm
       let e ← elabTerm stx none
-      antiquoteToSExpr e
+      let e ← whnf e
+      mkAppM ``ToSExpr.toSExpr #[e]
     else 
       throwUnsupportedSyntax 
   | _ => throwUnsupportedSyntax
+  where 
+    mkNameLit (name : String) := 
+      mkAppM ``Name.mkSimple #[mkStrLit name]
 
 elab "[SExpr| " e:sexpr "]" : term =>
   elabSExpr e

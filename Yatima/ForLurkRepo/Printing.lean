@@ -23,7 +23,7 @@ instance : ToString Literal where toString
   | .nil    => "nil"
   | .t      => "t"
   | .num n  => toString n
-  | .sym n  => toString n
+  | .sym n  => fixName n
   | .str s  => s!"\"{s}\""
   | .char c => s!"#\\{c}"
 
@@ -32,14 +32,14 @@ partial def print (e : Expr) : String :=
   let rec aux (n : Nat) : Expr → String
     | .lit l => s!"{blankIndent n}{toString l}"
     | .ifE test c alt => s!"{blankIndent n}(if\n{aux (n + 1) test}\n{aux (n + 1) c}\n{aux (n + 1) alt})"
-    | .lam formals body => s!"{blankIndent n}(lambda ({" ".intercalate formals})\n{aux (n + 1) body})"
+    | .lam formals body => s!"{blankIndent n}(lambda ({" ".intercalate (formals.map fixName)})\n{aux (n + 1) body})"
     | .letE bindings body =>
       let bindingsStr := bindings.map
-        fun (name, expr) => s!"{blankIndent (n + 2)}({name}\n{aux (n + 3) expr})"
+        fun (name, expr) => s!"{blankIndent (n + 2)}({fixName name}\n{aux (n + 3) expr})"
       s!"{blankIndent n}(let ({if bindingsStr.isEmpty then "" else "\n"}{"\n".intercalate bindingsStr})\n{aux (n + 1) body})"
     | .letRecE bindings body =>
       let bindingsStr := bindings.map
-        fun (name, expr) => s!"{blankIndent (n + 2)}({name}\n{aux (n + 3) expr})"
+        fun (name, expr) => s!"{blankIndent (n + 2)}({fixName name}\n{aux (n + 3) expr})"
       s!"{blankIndent n}(letrec ({if bindingsStr.isEmpty then "" else "\n"}{"\n".intercalate bindingsStr})\n{aux (n + 1) body})"
     | .app fn args =>
       let args := "\n".intercalate $ args.map (aux (n + 1))

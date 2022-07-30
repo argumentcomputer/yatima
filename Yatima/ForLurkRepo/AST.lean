@@ -21,7 +21,7 @@ inductive Literal
   -- Characters
   | char    : Char → Literal
   -- Symbols
-  | sym     : String → Literal
+  | sym     : Name → Literal
   deriving Repr
 
 /-- Basic Lurk expression AST -/
@@ -31,11 +31,11 @@ inductive Expr where
   -- `if <test> <consequent> <alternate>`
   | ifE     : Expr → Expr → Expr → Expr
   -- `lambda <formals> <body>`
-  | lam     : List String → Expr → Expr
+  | lam     : List Name → Expr → Expr
   -- `let <bindings> <body>`
-  | letE    : List (String × Expr) → Expr → Expr
+  | letE    : List (Name × Expr) → Expr → Expr
   -- `letrec <bindings> <body>`
-  | letRecE : List (String × Expr) → Expr → Expr
+  | letRecE : List (Name × Expr) → Expr → Expr
   -- `<fun> <args>`
   | app     : Expr → List Expr → Expr 
   -- `quote <datum>`
@@ -64,6 +64,9 @@ instance : ToExpr Nat where
   
 instance : ToExpr Int where 
   toExpr n := .lit $ .num n
+
+instance : ToExpr Name where 
+  toExpr s := .lit $ .sym s
 
 instance : ToExpr String where 
   toExpr s := .lit $ .str s

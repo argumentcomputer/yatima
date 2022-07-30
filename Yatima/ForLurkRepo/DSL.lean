@@ -4,6 +4,9 @@ import Yatima.ForLurkRepo.Utils
 
 open Lean Elab Meta Term
 
+def mkNameLit (name : String) := 
+  mkAppM ``Name.mkSimple #[mkStrLit name]
+
 declare_syntax_cat    lurk_literal
 syntax "t"          : lurk_literal
 syntax "nil"        : lurk_literal
@@ -28,8 +31,8 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | `(lurk_literal| $c:char) => do
     let c ← mkAppM ``Char.ofNat #[mkNatLit c.getChar.val.toNat]
     mkAppM ``Lurk.Literal.char #[c]
-  | `(lurk_literal| $i:ident) =>
-    mkAppM ``Lurk.Literal.sym #[mkStrLit i.getId.toString]
+  | `(lurk_literal| $i:ident) => do 
+    mkAppM ``Lurk.Literal.sym #[← mkNameLit i.getId.toString]
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
@@ -99,22 +102,23 @@ partial def elabLurkIdents (i : TSyntax `ident) : TermElabM Expr := do
     match type.getAppFn with 
     | .const ``List _ _ => return e
     | _ => 
-      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``String)]
+      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
       mkAppM ``List.cons #[e, «nil»]
   else
-    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``String)]
-    mkAppM ``List.cons #[mkStrLit i.getId.toString, «nil»]
+    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+    mkAppM ``List.cons #[← mkNameLit i.getId.toString, «nil»]
+
 
 mutual 
 partial def elabLurkBinding : Syntax → TermElabM Expr 
   | `(lurk_binding| ($name $body)) => do
-    mkAppM ``Prod.mk #[mkStrLit name.getId.toString, ← elabLurkExpr body]
+    mkAppM ``Prod.mk #[← mkNameLit name.getId.toString, ← elabLurkExpr body]
   | _ => throwUnsupportedSyntax
 
 partial def elabLurkBindings : Syntax → TermElabM Expr 
   | `(lurk_bindings| ($bindings*)) => do 
     let bindings ← bindings.mapM elabLurkBinding
-    let type ← mkAppM ``Prod #[mkConst ``String, mkConst ``Lurk.Expr]
+    let type ← mkAppM ``Prod #[mkConst ``Lurk.Name, mkConst ``Lurk.Expr]
     mkListLit type bindings.toList
   | _ => throwUnsupportedSyntax
 
@@ -127,7 +131,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
   | `(lurk_expr| (lambda ($formals*) $body)) => do
     let formals ← Array.toList <$> formals.mapM elabLurkIdents
     logInfo formals
-    let formals ← mkListLit (← mkAppM ``List #[mkConst ``String]) formals
+    let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lurk.Name]) formals
     let formals ← mkAppM ``List.join #[formals]
     mkAppM ``Lurk.Expr.lam #[formals, ← elabLurkExpr body]
   | `(lurk_expr| (let $bind $body)) => do
@@ -155,7 +159,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     let e := (← e.mapM elabLurkExpr).toList
     match e with 
     | []   => 
-      let s ← mkAppM ``Lurk.Literal.sym #[mkStrLit "()"]
+      let s ← mkAppM ``Lurk.Literal.sym #[← mkNameLit "()"]
       mkAppM ``Lurk.Expr.lit #[s]
     | e::es => 
       let type := Lean.mkConst ``Lurk.Expr
@@ -171,20 +175,22 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
   | _ => throwUnsupportedSyntax
 end
 
+#eval Name.mkSimple ""
+
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
 
 namespace Lurk.Tests
 
-def binds := #["foo", "bar"]
+def binds := #[`foo, `bar]
 #eval 
   let ⟨uwu⟩ := binds
   IO.print ⟦
-    (lambda ($uwu) ())
+    (lambda ($uwu) a)
   ⟧.print
 
-def names := ["a", "b", "c"]
-def name := "d"
+def names := [`a, `b, `c]
+def name := `d
 
 #eval IO.print ⟦
   (lambda ($names $name e) ())

@@ -32,7 +32,7 @@ mutual
       let (expr, binds) := descend expr []
       let fn? ← exprToLurkExpr expr
       match fn? with
-        | some fn => return some $ .lam (binds.map fixName) fn
+        | some fn => return some $ .lam binds fn
         | none => return none
 
   partial def ctorToLurkExpr (ctor : Constructor) : TranspileM Unit := do 
@@ -41,10 +41,9 @@ mutual
       -- we want to build a lambda out of this type
       -- which requires (a bit awkwardly) descending into
       -- the foralls and reconstructing a `lambda` term
-    let (_, ⟨binds⟩) := descend ctor.type #[]
-    let name := fixName ctor.name -- we need the string name too
-    let binds := binds.map fixName
-    appendBinding (ctor.name, ⟦(lambda ($binds) ,($name . $ctor.idx . $binds))⟧)
+    let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
+    let (_, ⟨binds⟩) := descend type #[]
+    appendBinding (name, ⟦(lambda ($binds) ,($name . $idx . $binds))⟧)
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -61,7 +60,7 @@ mutual
 
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
     let (_, ⟨binds⟩) := descend recr.type #[]
-    let argName : Lurk.Expr := .lit $ .sym (fixName binds.last!)
+    let argName : Lurk.Expr := .lit $ .sym binds.last!
     let ifThens ← rhs.mapM fun ctor => do 
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       match ← exprToLurkExpr rhs with 
@@ -70,7 +69,6 @@ mutual
         -- (List.drop (recur.indices + 1) binds) ++ (List.take ctor.fields args)
         return (⟦(= (cdr (car $argName)) $idx)⟧, ⟦($rhs)⟧) -- extract snd element
       | none => throw "failed to convert rhs of rule {idx}"
-    let binds := binds.map fixName
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
     appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
   where
@@ -82,7 +80,7 @@ mutual
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    | .var name _     => return some $ .lit $ .sym (fixName name)
+    | .var name _     => return some $ .lit $ .sym name
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
@@ -96,7 +94,7 @@ mutual
         match ← constToLurkExpr const with 
           | some expr => appendBinding (name, expr)
           | none      => pure ()
-      return some $ .lit $ .sym (fixName name)
+      return some $ .lit $ .sym name
     | e@(.app ..) => telescopeApp e
     | e@(.lam ..) => telescopeLam e
     -- TODO: Do we erase?
@@ -105,7 +103,7 @@ mutual
     -- TODO
     | .letE name _ value body  => do
       match (← exprToLurkExpr value), (← exprToLurkExpr body) with
-        | some val, some body => return some $ .letE [(fixName name, val)] body
+        | some val, some body => return some $ .letE [(name, val)] body
         | _, _ => throw "TODO"
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow

@@ -12,9 +12,8 @@ structure State where
   deriving Inhabited
 
 
-def State.getStringBindings (s : State) : List (String × Lurk.Expr) :=
-  s.prependedBindings.reverse.append s.appendedBindings |>.data |>.map
-    fun (name, lexpr) => (name.toString, lexpr)
+def State.getStringBindings (s : State) : List (Name × Lurk.Expr) :=
+  s.prependedBindings.reverse.append s.appendedBindings |>.data
 
 open Yatima.Compiler
 open Yatima.FromIpld
