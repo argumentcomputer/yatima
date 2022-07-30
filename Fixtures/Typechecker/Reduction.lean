@@ -1,7 +1,7 @@
-def A  := (fun x => x) 1
-def A' := 1
+def A  := (fun x => x) true
+def A' := true
 
 def B  := match false with
-  | false => 1
-  | true => 2
-def B' := 1
+  | false => true
+  | true => false
+def B' := true

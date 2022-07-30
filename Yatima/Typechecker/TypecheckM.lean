@@ -11,7 +11,10 @@ structure Context where
   deriving Inhabited
 
 def Context.init (store : Array Const) : Context :=
-  { (default : Context) with store := store }
+  { (default : Context) with store }
+
+def Context.initEnv (env : Env Value) (store : Array Const) : Context :=
+  { (default : Context) with store, env }
 
 inductive CheckError where
   | notPi : Value → CheckError
