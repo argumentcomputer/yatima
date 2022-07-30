@@ -130,7 +130,6 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
       #[← elabLurkExpr test, ← elabLurkExpr con, ← elabLurkExpr alt]
   | `(lurk_expr| (lambda ($formals*) $body)) => do
     let formals ← Array.toList <$> formals.mapM elabLurkIdents
-    logInfo formals
     let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lurk.Name]) formals
     let formals ← mkAppM ``List.join #[formals]
     mkAppM ``Lurk.Expr.lam #[formals, ← elabLurkExpr body]
@@ -184,9 +183,9 @@ namespace Lurk.Tests
 
 def binds := #[`foo, `bar]
 #eval 
-  let ⟨uwu⟩ := binds
+  let ⟨binds⟩ := binds
   IO.print ⟦
-    (lambda ($uwu) a)
+    (lambda ($binds) a)
   ⟧.print
 
 def names := [`a, `b, `c]

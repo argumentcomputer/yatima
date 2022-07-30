@@ -33,11 +33,11 @@ def getMutualIndInfo (ind : Inductive) :
   let cache := (← read).cache
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
-  | none => throw ""
+  | none => throw s!"{ind.name} not found in cache"
   let blockCid : ConstCid := ← match ← StoreKey.find! $ .const cid with 
   | ⟨.inductiveProj indAnon, .inductiveProj indMeta⟩ => 
     return ⟨indAnon.block, indMeta.block⟩
-  | _ => throw ""
+  | _ => throw s!"cid not found in store"
   match ← StoreKey.find! $ .const blockCid with 
   | ⟨.mutIndBlock blockAnon, .mutIndBlock blockMeta⟩ => 
     blockAnon.zip blockMeta |>.mapM fun (_, indMeta) => do 
@@ -50,7 +50,7 @@ def getMutualIndInfo (ind : Inductive) :
         | .Intr => intR := recr.name.proj₂ 
         | .Extr => extRs := recr.name.proj₂ :: extRs
       return (indName, ctors, intR, extRs)
-  | _ => throw ""
+  | _ => throw "blockCid not found in store"
 
 end Yatima.Transpiler
 

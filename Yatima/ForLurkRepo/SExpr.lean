@@ -14,13 +14,14 @@ inductive SExpr where
 
 namespace SExpr
 
-partial def print : SExpr → String
-  | .atom s     => fixName s
+partial def print (e : SExpr) (pretty := true) : String :=
+  match e with
+  | .atom s     => fixName s pretty
   | .num  n     => s!"{n}"
   | .str  s     => s!"\"{s}\""
   | .char c     => s!"\'{c}\'"
-  | .list es    => "(" ++ " ".intercalate (es.map SExpr.print) ++ ")"
-  | .cons e1 e2 => s!"{e1.print} . {e2.print}"
+  | .list es    => "(" ++ " ".intercalate (es.map $ fun e => e.print pretty) ++ ")"
+  | .cons e1 e2 => s!"{e1.print} . {e2.print pretty}"
 
 instance : ToString SExpr where 
   toString := print
