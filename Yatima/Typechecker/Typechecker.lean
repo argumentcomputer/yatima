@@ -8,16 +8,7 @@ def typecheckM : TypecheckM Unit := do
   let defns := (← read).store
   defns.forM checkConst
 
-def typecheck (store : Ipld.Store) : IO UInt32 :=
-  match FromIpld.extractConstArray store with
-  | .ok store => match TypecheckM.run (.init store) typecheckM with
-    | .ok _ => do
-      pure 0
-    | .error msg => do
-      IO.eprintln s!"{toString msg}"
-      pure 1
-  | .error msg => do
-    IO.eprintln msg
-    pure 1
+def typecheck (defns : Array Const) : Except CheckError Unit :=
+  TypecheckM.run (.init defns) typecheckM
 
 end Yatima.Typechecker

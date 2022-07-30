@@ -114,13 +114,11 @@ mutual
     -- Analogous assumption on the types of the constants
     let const := (← read).store.get! k
     let ctx := { (← read) with env := ⟨ [], us ⟩ }
-    let const_type := suspend const.type ctx
-    let eq ← equalThunks lvl args args' const_type
     pure $
       k == k' &&
-      List.length args != List.length args' &&
+      List.length args == List.length args' &&
       equalUnivs us us' &&
-      eq
+      (← equalThunks lvl args args' (suspend const.type ctx))
 
   partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value))
       (type : Thunk Value) : TypecheckM Bool :=

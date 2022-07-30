@@ -3,9 +3,7 @@ import Yatima.Cli.Utils
 import Yatima.Cli.Cronos
 import Yatima.Cli.Version
 import Yatima.Compiler.Compiler
-import Yatima.Typechecker.Typechecker
 
-open Yatima.Typechecker in
 open Yatima.Compiler in
 def compileRun (p : Cli.Parsed) : IO UInt32 := do
   match ← getToolchain with
@@ -44,7 +42,6 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
       -- TODO: write `stt.store` on disk
-      discard $ Yatima.Typechecker.typecheck stt.store
       return 0
     else
       IO.eprintln "No store argument was found."
@@ -54,8 +51,6 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
     IO.eprintln "Couldn't parse store arguments."
     IO.eprintln "Run `yatima store -h` for further information."
     return 1
-
-instance : Coe String (Option String) where coe := some
 
 def compileCmd : Cli.Cmd := `[Cli|
   compile VIA compileRun; [VERSION]

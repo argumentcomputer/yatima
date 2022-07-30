@@ -114,21 +114,21 @@ end
 
 def checkValueType (name : Name) (value type : Expr) : TypecheckM Unit := do
   let _ ← isSort type
-  tryCatch (check value (← eval type)) (fun e => dbg_trace s!"✗ {value} : {type}"; throw e)
+  tryCatch (check value (← eval type)) (fun e => dbg_trace s!"✗ {name} : {type}"; throw e)
   dbg_trace s!"✓ {name} : {type}"
 
 def checkConst : Const → TypecheckM Unit
-  | .axiom      struct => discard $ isSort struct.type
-  | .theorem    struct => checkValueType struct.name struct.value struct.type
-  | .opaque     struct => checkValueType struct.name struct.value struct.type
-  | .definition struct => checkValueType struct.name struct.value struct.type
+  | .axiom       struct => tryCatch (discard $ isSort struct.type) (fun e => dbg_trace s!"✗ {struct.name} : {struct.type}"; throw e)
+  | .theorem     struct => checkValueType struct.name struct.value struct.type
+  | .opaque      struct => checkValueType struct.name struct.value struct.type
+  | .definition  struct => checkValueType struct.name struct.value struct.type
   -- TODO: check that inductives, constructors and recursors are well-formed
-  | .inductive       _ => pure ()
-  | .constructor     _ => pure ()
-  | .extRecursor     _ => pure ()
-  | .intRecursor     _ => pure ()
+  | .inductive   struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
+  | .constructor struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
+  | .extRecursor struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
+  | .intRecursor struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
   -- TODO: check that quotient is well-formed. I guess it is possible to do this while converting from Ipld
   -- by checking the cids of the quotient constants with precomputed ones
-  | .quotient        _ => pure ()
+  | .quotient    struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
 
 end Yatima.Typechecker

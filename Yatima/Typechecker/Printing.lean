@@ -2,19 +2,29 @@ import Yatima.Typechecker.Value
 
 namespace Yatima.Typechecker
 
+mutual
 def printUniv (univ : Univ) : String :=
   match univ with
   | .var nam _ => s!"{nam}"
-  | .succ a => s!"(succ {printUniv a})"
+  | .succ a => s!"{printSucc a 1}"
   | .zero     => s!"0"
   | .imax a b => s!"(imax {printUniv a} {printUniv b})"
   | .max a b => s!"(max {printUniv a} {printUniv b})"
 
+def printSucc (univ : Univ) (idx : Nat) : String :=
+  match univ with
+  | .var nam _ => s!"{idx}+{nam}"
+  | .succ a => s!"{printSucc a (idx+1)}"
+  | .zero     => s!"{idx}"
+  | .imax a b => s!"{idx}+(imax {printUniv a} {printUniv b})"
+  | .max a b => s!"{idx}+(max {printUniv a} {printUniv b})"
+
+end
 def printExpr (expr : Expr) : String :=
   match expr with
-  | .var nam idx => s!"{nam}#{idx}"
+  | .var nam idx => s!"{nam}^{idx}"
   | .sort u => s!"(Sort {printUniv u})"
-  | .const nam .. => s!"{nam}"
+  | .const nam _ univs => s!"{nam}.{univs.map printUniv}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
   | .lam nam binfo dom bod =>
     match binfo with
@@ -62,13 +72,13 @@ partial def printVal (val : Value) : String :=
 
 partial def printLamBod (expr : Expr) (env : Env Value) : String :=
   match expr with
-  | .var nam 0 => s!"{nam}#0"
+  | .var nam 0 => s!"{nam}^0"
   | .var nam idx =>
     match env.exprs.get? (idx-1) with
    | some val => printVal val.get
-   | none => s!"{nam}#{idx}"
+   | none => s!"!{nam}^{idx}!"
   | .sort u => s!"(Sort {printUniv u})"
-  | .const nam .. => s!"{nam}"
+  | .const nam _ univs => s!"{nam}.{univs.map printUniv}"
   | .app fnc arg => s!"({printLamBod fnc env} {printLamBod arg env})"
   | .lam nam binfo dom bod =>
     match binfo with
@@ -89,11 +99,11 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
   | .lty .nat => s!"Nat"
   | .lty .str => s!"String"
   | .proj idx val => s!"{printLamBod val env}.{idx}"
-  
+
 partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}#{idx}" args
-  | .const nam .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}" args
+  | .const nam _ univs => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}.{univs.map printUniv}" args
 
 end
 
