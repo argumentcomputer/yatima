@@ -32,6 +32,7 @@ import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.Printing
+import Yatima.Typechecker.TypecheckError
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Typechecker
 import Yatima.Typechecker.Value
