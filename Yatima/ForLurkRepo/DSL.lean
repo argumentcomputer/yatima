@@ -183,7 +183,7 @@ partial def elabLurkIdents (i : TSyntax `ident) : TermElabM $ Array Expr := do
     let e ← whnf e
     let type ← inferType e
     match type.getAppFn with 
-    | .const ``List _ _ => 
+    | .const ``List _ => 
       let es := Expr.toListExpr e 
       return ⟨es⟩
     | _ => return ⟨[e]⟩
@@ -290,6 +290,8 @@ def name := "d"
 #eval IO.print ⟦
   (lambda ($names $name e) ())
 ⟧.print
+-- (lambda (a b c d e)
+--   ())
 
 #eval IO.print ⟦ (lambda (n) n) ⟧.print
 -- (lambda (n)
