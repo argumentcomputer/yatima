@@ -4,24 +4,24 @@ namespace Yatima.Typechecker
 
 /- PREVIOUS VERSIONS
 
-inductive CheckError where
-  | notPi : Value → CheckError
-  | notTyp : Value → CheckError
-  | valueMismatch : Value → Value → CheckError
-  | cannotInferLam : CheckError
-  | typNotStructure : Value → CheckError
-  | projEscapesProp : Expr → CheckError
-  | unsafeDefinition : CheckError
-  | hasNoRecursionRule : CheckError
-  | cannotApply : CheckError
-  | outOfRangeError : Name → Nat → Nat → CheckError
-  | outOfContextRange : Name → Nat → Nat → CheckError
-  | outOfDefnRange : Name → Nat → Nat → CheckError
-  | impossible : CheckError
-  | custom : String → CheckError
+inductive TypecheckError where
+  | notPi : Value → TypecheckError
+  | notTyp : Value → TypecheckError
+  | valueMismatch : Value → Value → TypecheckError
+  | cannotInferLam : TypecheckError
+  | typNotStructure : Value → TypecheckError
+  | projEscapesProp : Expr → TypecheckError
+  | unsafeDefinition : TypecheckError
+  | hasNoRecursionRule : TypecheckError
+  | cannotApply : TypecheckError
+  | outOfRangeError : Name → Nat → Nat → TypecheckError
+  | outOfContextRange : Name → Nat → Nat → TypecheckError
+  | outOfDefnRange : Name → Nat → Nat → TypecheckError
+  | impossible : TypecheckError
+  | custom : String → TypecheckError
   deriving Inhabited
 
-instance : ToString CheckError where
+instance : ToString TypecheckError where
   toString 
   | .notPi val => s!"Expected a pi type, found {printVal val}"
   | .notTyp val => s!"Expected a sort type, found {printVal val}"
@@ -39,39 +39,39 @@ instance : ToString CheckError where
   | .custom str => str
 -/
 
-inductive CheckError where
-  | notPi : CheckError
-  | notTyp : CheckError
-  | valueMismatch : CheckError
-  | cannotInferLam : CheckError
-  | typNotStructure : CheckError
-  | projEscapesProp : CheckError
-  | unsafeDefinition : CheckError
+inductive TypecheckError where
+  | notPi : TypecheckError
+  | notTyp : TypecheckError
+  | valueMismatch : TypecheckError
+  | cannotInferLam : TypecheckError
+  | typNotStructure : TypecheckError
+  | projEscapesProp : TypecheckError
+  | unsafeDefinition : TypecheckError
   -- Unsafe definition found
-  | hasNoRecursionRule : CheckError
+  | hasNoRecursionRule : TypecheckError
   -- Constructor has no associated recursion rule. Implementation is broken.
-  | cannotApply : CheckError
+  | cannotApply : TypecheckError
   -- Cannot apply argument list to type. Implementation broken.
-  | impossibleEqualCase : CheckError
+  | impossibleEqualCase : TypecheckError
   -- Impossible equal case
-  | impossibleProjectionCase : CheckError
+  | impossibleProjectionCase : TypecheckError
   -- Impossible case on projections
-  | impossibleEvalCase : CheckError
+  | impossibleEvalCase : TypecheckError
   -- Cannot evaluate this quotient
-  | cannotEvalQuotient : CheckError
+  | cannotEvalQuotient : TypecheckError
   -- Unknown constant name
-  | unknownConst : CheckError
+  | unknownConst : TypecheckError
   -- No way to extract a name
-  | noName : CheckError
-  | evalError : CheckError
-  | impossible : CheckError
-  | outOfRangeError : Name → Nat → Nat → CheckError
-  | outOfContextRange : Name → Nat → Nat → CheckError
-  | outOfDefnRange : Name → Nat → Nat → CheckError
-  | custom : String → CheckError
+  | noName : TypecheckError
+  | evalError : TypecheckError
+  | impossible : TypecheckError
+  | outOfRangeError : Name → Nat → Nat → TypecheckError
+  | outOfContextRange : Name → Nat → Nat → TypecheckError
+  | outOfDefnRange : Name → Nat → Nat → TypecheckError
+  | custom : String → TypecheckError
   deriving Inhabited
 
-instance : ToString CheckError where
+instance : ToString TypecheckError where
   toString 
   | .notPi => s!"Expected a pi type"
   | .notTyp => s!"Expected a sort type"

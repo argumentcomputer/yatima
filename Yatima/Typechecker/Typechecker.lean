@@ -8,7 +8,7 @@ def typecheckM : TypecheckM Unit := do
   let defns := (← read).store
   defns.forM checkConst
 
-def typecheck (defns : Array Const) : Except CheckError Unit :=
+def typecheck (defns : Array Const) : Except TypecheckError Unit :=
   TypecheckM.run (.init defns) typecheckM
 
 end Yatima.Typechecker

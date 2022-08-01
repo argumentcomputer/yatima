@@ -16,9 +16,9 @@ def Context.init (store : Array Const) : Context :=
 def Context.initEnv (env : Env Value) (store : Array Const) : Context :=
   { (default : Context) with store, env }
 
-abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
+abbrev TypecheckM := ReaderT Context $ ExceptT TypecheckError Id
 
-def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except CheckError α :=
+def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except TypecheckError α :=
   ExceptT.run (ReaderT.run m ctx)
 
 def extEnvHelper (env : Env Value) (thunk : Thunk Value) : Env Value :=

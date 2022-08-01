@@ -45,7 +45,7 @@ inductive Value
 | lit : Literal → Value
 | lty : LitType → Value
 | proj : Nat → Neutral → List (Thunk Value) → Value
-| exception : CheckError → Value
+| exception : TypecheckError → Value
 deriving Inhabited
 end
 
