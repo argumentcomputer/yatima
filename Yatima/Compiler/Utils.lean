@@ -4,12 +4,12 @@ namespace Lean
 
 def compareNames : Name → Name → Ordering
   | .anonymous, .anonymous => .eq
-  | .num namₗ nₗ _, .num namᵣ nᵣ _ =>
+  | .num namₗ nₗ, .num namᵣ nᵣ =>
     if nₗ < nᵣ then .lt
     else
       if nₗ > nᵣ then .gt
       else compareNames namₗ namᵣ
-  | .str namₗ sₗ _, .str namᵣ sᵣ _ =>
+  | .str namₗ sₗ, .str namᵣ sᵣ =>
     if sₗ < sᵣ then .lt
     else
       if sₗ > sᵣ then .gt

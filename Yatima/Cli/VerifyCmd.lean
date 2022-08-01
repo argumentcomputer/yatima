@@ -1,8 +1,7 @@
 import Cli
-import Yatima.Cli.Version
 
 -- TODO
 def verifyCmd : Cli.Cmd := `[Cli|
-  verify NOOP; [VERSION]
+  verify NOOP;
   "Verify correctness of a Lurk proof"
 ]

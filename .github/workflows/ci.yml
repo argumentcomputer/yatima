@@ -27,4 +27,4 @@ jobs:
       - name: build imported fixtures
         run: lake build Fixtures
       - name: run LSpec
-        run: ./lean_packages/LSpec/build/bin/lspec
+        run: lake exe lspec
