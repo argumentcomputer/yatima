@@ -1,6 +1,5 @@
 import Cli
 import Yatima.Cli.Utils
-import Yatima.Cli.Version
 import Yatima.Compiler.Compiler
 import Yatima.Typechecker.Typechecker
 
@@ -52,7 +51,7 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
 instance : Coe String (Option String) where coe := some
 
 def typecheckCmd : Cli.Cmd := `[Cli|
-  typecheck VIA typecheckRun; [VERSION]
+  typecheck VIA typecheckRun;
   "Typecheck Yatima IR"
 
   FLAGS:

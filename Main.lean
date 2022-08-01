@@ -5,6 +5,9 @@ import Yatima.Cli.PipeCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.VerifyCmd
 
+opaque VERSION : String :=
+  s!"{Lean.versionString}|0.0.1"
+
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima NOOP; [VERSION]
   "A compiler and typechecker for the Yatima language"

@@ -12,8 +12,59 @@ def getConst? (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   | none => throw $ .outOfDefnRange name constIdx store.size
 
 mutual
+  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+      TypecheckM Value := do
+    match (← read).store.get! const with
+    | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
+    | .definition x =>
+      match x.safety with
+      | .safe => eval x.value
+      | .partial => pure $ mkConst name const univs
+      | .unsafe => throw .unsafeDefinition
+    | _ => pure $ mkConst name const univs
+
+  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
+    -- Assumes a partial application of k to args, which means in particular, that it is in normal form
+    match (← read).store.get! k with
+    | .intRecursor recur =>
+      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      else
+        match arg.get with
+        | .app (Neutral.const _ ctor _) args' => match (← read).store.get! ctor with
+          | .constructor ctor =>
+            let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
+            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
+          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+    | .extRecursor recur =>
+      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      else
+        match arg.get with
+        | .app (Neutral.const _ ctor _) args' => match (← read).store.get! ctor with
+          | .constructor ctor =>
+            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
+            match List.find? (fun r => r.ctor.idx == ctor.idx) recur.rules with
+            | some rule =>
+              let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
+              withEnv ⟨exprs, univs⟩ $ eval rule.rhs
+            -- Since we assume expressions are previously type checked, we know that this constructor
+            -- must have an associated recursion rule
+            | none => throw .hasNoRecursionRule
+          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+    | .quotient quotVal => match quotVal.kind with
+      | .lift => reduceQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
+      | .ind  => reduceQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
+      | _ => throw .cannotEvalQuotient
+    | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
-    Thunk.mk (fun _ => TypecheckM.run! ctx "Panic in eval. Implementation broken" (eval expr))
+    Thunk.mk (fun _ =>
+      match TypecheckM.run ctx (eval expr) with
+      | .ok a => a
+      | .error e => .exception e )
 
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do

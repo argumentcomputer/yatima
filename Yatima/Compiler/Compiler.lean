@@ -47,24 +47,24 @@ def findConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
 
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let (value, univ) ← match l with
-    | .zero _      => do
+    | .zero      => do
       let value : Ipld.Both Ipld.Univ := ⟨ .zero, .zero ⟩
       pure (value, .zero)
-    | .succ n _    => do
+    | .succ n    => do
       let (univCid, univ) ← toYatimaUniv n
       let value : Ipld.Both Ipld.Univ := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
       pure (value, .succ univ)
-    | .max  a b _  => do
+    | .max  a b  => do
       let (univACid, univA) ← toYatimaUniv a
       let (univBCid, univB) ← toYatimaUniv b
       let value : Ipld.Both Ipld.Univ := ⟨ .max univACid.anon univBCid.anon, .max univACid.meta univBCid.meta ⟩
       pure (value, .max univA univB)
-    | .imax  a b _  => do
+    | .imax  a b  => do
       let (univACid, univA) ← toYatimaUniv a
       let (univBCid, univB) ← toYatimaUniv b
       let value : Ipld.Both Ipld.Univ := ⟨ .imax univACid.anon univBCid.anon, .imax univACid.meta univBCid.meta ⟩
       pure (value, .imax univA univB)
-    | .param name _ => do
+    | .param name => do
       let lvls := (← read).univCtx
       match lvls.indexOf? name with
       | some n =>
@@ -88,19 +88,19 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   match x, y with
   | .mvar .., _ => throw $ .unfilledLevelMetavariable x
   | _, .mvar .. => throw $ .unfilledLevelMetavariable y
-  | .zero _, .zero _ => return .eq
-  | .zero _, _ => return .lt
-  | _, .zero _  => return .gt
-  | .succ x _, .succ y _ => cmpLevel x y
+  | .zero, .zero => return .eq
+  | .zero, _ => return .lt
+  | _, .zero => return .gt
+  | .succ x, .succ y => cmpLevel x y
   | .succ .., _ => return .lt
   | _, .succ .. => return .gt
-  | .max lx ly _, .max rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
+  | .max lx ly, .max rx ry => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
   | .max .., _ => return .lt
   | _, .max .. => return .gt
-  | .imax lx ly _, .imax rx ry _ => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
+  | .imax lx ly, .imax rx ry => (· * ·) <$> cmpLevel lx rx <*> cmpLevel ly ry
   | .imax .., _ => return .lt
   | _, .imax .. => return .gt
-  | .param x _, .param y _ => do
+  | .param x, .param y => do
     let lvls := (← read).univCtx
     match (lvls.indexOf? x), (lvls.indexOf? y) with
     | some xi, some yi => return (compare xi yi)
@@ -202,20 +202,20 @@ mutual
     pure (cid, constIdx)
 
   partial def toYatimaExpr : Lean.Expr → CompileM (ExprCid × Expr)
-  | .mdata _ e _ => toYatimaExpr e
+  | .mdata _ e => toYatimaExpr e
   | expr => do
     let (value, expr) ← match expr with
-      | .bvar idx _ => do
+      | .bvar idx => do
         let name ← match (← read).bindCtx.get? idx with
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx, .var name () ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
-      | .sort lvl _ => do
+      | .sort lvl => do
         let (univCid, univ) ← toYatimaUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         pure (value, .sort univ)
-      | .const name lvls _ => do
+      | .const name lvls => do
         let pairs ← lvls.mapM $ toYatimaUniv
         let (univCids, univs) ← pairs.foldrM (fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)) ([], [])
         match (← read).recrCtx.find? name with
@@ -229,21 +229,19 @@ mutual
             let value : Ipld.Both Ipld.Expr := ⟨ .const () constCid.anon $ univCids.map (·.anon)
                        , .const name constCid.meta $ univCids.map (·.meta) ⟩
             pure (value, .const name const univs)
-      | .app fnc arg _ => do
+      | .app fnc arg => do
         let (fncCid, fnc) ← toYatimaExpr fnc
         let (argCid, arg) ← toYatimaExpr arg
         let value : Ipld.Both Ipld.Expr := ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         pure (value, .app fnc arg)
-      | .lam name typ bod data =>
+      | .lam name typ bod bnd =>
         let (typCid, typ) ← toYatimaExpr typ
         let (bodCid, bod) ← withName name $ toYatimaExpr bod
-        let bnd := data.binderInfo
         let value : Ipld.Both Ipld.Expr := ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         pure (value, .lam name bnd typ bod)
-      | .forallE name dom img data =>
+      | .forallE name dom img bnd =>
         let (domCid, dom) ← toYatimaExpr dom
         let (imgCid, img) ← withName name $ toYatimaExpr img
-        let bnd := data.binderInfo
         let value : Ipld.Both Ipld.Expr := ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         pure (value, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
@@ -252,10 +250,10 @@ mutual
         let (bodCid, bod) ← withName name $ toYatimaExpr bod
         let value : Ipld.Both Ipld.Expr := ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         pure (value, .letE name typ exp bod)
-      | .lit lit _ =>
+      | .lit lit=>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
-      | .proj _ idx exp _ => do
+      | .proj _ idx exp=> do
         let (expCid, exp) ← toYatimaExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
@@ -613,16 +611,16 @@ mutual
     | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
     | e@(.fvar ..), _ => throw $ .freeVariableExpr e
     | _, e@(.fvar ..) => throw $ .freeVariableExpr e
-    | .mdata _ x _, .mdata _ y _  => cmpExpr names x y
-    | .mdata _ x _, y  => cmpExpr names x y
-    | x, .mdata _ y _  => cmpExpr names x y
-    | .bvar x _, .bvar y _ => return (compare x y)
+    | .mdata _ x, .mdata _ y  => cmpExpr names x y
+    | .mdata _ x, y  => cmpExpr names x y
+    | x, .mdata _ y  => cmpExpr names x y
+    | .bvar x, .bvar y => return (compare x y)
     | .bvar .., _ => return .lt
     | _, .bvar .. => return .gt
-    | .sort x _, .sort y _ => cmpLevel x y
+    | .sort x, .sort y => cmpLevel x y
     | .sort .., _ => return .lt
     | _, .sort .. => return .gt
-    | .const x xls _, .const y yls _ => do
+    | .const x xls, .const y yls => do
       let univs ← concatOrds <$> (List.zip xls yls).mapM (fun (x,y) => cmpLevel x y)
       if univs != .eq then return univs
       match names.find? x, names.find? y with
@@ -635,7 +633,7 @@ mutual
         return (compare xCid.anon yCid.anon)
     | .const .., _ => return .lt
     | _, .const .. => return .gt
-    | .app xf xa _, .app yf ya _ => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
+    | .app xf xa, .app yf ya => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
     | .app .., _ => return .lt
     | _, .app .. => return .gt
     | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
@@ -647,13 +645,13 @@ mutual
     | .letE _ xt xv xb _, .letE _ yt yv yb _ => (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
     | .letE .., _ => return .lt
     | _, .letE .. => return .gt
-    | .lit x _, .lit y _ =>
+    | .lit x, .lit y =>
       return if x < y then .lt else if x == y then .eq else .gt
     | .lit .., _ => return .lt
     | _, .lit .. => return .gt
-    | .proj _ nx tx _, .proj _ ny ty _ => do
+    | .proj _ nx tx, .proj _ ny ty => do
       let ts ← cmpExpr names tx ty
-      return concatOrds [ compare nx ny , ts ]
+      return concatOrds [compare nx ny, ts]
 
   partial def cmpDef (names : Std.RBMap Lean.Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :

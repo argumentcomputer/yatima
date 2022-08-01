@@ -17,7 +17,7 @@ mutual
         let var := mkVar lam_name (← read).lvl dom
         let img ← withExtEnv env var $ eval img
         extCtx var dom $ check bod img
-      | val => throw $ .notPi val
+      | _ => throw $ .notPi
     | .letE _ exp_typ exp bod =>
       let _ := isSort exp_typ
       let exp_typ ← eval exp_typ
@@ -29,7 +29,7 @@ mutual
       let sort := Value.sort Univ.zero
       if (← equal (← read).lvl type infer_type sort)
       then pure ()
-      else throw $ .valueMismatch infer_type type
+      else throw $ .valueMismatch
 
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
@@ -48,7 +48,7 @@ mutual
         let arg := suspend arg (← read)
         let type ← withExtEnv env arg $ eval img
         pure type
-      | val => throw $ .notPi val
+      | _ => throw $ .notPi
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
@@ -85,7 +85,7 @@ mutual
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
-            | none => throw $ .typNotStructure exprTyp
+            | none => throw $ .typNotStructure
           if ind.params != params.length then throw .impossible else
           let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
           for i in [:idx] do
@@ -99,16 +99,16 @@ mutual
             let lvl := (← read).lvl
             let typ := dom.get
             if (← isProp lvl exprTyp) && !(← isProp lvl typ)
-            then throw $ .projEscapesProp term
+            then throw $ .projEscapesProp
             else pure typ
           | _ => throw .impossible
-        | _ => throw $ .typNotStructure exprTyp
-      | _ => throw $ .typNotStructure exprTyp
+        | _ => throw $ .typNotStructure
+      | _ => throw $ .typNotStructure
 
   partial def isSort (expr : Expr) : TypecheckM Univ := do
     match ← infer expr with
       | .sort u => pure u
-      | val => throw $ .notTyp val
+      | _ => throw $ .notTyp
 
 end
 

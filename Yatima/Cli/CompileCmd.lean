@@ -1,7 +1,6 @@
 import Cli
 import Yatima.Cli.Utils
 import Yatima.Cli.Cronos
-import Yatima.Cli.Version
 import Yatima.Compiler.Compiler
 
 open Yatima.Compiler in
@@ -53,7 +52,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
     return 1
 
 def compileCmd : Cli.Cmd := `[Cli|
-  compile VIA compileRun; [VERSION]
+  compile VIA compileRun;
   "Compile Lean 4 code to content-addressed IPLD"
 
   FLAGS:
