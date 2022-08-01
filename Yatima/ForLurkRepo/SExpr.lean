@@ -13,6 +13,26 @@ inductive SExpr where
   deriving Repr
 
 namespace SExpr
+open Std 
+
+open Format ToFormat in 
+partial def pprint (e : SExpr) (pretty := true) : Format :=
+  match e with
+  | .atom s     => fixName s pretty
+  | .num  n     => format n
+  | .str  s     => format s
+  | .char c     => format c
+  | .list es    => 
+    let rec fmtList (xs : List SExpr) := match xs with 
+      | [] => nil
+      | [x]  => pprint x
+      | x::xs => pprint x ++ line ++ fmtList xs
+    paren <| fmtList es
+  | .cons e1 e2 => 
+    pprint e1 pretty ++ line ++ "." ++ line ++ pprint e2 pretty
+
+instance : ToFormat SExpr where 
+  format := pprint
 
 partial def print (e : SExpr) (pretty := true) : String :=
   match e with
@@ -63,7 +83,7 @@ syntax num                 : sexpr
 syntax ident               : sexpr
 syntax str                 : sexpr
 syntax char                : sexpr
-syntax "(" sexpr+ ")"      : sexpr
+syntax "(" sexpr* ")"      : sexpr
 syntax sexpr " . " sexpr   : sexpr
 syntax "+"                 : sexpr
 syntax "-"                 : sexpr
@@ -111,3 +131,6 @@ partial def elabSExpr : Syntax → TermElabM Expr
 
 elab "[SExpr| " e:sexpr "]" : term =>
   elabSExpr e
+
+#eval IO.println $
+  [SExpr| (a b c d (e f g h) (i j k l m n o p)) ].pprint.pretty 30

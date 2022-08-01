@@ -57,6 +57,6 @@ def succ := (`succ, ⟦
   ) (
     cdr (cdr (succ (succ (zero))))
   ))
-⟧
+⟧.pprint.pretty 50
 
 end Lurk

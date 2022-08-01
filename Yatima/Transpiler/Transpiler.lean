@@ -74,7 +74,7 @@ mutual
       match ← exprToLurkExpr rhs with 
       | some rhs => 
         let args := ⟦(cdr (cdr $argName))⟧
-        
+
         let newArgs := ⟦(lurk_append (lurk_drop $(recr.indices + 1) ,$binds) (lurk_take $fields $args))⟧
         return (⟦(= (cdr (car $argName)) $idx)⟧, rhs) -- extract snd element
       | none => throw "failed to convert rhs of rule {idx}"
@@ -230,7 +230,7 @@ open Yatima.Compiler in
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
 def transpile (store : CompileState) : Except String String :=
   match TranspileM.run store default transpileM with
-  | .ok    s => return Lurk.Expr.print $ .letE s.getStringBindings .currEnv
+  | .ok    s => return (Lurk.Expr.letE s.getStringBindings .currEnv).pprint.pretty 50
   | .error e => throw e
 
 end Yatima.Transpiler

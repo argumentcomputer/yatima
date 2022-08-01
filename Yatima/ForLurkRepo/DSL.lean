@@ -181,30 +181,28 @@ elab "⟦ " e:lurk_expr " ⟧" : term =>
 
 namespace Lurk.Tests
 
-def binds := #[`foo, `bar]
-#eval 
-  let ⟨binds⟩ := binds
-  IO.print ⟦
+def binds := [`foo, `bar]
+#eval ⟦
     (lambda ($binds) a)
-  ⟧.print
+  ⟧.pprint
 
 def names := [`a, `b, `c]
 def name := `d
 
-#eval IO.print ⟦
+#eval ⟦
   (lambda ($names $name e) ())
-⟧.print
+⟧.pprint
 
-#eval IO.print ⟦ (quote («t»)) ⟧.print
+#eval ⟦ (quote («t»)) ⟧.pprint
 -- (lambda (n)
 --   n)
 
-#eval IO.print ⟦
+#eval IO.println $ ⟦
 (let (
     (foo (lambda (a) (a)))
     (bar (lambda (x) (x))))
   (foo "1" 2 3))
-⟧.print
+⟧.pprint.pretty 25
 -- (let (
 --     (foo
 --       (lambda (a)
@@ -223,7 +221,7 @@ def foo : Expr := ⟦
   (foo "1" 2 3))
 ⟧
 
-#eval IO.print ⟦$foo⟧
+#eval IO.print $ ⟦$foo⟧.pprint.pretty 25
 -- (let (
 --     (foo
 --       (lambda (a b c)
@@ -237,34 +235,34 @@ def foo : Expr := ⟦
 --     2
 --     3))
 
-#eval IO.print ⟦
+#eval IO.print $ ⟦
 (let ()
   (foo "1" 2 3))
-⟧.print
+⟧.pprint.pretty 25
 -- (let ()
 --   (foo
 --     "1"
 --     2
 --     3))
 
-#eval IO.print ⟦
+#eval IO.print $ ⟦
 ("s")
-⟧.print
+⟧.pprint.pretty 25
 -- ("s")
 
 def m := 1
 def n := [[1, 2], []]
 
-#eval IO.print ⟦
+#eval IO.print $ ⟦
 (quote ($n $m "s" n))
-⟧.print
+⟧.pprint.pretty 25
 -- (quote (((1 2) ()) 1 "s"))
 
 def test := [SExpr| 
   ($n $m "s")
 ]
 
-#eval IO.print ⟦
+#eval IO.print $ ⟦
   (quote ($test 1))
-⟧.print
+⟧.pprint.pretty 25
 -- (quote ((((1 2) ()) 1 "s") 1))
