@@ -1,7 +1,7 @@
 import LSpec
 import Yatima.Compiler.Compiler
 
-open Yatima.Compiler
+open Yatima.Compiler LSpec
 
 def succeedOnCompilation (fileName : String) : IO TestSeq := do
   return withExceptOk s!"Compiles {fileName}" (← compile fileName)
@@ -14,4 +14,4 @@ def terminationFixtures := [
 
 def main : IO UInt32 := do
   setLibsPaths
-  lspecEachWith terminationFixtures succeedOnCompilation
+  lspecEachIO terminationFixtures succeedOnCompilation

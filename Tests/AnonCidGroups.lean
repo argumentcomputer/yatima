@@ -2,7 +2,7 @@ import LSpec
 import Yatima.Compiler.Compiler
 import YatimaStdLib.List
 
-open Yatima
+open Yatima LSpec
 
 def extractCidGroups (fileName : String) (groups : List (List Lean.Name)) :
     IO $ Except String (List (List (Lean.Name × Ipld.ConstCid .Anon))) := do
@@ -82,4 +82,4 @@ def generateTestSeq (x : String × List (List Lean.Name)) : IO TestSeq :=
 
 def main : IO UInt32 := do
   Compiler.setLibsPaths
-  lspecEachWith allPairs generateTestSeq
+  lspecEachIO allPairs generateTestSeq

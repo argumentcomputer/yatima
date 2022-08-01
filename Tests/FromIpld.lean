@@ -3,7 +3,7 @@ import Yatima.Compiler.Compiler
 import Yatima.Ipld.FromIpld
 import YatimaStdLib.List
 
-open Yatima
+open Yatima LSpec
 
 def getConstPairs (fileName : String) (consts : List Lean.Name) :
     IO $ Except String (List (Const × Const)) := do
@@ -92,4 +92,4 @@ def generateTestSeq (x : String × List Lean.Name) : IO TestSeq :=
 
 def main : IO UInt32 := do
   Compiler.setLibsPaths
-  lspecEachWith allPairs generateTestSeq
+  lspecEachIO allPairs generateTestSeq
