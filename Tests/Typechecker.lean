@@ -11,6 +11,10 @@ def readBackNeutral : Typechecker.Neutral → Expr
   | .fvar name idx _ => .var name idx
   | .const name idx univs => .const name idx univs
 
+local instance : Coe (Except ε α) (Option α) where coe
+  | .ok a => some a
+  | .error _ => none
+
 partial def shiftEnv (env : Typechecker.Env Value) : Typechecker.Env Value :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
   { env with exprs := env.exprs.map fun val => match val.get with
@@ -32,10 +36,7 @@ partial def readBack (defns : Array Const) : Value → Option Expr
       -- TODO double-check ordering here
       exprs := ⟨fun _ => Value.app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩ :: lamEnv.exprs
     }
-    let evalBod ← (match Typechecker.eval bod  |>.run (.initEnv lamEnv defns) with
-      | .ok val => some val
-      | .error _ => none
-    )
+    let evalBod ← Typechecker.eval bod  |>.run (.initEnv lamEnv defns)
     pure $ .lam name binfo (.sort .zero) $ ← readBack defns evalBod
   | .pi name binfo dom bod env => do
     let piEnv := shiftEnv env
@@ -43,23 +44,21 @@ partial def readBack (defns : Array Const) : Value → Option Expr
       -- TODO double-check ordering here
       exprs := ⟨fun _ => Value.app (.fvar name 0 dom) []⟩ :: piEnv.exprs
     }
-    let evalBod ← (match Typechecker.eval bod  |>.run (.initEnv piEnv defns) with
-      | .ok val => some val
-      | .error _ => none
-    )
+    let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv defns)
     pure $ .lam name binfo (← readBack defns dom.get) $ ← readBack defns evalBod
   | .lit lit => pure $ .lit lit
   | .lty lty => pure $ .lty lty
   -- TODO need to look into this case in the typechecker to make sure this is correct
   | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack defns val.get)
+  | .exception _ => none
 
-def getConstPairs (fileName : String) (consts : List (Lean.Name × Lean.Name)) :
-    IO $ Except String (List (Expr × Expr)) := do
+def getConstPairs (fileName : String) (consts : List (Name × Name)) :
+    IO $ Except String (List ((Name × Expr) × (Name × Expr))) := do
   match ← Compiler.compile fileName with
   | .error msg => return .error (toString msg)
   | .ok state =>
-    let mut pairList : List (Expr × Expr) := []
-    let mut notFound : List Lean.Name := []
+    let mut pairList := []
+    let mut notFound := []
     for (constName, rconstName) in consts do
       match state.cache.find? constName with
       | none            => notFound := constName :: notFound
@@ -72,17 +71,18 @@ def getConstPairs (fileName : String) (consts : List (Lean.Name × Lean.Name)) :
           match Typechecker.TypecheckM.run (.init state.defns) $ Typechecker.eval const.value with
             | .ok value =>
               let some expr ← pure $ readBack state.defns value | return .error "failed to read back value"
-              pairList := (expr, rconst.value) :: pairList
+              pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
             | _ => return .error "failed to evaluate value"
     if notFound.isEmpty then
-      return .ok pairList
+      return .ok pairList.reverse
     else
       return .error s!"Not found: {", ".intercalate (notFound.map toString)}"
 
-def makeTests (pairList : List (Expr × Expr)) :
+def makeTests (pairList : List ((Name × Expr) × (Name × Expr))) :
     TestSeq :=
-  pairList.foldl (init := .done) fun tSeq (constCompiled, constConverted) =>
-    tSeq ++ test s!"{constCompiled} (reduced) = {constConverted} (expected)" (constCompiled == constConverted)
+  pairList.foldl (init := .done) fun tSeq ((nameReduced, constReduced), (nameExpected, constExpected)) =>
+    tSeq ++ test s!"Comparing {nameReduced} to {nameExpected}:\n  Reduced:\t{constReduced}\n  Expected:\t{constExpected}" (constReduced == constExpected)
+
 def reductionPairs :=
   ("Fixtures/Typechecker/Reduction.lean",
     [(`A, `A'),
