@@ -1,6 +1,7 @@
 import Yatima.Datatypes.Store
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
+import Yatima.Transpiler.LurkFunctions 
 
 namespace Yatima.Transpiler
 
@@ -43,7 +44,14 @@ mutual
       -- the foralls and reconstructing a `lambda` term
     let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
     let (_, ⟨binds⟩) := descend type #[]
-    appendBinding (name, ⟦(lambda ($binds) ,($name . $idx . $binds))⟧)
+    let lurkBinds := binds.foldl (
+      fun (acc : Lurk.Expr) (n : Name) => ⟦(cons $n $acc)⟧
+    ) ⟦nil⟧
+    appendBinding (name, ⟦
+      (lambda ($binds) (
+        lurk_append ,($name $idx) $lurkBinds
+      ))
+    ⟧)
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -66,8 +74,9 @@ mutual
       match ← exprToLurkExpr rhs with 
       | some rhs => 
         let args := ⟦(cdr (cdr $argName))⟧
-        -- (List.drop (recur.indices + 1) binds) ++ (List.take ctor.fields args)
-        return (⟦(= (cdr (car $argName)) $idx)⟧, ⟦($rhs)⟧) -- extract snd element
+        
+        let newArgs := ⟦(lurk_append (lurk_drop $(recr.indices + 1) ,$binds) (lurk_take $fields $args))⟧
+        return (⟦(= (cdr (car $argName)) $idx)⟧, rhs) -- extract snd element
       | none => throw "failed to convert rhs of rule {idx}"
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
     appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
@@ -193,6 +202,15 @@ mutual
 
 end
 
+/-- 
+Initialize builtin lurk constants defined in `LurkFunctions.lean`
+-/
+def lurkInitialize : TranspileM Unit := do
+  appendBinding Lurk.append
+  appendBinding Lurk.length
+  appendBinding Lurk.take
+  appendBinding Lurk.drop
+
 /--
 Main translation function.
 
@@ -201,6 +219,7 @@ FIX: we need to cache what's already been done for efficiency and correctness!
 -/
 def transpileM : TranspileM Unit := do
   let store ← read
+  lurkInitialize
   store.defns.forM fun const => do
     dbg_trace s!"processing {const.name}"
     match ← constToLurkExpr const with
