@@ -17,19 +17,19 @@ mutual
         let var := mkVar lam_name (← read).lvl dom
         let img ← withExtEnv env var $ eval img
         extCtx var dom $ check bod img
-      | _ => throw $ .notPi
+      | val => throw $ .notPi (printVal val)
     | .letE _ exp_typ exp bod =>
       let _ := isSort exp_typ
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
       extCtx exp exp_typ $ check bod type
-    | _ =>
+    | val =>
       let infer_type ← infer term
       let sort := Value.sort Univ.zero
       if (← equal (← read).lvl type infer_type sort)
       then pure ()
-      else throw $ .valueMismatch
+      else throw $ .valueMismatch (printVal infer_type) (printVal type)
 
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
@@ -38,7 +38,7 @@ mutual
       let some type := List.get? ctx idx | throw $ .outOfContextRange name idx ctx.length
       pure type.get
     | .sort lvl =>
-      let lvl := instBulkReduce (← read).env.univs (Univ.succ lvl)
+      let lvl := instBulkReduce (← read).env.univs lvl.succ
       pure $ Value.sort lvl
     | .app fnc arg =>
       let fnc_typ ← infer fnc
@@ -48,7 +48,7 @@ mutual
         let arg := suspend arg (← read)
         let type ← withExtEnv env arg $ eval img
         pure type
-      | _ => throw $ .notPi
+      | val => throw $ .notPi (printVal val)
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
@@ -85,7 +85,7 @@ mutual
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
-            | none => throw $ .typNotStructure
+            | none => throw $ .typNotStructure (printVal exprTyp)
           if ind.params != params.length then throw .impossible else
           let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
           for i in [:idx] do
@@ -99,16 +99,16 @@ mutual
             let lvl := (← read).lvl
             let typ := dom.get
             if (← isProp lvl exprTyp) && !(← isProp lvl typ)
-            then throw $ .projEscapesProp
+            then throw $ .projEscapesProp (printExpr term)
             else pure typ
           | _ => throw .impossible
-        | _ => throw $ .typNotStructure
-      | _ => throw $ .typNotStructure
+        | _ => throw $ .typNotStructure (printVal exprTyp)
+      | _ => throw $ .typNotStructure (printVal exprTyp)
 
   partial def isSort (expr : Expr) : TypecheckM Univ := do
     match ← infer expr with
       | .sort u => pure u
-      | _ => throw $ .notTyp
+      | val => throw $ .notTyp (printVal val)
 
 end
 

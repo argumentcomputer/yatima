@@ -3,23 +3,25 @@ import Yatima.Typechecker.Value
 namespace Yatima.Typechecker
 
 mutual
-def printUniv (univ : Univ) : String :=
-  match univ with
-  | .var nam _ => s!"{nam}"
-  | .succ a => s!"{printSucc a 1}"
-  | .zero     => s!"0"
-  | .imax a b => s!"(imax {printUniv a} {printUniv b})"
-  | .max a b => s!"(max {printUniv a} {printUniv b})"
 
-def printSucc (univ : Univ) (idx : Nat) : String :=
-  match univ with
-  | .var nam _ => s!"{idx}+{nam}"
-  | .succ a => s!"{printSucc a (idx+1)}"
-  | .zero     => s!"{idx}"
-  | .imax a b => s!"{idx}+(imax {printUniv a} {printUniv b})"
-  | .max a b => s!"{idx}+(max {printUniv a} {printUniv b})"
+  def printUniv (univ : Univ) : String :=
+    match univ with
+    | .var nam _ => s!"{nam}"
+    | .succ a => s!"{printSucc a 1}"
+    | .zero     => s!"0"
+    | .imax a b => s!"(imax {printUniv a} {printUniv b})"
+    | .max a b => s!"(max {printUniv a} {printUniv b})"
+
+  def printSucc (univ : Univ) (idx : Nat) : String :=
+    match univ with
+    | .var nam _ => s!"{idx}+{nam}"
+    | .succ a => s!"{printSucc a (idx+1)}"
+    | .zero     => s!"{idx}"
+    | .imax a b => s!"{idx}+(imax {printUniv a} {printUniv b})"
+    | .max a b => s!"{idx}+(max {printUniv a} {printUniv b})"
 
 end
+
 def printExpr (expr : Expr) : String :=
   match expr with
   | .var nam idx => s!"{nam}^{idx}"
