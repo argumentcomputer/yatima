@@ -3,7 +3,7 @@ import Yatima.Compiler.Compiler
 import YatimaStdLib.List
 import Yatima.Typechecker.Eval
 
-open Yatima
+open Yatima LSpec
 
 open Typechecker (Value)
 
@@ -96,4 +96,4 @@ def generateTestSeq (x : String × List (Lean.Name × Lean.Name)) : IO TestSeq :
 
 def main : IO UInt32 := do
   Compiler.setLibsPaths
-  lspecEachWith allPairs generateTestSeq
+  lspecEachIO allPairs generateTestSeq
