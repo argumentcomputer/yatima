@@ -8,7 +8,7 @@ Build it with `lake build`.
 
 ## Install
 
-Run `lake script run setup`, which will build the `yatima` binary and ask you where to place it.
+Run `lake run setup`, which will build the `yatima` binary and ask you where to place it.
 You can choose a directory that's already in your path, for example.
 
 ## Usage
