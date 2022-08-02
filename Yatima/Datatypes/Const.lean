@@ -152,6 +152,7 @@ def Const.ctorName : Ipld.Const k → String
   | .recursorProj    _ => "recursor projection"
   | .mutDefBlock     _ => "mutual definition block"
   | .mutIndBlock     _ => "mutual inductive block"
+
 end Ipld
 
 structure Axiom where
@@ -258,36 +259,51 @@ inductive Const
 
 def Const.type (k : Const) : Expr :=
   match k with
-  | .axiom x => x.type
-  | .theorem x => x.type
-  | .inductive x => x.type
-  | .opaque x => x.type
-  | .definition x => x.type
-  | .constructor x => x.type
-  | .intRecursor x => x.type
-  | .extRecursor x => x.type
-  | .quotient x => x.type
+  | .axiom       x
+  | .theorem     x
+  | .inductive   x
+  | .opaque      x
+  | .definition  x
+  | .constructor x
+  | .intRecursor x
+  | .extRecursor x
+  | .quotient    x => x.type
 
 def Const.name : Const → Name
-  | .axiom           x
-  | .theorem         x
-  | .opaque          x
-  | .inductive       x
-  | .definition      x
-  | .constructor     x
-  | .extRecursor     x
-  | .intRecursor     x
-  | .quotient        x => x.name
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .inductive   x
+  | .definition  x
+  | .constructor x
+  | .extRecursor x
+  | .intRecursor x
+  | .quotient    x => x.name
 
 def Const.ctorName : Const → String
-  | .axiom           _ => "axiom"
-  | .theorem         _ => "theorem"
-  | .opaque          _ => "opaque"
-  | .definition      _ => "definition"
-  | .inductive       _ => "inductive"
-  | .constructor     _ => "constructor"
-  | .extRecursor     _ => "external recursor"
-  | .intRecursor     _ => "internal recursor"
-  | .quotient        _ => "quotient"
+  | .axiom       _ => "axiom"
+  | .theorem     _ => "theorem"
+  | .opaque      _ => "opaque"
+  | .definition  _ => "definition"
+  | .inductive   _ => "inductive"
+  | .constructor _ => "constructor"
+  | .extRecursor _ => "external recursor"
+  | .intRecursor _ => "internal recursor"
+  | .quotient    _ => "quotient"
+
+mutual
+
+  partial def isoConsts : Const → Const → Bool
+    | .axiom ⟨n₁, ls₁, t₁, s₁⟩, .axiom ⟨n₂, ls₂, t₂, s₂⟩ => true
+    | _, _ => false
+
+  partial def isoExprs : Expr → Expr → Bool
+    | e₁@(.var ..), e₂@(.var ..)
+    | e₁@(.sort _), e₂@(.sort _)
+    | e₁@(.lit ..), e₂@(.lit ..)
+    | e₁@(.lty ..), e₂@(.lty ..) => e₁ == e₂
+    | _, _ => false
+
+end
 
 end Yatima

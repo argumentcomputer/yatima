@@ -306,7 +306,7 @@ mutual
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
       let cid ← StoreValue.insert $ .const indProj
       addToCache name (cid, defnIdx)
-      if name == initInd.name then ret? := some (cid, indIdx)
+      if name == initInd.name then ret? := some (cid, defnIdx)
       defnIdx := defnIdx + 1
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
