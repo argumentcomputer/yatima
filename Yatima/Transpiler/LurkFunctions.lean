@@ -59,12 +59,12 @@ def succ := (`succ, ⟦
   (lambda (n) (append ,(succ 1) (cons n nil)))
 ⟧)
 
-#eval IO.println $ ⟦
-  (letrec (
-    (getelem $(getelem.2))
-  ) (
-    getelem ,(1 2 3) 1
-  ))
-⟧.pprint.pretty 50
+-- #eval IO.println $ ⟦
+--   (letrec (
+--     (getelem $(getelem.2))
+--   ) (
+--     getelem ,(1 2 3) 1
+--   ))
+-- ⟧.pprint.pretty 50
 
 end Lurk

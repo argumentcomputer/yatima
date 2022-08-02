@@ -132,6 +132,6 @@ partial def elabSExpr : Syntax → TermElabM Expr
 elab "[SExpr| " e:sexpr "]" : term =>
   elabSExpr e
 
-#eval IO.println $
-  [SExpr| ("a" b c d (e f g h) (i j k l m n o p)) ].pprint false |>.pretty 30
-#eval format "\"s\""
+-- #eval IO.println $
+--   [SExpr| ("a" b c d (e f g h) (i j k l m n o p)) ].pprint false |>.pretty 30
+-- #eval format "\"s\""
