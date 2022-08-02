@@ -1,3 +1,5 @@
+import Yatima.ForLurkRepo.SExpr
+
 namespace Lurk
 
 /-- Unary operations on Lurk expressions -/
@@ -19,16 +21,7 @@ inductive Literal
   -- Characters
   | char    : Char → Literal
   -- Symbols
-  | sym     : String → Literal
-  deriving Repr
-
-inductive SExpr where
-  | atom : String → SExpr
-  | num  : Int → SExpr
-  | str  : String → SExpr
-  | char : Char → SExpr
-  | list : List SExpr → SExpr
-  | cons : SExpr → SExpr → SExpr
+  | sym     : Name → Literal
   deriving Repr
 
 /-- Basic Lurk expression AST -/
@@ -38,11 +31,11 @@ inductive Expr where
   -- `if <test> <consequent> <alternate>`
   | ifE     : Expr → Expr → Expr → Expr
   -- `lambda <formals> <body>`
-  | lam     : List String → Expr → Expr
+  | lam     : List Name → Expr → Expr
   -- `let <bindings> <body>`
-  | letE    : List (String × Expr) → Expr → Expr
+  | letE    : List (Name × Expr) → Expr → Expr
   -- `letrec <bindings> <body>`
-  | letRecE : List (String × Expr) → Expr → Expr
+  | letRecE : List (Name × Expr) → Expr → Expr
   -- `<fun> <args>`
   | app     : Expr → List Expr → Expr 
   -- `quote <datum>`
@@ -60,3 +53,30 @@ inductive Expr where
   -- `eval <expr> <env>`
   | eval    : Expr → Option Expr → Expr
   deriving Repr
+
+namespace Expr 
+
+class ToExpr (α : Type u) where 
+  toExpr : α → Expr 
+
+instance : ToExpr Nat where 
+  toExpr n := .lit $ .num n
+  
+instance : ToExpr Int where 
+  toExpr n := .lit $ .num n
+
+instance : ToExpr Name where 
+  toExpr s := .lit $ .sym s
+
+/-- Non-instance version when we want lurk-friendly names -/
+def toExprFix (n : Name) : Expr := 
+  .lit $ .sym (fixName n false)
+
+instance : ToExpr String where 
+  toExpr s := .lit $ .str s
+
+instance : ToExpr Char where 
+  toExpr c := .lit $ .char c
+
+instance : ToExpr Expr where 
+  toExpr s := s

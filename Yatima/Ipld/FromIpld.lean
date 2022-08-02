@@ -15,7 +15,7 @@ inductive ConvertError where
   | cannotStoreValue : ConvertError
   | mutDefBlockFound : ConvertError
   | mutIndBlockFound : ConvertError
-  | anonMetaMismatch : String -> String -> ConvertError
+  | anonMetaMismatch : String → String → ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
