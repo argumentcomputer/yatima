@@ -2,6 +2,7 @@ import LSpec
 import Yatima.Compiler.Compiler
 import YatimaStdLib.List
 import Yatima.Typechecker.Eval
+import TestsUtils.CompileAndExtractTests
 
 open Yatima LSpec
 
@@ -52,48 +53,44 @@ partial def readBack (defns : Array Const) : Value → Option Expr
   | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack defns val.get)
   | .exception _ => none
 
-def getConstPairs (fileName : String) (consts : List (Name × Name)) :
-    IO $ Except String (List ((Name × Expr) × (Name × Expr))) := do
-  match ← Compiler.compile fileName with
-  | .error msg => return .error (toString msg)
-  | .ok state =>
-    let mut pairList := []
-    let mut notFound := []
-    for (constName, rconstName) in consts do
-      match state.cache.find? constName with
-      | none            => notFound := constName :: notFound
-      | some (_, idx) =>
-        match state.cache.find? rconstName with
-        | none            => notFound := rconstName :: notFound
-        | some (_, ridx)  =>
-          let some (.definition const) ← pure state.defns[idx]? | return .error "invalid definition index"
-          let some (.definition rconst) ← pure state.defns[ridx]? | return .error "invalid definition index"
-          match Typechecker.TypecheckM.run (.init state.defns) $ Typechecker.eval const.value with
-            | .ok value =>
-              let some expr ← pure $ readBack state.defns value | return .error "failed to read back value"
-              pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
-            | _ => return .error "failed to evaluate value"
-    if notFound.isEmpty then
-      return .ok pairList.reverse
-    else
-      return .error s!"Not found: {", ".intercalate (notFound.map toString)}"
+def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
+    Except String (List ((Name × Expr) × (Name × Expr))) := do
+  let mut pairList := []
+  let mut notFound := []
+  for (constName, rconstName) in consts do
+    match state.cache.find? constName with
+    | none            => notFound := constName :: notFound
+    | some (_, idx) =>
+      match state.cache.find? rconstName with
+      | none            => notFound := rconstName :: notFound
+      | some (_, ridx)  =>
+        let some (.definition const) ← pure state.defns[idx]? | throw "invalid definition index"
+        let some (.definition rconst) ← pure state.defns[ridx]? | throw "invalid definition index"
+        match Typechecker.TypecheckM.run (.init state.defns) $ Typechecker.eval const.value with
+          | .ok value =>
+            let some expr ← pure $ readBack state.defns value | throw "failed to read back value"
+            pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
+          | _ => .error "failed to evaluate value"
+  if notFound.isEmpty then
+    return pairList.reverse
+  else
+    throw s!"Not found: {", ".intercalate (notFound.map toString)}"
 
-def makeTests (pairList : List ((Name × Expr) × (Name × Expr))) :
+def makeTcTests (pairList : List ((Name × Expr) × (Name × Expr))) :
     TestSeq :=
   pairList.foldl (init := .done) fun tSeq ((nameReduced, constReduced), (nameExpected, constExpected)) =>
     tSeq ++ test s!"Comparing {nameReduced} to {nameExpected}:\n  Reduced:\t{constReduced}\n  Expected:\t{constExpected}" (constReduced == constExpected)
 
-def reductionPairs :=
-  ("Fixtures/Typechecker/Reduction.lean",
+def extractTcTests := fun stt state =>
+  withExceptOk "All constants can be found" (getConstPairs state stt)
+  fun constPairs => makeTcTests constPairs
+
+def tcExtractor := extractTcTests
     [(`A, `A'),
      (`B, `B')]
-  )
-def allPairs : List (String × List (Lean.Name × Lean.Name)) := [ reductionPairs ]
 
-def generateTestSeq (x : String × List (Lean.Name × Lean.Name)) : IO TestSeq :=
-  return withExceptOk s!"Compiles '{x.1}'" (← getConstPairs x.1 x.2)
-    fun pairs => makeTests pairs
-
-def main : IO UInt32 := do
-  Compiler.setLibsPaths
-  lspecEachIO allPairs generateTestSeq
+def main := do
+  let tSeq ← compileAndExtractTests
+    "Fixtures/Typechecker/Reduction.lean"
+    [tcExtractor]
+  lspecIO tSeq
