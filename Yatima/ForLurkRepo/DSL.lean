@@ -100,7 +100,7 @@ partial def elabLurkIdents (i : TSyntax `ident) : TermElabM Expr := do
     let e ← whnf e
     let type ← inferType e
     match type.getAppFn with 
-    | .const ``List _ _ => return e
+    | .const ``List _ => return e
     | _ => 
       let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
       mkAppM ``List.cons #[e, «nil»]
