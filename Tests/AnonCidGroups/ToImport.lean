@@ -6,6 +6,6 @@ def defsExtractor := extractAnonCidGroupsTests
 open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
-    "Fixtures/AnonCidGroups/Imports.lean"
+    "Fixtures/AnonCidGroups/ToImport.lean"
     [defsExtractor]
   lspecIO tSeq

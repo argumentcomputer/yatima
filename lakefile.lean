@@ -35,7 +35,7 @@ lean_lib Fixtures {
 
 lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
 lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.Imports       { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
 lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 
