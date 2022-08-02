@@ -133,7 +133,7 @@ mutual
   partial def mutIndBlockToLurkExpr (inds : List (Name × List Name × Name × List Name)) : 
       TranspileM Unit := do
     let store ← read
-    for (ind, ctors, intR, extRs) in inds do
+    for (ind, ctors, intR, _) in inds do
       if (← get).visited.contains ind then 
         break
       visit ind
