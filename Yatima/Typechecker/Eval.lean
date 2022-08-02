@@ -102,7 +102,7 @@ mutual
               withEnv ⟨exprs, univs⟩ $ eval rule.rhs
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
+            | none => throw .hasNoRecursionRule
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .quotient quotVal => match quotVal.kind with
@@ -112,7 +112,10 @@ mutual
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
-    Thunk.mk (fun _ => TypecheckM.run! ctx "Panic in eval. Implementation broken" (eval expr))
+    Thunk.mk (fun _ =>
+      match TypecheckM.run ctx (eval expr) with
+      | .ok a => a
+      | .error e => .exception e )
 
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
@@ -156,7 +159,7 @@ mutual
           pure $ (List.get! args idx).get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
-      | _ => throw .impossibleProjectionCase --panic! "Impossible case on projections"
+      | _ => throw .impossibleProjectionCase
 
 end
 

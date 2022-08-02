@@ -14,26 +14,30 @@ lean_exe yatima {
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "fceb5347c88f122961902e38764bc4010aafd3c1"
+  "https://github.com/yatima-inc/Ipld.lean" @ "c77099a6151816687750d65fea71d8cee995f29c"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "3b759f6e7798fdb6b17ae83ea060cd34e89b7e91"
+  "https://github.com/yatima-inc/LSpec.git" @ "77fc51697abeff937ffd20d2050723dc0fa1c8c0"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "80b290a322267aee7dbca96b2547fa24de64236a"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "a2bbc9a48db7efd5d761a5b27f2cc6c1863b9622"
 
 require Cli from git
-  "https://github.com/mhuisi/lean4-cli" @ "e70141d69b8562a0cd31d23a9c9a4f0f90a3c0a6"
+  "https://github.com/mhuisi/lean4-cli" @ "112b35fc348a4a18d2111ac2c6586163330b4941"
 
 section Testing
+
+lean_lib TestsUtils
 
 lean_lib Fixtures {
   roots := #[`Fixtures.AnonCidGroups.ToBeImported]
 }
 
-lean_exe Tests.AnonCidGroups { supportInterpreter := true }
-lean_exe Tests.Termination   { supportInterpreter := true }
-lean_exe Tests.FromIpld      { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
+lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
+lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 
 end Testing
 

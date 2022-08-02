@@ -1,8 +1,7 @@
 import Cli
-import Yatima.Cli.Version
 
 -- TODO
 def proveCmd : Cli.Cmd := `[Cli|
-  prove NOOP; [VERSION]
+  prove NOOP;
   "Generate a Lurk proof from a Lean declaration"
 ]
