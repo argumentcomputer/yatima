@@ -27,13 +27,17 @@ require Cli from git
 
 section Testing
 
+lean_lib TestsUtils
+
 lean_lib Fixtures {
   roots := #[`Fixtures.AnonCidGroups.ToBeImported]
 }
 
-lean_exe Tests.AnonCidGroups { supportInterpreter := true }
-lean_exe Tests.Termination   { supportInterpreter := true }
-lean_exe Tests.FromIpld      { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
+lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
+lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 
 end Testing
 
