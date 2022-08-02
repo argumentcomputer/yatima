@@ -18,7 +18,7 @@ mutual
       let fn? ← exprToLurkExpr expr
       let args? : Option $ List Lurk.Expr := (← args.mapM exprToLurkExpr).foldl
         (fun acc? arg? => match acc?, arg? with
-          | some acc, some arg => some $ acc.concat arg
+          | some acc, some arg => some $ arg :: acc
           | _, _ => none) (some [])
       match fn?, args? with
       | some fn, some args => return some $ .app fn args
@@ -47,11 +47,14 @@ mutual
     let lurkBinds := binds.foldl (
       fun (acc : Lurk.Expr) (n : Name) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
-    appendBinding (name, ⟦
+    let body := if binds.length == 0 then 
+      ⟦,($(toString name) $idx)⟧
+    else ⟦
       (lambda ($binds) (
-        lurk_append ,($name $idx) $lurkBinds
+        append ,($(toString name) $idx) $lurkBinds
       ))
-    ⟧)
+    ⟧
+    appendBinding (name, body)
   where 
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
       match expr with 
@@ -74,9 +77,10 @@ mutual
       match ← exprToLurkExpr rhs with 
       | some rhs => 
         let args := ⟦(cdr (cdr $argName))⟧
-
-        let newArgs := ⟦(lurk_append (lurk_drop $(recr.indices + 1) ,$binds) (lurk_take $fields $args))⟧
-        return (⟦(= (cdr (car $argName)) $idx)⟧, rhs) -- extract snd element
+        let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem $args $n)⟧
+        let recrArgs := binds.reverse.drop (recr.indices + 1) |>.map fun (n : Name) => ⟦$n⟧
+        let newArgs := recrArgs.reverse ++ ctorArgs
+        return (⟦(= (car (cdr $argName)) $idx)⟧, .app rhs newArgs) -- extract snd element
       | none => throw "failed to convert rhs of rule {idx}"
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
     appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
@@ -89,7 +93,7 @@ mutual
   partial def exprToLurkExpr : Expr → TranspileM (Option Lurk.Expr)
     | .sort  ..
     | .lty   .. => return none
-    | .var name _     => return some $ .lit $ .sym name
+    | .var name _     => return some ⟦$name⟧
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
@@ -130,6 +134,10 @@ mutual
       TranspileM Unit := do
     let store ← read
     for (ind, ctors, intR, extRs) in inds do
+      if (← get).visited.contains ind then 
+        break
+      visit ind
+      appendBinding (ind, ⟦nil⟧)
       dbg_trace s!"beep boop: {ind} being processed"
       let ctors ← ctors.mapM fun ctor => 
         match store.cache.find? ctor with 
@@ -143,8 +151,10 @@ mutual
           | _ => throw s!"{intR} not a internal recursor"
         | none => throw s!"{intR} not found in cache"
       for ctor in ctors do
+        visit ctor.name
         ctorToLurkExpr ctor
       dbg_trace s!"ctors are good"
+      visit irecr.name
       intRecrToLurkExpr irecr ctors
       dbg_trace s!"irecr is good"
       
@@ -185,8 +195,8 @@ mutual
   the same block more than once.
   -/
   partial def constToLurkExpr : Const → TranspileM (Option Lurk.Expr)
-    | .axiom         _
-    | .quotient        _ => return none
+    | .axiom    _
+    | .quotient _ => return none
     | .theorem  _ => return some (.lit .t)
     | .opaque   x => exprToLurkExpr x.value
     | .definition x => exprToLurkExpr x.value
@@ -194,22 +204,36 @@ mutual
       let u ← getMutualIndInfo x
       dbg_trace u
       mutIndBlockToLurkExpr u
-      return none -- I think since we're making the constructors and recursors constants now, we can nil this out?
-    | .constructor x => return none
-    | .extRecursor x => return none
-    | .intRecursor x => return none
-    -- TODO
+      return none
+    | .constructor x
+    | .extRecursor x
+    | .intRecursor x => processInductive x.name
+  where 
+    getInductive (name : Name) : TranspileM Inductive := do 
+      let indName := name.getPrefix
+      let store ← read
+      match store.cache.find? indName with 
+      | some (_, idx) => match store.defns[idx]! with 
+        | .inductive i => return i 
+        | _ => throw s!"unexpected failure, {indName} not a inductive"
+      | none => throw s!"unexpected failure, {indName} not in cache"
+    processInductive (name : Name) : TranspileM $ Option Lurk.Expr := do 
+      let i ← getInductive name
+      let u ← getMutualIndInfo i
+      mutIndBlockToLurkExpr u
+      return none
 
 end
-
+#print Nat.casesOn
 /-- 
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/
-def lurkInitialize : TranspileM Unit := do
+def builtinInitialize : TranspileM Unit := do
   appendBinding Lurk.append
   appendBinding Lurk.length
   appendBinding Lurk.take
   appendBinding Lurk.drop
+  appendBinding Lurk.getelem
 
 /--
 Main translation function.
@@ -219,18 +243,20 @@ FIX: we need to cache what's already been done for efficiency and correctness!
 -/
 def transpileM : TranspileM Unit := do
   let store ← read
-  lurkInitialize
+  builtinInitialize
   store.defns.forM fun const => do
-    dbg_trace s!"processing {const.name}"
+    dbg_trace s!"processing {const.name}s"
     match ← constToLurkExpr const with
     | some expr => appendBinding (const.name, expr)
     | none      => pure ()
 
 open Yatima.Compiler in 
-/-- Constructs the array of bindings and builds a `Lurk.Expr.letE` from it. -/
+/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/
 def transpile (store : CompileState) : Except String String :=
   match TranspileM.run store default transpileM with
-  | .ok    s => return (Lurk.Expr.letE s.getStringBindings .currEnv).pprint.pretty 50
+  | .ok    s => 
+    let env := Lurk.Expr.letRecE s.getStringBindings ⟦(current-env)⟧ -- the parens matter, represents evaluation
+    return (env.pprint false).pretty 50
   | .error e => throw e
 
 end Yatima.Transpiler

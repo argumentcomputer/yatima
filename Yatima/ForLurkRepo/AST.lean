@@ -68,6 +68,10 @@ instance : ToExpr Int where
 instance : ToExpr Name where 
   toExpr s := .lit $ .sym s
 
+/-- Non-instance version when we want lurk-friendly names -/
+def toExprFix (n : Name) : Expr := 
+  .lit $ .sym (fixName n false)
+
 instance : ToExpr String where 
   toExpr s := .lit $ .str s
 

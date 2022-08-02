@@ -2,34 +2,34 @@ import Yatima.ForLurkRepo.DSL
 
 namespace Lurk 
 
-def append : Name × Expr := (`lurk_append, ⟦
+def append : Name × Expr := (`append, ⟦
   (lambda (xs ys) (
     if xs
-      (cons (car xs) (lurk_append (cdr xs) ys))
+      (cons (car xs) (append (cdr xs) ys))
       ys
   ))
 ⟧) 
 
-def length : Name × Expr := (`lurk_length, ⟦
+def length : Name × Expr := (`length, ⟦
   (lambda (xs) (
     if xs (
-      + 1 (lurk_length (cdr xs))
+      + 1 (length (cdr xs))
     ) 0
   ))
 ⟧)
 
-def take : Name × Expr := (`lurk_take, ⟦
+def take : Name × Expr := (`take, ⟦
   (lambda (n xs) (
     if (= n 0) 
-    () (
+    nil (
       if xs (
-        cons (car xs) (lurk_take (- n 1) (cdr xs)) 
+        cons (car xs) (take (- n 1) (cdr xs)) 
       ) xs
     )
   ))
 ⟧)
 
-def drop : Name × Expr := (`lurk_drop, ⟦
+def drop : Name × Expr := (`drop, ⟦
   (lambda (n xs) (
     if (= n 0) 
       xs
@@ -37,6 +37,16 @@ def drop : Name × Expr := (`lurk_drop, ⟦
       if xs (
         drop (- n 1) (cdr xs)
       ) xs
+    )
+  ))
+⟧)
+
+def getelem : Name × Expr := (`getelem, ⟦
+  (lambda (xs n) (
+    if (= n 0) (
+      car xs
+    ) (
+      getelem (cdr xs) (- n 1)
     )
   ))
 ⟧)
@@ -51,11 +61,9 @@ def succ := (`succ, ⟦
 
 #eval IO.println $ ⟦
   (letrec (
-    (append $(append.2))
-    (zero $(zero.2)) 
-    (succ $(succ.2))
+    (getelem $(getelem.2))
   ) (
-    cdr (cdr (succ (succ (zero))))
+    getelem ,(1 2 3) 1
   ))
 ⟧.pprint.pretty 50
 

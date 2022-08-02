@@ -20,13 +20,13 @@ partial def pprint (e : SExpr) (pretty := true) : Format :=
   match e with
   | .atom s     => fixName s pretty
   | .num  n     => format n
-  | .str  s     => format s
-  | .char c     => format c
+  | .str  s     => format s!"\"{s}\""
+  | .char c     => format s!"\'{c}\'"
   | .list es    => 
     let rec fmtList (xs : List SExpr) := match xs with 
       | [] => nil
-      | [x]  => pprint x
-      | x::xs => pprint x ++ line ++ fmtList xs
+      | [x]  => pprint x pretty
+      | x::xs => pprint x pretty ++ line ++ fmtList xs
     paren <| fmtList es
   | .cons e1 e2 => 
     pprint e1 pretty ++ line ++ "." ++ line ++ pprint e2 pretty
@@ -41,7 +41,7 @@ partial def print (e : SExpr) (pretty := true) : String :=
   | .str  s     => s!"\"{s}\""
   | .char c     => s!"\'{c}\'"
   | .list es    => "(" ++ " ".intercalate (es.map $ fun e => e.print pretty) ++ ")"
-  | .cons e1 e2 => s!"{e1.print} . {e2.print pretty}"
+  | .cons e1 e2 => s!"{e1.print pretty} . {e2.print pretty}"
 
 instance : ToString SExpr where 
   toString := print
@@ -133,4 +133,5 @@ elab "[SExpr| " e:sexpr "]" : term =>
   elabSExpr e
 
 #eval IO.println $
-  [SExpr| (a b c d (e f g h) (i j k l m n o p)) ].pprint.pretty 30
+  [SExpr| ("a" b c d (e f g h) (i j k l m n o p)) ].pprint false |>.pretty 30
+#eval format "\"s\""

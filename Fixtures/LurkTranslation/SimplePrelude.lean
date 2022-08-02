@@ -1,10 +1,7 @@
-prelude
+def two := Nat.succ $ Nat.succ $ Nat.zero
 
-def id {α : Type} (a : α) : α := a
-
-inductive Nat where 
-  | zero : Nat 
-  | succ : Nat → Nat 
+def isZ : Nat → Bool := fun n => 
+  @Nat.casesOn (fun x => Bool) n true (fun x => false)
 
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero

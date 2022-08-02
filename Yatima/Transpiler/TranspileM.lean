@@ -5,7 +5,6 @@ import Yatima.Ipld.FromIpld
 namespace Yatima.Transpiler
 
 structure State where
-  prependedBindings : Array (Name × Lurk.Expr)
   appendedBindings  : Array (Name × Lurk.Expr)
   /-- Contains constants that have already been processed -/
   visited : Std.RBTree Name compare
@@ -13,18 +12,15 @@ structure State where
 
 
 def State.getStringBindings (s : State) : List (Name × Lurk.Expr) :=
-  s.prependedBindings.reverse.append s.appendedBindings |>.data
+  s.appendedBindings.data
 
 open Yatima.Compiler
 open Yatima.FromIpld
 
 abbrev TranspileM := ReaderT CompileState $ EStateM String State
 
-def prependBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
-  let s ← get
-  set $ { s with appendedBindings := s.prependedBindings.push b }
-
 def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
+  dbg_trace s!"append {b.1}"
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
 
