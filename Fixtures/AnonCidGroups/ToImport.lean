@@ -1,4 +1,4 @@
-import Fixtures.AnonCidGroups.Imported
+import Fixtures.AnonCidGroups.ToBeImported
 
 def Foo := MyNat -- triggering the compilation of `MyNat`
 def Bar := Nat   -- triggering the compilation of `Nat`
