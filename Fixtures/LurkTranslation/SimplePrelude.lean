@@ -1,7 +1,9 @@
 def two := Nat.succ $ Nat.succ $ Nat.zero
 
-def isZ : Nat → Bool := fun n => 
-  @Nat.casesOn (fun x => Bool) n true (fun x => false)
+def isZ (n : Nat) : Bool :=
+match n with
+  | 0 => true
+  | n + 1 => false
 
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
