@@ -30,7 +30,7 @@ section Testing
 lean_lib TestsUtils
 
 lean_lib Fixtures {
-  roots := #[`Fixtures.AnonCidGroups.Imported]
+  roots := #[`Fixtures.AnonCidGroups.ToBeImported]
 }
 
 lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }

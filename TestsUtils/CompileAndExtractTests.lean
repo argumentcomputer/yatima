@@ -6,7 +6,7 @@ import Yatima.Ipld.FromIpld
 open LSpec Yatima Compiler FromIpld
 
 def compileAndExtractTests (fixture : String)
-  (extractors : List (CompileState → TestSeq)) (setPaths : Bool := true) :
+  (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
   if setPaths then setLibsPaths
   return withExceptOk s!"Compiles '{fixture}'" (← compile fixture)
