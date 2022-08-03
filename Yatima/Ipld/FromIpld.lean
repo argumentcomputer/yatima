@@ -201,6 +201,7 @@ mutual
     | none =>
       let constIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.push default }))
       let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
+      dbg_trace s!"{meta.name}"
       let const ← match anon, meta with
       | .axiom axiomAnon, .axiom axiomMeta =>
         let name := axiomMeta.name
@@ -235,6 +236,7 @@ mutual
         let safe := opaqueAnon.safe
         pure $ .opaque { name, lvls, type, value, safe }
       | .definition definitionAnon, .definition definitionMeta =>
+        dbg_trace s!"\tDefinition case"
         let name := definitionMeta.name
         let lvls := definitionMeta.lvls
         let type ← exprFromIpld ⟨definitionAnon.type, definitionMeta.type⟩
@@ -242,6 +244,7 @@ mutual
         let safety := definitionAnon.safety
         pure $ .definition { name, lvls, type, value, safety }
       | .definitionProj definitionAnon, .definitionProj definitionMeta =>
+        dbg_trace s!"\tDefinition projection case"
         let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionAnon.idx
         let name := defn.meta.name
         let lvls := defn.meta.lvls
@@ -272,6 +275,7 @@ mutual
         let recursorMeta := Sigma.snd pairMeta
         let name := recursorMeta.name
         let lvls := recursorMeta.lvls
+        -- TODO correctly substitute free variables of `type` with inductives, constructors and recursors
         let type ← exprFromIpld ⟨recursorAnon.type, recursorMeta.type⟩
         let params := recursorAnon.params
         let indices := recursorAnon.indices

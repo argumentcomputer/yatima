@@ -169,6 +169,18 @@ def Const.ctorName : Ipld.Const k → String
   | .mutDefBlock     _ => "mutual definition block"
   | .mutIndBlock     _ => "mutual inductive block"
 
+def Const.name : Ipld.Const .Meta → String
+  | .axiom           x 
+  | .theorem         x 
+  | .opaque          x 
+  | .quotient        x 
+  | .definition      x 
+  | .definitionProj  x 
+  | .inductiveProj   x 
+  | .constructorProj x 
+  | .recursorProj    x => toString x.name.proj₂
+  | .mutDefBlock     x => ", ".intercalate $ x.map (·.proj₂.map (toString ·.name.proj₂)) |>.join
+  | .mutIndBlock     x => ", ".intercalate $ x.map (toString ·.name.proj₂)
 end Ipld
 
 structure Axiom where
