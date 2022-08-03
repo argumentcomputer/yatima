@@ -117,16 +117,12 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
       let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          let c₁Str := match Yatima.Compiler.PrintYatima.printYatimaConst c₁ (CompileEnv.init default false) stt () with
-            | .ok r _ => match r with
-              | (.ok r, _) => r
-              | (.error _, _) => "ERROR"
-            | .error _ _ => "ERROR"
-          let c₂Str := match Yatima.Compiler.PrintYatima.printYatimaConst c₂ (CompileEnv.init default false) convStt () with
-            | .ok r _ => match r with
-              | (.ok r, _) => r
-              | (.error _, _) => "ERROR"
-            | .error _ _ => "ERROR"
+          let c₁Str := match Yatima.Compiler.PrintYatima.printYatimaConst c₁ stt  with
+            | (.ok r, _) => r
+            | (.error _, _) => "ERROR"
+          let c₂Str := match Yatima.Compiler.PrintYatima.printYatimaConst c₂ convStt with
+            | (.ok r, _) => r
+            | (.error _, _) => "ERROR"
           let indent (s : String) := "\t" ++ ("\n\t".intercalate $ s.splitOn "\n")
           tSeq ++ test s!"{c₁.name} roundtrips\n{indent s!"{c₁Str}---\n{c₂Str}"}" ((reindexConst map c₁) == c₂)
 

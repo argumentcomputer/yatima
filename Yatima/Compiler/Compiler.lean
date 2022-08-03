@@ -701,7 +701,7 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
       IO.println   "========================================="
       IO.println s!"{PrintLean.printLeanConst const}"
       IO.println   "========================================="
-      IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
+      --IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
       IO.println   "=========================================\n"
 
 def compile (filePath : System.FilePath) (log : Bool := false)

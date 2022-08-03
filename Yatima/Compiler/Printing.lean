@@ -8,6 +8,8 @@ def rulesSep : String :=
 
 namespace Yatima.Compiler.PrintYatima
 
+abbrev PrintM := ExceptT CompileError $ StateM CompileState
+
 open Yatima.Compiler.CompileM
 
 instance : ToString BinderInfo where
@@ -23,12 +25,12 @@ def printDefSafety : Yatima.DefinitionSafety → String
   | .safe    => ""
   | .partial => "partial "
 
-def getCid (name : Name) : CompileM ConstCid := do
+def getCid (name : Name) : PrintM ConstCid := do
   match (← get).cache.find? name with
   | some (cid, _) => pure cid
   | none => throw $ .notFoundInCache name
 
-def printCid (name : Name) : CompileM String := do
+def printCid (name : Name) : PrintM String := do
   let cid ← getCid name
   pure $ s!"anon: {cid.anon.data}\n" ++
          s!"meta: {cid.meta.data}\n"
@@ -44,7 +46,7 @@ instance : ToString Ordering where toString
   | .gt => "gt"
   | .eq => "eq"
 
-def isProp (expr : Expr) : CompileM Bool := do
+def isProp (expr : Expr) : PrintM Bool := do
   match expr with
   | .sort Univ.zero => return true
   | _ => return false
@@ -53,7 +55,7 @@ def isAtomAux : Expr → Bool
   | .const .. | .var .. | .lit .. | .lty .. => true
   | _ => false
 
-def isAtom : Expr → CompileM Bool
+def isAtom : Expr → PrintM Bool
   | .const .. | .var .. | .lit .. | .lty .. => return true
   | .proj _ e => isAtom e
   | e => isProp e
@@ -75,12 +77,12 @@ def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
   | _ => s!"({name} : {type})"
 
 mutual
-  partial def printApp (f : Expr) (arg : Expr) : CompileM String := do
+  partial def printApp (f : Expr) (arg : Expr) : PrintM String := do
     match f with
     | .app .. => return s!"{← printExpr f} {← paren arg}"
     | _ => return s!"{← paren f} {← paren arg}"
 
-  partial def printBinding (isPi : Bool) (e : Expr) : CompileM String := do
+  partial def printBinding (isPi : Bool) (e : Expr) : PrintM String := do
     match e, isArrow e, isPi with
     | .pi name bInfo type body, false, true
     | .lam name bInfo type body, _, false =>
@@ -90,11 +92,11 @@ mutual
       let sep := if isPi then ", " else " => "
       return sep ++ (← printExpr e)
 
-  partial def paren (e : Expr) : CompileM String := do
+  partial def paren (e : Expr) : PrintM String := do
     if (← isAtom e) then printExpr e
     else return s!"({← printExpr e})"
 
-  partial def printExpr (e : Expr) : CompileM String := match e with
+  partial def printExpr (e : Expr) : PrintM String := match e with
     | .var name _ => return s!"{name}"
     | .sort _ => return "Sort"
     | .const name .. => return s!"{name}"
@@ -120,32 +122,32 @@ mutual
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 
-partial def printRecursorRule (rule : RecursorRule) : CompileM String := do
+partial def printRecursorRule (rule : RecursorRule) : PrintM String := do
   let ctor := rule.ctor.name
   return s!"{ctor} {rule.fields} {← printExpr rule.rhs}"
 
-partial def printExtRecursor (cid : String) (recr : ExtRecursor) : CompileM String := do
+partial def printExtRecursor (cid : String) (recr : ExtRecursor) : PrintM String := do
   let rules ← recr.rules.mapM printRecursorRule
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
           s!"\nExternal rules:{rulesSep}{rulesSep.intercalate rules}"
 
-partial def printIntRecursor (cid : String) (recr : IntRecursor) : CompileM String := do
+partial def printIntRecursor (cid : String) (recr : IntRecursor) : PrintM String := do
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
           s!"internal\n"
 
-partial def printConstructors (ctors : List Constructor) : CompileM String := do
+partial def printConstructors (ctors : List Constructor) : PrintM String := do
   let ctors ← ctors.mapM fun ctor => do
     return s!"| {ctor.name} : {← printExpr ctor.type}"
   return "\n".intercalate ctors
 
-partial def printInductive (ind : Inductive) : CompileM String := do
+partial def printInductive (ind : Inductive) : PrintM String := do
   let structStr ← match ind.struct with
   | some ctor => printExpr ctor.type
   | none => pure "none"
   let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} (fields : (recr := {ind.recr})  (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {structStr}))"
   return s!"{indHeader}\n"
 
-partial def printYatimaConst (const : Const) : CompileM String := do
+partial def printYatimaConst (const : Const) : PrintM String := do
   let cid ← printCid const.name
   match const with
   | .axiom ax => do
