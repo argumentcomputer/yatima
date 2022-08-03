@@ -4,6 +4,9 @@ import Yatima.ForLurkRepo.Utils
 
 open Lean Elab Meta Term
 
+def mkNameLit (name : String) := 
+  mkAppM ``Name.mkSimple #[mkStrLit name]
+
 declare_syntax_cat    lurk_literal
 syntax "t"          : lurk_literal
 syntax "nil"        : lurk_literal
@@ -28,8 +31,8 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | `(lurk_literal| $c:char) => do
     let c ← mkAppM ``Char.ofNat #[mkNatLit c.getChar.val.toNat]
     mkAppM ``Lurk.Literal.char #[c]
-  | `(lurk_literal| $i:ident) =>
-    mkAppM ``Lurk.Literal.sym #[mkStrLit i.getId.toString]
+  | `(lurk_literal| $i:ident) => do 
+    mkAppM ``Lurk.Literal.sym #[← mkNameLit i.getId.toString]
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
@@ -65,73 +68,6 @@ def elabLurkUnaryOp : Syntax → TermElabM Expr
   | `(lurk_unary_op| emit) => return mkConst ``Lurk.UnaryOp.emit
   | _ => throwUnsupportedSyntax
 
-declare_syntax_cat           sexpr
-syntax "-" noWs num        : sexpr
-syntax num                 : sexpr
-syntax ident               : sexpr
-syntax str                 : sexpr
-syntax char                : sexpr
-syntax "(" sexpr+ ")"      : sexpr
-syntax sexpr " . " sexpr   : sexpr
-syntax "+"                 : sexpr
-syntax "-"                 : sexpr
-syntax "*"                 : sexpr
-syntax "/"                 : sexpr
-syntax "="                 : sexpr
-
-partial def antiquoteToSExpr (e : Expr) : TermElabM Expr := do
-  let e ← whnf e
-  let type ← inferType e
-  if ← isDefEq type (mkConst ``Nat) then 
-    mkAppM ``Lurk.SExpr.num #[← mkAppM ``Int.ofNat #[e]]
-  else if ← isDefEq type (mkConst ``Int) then 
-    mkAppM ``Lurk.SExpr.num #[e]
-  else if ← isDefEq type (mkConst ``String) then
-    mkAppM ``Lurk.SExpr.str #[e]
-  else if ← isDefEq type.getAppFn (Lean.mkConst ``List [levelZero]) then 
-    let es := Expr.toListExpr e
-    let es ← es.mapM antiquoteToSExpr
-    mkAppM ``Lurk.SExpr.list #[← mkListLit (mkConst ``Lurk.SExpr) es]
-  else if ← isDefEq type (mkConst ``Lurk.SExpr) then 
-    return e
-  else 
-    throwUnsupportedSyntax
-
-partial def elabSExpr : Syntax → TermElabM Expr
-  | `(sexpr| -$n:num) => match n.getNat with
-    | 0     => do
-      mkAppM ``Lurk.SExpr.num #[← mkAppM ``Int.ofNat #[mkConst ``Nat.zero]]
-    | n + 1 => do
-      mkAppM ``Lurk.SExpr.num #[← mkAppM ``Int.negSucc #[mkNatLit n]]
-  | `(sexpr| $n:num) => do
-    mkAppM ``Lurk.SExpr.num #[← mkAppM ``Int.ofNat #[mkNatLit n.getNat]]
-  | `(sexpr| $i:ident) => mkAppM ``Lurk.SExpr.atom #[mkStrLit i.getId.toString]
-  | `(sexpr| +) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "+"]
-  | `(sexpr| -) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "-"]
-  | `(sexpr| *) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "*"]
-  | `(sexpr| /) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "/"]
-  | `(sexpr| =) => mkAppM ``Lurk.SExpr.atom #[mkStrLit "/"]
-  | `(sexpr| $s:str) => mkAppM ``Lurk.SExpr.str #[mkStrLit s.getString]
-  | `(sexpr| $c:char)  => do
-    mkAppM ``Lurk.SExpr.char
-      #[← mkAppM ``Char.ofNat #[mkNatLit c.getChar.val.toNat]]
-  | `(sexpr| ($es*)) => do
-    let es ← (es.mapM fun e => elabSExpr e)
-    mkAppM ``Lurk.SExpr.list #[← mkListLit (mkConst ``Lurk.SExpr) es.toList]
-  | `(sexpr| $e1 . $e2) => do
-    mkAppM ``Lurk.SExpr.cons #[← elabSExpr e1, ← elabSExpr e2]
-  | `(sexpr| $i) => do 
-    if i.raw.isAntiquot then 
-      let stx := i.raw.getAntiquotTerm
-      let e ← elabTerm stx none
-      antiquoteToSExpr e
-    else 
-      throwUnsupportedSyntax 
-  | _ => throwUnsupportedSyntax
-
-elab "[SExpr| " e:sexpr "]" : term =>
-  elabSExpr e
-
 declare_syntax_cat lurk_expr
 declare_syntax_cat lurk_binding
 declare_syntax_cat lurk_bindings
@@ -154,52 +90,35 @@ syntax "current-env"                              : lurk_expr
 syntax "(" "eval" lurk_expr  ")"                  : lurk_expr
 syntax "(" lurk_expr* ")"                         : lurk_expr
 
-partial def antiquoteToLurkExpr (e : Expr) : TermElabM Expr := do
-  let e ← whnf e
-  let type ← inferType e
-  if ← isDefEq type (mkConst ``Nat) then 
-    let lit ← mkAppM ``Lurk.Literal.num #[← mkAppM ``Int.ofNat #[e]]
-    mkAppM ``Lurk.Expr.lit #[lit]
-  else if ← isDefEq type (mkConst ``Int) then 
-    let lit ← mkAppM ``Lurk.Literal.num #[e]
-    mkAppM ``Lurk.Expr.lit #[lit]
-  else if ← isDefEq type (mkConst ``String) then
-    let lit ← mkAppM ``Lurk.Literal.str #[e]
-    mkAppM ``Lurk.Expr.lit #[lit]
-  else if ← isDefEq type (mkConst ``Lurk.Expr) then 
-    return e
-  else 
-    throwUnsupportedSyntax
-
-#check Lean.mkConst
-
 /-- 
 There are no type guarentees. 
 -/
-partial def elabLurkIdents (i : TSyntax `ident) : TermElabM $ Array Expr := do 
+partial def elabLurkIdents (i : TSyntax `ident) : TermElabM Expr := do 
   if i.raw.isAntiquot then 
     let stx := i.raw.getAntiquotTerm
     let e ← elabTerm stx none
     let e ← whnf e
     let type ← inferType e
     match type.getAppFn with 
-    | .const ``List _ => 
-      let es := Expr.toListExpr e 
-      return ⟨es⟩
-    | _ => return ⟨[e]⟩
-  else 
-    return #[mkStrLit i.getId.toString] 
+    | .const ``List _ => return e
+    | _ => 
+      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+      mkAppM ``List.cons #[e, «nil»]
+  else
+    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+    mkAppM ``List.cons #[← mkNameLit i.getId.toString, «nil»]
+
 
 mutual 
 partial def elabLurkBinding : Syntax → TermElabM Expr 
   | `(lurk_binding| ($name $body)) => do
-    mkAppM ``Prod.mk #[mkStrLit name.getId.toString, ← elabLurkExpr body]
+    mkAppM ``Prod.mk #[← mkNameLit name.getId.toString, ← elabLurkExpr body]
   | _ => throwUnsupportedSyntax
 
 partial def elabLurkBindings : Syntax → TermElabM Expr 
   | `(lurk_bindings| ($bindings*)) => do 
     let bindings ← bindings.mapM elabLurkBinding
-    let type ← mkAppM ``Prod #[mkConst ``String, mkConst ``Lurk.Expr]
+    let type ← mkAppM ``Prod #[mkConst ``Lurk.Name, mkConst ``Lurk.Expr]
     mkListLit type bindings.toList
   | _ => throwUnsupportedSyntax
 
@@ -210,8 +129,9 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     mkAppM ``Lurk.Expr.ifE
       #[← elabLurkExpr test, ← elabLurkExpr con, ← elabLurkExpr alt]
   | `(lurk_expr| (lambda ($formals*) $body)) => do
-    let formals ← formals.mapM elabLurkIdents
-    let formals ← mkListLit (mkConst ``String) formals.concat.toList
+    let formals ← Array.toList <$> formals.mapM elabLurkIdents
+    let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lurk.Name]) formals
+    let formals ← mkAppM ``List.join #[formals]
     mkAppM ``Lurk.Expr.lam #[formals, ← elabLurkExpr body]
   | `(lurk_expr| (let $bind $body)) => do
     mkAppM ``Lurk.Expr.letE #[← elabLurkBindings bind, ← elabLurkExpr body]
@@ -238,7 +158,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     let e := (← e.mapM elabLurkExpr).toList
     match e with 
     | []   => 
-      let s ← mkAppM ``Lurk.Literal.sym #[mkStrLit "()"]
+      let s ← mkAppM ``Lurk.Literal.sym #[← mkNameLit "()"]
       mkAppM ``Lurk.Expr.lit #[s]
     | e::es => 
       let type := Lean.mkConst ``Lurk.Expr
@@ -247,120 +167,15 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     if i.raw.isAntiquot then 
       let stx := i.raw.getAntiquotTerm
       let e ← elabTerm stx none
-      antiquoteToLurkExpr e
+      let e ← whnf e
+      mkAppM ``Lurk.Expr.ToExpr.toExpr #[e]
     else 
       throwUnsupportedSyntax 
   | _ => throwUnsupportedSyntax
 end
 
--- Tests 
-
-elab "test_elabLurkLiteral " v:lurk_literal : term =>
-  elabLurkLiteral v
-
-#eval test_elabLurkLiteral 5     -- Lurk.Literal.num { data := 5, modulus? := none }
-#eval test_elabLurkLiteral 0     -- Lurk.Literal.num { data := 0, modulus? := none }
-#eval test_elabLurkLiteral -0    -- Lurk.Literal.num { data := 0, modulus? := none }
-#eval test_elabLurkLiteral -5    -- Lurk.Literal.num { data := -5, modulus? := none }
-#eval test_elabLurkLiteral ""    -- Lurk.Literal.str ""
-#eval test_elabLurkLiteral "sss" -- Lurk.Literal.str "sss"
-#eval test_elabLurkLiteral a     -- Lurk.Literal.sym { data := "a" }
-
-elab "test_elabLurkBinOp " v:lurk_bin_op : term =>
-  elabLurkBinOp v
-
-#eval test_elabLurkBinOp +
-#eval test_elabLurkBinOp -
-#eval test_elabLurkBinOp *
-#eval test_elabLurkBinOp /
-
-elab "test_elabLurkUnaryOp " v:lurk_unary_op : term =>
-  elabLurkUnaryOp v
-
-#eval test_elabLurkUnaryOp car
+--#eval Name.mkSimple ""
 
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
-
-namespace Lurk.SExpr.Tests
-
-def names := ["a", "b", "c"]
-def name := "d"
-
-#eval IO.print ⟦
-  (lambda ($names $name e) ())
-⟧.print
--- (lambda (a b c d e)
---   ())
-
-#eval IO.print ⟦ (lambda (n) n) ⟧.print
--- (lambda (n)
---   n)
-
-#eval IO.print ⟦
-(let (
-    (foo (lambda (a) (a)))
-    (bar (lambda (x) (x))))
-  (foo "1" 2 3))
-⟧.print
--- (let (
---     (foo
---       (lambda (a)
---         (a)))
---     (bar
---       (lambda (x)
---         (x))))
---   (foo
---     "1"
---     2
---     3))
-
-#eval IO.print ⟦
-(let ((foo (lambda (a b c)
-             (* (+ a b) c))))
-  (foo "1" 2 3))
-⟧.print
--- (let (
---     (foo
---       (lambda (a b c)
---         (*
---           (+
---             a
---             b)
---           c))))
---   (foo
---     "1"
---     2
---     3))
-
-#eval IO.print ⟦
-(let ()
-  (foo "1" 2 3))
-⟧.print
--- (let ()
---   (foo
---     "1"
---     2
---     3))
-
-#eval IO.print ⟦
-("s")
-⟧.print
--- ("s")
-
-def m := 1
-def n := [[1, 2], []]
-
-#eval IO.print ⟦
-(quote ($n $m "s" n))
-⟧.print
--- (quote (((1 2) ()) 1 "s"))
-
-def test := [SExpr| 
-  ($n $m "s")
-]
-
-#eval IO.print ⟦
-  (quote ($test 1))
-⟧.print
--- (quote ((((1 2) ()) 1 "s") 1))
+  

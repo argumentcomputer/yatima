@@ -12,7 +12,7 @@ def Split.intr : A → Split A B RecType.Intr := Split.inj₁
 def Split.extr : B → Split A B RecType.Extr := Split.inj₂
 
 inductive DefinitionSafety where
-  | safe | «unsafe» | «partial» deriving BEq, Inhabited
+  | safe | «unsafe» | «partial» deriving BEq, Inhabited, Repr
 
 inductive QuotKind where
   | type | ctor | lift | ind deriving BEq
@@ -27,12 +27,14 @@ structure Axiom (k : Kind) where
   lvls : ListName? k
   type : ExprCid k
   safe : Bool? k
+deriving Repr
 
 structure Theorem (k : Kind) where
   name  : Name? k
   lvls  : ListName? k
   type  : ExprCid k
   value : ExprCid k
+deriving Repr
 
 structure Opaque (k : Kind) where
   name  : Name? k
@@ -40,6 +42,7 @@ structure Opaque (k : Kind) where
   type  : ExprCid k
   value : ExprCid k
   safe  : Bool? k
+deriving Repr
 
 structure Definition (k : Kind) where
   name   : Name? k
@@ -55,6 +58,7 @@ structure DefinitionProj (k : Kind) where
   type  : ExprCid k
   block : ConstCid k
   idx   : Nat? k
+deriving Repr
 
 structure Constructor (k : Kind) where
   name   : Name? k
@@ -65,11 +69,13 @@ structure Constructor (k : Kind) where
   fields : Nat? k
   rhs    : ExprCid k
   safe   : Bool? k
+deriving Repr
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
   fields : Nat? k
   rhs    : ExprCid k
+deriving Repr
 
 structure Recursor (b : RecType) (k : Kind) where
   name    : Name? k
@@ -81,6 +87,7 @@ structure Recursor (b : RecType) (k : Kind) where
   minors  : Nat? k
   rules   : Split Unit (List (RecursorRule k)) b
   k       : Bool? k
+deriving Repr
 
 structure Inductive (k : Kind) where
   name     : Name? k
@@ -93,7 +100,10 @@ structure Inductive (k : Kind) where
   recr     : Bool? k
   safe     : Bool? k
   refl     : Bool? k
-  deriving Inhabited
+deriving Inhabited
+
+instance {k : Kind} : Repr (Inductive k) where
+  reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
   name    : Name? k
@@ -101,6 +111,7 @@ structure InductiveProj (k : Kind) where
   type    : ExprCid k
   block   : ConstCid k
   idx     : Nat? k
+deriving Repr
 
 structure ConstructorProj (k : Kind) where
   name    : Name? k
@@ -109,6 +120,7 @@ structure ConstructorProj (k : Kind) where
   block   : ConstCid k
   idx     : Nat? k
   cidx    : Nat? k
+deriving Repr
 
 structure RecursorProj (k : Kind) where
   name    : Name? k
@@ -117,12 +129,16 @@ structure RecursorProj (k : Kind) where
   block   : ConstCid k
   idx     : Nat? k
   ridx    : Nat? k
+deriving Repr
 
 structure Quotient (k : Kind) where
   name : Name? k
   lvls : ListName? k
   type : ExprCid k
   kind : Split QuotKind Unit k
+
+instance {k : Kind} : Repr (Quotient k) where
+reprPrec a n := reprPrec a.name n
 
 inductive Const (k : Kind) where
   -- standalone constants

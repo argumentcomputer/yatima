@@ -12,7 +12,7 @@ end Ipld
 inductive Split (A : Type) (B : Type) : (b : Bool) → Type where
 | inj₁ : A → Split A B true
 | inj₂ : B → Split A B false
-deriving BEq
+deriving BEq, Repr
 
 instance [Inhabited A] [Inhabited B] : Inhabited (Split A B k) where
   default := match k with | .true => .inj₁ default | .false => .inj₂ default
