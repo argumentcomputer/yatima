@@ -1,4 +1,5 @@
 import Yatima.Datatypes.Store
+import Yatima.Compiler.Utils
 import YatimaStdLib.RBMap
 
 namespace Yatima
@@ -16,6 +17,9 @@ inductive ConvertError where
   | mutDefBlockFound : ConvertError
   | mutIndBlockFound : ConvertError
   | anonMetaMismatch : String → String → ConvertError
+  | cannotFindNameIdx : String → ConvertError
+  | constIdxOutOfRange : Nat → Nat → ConvertError
+  | invalidIndexDepth : Nat → Nat → ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
@@ -26,24 +30,30 @@ instance : ToString ConvertError where toString
   | .cannotStoreValue => "Cannot store value"
   | .mutDefBlockFound => "Found a mutual definition block inside an expression"
   | .mutIndBlockFound => "Found a mutual inductive block inside an expression"
+  | .cannotFindNameIdx name => s!"Cannot find index for '{name}'"
+  | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
+  | .invalidIndexDepth i max => s!"Invalid free variable index {i}. Must be < {max}"
+
+structure ConvertEnv where
+  store     : Ipld.Store
+  recrCtx   : RBMap Nat (Nat × Name × List Univ) compare
+  bindDepth : Nat
+  deriving Inhabited
+
+def ConvertEnv.init (store : Ipld.Store) : ConvertEnv :=
+  ⟨store, default, 0⟩
 
 structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare
   expr_cache  : RBMap ExprCid Expr compare
   const_cache : RBMap ConstCid ConstIdx compare
   defns       : Array Const
+  defnsIdx    : RBMap Name ConstIdx compare
   deriving Inhabited
 
-abbrev ConvertM := ReaderT Ipld.Store <| EStateM ConvertError ConvertState
+abbrev ConvertM := ReaderT ConvertEnv <| EStateM ConvertError ConvertState
 
-instance : Monad ConvertM :=
-  let i := inferInstanceAs (Monad ConvertM)
-  { pure := i.pure, bind := i.bind }
-
-instance (α : Type) : Inhabited (ConvertM α) where
-  default _ := throw .ipldError
-
-def ConvertM.run (env : Ipld.Store) (ste : ConvertState) (m : ConvertM α) :
+def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
     Except ConvertError ConvertState :=
   match EStateM.run (ReaderT.run m env) ste with
   | .ok _ stt  => .ok stt
@@ -51,6 +61,13 @@ def ConvertM.run (env : Ipld.Store) (ste : ConvertState) (m : ConvertM α) :
 
 def ConvertM.unwrap : Option A → ConvertM A :=
   Option.option (throw .ipldError) pure
+
+def withRecrs (recrCtx : RBMap Nat (Nat × Name × List Univ) compare) :
+    ConvertM α → ConvertM α :=
+  withReader $ fun e => { e with recrCtx }
+
+def withNewBind : ConvertM α → ConvertM α :=
+  withReader $ fun e => { e with bindDepth := e.bindDepth + 1 }
 
 -- Auxiliary definitions
 inductive Key : Type → Type
@@ -62,27 +79,27 @@ inductive Key : Type → Type
   | const_store : ConstCid → Key (Ipld.Both Ipld.Const)
 
 def Key.find? : (key : Key A) → ConvertM (Option A)
-  | .univ_cache  univ  => do pure $ (← get).univ_cache.find? univ
-  | .expr_cache  expr  => do pure $ (← get).expr_cache.find? expr
-  | .const_cache const => do pure $ (← get).const_cache.find? const
+  | .univ_cache  univ  => return (← get).univ_cache.find? univ
+  | .expr_cache  expr  => return (← get).expr_cache.find? expr
+  | .const_cache const => return (← get).const_cache.find? const
   | .univ_store  univ  => do
-    let ctx ← read
-    let anon? := ctx.univ_anon.find? univ.anon
-    let meta? := ctx.univ_meta.find? univ.meta
+    let store := (← read).store
+    let anon? := store.univ_anon.find? univ.anon
+    let meta? := store.univ_meta.find? univ.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
   | .expr_store  expr  => do
-    let ctx ← read
-    let anon? := ctx.expr_anon.find? expr.anon
-    let meta? := ctx.expr_meta.find? expr.meta
+    let store := (← read).store
+    let anon? := store.expr_anon.find? expr.anon
+    let meta? := store.expr_meta.find? expr.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
   | .const_store const => do
-    let ctx ← read
-    let anon? := ctx.const_anon.find? const.anon
-    let meta? := ctx.const_meta.find? const.meta
+    let store := (← read).store
+    let anon? := store.const_anon.find? const.anon
+    let meta? := store.const_meta.find? const.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
@@ -161,7 +178,14 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .var () idx, .var name () => pure $ .var name.proj₂ idx
+        | .var () idx, .var name () =>
+          let depth := (← read).bindDepth
+          if idx.proj₁ < depth then
+            throw $ .invalidIndexDepth idx.proj₁ depth
+          else
+            match (← read).recrCtx.find? (idx - depth) with
+            | some (idx, name, univs) => return .const name idx univs
+            | none => return .var name.proj₂ idx
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
         | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
@@ -173,18 +197,21 @@ mutual
           let arg ← exprFromIpld ⟨argAnon, argMeta⟩
           pure $ .app fnc arg
         | .lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta =>
-          let dom ← exprFromIpld ⟨domAnon, domMeta⟩
-          let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-          pure $ .lam name binfo dom bod
+          withNewBind do
+            let dom ← exprFromIpld ⟨domAnon, domMeta⟩
+            let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+            pure $ .lam name binfo dom bod
         | .pi () binfo domAnon codAnon, .pi name () domMeta codMeta =>
-          let dom ← exprFromIpld ⟨domAnon, domMeta⟩
-          let cod ← exprFromIpld ⟨codAnon, codMeta⟩
-          pure $ .pi name binfo dom cod
+          withNewBind do
+            let dom ← exprFromIpld ⟨domAnon, domMeta⟩
+            let cod ← exprFromIpld ⟨codAnon, codMeta⟩
+            pure $ .pi name binfo dom cod
         | .letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta =>
-          let typ ← exprFromIpld ⟨typAnon, typMeta⟩
-          let val ← exprFromIpld ⟨valAnon, valMeta⟩
-          let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-          pure $ .letE name typ val bod
+          withNewBind do
+            let typ ← exprFromIpld ⟨typAnon, typMeta⟩
+            let val ← exprFromIpld ⟨valAnon, valMeta⟩
+            let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+            pure $ .letE name typ val bod
         | .lit lit, .lit () => pure $ .lit lit
         | .lty lty, .lty () => pure $ .lty lty
         | .proj idx bodAnon, .proj () bodMeta =>
@@ -199,8 +226,9 @@ mutual
     match ← Key.find? (.const_cache cid) with
     | some constIdx => pure constIdx
     | none =>
-      let constIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.push default }))
       let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
+      let some constIdx := (← get).defnsIdx.find? meta.name
+        | throw $ .cannotFindNameIdx meta.name
       dbg_trace s!"{meta.name}"
       let const ← match anon, meta with
       | .axiom axiomAnon, .axiom axiomMeta =>
@@ -226,6 +254,8 @@ mutual
         let safe := induct.anon.safe
         let refl := induct.anon.refl
         let unit := inductiveIsUnit induct.anon
+        -- TODO correctly substitute free variables with mutual definitions
+        
         let struct ← inductiveIsStructure induct
         pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
       | .opaque opaqueAnon, .opaque opaqueMeta =>
@@ -299,7 +329,12 @@ mutual
       | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
       | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
       Key.store (.const_cache cid) constIdx
-      modify (fun stt => { stt with defns := stt.defns.set! constIdx const })
+      let defns := (← get).defns
+      let maxSize := defns.size
+      if h : constIdx < maxSize then
+        set { ← get with defns := defns.set ⟨constIdx, h⟩ const }
+      else
+        throw $ .constIdxOutOfRange constIdx maxSize
       pure constIdx
 
   partial def ctorFromIpld (ctor : Ipld.Both Ipld.Constructor) : ConvertM Constructor := do
@@ -316,19 +351,25 @@ mutual
   partial def ruleFromIpld (rule : Ipld.Both Ipld.RecursorRule) : ConvertM RecursorRule := do
     let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let ctor ← match (← get).defns.get! ctorIdx with
-      | .constructor ctor => pure ctor
-      | _ => throw .ipldError
-    pure $ { rhs, ctor, fields := rule.anon.fields }
+    let defns := (← get).defns
+    let maxSize := defns.size
+    if h : ctorIdx < maxSize then
+      let ctor ← match defns[ctorIdx]'h with
+        | .constructor ctor => pure ctor
+        | _ => throw .ipldError
+      return { rhs, ctor, fields := rule.anon.fields }
+    else
+      throw $ .constIdxOutOfRange ctorIdx maxSize
 
 end
 
 def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
-  ConvertM.run store default do
-    let defns := (← read).defns
-    let collect := fun cid => do
-      discard $ constFromIpld cid
-    defns.forM collect
+  ConvertM.run (ConvertEnv.init store) default do
+    (← read).store.const_meta.toList.enum.forM fun (idx, (_, meta)) => do
+      modifyGet fun state => (default, { state with
+        defns := state.defns.push default,
+        defnsIdx := state.defnsIdx.insert meta.name idx })
+    (← read).store.defns.forM fun cid => discard $ constFromIpld cid
 
 def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   match convertStore store with

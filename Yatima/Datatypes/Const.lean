@@ -285,6 +285,28 @@ inductive Const
   | quotient    : Quotient → Const
   deriving Inhabited, BEq
 
+def Const.name : Const → Name
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .inductive   x
+  | .definition  x
+  | .constructor x
+  | .extRecursor x
+  | .intRecursor x
+  | .quotient    x => x.name
+
+-- def Const.lvls : Const → List Univ
+--   | .axiom       x
+--   | .theorem     x
+--   | .opaque      x
+--   | .inductive   x
+--   | .definition  x
+--   | .constructor x
+--   | .extRecursor x
+--   | .intRecursor x
+--   | .quotient    x => x.lvls.map (Univ.var)
+
 def Const.type (k : Const) : Expr :=
   match k with
   | .axiom       x
@@ -296,17 +318,6 @@ def Const.type (k : Const) : Expr :=
   | .intRecursor x
   | .extRecursor x
   | .quotient    x => x.type
-
-def Const.name : Const → Name
-  | .axiom       x
-  | .theorem     x
-  | .opaque      x
-  | .inductive   x
-  | .definition  x
-  | .constructor x
-  | .extRecursor x
-  | .intRecursor x
-  | .quotient    x => x.name
 
 def Const.ctorName : Const → String
   | .axiom       _ => "axiom"
