@@ -139,7 +139,10 @@ partial def printConstructors (ctors : List Constructor) : CompileM String := do
   return "\n".intercalate ctors
 
 partial def printInductive (ind : Inductive) : CompileM String := do
-  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type}"
+  let structStr ← match ind.struct with
+  | some ctor => printExpr ctor.type
+  | none => pure "none"
+  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} (fields : (recr := {ind.recr})  (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {structStr}))"
   return s!"{indHeader}\n"
 
 partial def printYatimaConst (const : Const) : CompileM String := do
