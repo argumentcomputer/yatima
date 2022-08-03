@@ -184,7 +184,7 @@ mutual
             throw $ .invalidIndexDepth idx.proj₁ depth
           else
             match (← read).recrCtx.find? (idx - depth) with
-            | some (idx, name, univs) => return .const name idx univs
+            | some (constIdx, name, univs) => return .const name constIdx univs
             | none => return .var name.proj₂ idx
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
@@ -244,7 +244,14 @@ mutual
         let value ← exprFromIpld ⟨theoremAnon.value, theoremMeta.value⟩
         pure $ .theorem { name, lvls, type, value }
       | .inductiveProj anon, .inductiveProj meta =>
-        let induct ← getInductive (← Key.find $ .const_store ⟨anon.block, meta.block⟩) anon.idx
+        let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+        let induct ← getInductive indBlock anon.idx
+        let indBlockMeta ← match indBlock.meta with
+        | .mutIndBlock x => pure x
+        | _ => throw sorry
+        let indBlockAnon ← match indBlock.anon with
+        | .mutIndBlock x => pure x
+        | _ => throw sorry
         let name := induct.meta.name
         let lvls := induct.meta.lvls
         let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
@@ -254,10 +261,23 @@ mutual
         let safe := induct.anon.safe
         let refl := induct.anon.refl
         let unit := inductiveIsUnit induct.anon
-        -- TODO correctly substitute free variables with mutual definitions
+
+        let mut constList : List (Nat × Name × List Univ) := []
+        for (i, ind) in indBlockAnon.enum do
+          -- TODO use defnsIdx
+          let indTup := (sorry, ind.name, sorry)
+          let ctorTups := sorry
+          let recTups := sorry
+          let addList := (indTup :: ctorTups).append recTups
+          constList := constList.append addList
         
-        let struct ← inductiveIsStructure induct
-        pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
+        let mut recrCtx := default
+        for (i, tup) in constList.enum do recrCtx := recrCtx.insert i tup
+
+        -- TODO optimize
+        withRecrs recrCtx do
+          let struct ← inductiveIsStructure induct
+          pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
       | .opaque opaqueAnon, .opaque opaqueMeta =>
         let name := opaqueMeta.name
         let lvls := opaqueMeta.lvls
