@@ -291,19 +291,4 @@ def Const.ctorName : Const → String
   | .intRecursor _ => "internal recursor"
   | .quotient    _ => "quotient"
 
-mutual
-
-  partial def isoConsts : Const → Const → Bool
-    | .axiom ⟨n₁, ls₁, t₁, s₁⟩, .axiom ⟨n₂, ls₂, t₂, s₂⟩ => true
-    | _, _ => false
-
-  partial def isoExprs : Expr → Expr → Bool
-    | e₁@(.var ..), e₂@(.var ..)
-    | e₁@(.sort _), e₂@(.sort _)
-    | e₁@(.lit ..), e₂@(.lit ..)
-    | e₁@(.lty ..), e₂@(.lty ..) => e₁ == e₂
-    | _, _ => false
-
-end
-
 end Yatima
