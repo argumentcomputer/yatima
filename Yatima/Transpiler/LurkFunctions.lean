@@ -59,11 +59,29 @@ def succ := (`succ, ⟦
   (lambda (n) (append ,(succ 1) (cons n nil)))
 ⟧)
 
+def mutual_fg := (`f_mutual, ⟦
+  (lambda (n) (
+    if (= n 0) (
+      lambda (x) (
+        if (= x 0) 0 (
+          + ((mutual_fg 1) (- x 1)) 2
+        )
+      )
+    ) (
+      lambda (x) (
+        if (= x 0) 0 (
+          + ((mutual_fg 0) (- x 1)) 2
+        )
+      )
+    )
+  ))
+⟧)
+
 -- #eval IO.println $ ⟦
 --   (letrec (
---     (getelem $(getelem.2))
+--     (mutual_fg $(mutual_fg.2))
 --   ) (
---     getelem ,(1 2 3) 1
+--     (mutual_fg 0) 10 
 --   ))
 -- ⟧.pprint.pretty 50
 
