@@ -24,6 +24,7 @@ namespace Ipld
 abbrev BinderInfo? k := Split BinderInfo Unit k
 
 inductive Expr (k : Kind)
+  | uvar  : Name? k → Nat? k → List (UnivCid k) → Expr k
   | var   : Name? k → Nat? k → Expr k
   | sort  : UnivCid k → Expr k
   | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
@@ -37,8 +38,9 @@ inductive Expr (k : Kind)
   deriving BEq, Inhabited
 
 def Expr.ctorName : Expr k → String
-  | .var .. => "var"
-  | .sort .. => "sort"
+  | .uvar  .. => "uvar"
+  | .var   .. => "var"
+  | .sort  .. => "sort"
   | .const .. => "const"
   | .app .. => "app"
   | .lam .. => "lam"
