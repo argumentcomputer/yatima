@@ -2,6 +2,7 @@ import Lean
 import Yatima.ForLurkRepo.Printing
 import Yatima.ForLurkRepo.Utils
 
+section DSL 
 open Lean Elab Meta Term
 
 def mkNameLit (name : String) := 
@@ -178,4 +179,21 @@ end
 
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
-  
+
+end DSL 
+
+namespace Lurk.Expr 
+
+def mkMutualBlock (mutuals : List (Name × Expr)) : List (Name × Expr) :=
+  let names := mutuals.map Prod.fst
+  let mutualName := names.head! ++ `mutual
+  let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ [⟦$i⟧])
+  let targets := fnProjs.map fun (n, e) => (⟦$n⟧, e)
+  let mutualBlock := mkIfElses (mutuals.enum.map fun (i, n, e) => 
+    (⟦(= mutidx $i)⟧, e.replaceN targets)  
+  ) ⟦nil⟧
+  (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
+
+
+
+end Lurk.Expr 

@@ -77,6 +77,25 @@ def mutual_fg := (`f_mutual, ⟦
   ))
 ⟧)
 
+def f := ⟦(
+  lambda (x) (
+    if (= x 0) 0 (
+      + (g (- x 1)) 2
+    )
+  )
+)⟧
+
+def g := ⟦(
+  lambda (x) (
+    if (= x 0) 0 (
+      + (f (- x 1)) 2
+    )
+  )
+)⟧
+
+-- #eval IO.println $ 
+--   Expr.mkMutualBlock [(`f, f), (`g, g)] |>.map fun (n, e) => (n, e.pprint false |>.pretty 50)
+
 -- #eval IO.println $ ⟦
 --   (letrec (
 --     (mutual_fg $(mutual_fg.2))

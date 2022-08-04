@@ -22,7 +22,7 @@ inductive Literal
   | char    : Char → Literal
   -- Symbols
   | sym     : Name → Literal
-  deriving Repr
+  deriving Repr, BEq
 
 /-- Basic Lurk expression AST -/
 inductive Expr where
@@ -52,7 +52,7 @@ inductive Expr where
   | currEnv : Expr
   -- `eval <expr> <env>`
   | eval    : Expr → Option Expr → Expr
-  deriving Repr
+  deriving Repr, BEq
 
 namespace Expr 
 
