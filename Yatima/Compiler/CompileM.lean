@@ -24,6 +24,7 @@ def Yatima.Ipld.Univ.ctorType : Univ k → String
   | var  .. => "var"
 
 def Yatima.Ipld.Expr.ctorType : Expr k → String
+  | uvar  .. => "uvar"
   | var   .. => "var"
   | sort  .. => "sort"
   | const .. => "const"
