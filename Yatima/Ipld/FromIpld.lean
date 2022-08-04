@@ -40,7 +40,7 @@ instance : ToString ConvertError where toString
 
 structure ConvertEnv where
   store     : Ipld.Store
-  recrCtx   : RBMap Nat (Nat × Name × List Univ) compare
+  recrCtx   : RBMap Nat (Nat × Name) compare
   bindDepth : Nat
   deriving Inhabited
 
@@ -66,7 +66,7 @@ def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
 def ConvertM.unwrap : Option A → ConvertM A :=
   Option.option (throw .ipldError) pure
 
-def withRecrs (recrCtx : RBMap Nat (Nat × Name × List Univ) compare) :
+def withRecrs (recrCtx : RBMap Nat (Nat × Name) compare) :
     ConvertM α → ConvertM α :=
   withReader $ fun e => { e with recrCtx }
 
@@ -168,6 +168,11 @@ def inductiveIsUnit (ind : Ipld.Inductive .Anon) : Bool :=
     | [ctor] => ctor.fields.proj₁ == 0
     | _ => false
 
+def getDefnIdx (n : Name) : ConvertM Nat := do
+  match (← get).defnsIdx.find? n with
+  | some idx => pure idx
+  | none => throw $ .defnsIdxNotFound $ n.toString
+
 mutual
   partial def inductiveIsStructure (ind : Ipld.Both Ipld.Inductive) : ConvertM (Option Constructor) :=
     if ind.anon.recr || ind.anon.indices.proj₁ != 0 then pure $ none
@@ -182,14 +187,16 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .var () idx, .var name () =>
+        | .uvar () idx lvlsAnon, .uvar name () lvlsMeta =>
+          let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
           let depth := (← read).bindDepth
-          if idx.proj₁ < depth then
+          if depth < idx.proj₁ then
             throw $ .invalidIndexDepth idx.proj₁ depth
           else
             match (← read).recrCtx.find? (idx - depth) with
-            | some (constIdx, name, univs) => return .const name constIdx univs
+            | some (constIdx, name) => return .const name constIdx lvls
             | none => return .var name.proj₂ idx
+        | .var () idx, .var name () => return .var name.proj₂ idx
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
         | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
@@ -232,7 +239,7 @@ mutual
     | none =>
       let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
       let some constIdx := (← get).defnsIdx.find? meta.name
-        | throw $ .cannotFindNameIdx meta.name
+        | throw $ .cannotFindNameIdx $ toString meta.name
       dbg_trace s!"{meta.name}"
       let const ← match anon, meta with
       | .axiom axiomAnon, .axiom axiomMeta =>
@@ -250,12 +257,6 @@ mutual
       | .inductiveProj anon, .inductiveProj meta =>
         let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
         let induct ← getInductive indBlock anon.idx
-        let indBlockMeta ← match indBlock.meta with
-        | .mutIndBlock x => pure x
-        | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
-        let indBlockAnon ← match indBlock.anon with
-        | .mutIndBlock x => pure x
-        | _ => throw $ .invalidMutIndBlock indBlock.anon.ctorName
         let name := induct.meta.name
         let lvls := induct.meta.lvls
         let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
@@ -266,15 +267,22 @@ mutual
         let refl := induct.anon.refl
         let unit := inductiveIsUnit induct.anon
 
-        let mut constList : List (Nat × Name × List Univ) := []
-        for (i, ind) in indBlockMeta.enum do
-          -- TODO use defnsIdx
-          let indIdx ← match (← get).defnsIdx.find? ind.name.proj₂ with
-          | some idx => idx
-          | none => throw $ .defnsIdxNotFound $ toString ind.name.proj₂
-          let indTup := (indIdx, ind.name, sorry)
-          let ctorTups := sorry
-          let recTups := sorry
+        let indBlockMeta ← match indBlock.meta with
+        | .mutIndBlock x => pure x
+        | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
+
+        let mut constList : List (Nat × Name) := []
+        for ind in indBlockMeta do
+          let indIdx ← getDefnIdx ind.name.proj₂
+          let indTup := (indIdx, ind.name.proj₂)
+          let ctorTups : List (Nat × Name) ← ind.ctors.mapM fun ctor => do
+            let name := ctor.name
+            let indIdx ← getDefnIdx name
+            return (indIdx, name)
+          let recTups : List (Nat × Name) ← ind.recrs.mapM fun ⟨_, recr⟩ => do
+            let name := recr.name
+            let indIdx ← getDefnIdx name
+            return (indIdx, name)
           let addList := (indTup :: ctorTups).append recTups
           constList := constList.append addList
         

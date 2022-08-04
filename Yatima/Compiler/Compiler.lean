@@ -221,7 +221,7 @@ mutual
         match (← read).recrCtx.find? name with
           | some (i, ref) =>
             let idx := (← read).bindCtx.length + i
-            let value : Ipld.Both Ipld.Expr := ⟨ .var () idx, .var name () ⟩
+            let value : Ipld.Both Ipld.Expr := ⟨ .uvar () idx (univCids.map (·.anon)), .uvar name () (univCids.map (·.meta))⟩
             pure (value, .const name ref univs)
           | none   => do
             let const ← findConstant name

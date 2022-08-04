@@ -1,0 +1,14 @@
+{"version": 1,
+ "packages":
+ [{"url": "https://github.com/mhuisi/lean4-cli",
+   "rev": "112b35fc348a4a18d2111ac2c6586163330b4941",
+   "name": "Cli"},
+  {"url": "https://github.com/yatima-inc/LSpec.git",
+   "rev": "77fc51697abeff937ffd20d2050723dc0fa1c8c0",
+   "name": "LSpec"},
+  {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
+   "rev": "a2bbc9a48db7efd5d761a5b27f2cc6c1863b9622",
+   "name": "YatimaStdLib"},
+  {"url": "https://github.com/yatima-inc/Ipld.lean",
+   "rev": "c77099a6151816687750d65fea71d8cee995f29c",
+   "name": "Ipld"}]}
