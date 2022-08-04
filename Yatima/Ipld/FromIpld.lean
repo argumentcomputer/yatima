@@ -20,6 +20,8 @@ inductive ConvertError where
   | cannotFindNameIdx : String → ConvertError
   | constIdxOutOfRange : Nat → Nat → ConvertError
   | invalidIndexDepth : Nat → Nat → ConvertError
+  | invalidMutIndBlock : String → ConvertError
+  | defnsIdxNotFound : String → ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
@@ -33,6 +35,8 @@ instance : ToString ConvertError where toString
   | .cannotFindNameIdx name => s!"Cannot find index for '{name}'"
   | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
   | .invalidIndexDepth i max => s!"Invalid free variable index {i}. Must be < {max}"
+  | .invalidMutIndBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
+  | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
 
 structure ConvertEnv where
   store     : Ipld.Store
@@ -248,10 +252,10 @@ mutual
         let induct ← getInductive indBlock anon.idx
         let indBlockMeta ← match indBlock.meta with
         | .mutIndBlock x => pure x
-        | _ => throw sorry
+        | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
         let indBlockAnon ← match indBlock.anon with
         | .mutIndBlock x => pure x
-        | _ => throw sorry
+        | _ => throw $ .invalidMutIndBlock indBlock.anon.ctorName
         let name := induct.meta.name
         let lvls := induct.meta.lvls
         let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
@@ -263,9 +267,12 @@ mutual
         let unit := inductiveIsUnit induct.anon
 
         let mut constList : List (Nat × Name × List Univ) := []
-        for (i, ind) in indBlockAnon.enum do
+        for (i, ind) in indBlockMeta.enum do
           -- TODO use defnsIdx
-          let indTup := (sorry, ind.name, sorry)
+          let indIdx ← match (← get).defnsIdx.find? ind.name.proj₂ with
+          | some idx => idx
+          | none => throw $ .defnsIdxNotFound $ toString ind.name.proj₂
+          let indTup := (indIdx, ind.name, sorry)
           let ctorTups := sorry
           let recTups := sorry
           let addList := (indTup :: ctorTups).append recTups
