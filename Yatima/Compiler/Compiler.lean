@@ -208,7 +208,7 @@ mutual
       | .bvar idx => do
         let name ← match (← read).bindCtx.get? idx with
         | some name =>
-          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx, .var name () ⟩
+          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx [], .var name () [] ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl => do
@@ -221,7 +221,7 @@ mutual
         match (← read).recrCtx.find? name with
           | some (i, ref) =>
             let idx := (← read).bindCtx.length + i
-            let value : Ipld.Both Ipld.Expr := ⟨ .uvar () idx (univCids.map (·.anon)), .uvar name () (univCids.map (·.meta))⟩
+            let value : Ipld.Both Ipld.Expr := ⟨ .var () idx (univCids.map (·.anon)), .var name () (univCids.map (·.meta))⟩
             pure (value, .const name ref univs)
           | none   => do
             let const ← findConstant name
@@ -343,11 +343,11 @@ mutual
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
             let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
-            let recs := (⟨Sigma.mk .Intr thisRec.anon, Sigma.mk .Intr thisRec.meta⟩) :: recs
+            let recs := (⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩) :: recs
             return (recs, thisCtors)
           else do
             let thisRec := ← toYatimaIpldExternalRec r
-            let recs := (⟨Sigma.mk .Extr thisRec.anon, Sigma.mk .Extr thisRec.meta⟩) :: recs
+            let recs := (⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩) :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
     let (typeCid, type) ← toYatimaExpr ind.type
@@ -408,7 +408,7 @@ mutual
 
   partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
       Lean.ConstantInfo → CompileM
-        (Ipld.Both (Ipld.Recursor .Intr) × (List $ Ipld.Both Ipld.Constructor))
+        (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -494,7 +494,7 @@ mutual
       | const => throw $ .invalidConstantKind const "constructor"
 
   partial def toYatimaIpldExternalRec :
-      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .Extr))
+      Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .extr))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -701,7 +701,7 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
       IO.println   "========================================="
       IO.println s!"{PrintLean.printLeanConst const}"
       IO.println   "========================================="
-      --IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
+      IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
       IO.println   "=========================================\n"
 
 def compile (filePath : System.FilePath) (log : Bool := false)

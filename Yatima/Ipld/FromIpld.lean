@@ -187,7 +187,8 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .uvar () idx lvlsAnon, .uvar name () lvlsMeta =>
+        | .var () idx [], .var name () [] => return .var name.proj₂ idx
+        | .var () idx lvlsAnon, .var name () lvlsMeta =>
           let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
           let depth := (← read).bindDepth
           if depth < idx.proj₁ then
@@ -196,7 +197,6 @@ mutual
             match (← read).recrCtx.find? (idx - depth) with
             | some (constIdx, name) => return .const name constIdx lvls
             | none => return .var name.proj₂ idx
-        | .var () idx, .var name () => return .var name.proj₂ idx
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
         | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
@@ -348,8 +348,8 @@ mutual
         let minors := recursorAnon.minors
         let k := recursorAnon.k
         let casesExtInt : (b₁ : RecType) → (b₂ : RecType) → (Ipld.Recursor b₁ .Anon) → (Ipld.Recursor b₂ .Meta) → ConvertM Const
-        | .Intr, .Intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
-        | .Extr, .Extr, recAnon, recMeta => do
+        | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
+        | .extr, .extr, recAnon, recMeta => do
           let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
           pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k }
         | _, _, _, _ => throw .ipldError

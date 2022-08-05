@@ -8,17 +8,16 @@ def rulesSep : String :=
 
 namespace Yatima.Compiler.PrintYatima
 
-abbrev PrintM := ExceptT CompileError $ StateM CompileState
+abbrev PrintM := ReaderT CompileState $ ExceptT CompileError Id
 
 open Yatima.Compiler.CompileM
 
-instance : ToString BinderInfo where
-  toString bInfo := match bInfo with
-  | .default => "default"
-  | .implicit => "implicit"
+instance : ToString BinderInfo where toString
+  | .default        => "default"
+  | .implicit       => "implicit"
   | .strictImplicit => "strict"
-  | .instImplicit => "inst"
-  | .auxDecl => "auxDecl"
+  | .instImplicit   => "inst"
+  | .auxDecl        => "auxDecl"
 
 def printDefSafety : Yatima.DefinitionSafety → String
   | .unsafe  => "unsafe "
@@ -26,7 +25,7 @@ def printDefSafety : Yatima.DefinitionSafety → String
   | .partial => "partial "
 
 def getCid (name : Name) : PrintM ConstCid := do
-  match (← get).cache.find? name with
+  match (← read).cache.find? name with
   | some (cid, _) => pure cid
   | none => throw $ .notFoundInCache name
 
@@ -46,17 +45,16 @@ instance : ToString Ordering where toString
   | .gt => "gt"
   | .eq => "eq"
 
-def isProp (expr : Expr) : PrintM Bool := do
-  match expr with
-  | .sort Univ.zero => return true
-  | _ => return false
+def isProp : Expr → Bool
+  | .sort Univ.zero => true
+  | _ => false
 
 def isAtomAux : Expr → Bool
   | .const .. | .var .. | .lit .. | .lty .. => true
   | _ => false
 
-def isAtom : Expr → PrintM Bool
-  | .const .. | .var .. | .lit .. | .lty .. => return true
+def isAtom : Expr → Bool
+  | .const .. | .var .. | .lit .. | .lty .. => true
   | .proj _ e => isAtom e
   | e => isProp e
 
@@ -93,7 +91,7 @@ mutual
       return sep ++ (← printExpr e)
 
   partial def paren (e : Expr) : PrintM String := do
-    if (← isAtom e) then printExpr e
+    if isAtom e then printExpr e
     else return s!"({← printExpr e})"
 
   partial def printExpr (e : Expr) : PrintM String := match e with
@@ -147,7 +145,7 @@ partial def printInductive (ind : Inductive) : PrintM String := do
   let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} (fields : (recr := {ind.recr})  (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {structStr}))"
   return s!"{indHeader}\n"
 
-partial def printYatimaConst (const : Const) : PrintM String := do
+partial def printConst (const : Const) : PrintM String := do
   let cid ← printCid const.name
   match const with
   | .axiom ax => do
@@ -167,10 +165,12 @@ partial def printYatimaConst (const : Const) : PrintM String := do
   | .inductive ind => return s!"{← printInductive ind}"
   | .constructor ctor => do
     return s!"{cid}{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr ctor.type}\n| internal rule: {← printExpr ctor.rhs}"
-  | .extRecursor recr => do
-    printExtRecursor cid recr
-  | .intRecursor recr => do
-    printIntRecursor cid recr
+  | .extRecursor recr => printExtRecursor cid recr
+  | .intRecursor recr => printIntRecursor cid recr
+
+-- TODO: lift `PrintM` here
+def printYatimaConst (const : Const) : CompileM String :=
+  sorry
 
 end Yatima.Compiler.PrintYatima
 

@@ -25,8 +25,7 @@ namespace Ipld
 abbrev BinderInfo? k := Split BinderInfo Unit k
 
 inductive Expr (k : Kind)
-  | uvar  : Name? k → Nat? k → List (UnivCid k) → Expr k
-  | var   : Name? k → Nat? k → Expr k
+  | var   : Name? k → Nat? k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
   | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
   | app   : ExprCid k → ExprCid k → Expr k
@@ -39,7 +38,6 @@ inductive Expr (k : Kind)
   deriving BEq, Inhabited
 
 def Expr.ctorName : Expr k → String
-  | .uvar  .. => "uvar"
   | .var   .. => "var"
   | .sort  .. => "sort"
   | .const .. => "const"
@@ -179,16 +177,15 @@ def shiftVars (expr : Expr) (inc : Int) : Expr :=
   walk expr
 
 /--
-Substitute the expression `term` for any bound variable with de Bruijn index `dep` in the expression `expr`
+Substitute the expression `term` for any bound variable with de Bruijn index
+`dep` in the expression `expr`
 -/
 def subst (expr term : Expr) (dep : Nat) : Expr :=
-  let rec walk (acc : Nat) (expr : Expr) : Expr := match expr with
-    | var name idx => let idx : Nat := idx
-      match compare idx (dep + acc) with
-        | .eq => term.shiftFreeVars acc 0
-        | .gt => let pred : Nat := idx - 1
-          var name pred
-        | .lt => var name idx
+  let rec walk (acc : Nat) : Expr → Expr
+    | var name idx => match compare idx (dep + acc) with
+      | .eq => term.shiftFreeVars acc 0
+      | .gt => var name (idx - 1)
+      | .lt => var name idx
     | app func input => app (walk acc func) (walk acc input)
     | lam name bind type body =>
       lam name bind (walk acc type) (walk acc.succ body)
@@ -200,7 +197,8 @@ def subst (expr term : Expr) (dep : Nat) : Expr :=
   walk 0 expr
 
 /--
-Substitute the expression `term` for the top level bound variable of the expression `expr`.
+Substitute the expression `term` for the top level bound variable of the
+expression `expr`.
 
 (essentially just `(λ. M) N` )
 -/

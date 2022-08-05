@@ -43,7 +43,7 @@ match k with
   | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
-def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor .Extr k :=
+def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor .extr k :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -64,7 +64,7 @@ match k with
     , rulesCids
     , ()⟩
 
-def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor .Intr k :=
+def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor .intr k :=
 match k with 
   | .Anon =>
     ⟨ ()
@@ -196,8 +196,7 @@ def univToIpld : (Ipld.Univ k) → Ipld
   | .var n i   => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
 
 def exprToIpld : (Ipld.Expr k) → Ipld
-  | .uvar _ i ls  => .array #[.number $ Ipld.EXPR k, .number 0, i, ls]
-  | .var _ i      => .array #[.number $ Ipld.EXPR k, .number 0, i]
+  | .var _ i ls   => .array #[.number $ Ipld.EXPR k, .number 0, i, ls]
   | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
   | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
   | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
