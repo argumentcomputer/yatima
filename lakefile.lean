@@ -23,7 +23,7 @@ require YatimaStdLib from git
   "https://github.com/yatima-inc/YatimaStdLib.lean" @ "a2bbc9a48db7efd5d761a5b27f2cc6c1863b9622"
 
 require Cli from git
-  "https://github.com/mhuisi/lean4-cli" @ "112b35fc348a4a18d2111ac2c6586163330b4941"
+  "https://github.com/mhuisi/lean4-cli" @ "b0efab6f62d171b76d8fbed03e0abd3e38854589"
 
 section Testing
 

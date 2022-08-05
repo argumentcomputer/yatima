@@ -5,15 +5,7 @@ match n with
   | 0 => true
   | n + 1 => false
 
-mutual
-  def A : Nat → Nat
-  | 0 => 0
-  | n + 1 => B n + two
-
-  def B : Nat → Nat
-  | 0 => 0
-  | n + 1 => A n + two
-end
+def four := two + two
 
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
