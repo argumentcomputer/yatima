@@ -22,6 +22,7 @@ inductive ConvertError where
   | invalidIndexDepth : Nat → Nat → ConvertError
   | invalidMutIndBlock : String → ConvertError
   | defnsIdxNotFound : String → ConvertError
+  | mutRefFVNotFound : Nat → ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
@@ -37,6 +38,7 @@ instance : ToString ConvertError where toString
   | .invalidIndexDepth i max => s!"Invalid mutual referencing free variable index {i}. Must be > {max}"
   | .invalidMutIndBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
   | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
+  | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
 
 structure ConvertEnv where
   store     : Ipld.Store
@@ -200,7 +202,7 @@ mutual
             let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
             match (← read).recrCtx.find? (idx.proj₁ - depth) with
             | some (constIdx, name) => return .const name constIdx lvls
-            | none => return .var name.proj₂ idx
+            | none => throw $ .mutRefFVNotFound (idx.proj₁ - depth)
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
         | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
