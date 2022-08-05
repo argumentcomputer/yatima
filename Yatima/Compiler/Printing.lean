@@ -25,9 +25,10 @@ def printDefSafety : Yatima.DefinitionSafety → String
   | .partial => "partial "
 
 def getCid (name : Name) : PrintM ConstCid := do
-  match (← read).cache.find? name with
-  | some (cid, _) => pure cid
-  | none => throw $ .notFoundInCache name
+  --match (← read).cache.find? name with
+  --| some (cid, _) => pure cid
+  --| none => throw $ .notFoundInCache name
+  return default
 
 def printCid (name : Name) : PrintM String := do
   let cid ← getCid name

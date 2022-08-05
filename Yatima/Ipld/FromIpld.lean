@@ -395,8 +395,12 @@ mutual
   partial def ctorFromIpld (ctor : Ipld.Both Ipld.Constructor) : ConvertM Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
+    dbg_trace s!">> deserializing type of {ctor.meta.name.proj₂}"
     let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
+    dbg_trace s!"<< deserialized type of {ctor.meta.name.proj₂}"
+    dbg_trace s!">> deserializing rhs of {ctor.meta.name.proj₂}"
     let rhs ← exprFromIpld ⟨ctor.anon.rhs, ctor.meta.rhs⟩
+    dbg_trace s!"<< deserialized rhs of {ctor.meta.name.proj₂}"
     let idx := ctor.anon.idx
     let params := ctor.anon.fields
     let fields := ctor.anon.params

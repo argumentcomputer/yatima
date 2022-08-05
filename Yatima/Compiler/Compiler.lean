@@ -462,7 +462,9 @@ mutual
     | const => throw $ .invalidConstantKind const "recursor"
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
+      IO.println s!">> compiling rhs of {rule.ctor}"
       let (rhsCid, rhs) ← toYatimaExpr rule.rhs
+      IO.println s!"<< compiled rhs of {rule.ctor}"
       match ← findConstant rule.ctor with
       | .ctorInfo ctor =>
         IO.println s!">> compiling type of {ctor.name}"
@@ -478,6 +480,7 @@ mutual
           rhs     := rhs
           safe    := not ctor.isUnsafe
         }
+        IO.println s!"{← PrintYatima.printYatimaConst (tcCtor)}"
         let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
         addToDefns defnIdx tcCtor
         return ⟨
