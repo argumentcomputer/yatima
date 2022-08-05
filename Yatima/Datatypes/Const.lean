@@ -179,7 +179,7 @@ def Const.name : Ipld.Const .Meta → Name
   | .inductiveProj   x 
   | .constructorProj x 
   | .recursorProj    x => x.name.proj₂
-  | .mutDefBlock     _ => .anonymous
+  | .mutDefBlock     _
   | .mutIndBlock     _ => .anonymous
 end Ipld
 
@@ -296,19 +296,7 @@ def Const.name : Const → Name
   | .intRecursor x
   | .quotient    x => x.name
 
--- def Const.lvls : Const → List Univ
---   | .axiom       x
---   | .theorem     x
---   | .opaque      x
---   | .inductive   x
---   | .definition  x
---   | .constructor x
---   | .extRecursor x
---   | .intRecursor x
---   | .quotient    x => x.lvls.map (Univ.var)
-
-def Const.type (k : Const) : Expr :=
-  match k with
+def Const.type : Const → Expr
   | .axiom       x
   | .theorem     x
   | .inductive   x
