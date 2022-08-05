@@ -34,7 +34,7 @@ instance : ToString ConvertError where toString
   | .mutIndBlockFound => "Found a mutual inductive block inside an expression"
   | .cannotFindNameIdx name => s!"Cannot find index for '{name}'"
   | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
-  | .invalidIndexDepth i max => s!"Invalid free variable index {i}. Must be < {max}"
+  | .invalidIndexDepth i max => s!"Invalid mutual referencing free variable index {i}. Must be > {max}"
   | .invalidMutIndBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
   | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
 
@@ -187,14 +187,18 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .var () idx [], .var name () [] => return .var name.proj₂ idx
         | .var () idx lvlsAnon, .var name () lvlsMeta =>
-          let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
           let depth := (← read).bindDepth
-          if depth < idx.proj₁ then
-            throw $ .invalidIndexDepth idx.proj₁ depth
+          -- this is a bound free variable
+          if depth > idx.proj₁ then
+            -- bound free variables should never have universe levels
+            if lvlsAnon.length > 0 then
+              throw $ .invalidIndexDepth idx.proj₁ depth
+            return .var name.proj₂ idx
+          -- this free variable came from recrCtx, and thus represents a mutual reference
           else
-            match (← read).recrCtx.find? (idx - depth) with
+            let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
+            match (← read).recrCtx.find? (idx.proj₁ - depth) with
             | some (constIdx, name) => return .const name constIdx lvls
             | none => return .var name.proj₂ idx
         | .sort uAnonCid, .sort uMetaCid =>
