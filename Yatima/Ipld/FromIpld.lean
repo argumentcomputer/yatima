@@ -35,7 +35,7 @@ instance : ToString ConvertError where toString
   | .mutIndBlockFound => "Found a mutual inductive block inside an expression"
   | .cannotFindNameIdx name => s!"Cannot find index for '{name}'"
   | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
-  | .invalidIndexDepth i max => s!"Invalid mutual referencing free variable index {i}. Must be > {max}"
+  | .invalidIndexDepth i min => s!"Invalid mutual referencing free variable index {i}. Must be ≥ {min}"
   | .invalidMutIndBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
   | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
   | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
@@ -67,6 +67,9 @@ def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
 
 def ConvertM.unwrap : Option A → ConvertM A :=
   Option.option (throw .ipldError) pure
+
+def withResetRecrs : ConvertM α → ConvertM α :=
+  withReader $ fun e => { e with recrCtx := default, bindDepth := 0 }
 
 def withRecrs (recrCtx : RBMap Nat (Nat × Name) compare) :
     ConvertM α → ConvertM α :=
@@ -128,8 +131,8 @@ def getDefinition : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.De
     let defsMeta' := (defsMeta.map (·.proj₂)).join
     let defsAnon' := (defsMeta.enum.map (fun (i, defMeta) => List.replicate defMeta.proj₂.length $ (defsAnon.get! i).proj₁)).join
     match defsAnon'.get? idx, defsMeta'.get? idx with
-      | some defAnon, some defMeta => pure ⟨defAnon, defMeta⟩
-      | _, _                       => throw .ipldError
+    | some defAnon, some defMeta => pure ⟨defAnon, defMeta⟩
+    | _, _                       => throw .ipldError
   | _, _ => throw .ipldError
 
 def Ipld.zipWith {A : Ipld.Kind → Type} (f : Ipld.Both A → ConvertM B): (as : Ipld.Both (List $ A ·)) → ConvertM (List B)
@@ -191,14 +194,14 @@ mutual
       let expr ← match anon, meta with
         | .var () idx lvlsAnon, .var name () lvlsMeta =>
           let depth := (← read).bindDepth
-          -- this is a bound free variable
           if depth > idx.proj₁ then
-            -- bound free variables should never have universe levels
-            if lvlsAnon.length > 0 then
+            -- this is a bound free variable
+            if !lvlsAnon.isEmpty then
+              -- bound free variables should never have universe levels
               throw $ .invalidIndexDepth idx.proj₁ depth
             return .var name.proj₂ idx
-          -- this free variable came from recrCtx, and thus represents a mutual reference
           else
+            -- this free variable came from recrCtx, and thus represents a mutual reference
             let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
             match (← read).recrCtx.find? (idx.proj₁ - depth) with
             | some (constIdx, name) => return .const name constIdx lvls
@@ -214,20 +217,26 @@ mutual
           let arg ← exprFromIpld ⟨argAnon, argMeta⟩
           pure $ .app fnc arg
         | .lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta =>
+          dbg_trace s!"NEW LAM BIND {name.proj₂}"
           withNewBind do
             let dom ← exprFromIpld ⟨domAnon, domMeta⟩
             let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+            dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .lam name binfo dom bod
         | .pi () binfo domAnon codAnon, .pi name () domMeta codMeta =>
+          dbg_trace s!"NEW PI BIND {name.proj₂}"
           withNewBind do
             let dom ← exprFromIpld ⟨domAnon, domMeta⟩
             let cod ← exprFromIpld ⟨codAnon, codMeta⟩
+            dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .pi name binfo dom cod
         | .letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta =>
+          dbg_trace s!"NEW LET BIND {name.proj₂}"
           withNewBind do
             let typ ← exprFromIpld ⟨typAnon, typMeta⟩
             let val ← exprFromIpld ⟨valAnon, valMeta⟩
             let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+            dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .letE name typ val bod
         | .lit lit, .lit () => pure $ .lit lit
         | .lty lty, .lty () => pure $ .lty lty
@@ -241,12 +250,14 @@ mutual
   partial def constFromIpld (cid : Ipld.Both Ipld.ConstCid) :
       ConvertM ConstIdx := do
     match ← Key.find? (.const_cache cid) with
-    | some constIdx => pure constIdx
-    | none =>
+    | some constIdx =>
+      dbg_trace s!"FOUND CACHED {(← get).defns[constIdx]!.name}"
+      pure constIdx
+    | none => withResetRecrs do
       let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
       let some constIdx := (← get).defnsIdx.find? meta.name
         | throw $ .cannotFindNameIdx $ toString meta.name
-      dbg_trace s!"{meta.name}"
+      dbg_trace s!"------------PROCESSING {meta.name} ({meta.ctorName})"
       let const ← match anon, meta with
       | .axiom axiomAnon, .axiom axiomMeta =>
         let name := axiomMeta.name
@@ -265,7 +276,9 @@ mutual
         let induct ← getInductive indBlock anon.idx
         let name := induct.meta.name
         let lvls := induct.meta.lvls
+        dbg_trace s!">> deserializing type of {name.proj₂}"
         let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
+        dbg_trace s!"<< deserialized type of {name.proj₂}"
         let params := induct.anon.params
         let indices := induct.anon.indices
         let recr := induct.anon.recr
@@ -376,6 +389,7 @@ mutual
         set { ← get with defns := defns.set ⟨constIdx, h⟩ const }
       else
         throw $ .constIdxOutOfRange constIdx maxSize
+      dbg_trace s!"-------------- FINISHED PROCESSING {meta.name}"
       pure constIdx
 
   partial def ctorFromIpld (ctor : Ipld.Both Ipld.Constructor) : ConvertM Constructor := do

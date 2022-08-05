@@ -10,7 +10,7 @@ def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
   if setPaths then setLibsPaths
-  return withExceptOk s!"Compiles '{fixture}'" (← compile fixture)
+  return withExceptOk s!"Compiles '{fixture}'" (← compile fixture true)
     fun stt => (extractors.map fun extr => extr stt).foldl (init := .done)
       (· ++ ·)
 

@@ -205,31 +205,33 @@ mutual
   | .mdata _ e => toYatimaExpr e
   | expr => do
     let (value, expr) ← match expr with
-      | .bvar idx => do
+      | .bvar idx =>
         let name ← match (← read).bindCtx.get? idx with
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx [], .var name () [] ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
-      | .sort lvl => do
+      | .sort lvl =>
         let (univCid, univ) ← toYatimaUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         pure (value, .sort univ)
-      | .const name lvls => do
+      | .const name lvls =>
         let pairs ← lvls.mapM $ toYatimaUniv
         let (univCids, univs) ← pairs.foldrM (fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)) ([], [])
         match (← read).recrCtx.find? name with
-          | some (i, ref) =>
-            let idx := (← read).bindCtx.length + i
-            let value : Ipld.Both Ipld.Expr := ⟨ .var () idx (univCids.map (·.anon)), .var name () (univCids.map (·.meta))⟩
-            pure (value, .const name ref univs)
-          | none   => do
-            let const ← findConstant name
-            let (constCid, const) ← processYatimaConst const
-            let value : Ipld.Both Ipld.Expr := ⟨ .const () constCid.anon $ univCids.map (·.anon)
-                       , .const name constCid.meta $ univCids.map (·.meta) ⟩
-            pure (value, .const name const univs)
-      | .app fnc arg => do
+        | some (i, ref) =>
+          let idx := (← read).bindCtx.length + i
+          IO.println s!"{name} | {(← read).bindCtx} (i : {i}) -> {idx}"
+          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx (univCids.map (·.anon)), .var name () (univCids.map (·.meta))⟩
+          pure (value, .const name ref univs)
+        | none =>
+          let const ← findConstant name
+          let (constCid, const) ← processYatimaConst const
+          let value : Ipld.Both Ipld.Expr :=
+            ⟨ .const () constCid.anon $ univCids.map (·.anon),
+              .const name constCid.meta $ univCids.map (·.meta) ⟩
+          pure (value, .const name const univs)
+      | .app fnc arg =>
         let (fncCid, fnc) ← toYatimaExpr fnc
         let (argCid, arg) ← toYatimaExpr arg
         let value : Ipld.Both Ipld.Expr := ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
@@ -411,7 +413,9 @@ mutual
         (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
+        IO.println s!">> compiling type of {rec.name}"
         let (typeCid, type) ← toYatimaExpr rec.type
+        IO.println s!"<< compiled type of {rec.name}"
         let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             match ctors.indexOf? r.ctor with
@@ -461,7 +465,9 @@ mutual
       let (rhsCid, rhs) ← toYatimaExpr rule.rhs
       match ← findConstant rule.ctor with
       | .ctorInfo ctor =>
+        IO.println s!">> compiling type of {ctor.name}"
         let (typeCid, type) ← toYatimaExpr ctor.type
+        IO.println s!"<< compiled type of {ctor.name}"
         let tcCtor : Const := .constructor {
           name    := ctor.name
           lvls    := ctor.levelParams
@@ -745,3 +751,5 @@ def setLibsPaths : IO Unit := do
   Lean.initSearchPath (← Lean.findSysroot) paths
 
 end Yatima.Compiler
+
+set_option pp.all true
