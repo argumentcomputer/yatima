@@ -30,6 +30,7 @@ import Yatima.Ipld.FromIpld
 import Yatima.Ipld.ToIpld
 import Yatima.Transpiler.LurkFunctions
 import Yatima.Transpiler.Test
+import Yatima.Transpiler.TranspileError
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Transpiler
 import Yatima.Transpiler.Utils
