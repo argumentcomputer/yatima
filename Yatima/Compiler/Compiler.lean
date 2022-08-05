@@ -208,6 +208,7 @@ mutual
       | .bvar idx =>
         let name ← match (← read).bindCtx.get? idx with
         | some name =>
+          IO.println s!"||||||||||||||||||||||||||||||||||| {name}"
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx [], .var name () [] ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
