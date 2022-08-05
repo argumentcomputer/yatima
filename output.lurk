@@ -1,0 +1,125 @@
+(letrec
+ ((append
+   (lambda (xs ys)
+    (if xs
+     (cons (car xs) (append (cdr xs) ys))
+     ys)))
+  (length
+   (lambda (xs)
+    (if xs (+ 1 (length (cdr xs))) 0)))
+  (take
+   (lambda (n xs)
+    (if (= n 0)
+     nil
+     (if xs
+      (cons (car xs) (take (- n 1) (cdr xs)))
+      xs))))
+  (drop
+   (lambda (n xs)
+    (if (= n 0)
+     xs
+     (if xs (drop (- n 1) (cdr xs)) xs))))
+  (getelem
+   (lambda (xs n)
+    (if (= n 0)
+     (car xs)
+     (getelem (cdr xs) (- n 1)))))
+  (Nat nil)
+  (Nat_zero (quote ("Nat.zero" 0)))
+  (Nat_succ
+   (lambda (n)
+    (append (quote ("Nat.succ" 1)) (cons n nil))))
+  (Nat_rec
+   (lambda (motive zero succ _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive zero succ) zero)
+      motive
+      zero
+      succ)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (motive zero succ n)
+        (succ (Nat_rec n succ zero motive) n))
+       motive
+       zero
+       succ
+       (getelem (cdr (cdr _t)) 0))
+      nil))))
+  (Nat_casesOn
+   (lambda (motive _t zero succ)
+    (Nat_rec
+     _t
+     (lambda (n n_ih) (succ n))
+     zero
+     motive)))
+  (PUnit nil)
+  (PUnit_unit (quote ("PUnit.unit" 0)))
+  (PUnit_rec
+   (lambda (motive unit _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive unit) unit) motive unit)
+     nil)))
+  (Unit_unit PUnit_unit)
+  (isZ_match_1
+   (lambda (motive n__40__hyg_15 h_1 h_2)
+    (Nat_casesOn
+     (lambda (n__40__hyg_27) (h_2 n__40__hyg_27))
+     (h_1 Unit_unit)
+     n__40__hyg_15
+     (lambda (x) (motive x)))))
+  (Unit PUnit)
+  (Nat_casesOn
+   (lambda (motive _t zero succ)
+    (Nat_rec
+     _t
+     (lambda (n n_ih) (succ n))
+     zero
+     motive)))
+  (Unit_unit PUnit_unit)
+  (two (Nat_succ (Nat_succ Nat_zero)))
+  (isZ_match_1
+   (lambda (motive n__40__hyg_15 h_1 h_2)
+    (Nat_casesOn
+     (lambda (n__40__hyg_27) (h_2 n__40__hyg_27))
+     (h_1 Unit_unit)
+     n__40__hyg_15
+     (lambda (x) (motive x)))))
+  (Bool nil)
+  (Bool_false (quote ("Bool.false" 0)))
+  (Bool_true (quote ("Bool.true" 1)))
+  (Bool_rec
+   (lambda (motive false true _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive false true) false)
+      motive
+      false
+      true)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (motive false true) true)
+       motive
+       false
+       true)
+      nil))))
+  (isZ
+   (lambda (n)
+    (isZ_match_1
+     (lambda (n) Bool_false)
+     (lambda (_x) Bool_true)
+     n
+     (lambda (n__40__hyg_15) Bool))))
+  (isZ__cstage1
+   (lambda (n)
+    (Nat_casesOn
+     (lambda (n__40__hyg_27) Bool_false)
+     Bool_true
+     n
+     (lambda (x)
+      ((lambda (n__40__hyg_15) Bool) x)))))
+  (two__cstage1 2)
+  (isZ_match_1__cstage1
+   (lambda (motive n__40__hyg_15 h_1 h_2)
+    (Nat_casesOn
+     (lambda (n__40__hyg_27) (h_2 n__40__hyg_27))
+     (h_1 PUnit_unit)
+     n__40__hyg_15
+     (lambda (x) (motive x))))))
+ (current-env))
