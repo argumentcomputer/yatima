@@ -132,14 +132,17 @@ def getInductive : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Ind
 def getDefinition : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Definition)
   | ⟨.mutDefBlock defsAnon, .mutDefBlock defsMeta⟩, idx => do
     let defsMeta' := (defsMeta.map (·.proj₂)).join
-    -- TODO: get rid of `defsAnon.get!`
-    let defsAnon' := (defsMeta.enum.map (fun (i, defMeta) => List.replicate defMeta.proj₂.length $ (defsAnon.get! i).proj₁)).join
+    let defsAnon' := (← defsMeta.enum.mapM fun (i, defMeta) =>
+      if h : i < defsAnon.length then
+        return List.replicate defMeta.proj₂.length (defsAnon[i]'h).proj₁
+      else throw .ipldError).join
     match defsAnon'.get? idx, defsMeta'.get? idx with
     | some defAnon, some defMeta => pure ⟨defAnon, defMeta⟩
-    | _, _                       => throw .ipldError
+    | _,            _            => throw .ipldError
   | _, _ => throw .ipldError
 
-def Ipld.zipWith {A : Ipld.Kind → Type} (f : Ipld.Both A → ConvertM B): (as : Ipld.Both (List $ A ·)) → ConvertM (List B)
+def Ipld.zipWith {A : Ipld.Kind → Type} (f : Ipld.Both A → ConvertM B) :
+    (as : Ipld.Both (List $ A ·)) → ConvertM (List B)
   | ⟨anon::anons, meta::metas⟩ => do
     let b  ← f ⟨anon, meta⟩
     let bs ← Ipld.zipWith f ⟨anons, metas⟩
