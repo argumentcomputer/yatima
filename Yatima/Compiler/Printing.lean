@@ -168,9 +168,10 @@ partial def printConst (const : Const) : PrintM String := do
   | .extRecursor recr => printExtRecursor cid recr
   | .intRecursor recr => printIntRecursor cid recr
 
--- TODO: lift `PrintM` here
-def printYatimaConst (const : Const) : CompileM String :=
-  sorry
+def printYatimaConst (const : Const) : CompileM String := do
+  match ReaderT.run (printConst const) (← get) with
+  | .ok    s => pure s
+  | .error e => throw e
 
 end Yatima.Compiler.PrintYatima
 
