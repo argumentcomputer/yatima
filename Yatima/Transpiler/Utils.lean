@@ -52,6 +52,25 @@ def getMutualIndInfo (ind : Inductive) :
       return (indName, ctors, intR, extRs)
   | _ => throw "blockCid not found in store"
 
+/-- 
+Return `List Definition`
+-/
+def getMutualDefInfo (defn : Definition) : TranspileM $ List Name := do 
+  let cache := (← read).cache
+  let cid : ConstCid := ← match cache.find? defn.name with 
+  | some (cid, _) => return cid
+  | none => throw s!"{defn.name} not found in cache"
+  let blockCid : ConstCid := ← match ← StoreKey.find! $ .const cid with 
+  | ⟨.definitionProj defAnon, .definitionProj defMeta⟩ => 
+    return ⟨defAnon.block, defMeta.block⟩
+  | _ => throw s!"cid not found in store"
+  match ← StoreKey.find! $ .const blockCid with 
+  | ⟨_, .mutDefBlock blockMeta⟩ => 
+    let defs ← blockMeta.mapM fun defsMeta => do 
+      return defsMeta.proj₂.map (·.name.proj₂)
+    return defs.join
+  | _ => throw "blockCid not found in store"
+
 end Yatima.Transpiler
 
 namespace List 

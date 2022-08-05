@@ -137,7 +137,7 @@ mutual
       if (← get).visited.contains ind then 
         break
       visit ind
-      appendBinding (ind, ⟦nil⟧)
+      appendBinding (ind, ⟦$(toString ind)⟧)
       dbg_trace s!"beep boop: {ind} being processed"
       let ctors ← ctors.mapM fun ctor => 
         match store.cache.find? ctor with 
@@ -157,34 +157,23 @@ mutual
       visit irecr.name
       intRecrToLurkExpr irecr ctors
       dbg_trace s!"irecr is good"
-      
-      -- for recr in extRs do 
-      --   match store.cache.find? recr with 
-      --   | some (_, idx) => match store.defns[idx]! with 
-      --     | .intRecursor recr => intRecrToLurkExpr recr 
-      --     | _ => throw ""
-      --   | none => throw ""
-
-    -- Winston: Idk how the implementation for mutuals
-    -- makes everything interact, so for now I just 
-    -- commented this out to focus on 1 inductive
-    -- @Matej
+  
+  partial def mutDefBlockToLurkExpr (defs : List Name) : TranspileM Unit := do 
+    let store ← read
+    for defn in defs do
+      if (← get).visited.contains defn then 
+        break
+      visit defn 
+      dbg_trace s!"beep boop: {defn} being processed"
+      match store.cache.find? defn with 
+      | some (_, idx) => match store.defns[idx]! with 
+        | .definition defn => 
+          match ← exprToLurkExpr defn.value with 
+          | some value => appendBinding (defn.name, value)
+          | none => throw s!"{defn.name} failed to convert to lurk expr"
+        | _ => throw s!"{defn} not a definition"
+      | none => throw s!"{defn} not found in cache"
     
-    -- let ctorExprs := inds |>.map Inductive.ctors 
-    --                       |>.join
-    --                       |>.map (fun ctor => (ctor.name, ctor.rhs))
-
-    -- for (exprName, exprCid) in ctorExprs do
-    --   let mut ctorLurkExprs : List (String × Lurk.Expr) := [] 
-    --   match store.expr_cache.find? exprCid with
-    --     | none => throw "TODO"
-    --     | some expr => 
-    --       let lurkExpr? ← exprToLurkExpr expr
-    --       match lurkExpr? with
-    --         | none => throw "TODO"
-    --         | some lExpr => 
-    --           ctorLurkExprs := ctorLurkExprs.concat (fixName exprName, lExpr)
-    -- return none
 
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
@@ -199,7 +188,13 @@ mutual
     | .quotient _ => return none
     | .theorem  _ => return some (.lit .t)
     | .opaque   x => exprToLurkExpr x.value
-    | .definition x => exprToLurkExpr x.value
+    | .definition x => do 
+      try
+        let defs ← getMutualDefInfo x
+        mutDefBlockToLurkExpr defs 
+        return none
+      catch _ => 
+        exprToLurkExpr x.value
     | .inductive x => do 
       let u ← getMutualIndInfo x
       dbg_trace u
@@ -223,16 +218,16 @@ mutual
       mutIndBlockToLurkExpr u
       return none
 
-end
-#print Nat.casesOn
+end 
+
 /-- 
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/
 def builtinInitialize : TranspileM Unit := do
   appendBinding Lurk.append
-  appendBinding Lurk.length
-  appendBinding Lurk.take
-  appendBinding Lurk.drop
+  -- appendBinding Lurk.length
+  -- appendBinding Lurk.take
+  -- appendBinding Lurk.drop
   appendBinding Lurk.getelem
 
 /--

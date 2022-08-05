@@ -17,3 +17,5 @@ def test : IO Unit := do
         let fname : FilePath := path/ s!"output" |>.withExtension "lurk"
         IO.FS.writeFile fname s!"{out}"
         IO.print out
+
+-- #eval test 
