@@ -205,8 +205,7 @@ mutual
   | .mdata _ e => toYatimaExpr e
   | expr => do
     let (value, expr) ← match expr with
-      | .bvar idx =>
-        let name ← match (← read).bindCtx.get? idx with
+      | .bvar idx => match (← read).bindCtx.get? idx with
         | some name =>
           IO.println s!"||||||||||||||||||||||||||||||||||| {name}"
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx [], .var name () [] ⟩
