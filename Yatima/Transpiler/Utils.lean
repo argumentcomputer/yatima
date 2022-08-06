@@ -29,8 +29,9 @@ def StoreKey.find! (key : StoreKey A) : TranspileM A := do
 Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 -/
 def getMutualIndInfo (ind : Inductive) : 
-    TranspileM $ List (Name × List Name × Name × List Name) := do
+    TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let cache := (← read).cache
+  let defns := (← read).defns
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name
@@ -49,7 +50,29 @@ def getMutualIndInfo (ind : Inductive) :
         match b with 
         | .Intr => intR := recr.name.proj₂ 
         | .Extr => extRs := recr.name.proj₂ :: extRs
-      return (indName, ctors, intR, extRs)
+      let ind : Inductive := ← match cache.find? indName with 
+        | some (_, idx) => match defns[idx]! with 
+          | .inductive ind => return ind 
+          | x => throw $ .invalidConstantKind x "inductive"
+        | none => throw $ .notFoundInCache intR
+      let ctors ← ctors.mapM fun ctor => 
+        match cache.find? ctor with 
+        | some (_, idx) => match defns[idx]! with 
+          | .constructor ctor => return ctor 
+          | x => throw $ .invalidConstantKind x "constructor"
+        | none => throw $ .notFoundInCache ctor
+      let irecr : IntRecursor := ← match cache.find? intR with 
+        | some (_, idx) => match defns[idx]! with 
+          | .intRecursor recr => return recr 
+          | x => throw $ .invalidConstantKind x "internal recursor"
+        | none => throw $ .notFoundInCache intR
+      let erecrs ← extRs.mapM fun extR => 
+        match cache.find? extR with 
+        | some (_, idx) => match defns[idx]! with 
+          | .extRecursor extR => return extR 
+          | x => throw $ .invalidConstantKind x "external recursor"
+        | none => throw $ .notFoundInCache extR
+      return (ind, ctors, irecr, erecrs)
   | _ => throw $ .custom "blockCid not found in store"
 
 /-- 

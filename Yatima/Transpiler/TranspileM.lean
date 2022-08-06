@@ -14,7 +14,14 @@ open Yatima.Compiler Yatima.FromIpld
 abbrev TranspileM := ReaderT CompileState $
   ExceptT TranspileError $ StateT State IO
 
+/-- Set `name` as a visited node -/
+def visit (name : Name) : TranspileM Unit := do 
+  IO.println s!"visit {name}"
+  set $ { (← get) with visited := (← get).visited.insert name }
+  IO.println (← get).visited.toList
+
 def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
+  visit b.1
   IO.println "\n========================================="
   IO.println    b.1
   IO.println   "========================================="
@@ -22,10 +29,6 @@ def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
   IO.println   "========================================="
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
-
-/-- Set `name` as a visited node -/
-def visit (name : Name) : TranspileM Unit := do 
-  set $ { (← get) with visited := (← get).visited.insert name }
 
 def TranspileM.run (store : CompileState) (ste : State) (m : TranspileM α) :
     IO $ Except String State := do

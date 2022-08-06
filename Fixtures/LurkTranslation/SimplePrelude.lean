@@ -1,11 +1,20 @@
+def one := Nat.succ Nat.zero
 def two := Nat.succ $ Nat.succ $ Nat.zero
 
-def isZ (n : Nat) : Bool :=
-match n with
-  | 0 => true
-  | n + 1 => false
+def pair := (one, two)
 
-def four := two + two
+def anotherTwo := pair.2
+
+def toZero : Nat → Nat 
+  | 0 => Nat.zero
+  | n + 1 => toZero n
+
+-- def isZ (n : Nat) : Bool :=
+-- match n with
+--   | 0 => true
+--   | n + 1 => false
+
+-- def four := two + two
 
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero

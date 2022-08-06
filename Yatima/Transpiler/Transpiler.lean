@@ -11,7 +11,7 @@ mutual
   partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
       match expr with 
-        | .app fn arg => descend fn <| argAcc.concat arg
+        | .app fn arg => descend fn <| arg :: argAcc
         | _ => (expr, argAcc)
     do
       let (expr, args) := descend expr []
@@ -29,6 +29,22 @@ mutual
       let fn ← exprToLurkExpr expr
       return .lam binds fn
 
+  /-- This is a hack. TODO(Winston) explain why -/
+  partial def mkProjections (ctor : Constructor) : TranspileM Unit := do 
+    let (name, params, type) := (ctor.name, ctor.params, ctor.type)
+    let (_, ⟨binds⟩) := descend type #[]
+    for (i, bind) in (binds.drop params).enum do 
+      let projName := name.getPrefix ++ bind
+      let args := (List.range params).map fun i => Lean.Name.mkSimple s!"_{i}"
+      appendBinding (projName, ⟦(
+        lambda ($args $(`self)) (getelem (cdr (cdr self)) $(params + i))
+      )⟧)
+  where
+    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
+      match expr with 
+        | .pi name _ _ body => descend body <| bindAcc.push name
+        | _ => (expr, bindAcc)
+
   partial def ctorToLurkExpr (ctor : Constructor) : TranspileM Unit := do 
       -- For example, the type of `Nat.succ` is `Nat → Nat`,
       -- but we don't want to translate the type; 
@@ -37,8 +53,8 @@ mutual
       -- the foralls and reconstructing a `lambda` term
     let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
     let (_, ⟨binds⟩) := descend type #[]
-    let lurkBinds := binds.foldl (
-      fun (acc : Lurk.Expr) (n : Name) => ⟦(cons $n $acc)⟧
+    let lurkBinds := binds.foldr (
+      fun (n : Name) (acc : Lurk.Expr) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
     let body := if binds.length == 0 then 
       ⟦,($(toString name) $idx)⟧
@@ -81,6 +97,20 @@ mutual
         | .pi name _ _ body => descend body <| bindAcc.push name
         | _ => (expr, bindAcc)
 
+  partial def mutIndBlockToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) : 
+      TranspileM Unit := do
+    let store ← read
+    for (ind, ctors, irecr, _) in inds do
+      if (← get).visited.contains ind.name then 
+        break
+      appendBinding (ind.name, ⟦$(toString ind.name)⟧)
+      intRecrToLurkExpr irecr ctors
+      match ind.struct with 
+      | some ctor => 
+        ctorToLurkExpr ctor 
+        mkProjections ctor
+      | none => ctors.forM ctorToLurkExpr
+
   partial def exprToLurkExpr : Expr → TranspileM Lurk.Expr
     | .sort  ..
     | .lty   .. => return ⟦nil⟧
@@ -88,7 +118,6 @@ mutual
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
-        visit name -- cache
         let const := (← read).defns[cid]! -- TODO: Add proof later
         -- The binding works here because `constToLurkExpr`
         -- will recursively process its children.
@@ -110,40 +139,11 @@ mutual
       -- TODO: need to include `Int` somehow
       | .nat n => return ⟦$n⟧
       | .str s => return ⟦$s⟧
-    -- TODO
-    -- MP: .proj should also go to .nil right? I am probably wrong though.
-    | .proj  .. => return ⟦nil⟧
-
-  -- /--
-  --  FIX: This is wrong, it just returns the literal name for unit type constructors, but it does 
-  --       help with debugging some of the above functions
-  -- -/
-  partial def mutIndBlockToLurkExpr (inds : List (Name × List Name × Name × List Name)) : 
-      TranspileM Unit := do
-    let store ← read
-    for (ind, ctors, intR, _) in inds do
-      if (← get).visited.contains ind then 
-        break
-      visit ind
-      appendBinding (ind, ⟦nil⟧)
-      dbg_trace s!"beep boop: {ind} being processed"
-      let ctors ← ctors.mapM fun ctor => 
-        match store.cache.find? ctor with 
-        | some (_, idx) => match store.defns[idx]! with 
-          | .constructor ctor => return ctor 
-          | x => throw $ .invalidConstantKind x "constructor"
-        | none => throw $ .notFoundInCache ctor
-      let irecr : IntRecursor := ← match store.cache.find? intR with 
-        | some (_, idx) => match store.defns[idx]! with 
-          | .intRecursor recr => return recr 
-          | x => throw $ .invalidConstantKind x "internal recursor"
-        | none => throw $ .notFoundInCache intR
-      for ctor in ctors do
-        visit ctor.name
-        ctorToLurkExpr ctor
-      visit irecr.name
-      intRecrToLurkExpr irecr ctors
-
+    | .proj _ _ => return ⟦nil⟧
+      -- sadly this simple idea doesn't work... TODO(Winston) explain
+      -- let e ← exprToLurkExpr e 
+      -- let args := ⟦(cdr (cdr $e))⟧
+      -- return ⟦(getelem $args $idx)⟧
 
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
@@ -153,13 +153,20 @@ mutual
   because of recursors and constructors. We need to make sure we won't translate
   the same block more than once.
   -/
-  partial def constToLurkExpr : Const → TranspileM Unit
+  partial def constToLurkExpr (c : Const) : TranspileM Unit := do match c with 
     | .axiom    _
     | .quotient _ => return ()
-    | .theorem  x => appendBinding (x.name, .lit .t)
-    | .opaque   x => do appendBinding (x.name, ← exprToLurkExpr x.value)
-    | .definition x => do appendBinding (x.name, ← exprToLurkExpr x.value)
+    | .theorem  x => 
+      if (← get).visited.contains x.name then return 
+      else appendBinding (x.name, .lit .t)
+    | .opaque   x => do 
+      if (← get).visited.contains x.name then return 
+      else appendBinding (x.name, ← exprToLurkExpr x.value)
+    | .definition x => do
+      if (← get).visited.contains x.name then return 
+      else appendBinding (x.name, ← exprToLurkExpr x.value)
     | .inductive x => do 
+      IO.println s!"hi there {x.name}"
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
     | .constructor x
@@ -180,7 +187,7 @@ mutual
       mutIndBlockToLurkExpr u
 
 end
-#print Nat.casesOn
+
 /-- 
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/

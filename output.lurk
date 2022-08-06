@@ -10,10 +10,6 @@
      (car xs)
      (getelem (cdr xs) (- n 1)))))
   (Nat "Nat")
-  (Nat_zero (quote ("Nat.zero" 0)))
-  (Nat_succ
-   (lambda (n)
-    (append (quote ("Nat.succ" 1)) (cons n nil))))
   (Nat_rec
    (lambda (motive zero succ _t)
     (if (= (car (cdr _t)) 0)
@@ -29,6 +25,12 @@
        succ
        (getelem (cdr (cdr _t)) 0))
       nil))))
+  (Nat_zero (quote ("Nat.zero" 0)))
+  (Nat_succ
+   (lambda (n)
+    (append (quote ("Nat.succ" 1)) (cons n nil))))
+  (two (Nat_succ (Nat_succ Nat_zero)))
+  (anotherTwo__cstage1 two)
   (Nat_casesOn
    (lambda (motive _t zero succ)
     (Nat_rec
@@ -37,77 +39,78 @@
      (lambda (n n_ih) (succ n))
      _t)))
   (PUnit "PUnit")
-  (PUnit_unit (quote ("PUnit.unit" 0)))
   (PUnit_rec
    (lambda (motive unit _t)
     (if (= (car (cdr _t)) 0)
      ((lambda (motive unit) unit) motive unit)
      nil)))
-  (Unit_unit PUnit_unit)
-  (isZ_match_1
-   (lambda (motive n__40__hyg_15 h_1 h_2)
+  (PUnit_unit (quote ("PUnit.unit" 0)))
+  (toZero_match_1__cstage1
+   (lambda
+    (motive _fun_discr__40__hyg_29_36 h_1 h_2)
     (Nat_casesOn
      (lambda (x) (motive x))
-     n__40__hyg_15
-     (h_1 Unit_unit)
-     (lambda (n__40__hyg_27)
-      (h_2 n__40__hyg_27)))))
+     _fun_discr__40__hyg_29_36
+     (h_1 PUnit_unit)
+     (lambda (n__40__hyg_48)
+      (h_2 n__40__hyg_48)))))
   (Unit PUnit)
-  (Nat_casesOn
-   (lambda (motive _t zero succ)
-    (Nat_rec
-     motive
-     zero
-     (lambda (n n_ih) (succ n))
-     _t)))
-  (Unit_unit PUnit_unit)
-  (two (Nat_succ (Nat_succ Nat_zero)))
-  (isZ_match_1
-   (lambda (motive n__40__hyg_15 h_1 h_2)
-    (Nat_casesOn
-     (lambda (x) (motive x))
-     n__40__hyg_15
-     (h_1 Unit_unit)
-     (lambda (n__40__hyg_27)
-      (h_2 n__40__hyg_27)))))
-  (Bool "Bool")
-  (Bool_false (quote ("Bool.false" 0)))
-  (Bool_true (quote ("Bool.true" 1)))
-  (Bool_rec
-   (lambda (motive false true _t)
-    (if (= (car (cdr _t)) 0)
-     ((lambda (motive false true) false)
-      motive
-      false
-      true)
-     (if (= (car (cdr _t)) 1)
-      ((lambda (motive false true) true)
-       motive
-       false
-       true)
-      nil))))
-  (isZ
-   (lambda (n)
-    (isZ_match_1
-     (lambda (n__40__hyg_15) Bool)
-     n
-     (lambda (_x) Bool_true)
-     (lambda (n) Bool_false))))
-  (isZ__cstage1
-   (lambda (n)
+  (toZero__cstage1
+   (lambda (_fun_discr__40__hyg_29)
     (Nat_casesOn
      (lambda (x)
-      ((lambda (n__40__hyg_15) Bool) x))
-     n
-     Bool_true
-     (lambda (n__40__hyg_27) Bool_false))))
-  (two__cstage1 2)
-  (isZ_match_1__cstage1
-   (lambda (motive n__40__hyg_15 h_1 h_2)
+      ((lambda (_fun_discr__40__hyg_29_36) Nat)
+       x))
+     _fun_discr__40__hyg_29
+     0
+     (lambda (n__40__hyg_48) n__40__hyg_48))))
+  (one__cstage1 1)
+  (Prod "Prod")
+  (Prod_rec
+   (lambda (:1 :2 motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 :2 motive mk fst snd)
+       (mk fst snd))
+      :1
+      :2
+      motive
+      mk
+      (getelem (cdr (cdr _t)) 0)
+      (getelem (cdr (cdr _t)) 1))
+     nil)))
+  (Prod_mk
+   (lambda (:1 :2 fst snd)
+    (append
+     (quote ("Prod.mk" 0))
+     (cons
+      :1
+      (cons :2 (cons fst (cons snd nil)))))))
+  (Prod_fst
+   (lambda (_0 _1 self)
+    (getelem (cdr (cdr self)) 2)))
+  (Prod_snd
+   (lambda (_0 _1 self)
+    (getelem (cdr (cdr self)) 3)))
+  (one (Nat_succ Nat_zero))
+  (pair__cstage1 (Prod_mk Nat Nat one two))
+  (pair (Prod_mk Nat Nat one two))
+  (Unit_unit PUnit_unit)
+  (toZero_match_1
+   (lambda
+    (motive _fun_discr__40__hyg_29_36 h_1 h_2)
     (Nat_casesOn
      (lambda (x) (motive x))
-     n__40__hyg_15
-     (h_1 PUnit_unit)
-     (lambda (n__40__hyg_27)
-      (h_2 n__40__hyg_27))))))
+     _fun_discr__40__hyg_29_36
+     (h_1 Unit_unit)
+     (lambda (n__40__hyg_48)
+      (h_2 n__40__hyg_48)))))
+  (toZero
+   (lambda (_fun_discr__40__hyg_29)
+    (toZero_match_1
+     (lambda (_fun_discr__40__hyg_29_36) Nat)
+     _fun_discr__40__hyg_29
+     (lambda (_x) Nat_zero)
+     (lambda (n) n))))
+  (anotherTwo (Prod_snd Nat Nat pair))
+  (two__cstage1 2))
  (current-env))
