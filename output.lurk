@@ -45,6 +45,24 @@
      ((lambda (motive unit) unit) motive unit)
      nil)))
   (PUnit_unit (quote ("PUnit.unit" 0)))
+  (Unit_unit PUnit_unit)
+  (toZero_match_1
+   (lambda
+    (motive _fun_discr__40__hyg_29_36 h_1 h_2)
+    (Nat_casesOn
+     (lambda (x) (motive x))
+     _fun_discr__40__hyg_29_36
+     (h_1 Unit_unit)
+     (lambda (n__40__hyg_49)
+      (h_2 n__40__hyg_49)))))
+  (toZero__unsafe_rec
+   (lambda (_fun_discr__40__hyg_29)
+    (toZero_match_1
+     (lambda (_fun_discr__40__hyg_29_36) Nat)
+     _fun_discr__40__hyg_29
+     (lambda (_x) Nat_zero)
+     (lambda (n) (toZero__unsafe_rec n)))))
+  (Unit PUnit)
   (toZero_match_1__cstage1
    (lambda
     (motive _fun_discr__40__hyg_29_36 h_1 h_2)
@@ -52,19 +70,8 @@
      (lambda (x) (motive x))
      _fun_discr__40__hyg_29_36
      (h_1 PUnit_unit)
-     (lambda (n__40__hyg_48)
-      (h_2 n__40__hyg_48)))))
-  (Unit PUnit)
-  (toZero__cstage1
-   (lambda (_fun_discr__40__hyg_29)
-    (Nat_casesOn
-     (lambda (x)
-      ((lambda (_fun_discr__40__hyg_29_36) Nat)
-       x))
-     _fun_discr__40__hyg_29
-     0
-     (lambda (n__40__hyg_48) n__40__hyg_48))))
-  (one__cstage1 1)
+     (lambda (n__40__hyg_49)
+      (h_2 n__40__hyg_49)))))
   (Prod "Prod")
   (Prod_rec
    (lambda (:1 :2 motive mk _t)
@@ -92,25 +99,107 @@
    (lambda (_0 _1 self)
     (getelem (cdr (cdr self)) 3)))
   (one (Nat_succ Nat_zero))
-  (pair__cstage1 (Prod_mk Nat Nat one two))
   (pair (Prod_mk Nat Nat one two))
-  (Unit_unit PUnit_unit)
-  (toZero_match_1
-   (lambda
-    (motive _fun_discr__40__hyg_29_36 h_1 h_2)
-    (Nat_casesOn
-     (lambda (x) (motive x))
-     _fun_discr__40__hyg_29_36
-     (h_1 Unit_unit)
-     (lambda (n__40__hyg_48)
-      (h_2 n__40__hyg_48)))))
+  (Nat_brecOn (lambda (motive _t F_1) nil))
+  (PProd_fst (lambda (:1 :2 self) nil))
+  (PProd "PProd")
+  (PProd_rec
+   (lambda (:1 :2 motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 :2 motive mk fst snd)
+       (mk fst snd))
+      :1
+      :2
+      motive
+      mk
+      (getelem (cdr (cdr _t)) 0)
+      (getelem (cdr (cdr _t)) 1))
+     nil)))
+  (PProd_mk
+   (lambda (:1 :2 fst snd)
+    (append
+     (quote ("PProd.mk" 0))
+     (cons
+      :1
+      (cons :2 (cons fst (cons snd nil)))))))
+  (PProd_fst
+   (lambda (_0 _1 self)
+    (getelem (cdr (cdr self)) 2)))
+  (PProd_snd
+   (lambda (_0 _1 self)
+    (getelem (cdr (cdr self)) 3)))
   (toZero
+   (lambda (_fun_discr__40__hyg_29)
+    (Nat_brecOn
+     (lambda (_fun_discr__40__hyg_29) Nat)
+     _fun_discr__40__hyg_29
+     (lambda (_fun_discr__40__hyg_29 f)
+      (toZero_match_1
+       (lambda (_fun_discr__40__hyg_29_36) nil)
+       _fun_discr__40__hyg_29
+       (lambda (5banonymous5d x__40__hyg_50)
+        Nat_zero)
+       (lambda (n x__40__hyg_50)
+        (PProd_fst
+         ((lambda (_fun_discr__40__hyg_29) Nat) n)
+         (Nat_rec
+          (lambda (_t) nil)
+          PUnit
+          (lambda (n n_ih)
+           (PProd
+            (PProd
+             ((lambda (_fun_discr__40__hyg_29)
+               Nat)
+              n)
+             n_ih)
+            PUnit))
+          n)
+         (PProd_fst
+          (PProd
+           ((lambda (_fun_discr__40__hyg_29) Nat)
+            n)
+           (Nat_rec
+            (lambda (_t) nil)
+            PUnit
+            (lambda (n n_ih)
+             (PProd
+              (PProd
+               ((lambda (_fun_discr__40__hyg_29)
+                 Nat)
+                n)
+               n_ih)
+              PUnit))
+            n))
+          PUnit
+          x__40__hyg_50)))
+       f)))))
+  (Nat_below
+   (lambda (motive _t)
+    (Nat_rec
+     (lambda (_t) nil)
+     PUnit
+     (lambda (n n_ih)
+      (PProd (PProd (motive n) n_ih) PUnit))
+     _t)))
+  (toZero__cstage1
+   (lambda (_fun_discr__40__hyg_29)
+    (Nat_casesOn
+     (lambda (x)
+      ((lambda (_fun_discr__40__hyg_29_36) Nat)
+       x))
+     _fun_discr__40__hyg_29
+     0
+     (lambda (n__40__hyg_49)
+      (toZero n__40__hyg_49)))))
+  (one__cstage1 1)
+  (toZero__sunfold
    (lambda (_fun_discr__40__hyg_29)
     (toZero_match_1
      (lambda (_fun_discr__40__hyg_29_36) Nat)
      _fun_discr__40__hyg_29
      (lambda (_x) Nat_zero)
-     (lambda (n) n))))
+     (lambda (n) (toZero n)))))
+  (pair__cstage1 (Prod_mk Nat Nat one two))
   (anotherTwo (Prod_snd Nat Nat pair))
   (two__cstage1 2))
  (current-env))

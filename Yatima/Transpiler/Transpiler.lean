@@ -99,7 +99,6 @@ mutual
 
   partial def mutIndBlockToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) : 
       TranspileM Unit := do
-    let store ← read
     for (ind, ctors, irecr, _) in inds do
       if (← get).visited.contains ind.name then 
         break
@@ -153,18 +152,26 @@ mutual
   because of recursors and constructors. We need to make sure we won't translate
   the same block more than once.
   -/
-  partial def constToLurkExpr (c : Const) : TranspileM Unit := do match c with 
+  partial def constToLurkExpr (c : Const) : TranspileM Unit := do 
+    IO.println s!"call {c.name}"
+    match c with 
     | .axiom    _
     | .quotient _ => return ()
     | .theorem  x => 
       if (← get).visited.contains x.name then return 
       else appendBinding (x.name, .lit .t)
     | .opaque   x => do 
-      if (← get).visited.contains x.name then return 
-      else appendBinding (x.name, ← exprToLurkExpr x.value)
+      if (← get).visited.contains x.name then 
+        return 
+      else 
+        visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
+        appendBinding (x.name, ← exprToLurkExpr x.value)
     | .definition x => do
-      if (← get).visited.contains x.name then return 
-      else appendBinding (x.name, ← exprToLurkExpr x.value)
+      if (← get).visited.contains x.name then 
+        return 
+      else 
+        visit x.name -- ditto
+        appendBinding (x.name, ← exprToLurkExpr x.value)
     | .inductive x => do 
       IO.println s!"hi there {x.name}"
       let u ← getMutualIndInfo x
