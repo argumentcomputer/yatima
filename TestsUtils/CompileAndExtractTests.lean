@@ -124,6 +124,6 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
             | .ok r  => r
             | _      => "ERROR"
           let indent (s : String) := "\t" ++ ("\n\t".intercalate $ s.splitOn "\n")
-          tSeq ++ test s!"{c₁.name} roundtrips\n{indent s!"{c₁Str}---\n{c₂Str}"}" ((reindexConst map c₁) == c₂)
+          tSeq ++ test s!"{c₁.name} roundtrips\n{indent s!"{c₁Str}\n---\n{c₂Str}"}" ((reindexConst map c₁) == c₂)
 
 end IpldRoundtrip

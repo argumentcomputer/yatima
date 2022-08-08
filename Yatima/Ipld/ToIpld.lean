@@ -196,7 +196,7 @@ def univToIpld : (Ipld.Univ k) → Ipld
   | .var n i   => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
 
 def exprToIpld : (Ipld.Expr k) → Ipld
-  | .var _ i ls   => .array #[.number $ Ipld.EXPR k, .number 0, i, ls]
+  | .var n i ls   => .array #[.number $ Ipld.EXPR k, .number 0, i, n, ls]
   | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
   | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
   | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]

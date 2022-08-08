@@ -218,9 +218,9 @@ mutual
 
   partial def exprFromIpld (cid : Ipld.Both Ipld.ExprCid) : ConvertM Expr := do
     match ← Key.find? (.expr_cache cid) with
-    | some expr => pure expr
-    | none =>
+    | _ =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
+      dbg_trace s!"ctorName: {anon.ctorName}"
       let expr ← match anon, meta with
         | .var () idx lvlsAnon, .var name () lvlsMeta =>
           let depth := (← read).bindDepth
@@ -250,16 +250,17 @@ mutual
           let arg ← exprFromIpld ⟨argAnon, argMeta⟩
           pure $ .app fnc arg
         | .lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta =>
-          dbg_trace s!"NEW LAM BIND {name.proj₂}"
+          dbg_trace s!"ENTERING LAM BIND {name.proj₂}"
           let dom ← exprFromIpld ⟨domAnon, domMeta⟩
           withNewBind do
+            dbg_trace s!"NEW LAM BIND {name.proj₂}"
             let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
             dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .lam name binfo dom bod
         | .pi () binfo domAnon codAnon, .pi name () domMeta codMeta =>
-          dbg_trace s!"NEW PI BIND {name.proj₂}"
           let dom ← exprFromIpld ⟨domAnon, domMeta⟩
           withNewBind do
+            dbg_trace s!"NEW PI BIND {name.proj₂}"
             let cod ← exprFromIpld ⟨codAnon, codMeta⟩
             dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .pi name binfo dom cod
