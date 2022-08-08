@@ -37,7 +37,7 @@ mutual
       let projName := name.getPrefix ++ bind
       let args := (List.range params).map fun i => Lean.Name.mkSimple s!"_{i}"
       appendBinding (projName, ⟦(
-        lambda ($args $(`self)) (getelem (cdr (cdr self)) $(params + i))
+        lambda ($args self) (getelem (cdr (cdr self)) $(params + i))
       )⟧)
   where
     descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
@@ -57,10 +57,10 @@ mutual
       fun (n : Name) (acc : Lurk.Expr) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
     let body := if binds.length == 0 then 
-      ⟦,($(toString name) $idx)⟧
+      ⟦,($(name.getPrefix) $idx)⟧
     else ⟦
       (lambda ($binds) (
-        append ,($(toString name) $idx) $lurkBinds
+        cons $(name.getPrefix) (cons $idx $lurkBinds)
       ))
     ⟧
     appendBinding (name, body)
@@ -102,13 +102,14 @@ mutual
     for (ind, ctors, irecr, _) in inds do
       if (← get).visited.contains ind.name then 
         break
-      appendBinding (ind.name, ⟦$(toString ind.name)⟧)
+      appendBinding (ind.name, ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧)
       intRecrToLurkExpr irecr ctors
-      match ind.struct with 
-      | some ctor => 
-        ctorToLurkExpr ctor 
-        mkProjections ctor
-      | none => ctors.forM ctorToLurkExpr
+      ctors.forM ctorToLurkExpr
+      -- match ind.struct with 
+      -- | some ctor => 
+      --   ctorToLurkExpr ctor 
+      --   mkProjections ctor
+      -- | none => ctors.forM ctorToLurkExpr
 
   partial def exprToLurkExpr : Expr → TranspileM Lurk.Expr
     | .sort  ..
@@ -129,7 +130,6 @@ mutual
     -- TODO: Do we erase?
     -- MP: I think we erase
     | .pi    .. => return ⟦nil⟧
-    -- TODO
     | .letE name _ value body  => do
       let val ← exprToLurkExpr value 
       let body ← exprToLurkExpr body
@@ -138,11 +138,14 @@ mutual
       -- TODO: need to include `Int` somehow
       | .nat n => return ⟦$n⟧
       | .str s => return ⟦$s⟧
-    | .proj _ _ => return ⟦nil⟧
-      -- sadly this simple idea doesn't work... TODO(Winston) explain
-      -- let e ← exprToLurkExpr e 
-      -- let args := ⟦(cdr (cdr $e))⟧
-      -- return ⟦(getelem $args $idx)⟧
+    | .proj idx e => do
+      -- this is very nifty; `e` contains its type information *at run time*
+      -- which we can take advantage of to compute the projection
+      let e ← exprToLurkExpr e 
+      -- TODO(Winston): inlining of `e` causes term size blowup, need to remove
+      let offset := ⟦(+ (getelem (car $e) 1) (getelem (car $e) 2))⟧
+      let args := ⟦(cdr (cdr $e))⟧
+      return ⟦(getelem $args (+ $offset $idx))⟧
 
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
@@ -153,7 +156,6 @@ mutual
   the same block more than once.
   -/
   partial def constToLurkExpr (c : Const) : TranspileM Unit := do 
-    IO.println s!"call {c.name}"
     match c with 
     | .axiom    _
     | .quotient _ => return ()
@@ -165,15 +167,14 @@ mutual
         return 
       else 
         visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
-        appendBinding (x.name, ← exprToLurkExpr x.value)
+        appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .definition x => do
       if (← get).visited.contains x.name then 
         return 
       else 
         visit x.name -- ditto
-        appendBinding (x.name, ← exprToLurkExpr x.value)
+        appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .inductive x => do 
-      IO.println s!"hi there {x.name}"
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
     | .constructor x
@@ -199,7 +200,7 @@ end
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/
 def builtinInitialize : TranspileM Unit := do
-  appendBinding Lurk.append
+  -- appendBinding Lurk.append
   -- appendBinding Lurk.length
   -- appendBinding Lurk.take
   -- appendBinding Lurk.drop

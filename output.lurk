@@ -1,15 +1,10 @@
 (letrec
- ((append
-   (lambda (xs ys)
-    (if xs
-     (cons (car xs) (append (cdr xs) ys))
-     ys)))
-  (getelem
+ ((getelem
    (lambda (xs n)
     (if (= n 0)
      (car xs)
      (getelem (cdr xs) (- n 1)))))
-  (Nat "Nat")
+  (Nat (quote ("Nat" 0 0)))
   (Nat_rec
    (lambda (motive zero succ _t)
     (if (= (car (cdr _t)) 0)
@@ -25,10 +20,9 @@
        succ
        (getelem (cdr (cdr _t)) 0))
       nil))))
-  (Nat_zero (quote ("Nat.zero" 0)))
+  (Nat_zero (quote (Nat 0)))
   (Nat_succ
-   (lambda (n)
-    (append (quote ("Nat.succ" 1)) (cons n nil))))
+   (lambda (n) (cons Nat (cons 1 (cons n nil)))))
   (two (Nat_succ (Nat_succ Nat_zero)))
   (anotherTwo__cstage1 two)
   (Nat_casesOn
@@ -38,13 +32,13 @@
      zero
      (lambda (n n_ih) (succ n))
      _t)))
-  (PUnit "PUnit")
+  (PUnit (quote ("PUnit" 0 0)))
   (PUnit_rec
    (lambda (motive unit _t)
     (if (= (car (cdr _t)) 0)
      ((lambda (motive unit) unit) motive unit)
      nil)))
-  (PUnit_unit (quote ("PUnit.unit" 0)))
+  (PUnit_unit (quote (PUnit 0)))
   (Unit_unit PUnit_unit)
   (toZero_match_1
    (lambda
@@ -72,7 +66,7 @@
      (h_1 PUnit_unit)
      (lambda (n__40__hyg_49)
       (h_2 n__40__hyg_49)))))
-  (Prod "Prod")
+  (Prod (quote ("Prod" 2 0)))
   (Prod_rec
    (lambda (:1 :2 motive mk _t)
     (if (= (car (cdr _t)) 0)
@@ -87,22 +81,16 @@
      nil)))
   (Prod_mk
    (lambda (:1 :2 fst snd)
-    (append
-     (quote ("Prod.mk" 0))
+    (cons
+     Prod
      (cons
-      :1
-      (cons :2 (cons fst (cons snd nil)))))))
-  (Prod_fst
-   (lambda (_0 _1 self)
-    (getelem (cdr (cdr self)) 2)))
-  (Prod_snd
-   (lambda (_0 _1 self)
-    (getelem (cdr (cdr self)) 3)))
+      0
+      (cons
+       :1
+       (cons :2 (cons fst (cons snd nil))))))))
   (one (Nat_succ Nat_zero))
   (pair (Prod_mk Nat Nat one two))
-  (Nat_brecOn (lambda (motive _t F_1) nil))
-  (PProd_fst (lambda (:1 :2 self) nil))
-  (PProd "PProd")
+  (PProd (quote ("PProd" 2 0)))
   (PProd_rec
    (lambda (:1 :2 motive mk _t)
     (if (= (car (cdr _t)) 0)
@@ -117,17 +105,145 @@
      nil)))
   (PProd_mk
    (lambda (:1 :2 fst snd)
-    (append
-     (quote ("PProd.mk" 0))
+    (cons
+     PProd
      (cons
-      :1
-      (cons :2 (cons fst (cons snd nil)))))))
+      0
+      (cons
+       :1
+       (cons :2 (cons fst (cons snd nil))))))))
+  (Nat_below
+   (lambda (motive _t)
+    (Nat_rec
+     (lambda (_t) nil)
+     PUnit
+     (lambda (n n_ih)
+      (PProd (PProd (motive n) n_ih) PUnit))
+     _t)))
+  (Nat_brecOn
+   (lambda (motive _t F_1)
+    (getelem
+     (cdr
+      (cdr
+       (Nat_rec
+        (lambda (_t)
+         (PProd
+          (motive _t)
+          (Nat_below motive _t)))
+        (PProd_mk
+         (motive Nat_zero)
+         PUnit
+         (F_1 Nat_zero PUnit_unit)
+         PUnit_unit)
+        (lambda (n n_ih)
+         (PProd_mk
+          (motive (Nat_succ n))
+          (PProd
+           (PProd (motive n) (Nat_below motive n))
+           PUnit)
+          (F_1
+           (Nat_succ n)
+           (PProd_mk
+            (PProd
+             (motive n)
+             (Nat_below motive n))
+            PUnit
+            n_ih
+            PUnit_unit))
+          (PProd_mk
+           (PProd (motive n) (Nat_below motive n))
+           PUnit
+           n_ih
+           PUnit_unit)))
+        _t)))
+     (+
+      (+
+       (getelem
+        (car
+         (Nat_rec
+          (lambda (_t)
+           (PProd
+            (motive _t)
+            (Nat_below motive _t)))
+          (PProd_mk
+           (motive Nat_zero)
+           PUnit
+           (F_1 Nat_zero PUnit_unit)
+           PUnit_unit)
+          (lambda (n n_ih)
+           (PProd_mk
+            (motive (Nat_succ n))
+            (PProd
+             (PProd
+              (motive n)
+              (Nat_below motive n))
+             PUnit)
+            (F_1
+             (Nat_succ n)
+             (PProd_mk
+              (PProd
+               (motive n)
+               (Nat_below motive n))
+              PUnit
+              n_ih
+              PUnit_unit))
+            (PProd_mk
+             (PProd
+              (motive n)
+              (Nat_below motive n))
+             PUnit
+             n_ih
+             PUnit_unit)))
+          _t))
+        1)
+       (getelem
+        (car
+         (Nat_rec
+          (lambda (_t)
+           (PProd
+            (motive _t)
+            (Nat_below motive _t)))
+          (PProd_mk
+           (motive Nat_zero)
+           PUnit
+           (F_1 Nat_zero PUnit_unit)
+           PUnit_unit)
+          (lambda (n n_ih)
+           (PProd_mk
+            (motive (Nat_succ n))
+            (PProd
+             (PProd
+              (motive n)
+              (Nat_below motive n))
+             PUnit)
+            (F_1
+             (Nat_succ n)
+             (PProd_mk
+              (PProd
+               (motive n)
+               (Nat_below motive n))
+              PUnit
+              n_ih
+              PUnit_unit))
+            (PProd_mk
+             (PProd
+              (motive n)
+              (Nat_below motive n))
+             PUnit
+             n_ih
+             PUnit_unit)))
+          _t))
+        2))
+      0))))
   (PProd_fst
-   (lambda (_0 _1 self)
-    (getelem (cdr (cdr self)) 2)))
-  (PProd_snd
-   (lambda (_0 _1 self)
-    (getelem (cdr (cdr self)) 3)))
+   (lambda (:1 :2 self)
+    (getelem
+     (cdr (cdr self))
+     (+
+      (+
+       (getelem (car self) 1)
+       (getelem (car self) 2))
+      0))))
   (toZero
    (lambda (_fun_discr__40__hyg_29)
     (Nat_brecOn
@@ -173,14 +289,6 @@
           PUnit
           x__40__hyg_50)))
        f)))))
-  (Nat_below
-   (lambda (motive _t)
-    (Nat_rec
-     (lambda (_t) nil)
-     PUnit
-     (lambda (n n_ih)
-      (PProd (PProd (motive n) n_ih) PUnit))
-     _t)))
   (toZero__cstage1
    (lambda (_fun_discr__40__hyg_29)
     (Nat_casesOn
@@ -200,6 +308,15 @@
      (lambda (_x) Nat_zero)
      (lambda (n) (toZero n)))))
   (pair__cstage1 (Prod_mk Nat Nat one two))
+  (Prod_snd
+   (lambda (:1 :2 self)
+    (getelem
+     (cdr (cdr self))
+     (+
+      (+
+       (getelem (car self) 1)
+       (getelem (car self) 2))
+      1))))
   (anotherTwo (Prod_snd Nat Nat pair))
   (two__cstage1 2))
  (current-env))
