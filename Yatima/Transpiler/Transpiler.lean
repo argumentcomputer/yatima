@@ -218,8 +218,8 @@ def transpileM : TranspileM Unit := do
 
 open Yatima.Compiler in 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/
-def transpile (store : CompileState) : IO $ IO $ Except String String := do  do 
-  match ← ← TranspileM.run store default transpileM with
+def transpile (store : CompileState) : IO $ Except String String := do  do 
+  match ← TranspileM.run store default transpileM with
   | .ok    s => 
     let env := Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧ -- the parens matter, represents evaluation
     return .ok $ (env.pprint false).pretty 50
