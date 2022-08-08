@@ -207,7 +207,6 @@ mutual
     let (value, expr) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         | some name =>
-          IO.println s!"||||||||||||||||||||||||||||||||||| {name}"
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx [], .var name () [] ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
@@ -221,7 +220,6 @@ mutual
         match (← read).recrCtx.find? name with
         | some (i, ref) =>
           let idx := (← read).bindCtx.length + i
-          IO.println s!"{name} | {(← read).bindCtx} (i : {i}) -> {idx}"
           let value : Ipld.Both Ipld.Expr := ⟨ .var () idx (univCids.map (·.anon)), .var name () (univCids.map (·.meta))⟩
           pure (value, .const name ref univs)
         | none =>
@@ -413,9 +411,7 @@ mutual
         (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
-        IO.println s!">> compiling type of {rec.name}"
         let (typeCid, type) ← toYatimaExpr rec.type
-        IO.println s!"<< compiled type of {rec.name}"
         let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             match ctors.indexOf? r.ctor with
@@ -462,45 +458,40 @@ mutual
     | const => throw $ .invalidConstantKind const "recursor"
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
-      IO.println s!">> compiling rhs of {rule.ctor}"
-      let (rhsCid, rhs) ← toYatimaExpr rule.rhs
-      IO.println s!"<< compiled rhs of {rule.ctor}"
-      match ← findConstant rule.ctor with
-      | .ctorInfo ctor =>
-        IO.println s!">> compiling type of {ctor.name}"
-        let (typeCid, type) ← toYatimaExpr ctor.type
-        IO.println s!"<< compiled type of {ctor.name}"
-        let tcCtor : Const := .constructor {
-          name    := ctor.name
-          lvls    := ctor.levelParams
-          type    := type
-          idx     := ctor.cidx
-          params  := ctor.numParams
-          fields  := ctor.numFields
-          rhs     := rhs
-          safe    := not ctor.isUnsafe
-        }
-        IO.println s!"{← PrintYatima.printYatimaConst (tcCtor)}"
-        let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
-        addToDefns defnIdx tcCtor
-        return ⟨
-          { rhs    := rhsCid.anon
-            lvls   := ctor.levelParams.length
-            name   := ()
-            type   := typeCid.anon
-            idx    := ctor.cidx
-            params := ctor.numParams
-            fields := ctor.numFields
-            safe   := not ctor.isUnsafe },
-          { rhs    := rhsCid.meta
-            lvls   := ctor.levelParams
-            name   := ctor.name
-            type   := typeCid.meta
-            idx    := ()
-            params := ()
-            fields := ()
-            safe   := () } ⟩
-      | const => throw $ .invalidConstantKind const "constructor"
+    let (rhsCid, rhs) ← toYatimaExpr rule.rhs
+    match ← findConstant rule.ctor with
+    | .ctorInfo ctor =>
+      let (typeCid, type) ← toYatimaExpr ctor.type
+      let tcCtor : Const := .constructor {
+        name    := ctor.name
+        lvls    := ctor.levelParams
+        type    := type
+        idx     := ctor.cidx
+        params  := ctor.numParams
+        fields  := ctor.numFields
+        rhs     := rhs
+        safe    := not ctor.isUnsafe
+      }
+      let some (_, defnIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
+      addToDefns defnIdx tcCtor
+      return ⟨
+        { rhs    := rhsCid.anon
+          lvls   := ctor.levelParams.length
+          name   := ()
+          type   := typeCid.anon
+          idx    := ctor.cidx
+          params := ctor.numParams
+          fields := ctor.numFields
+          safe   := not ctor.isUnsafe },
+        { rhs    := rhsCid.meta
+          lvls   := ctor.levelParams
+          name   := ctor.name
+          type   := typeCid.meta
+          idx    := ()
+          params := ()
+          fields := ()
+          safe   := () } ⟩
+    | const => throw $ .invalidConstantKind const "constructor"
 
   partial def toYatimaIpldExternalRec :
       Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .extr))

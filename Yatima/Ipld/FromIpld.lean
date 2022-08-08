@@ -220,11 +220,9 @@ mutual
     match ← Key.find? (.expr_cache cid) with
     | _ =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
-      dbg_trace s!"ctorName: {anon.ctorName}"
       let expr ← match anon, meta with
         | .var () idx lvlsAnon, .var name () lvlsMeta =>
           let depth := (← read).bindDepth
-          dbg_trace s!">>>>>>>>>>> {name.proj₂} {depth} {idx.proj₁}"
           if depth > idx.proj₁ then
             -- this is a bound free variable
             if !lvlsAnon.isEmpty then
@@ -236,9 +234,7 @@ mutual
             let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
             match (← read).recrCtx.find? (idx.proj₁ - depth) with
             | some (constIdx, name) => return .const name constIdx lvls
-            | none => 
-              dbg_trace s!"RecrCtx {(← read).recrCtx}, {idx.proj₁}, {depth}"
-              throw $ .mutRefFVNotFound (idx.proj₁ - depth)
+            | none => throw $ .mutRefFVNotFound (idx.proj₁ - depth)
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
         | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
@@ -250,27 +246,20 @@ mutual
           let arg ← exprFromIpld ⟨argAnon, argMeta⟩
           pure $ .app fnc arg
         | .lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta =>
-          dbg_trace s!"ENTERING LAM BIND {name.proj₂}"
           let dom ← exprFromIpld ⟨domAnon, domMeta⟩
           withNewBind do
-            dbg_trace s!"NEW LAM BIND {name.proj₂}"
             let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-            dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .lam name binfo dom bod
         | .pi () binfo domAnon codAnon, .pi name () domMeta codMeta =>
           let dom ← exprFromIpld ⟨domAnon, domMeta⟩
           withNewBind do
-            dbg_trace s!"NEW PI BIND {name.proj₂}"
             let cod ← exprFromIpld ⟨codAnon, codMeta⟩
-            dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .pi name binfo dom cod
         | .letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta =>
-          dbg_trace s!"NEW LET BIND {name.proj₂}"
           let typ ← exprFromIpld ⟨typAnon, typMeta⟩
           let val ← exprFromIpld ⟨valAnon, valMeta⟩
           withNewBind do
             let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-            dbg_trace s!"FINISHED BIND {name.proj₂}"
             pure $ .letE name typ val bod
         | .lit lit, .lit () => pure $ .lit lit
         | .lty lty, .lty () => pure $ .lty lty
@@ -284,15 +273,12 @@ mutual
   partial def constFromIpld (cid : Ipld.Both Ipld.ConstCid) :
       ConvertM ConstIdx := do
     match ← Key.find? (.const_cache cid) with
-    | some constIdx =>
-      dbg_trace s!"FOUND CACHED {(← get).defns[constIdx]!.name}"
-      pure constIdx
+    | some constIdx => pure constIdx
     | none =>
       withResetBindDepth do
         let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
         let some constIdx := (← get).defnsIdx.find? meta.name
           | throw $ .cannotFindNameIdx $ toString meta.name
-        dbg_trace s!"------------PROCESSING {meta.name} ({meta.ctorName})"
         let const ← match anon, meta with
         | .axiom axiomAnon, .axiom axiomMeta =>
           let name := axiomMeta.name
@@ -311,9 +297,7 @@ mutual
           let induct ← getInductive indBlock anon.idx
           let name := induct.meta.name
           let lvls := induct.meta.lvls
-          dbg_trace s!">> deserializing type of {name.proj₂}"
           let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
-          dbg_trace s!"<< deserialized type of {name.proj₂}"
           let params := induct.anon.params
           let indices := induct.anon.indices
           let recr := induct.anon.recr
@@ -324,7 +308,6 @@ mutual
           let recrCtx ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
-            dbg_trace s!"recrCtx: {recrCtx}"
             let struct ← inductiveIsStructure induct
             pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
         | .opaque opaqueAnon, .opaque opaqueMeta =>
@@ -335,7 +318,6 @@ mutual
           let safe := opaqueAnon.safe
           pure $ .opaque { name, lvls, type, value, safe }
         | .definition definitionAnon, .definition definitionMeta =>
-          dbg_trace s!"\tDefinition case"
           let name := definitionMeta.name
           let lvls := definitionMeta.lvls
           let type ← exprFromIpld ⟨definitionAnon.type, definitionMeta.type⟩
@@ -343,7 +325,6 @@ mutual
           let safety := definitionAnon.safety
           pure $ .definition { name, lvls, type, value, safety }
         | .definitionProj definitionAnon, .definitionProj definitionMeta =>
-          dbg_trace s!"\tDefinition projection case"
           let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionAnon.idx
           let name := defn.meta.name
           let lvls := defn.meta.lvls
@@ -412,18 +393,13 @@ mutual
           set { ← get with defns := defns.set ⟨constIdx, h⟩ const }
         else
           throw $ .constIdxOutOfRange constIdx maxSize
-        dbg_trace s!"-------------- FINISHED PROCESSING {meta.name} [{const.name}@{constIdx}]"
         pure constIdx
 
   partial def ctorFromIpld (ctor : Ipld.Both Ipld.Constructor) : ConvertM Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
-    dbg_trace s!">> deserializing type of {ctor.meta.name.proj₂}"
     let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
-    dbg_trace s!"<< deserialized type of {ctor.meta.name.proj₂}"
-    dbg_trace s!">> deserializing rhs of {ctor.meta.name.proj₂}"
     let rhs ← exprFromIpld ⟨ctor.anon.rhs, ctor.meta.rhs⟩
-    dbg_trace s!"<< deserialized rhs of {ctor.meta.name.proj₂}"
     let idx := ctor.anon.idx
     let params := ctor.anon.fields
     let fields := ctor.anon.params

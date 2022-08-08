@@ -10,7 +10,7 @@ def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
   if setPaths then setLibsPaths
-  return withExceptOk s!"Compiles '{fixture}'" (← compile fixture true)
+  return withExceptOk s!"Compiles '{fixture}'" (← compile fixture)
     fun stt => (extractors.map fun extr => extr stt).foldl (init := .done)
       (· ++ ·)
 
@@ -117,13 +117,20 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
       let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          let c₁Str := match Yatima.Compiler.PrintYatima.printConst c₁ stt  with
-            | .ok r  => r
-            | _      => "ERROR"
-          let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
-            | .ok r  => r
-            | _      => "ERROR"
-          let indent (s : String) := "\t" ++ ("\n\t".intercalate $ s.splitOn "\n")
-          tSeq ++ test s!"{c₁.name} roundtrips\n{indent s!"{c₁Str}\n---\n{c₂Str}"}" ((reindexConst map c₁) == c₂)
+          if c₁.name == "Iff" then
+            let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
+              | .ok r  => r
+              | _      => "ERROR"
+            let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
+              | .ok r  => r
+              | _      => "ERROR"
+            dbg_trace "-----------"
+            dbg_trace c₁Str
+            dbg_trace c₂Str
+            dbg_trace (reindexConst map c₁).type == c₂.type
+            dbg_trace "-----------"
+            tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
+          else
+            tSeq
 
 end IpldRoundtrip

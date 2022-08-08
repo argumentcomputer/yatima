@@ -25,10 +25,9 @@ def printDefSafety : Yatima.DefinitionSafety → String
   | .partial => "partial "
 
 def getCid (name : Name) : PrintM ConstCid := do
-  --match (← read).cache.find? name with
-  --| some (cid, _) => pure cid
-  --| none => throw $ .notFoundInCache name
-  return default
+  match (← read).cache.find? name with
+  | some (cid, _) => return cid
+  | none => throw $ .notFoundInCache name
 
 def printCid (name : Name) : PrintM String := do
   let cid ← getCid name
@@ -76,11 +75,6 @@ def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
   | _ => s!"({name} : {type})"
 
 mutual
-  partial def printApp (f : Expr) (arg : Expr) : PrintM String := do
-    match f with
-    | .app .. => return s!"{← printExpr f} {← paren arg}"
-    | _ => return s!"{← paren f} {← paren arg}"
-
   partial def printBinding (isPi : Bool) (e : Expr) : PrintM String := do
     match e, isArrow e, isPi with
     | .pi name bInfo type body, false, true
@@ -99,8 +93,9 @@ mutual
     | .var name _ => return s!"{name}"
     | .sort _ => return "Sort"
     | .const name .. => return s!"{name}"
-    | .app func body =>
-      return s!"{← printApp func body}"
+    | .app func body => match func with
+      | .app .. => return s!"{← printExpr func} {← paren body}"
+      | _ => return s!"{← paren func} {← paren body}"
     | .lam name bInfo type body =>
       return s!"λ{← printBinding false (.lam name bInfo type body)}"
     | .pi name bInfo type body => do
@@ -136,14 +131,14 @@ partial def printIntRecursor (cid : String) (recr : IntRecursor) : PrintM String
 
 partial def printConstructors (ctors : List Constructor) : PrintM String := do
   let ctors ← ctors.mapM fun ctor => do
-    return s!"| {ctor.name} : {← printExpr ctor.type}"
+    return s!"| {printIsSafe ctor.safe}{ctor.name} {ctor.lvls} : {← printExpr ctor.type} [fields : (idx := {ctor.idx}) (params := {ctor.params}) (fields := {ctor.fields}) (rhs := {← printExpr ctor.rhs})]"
   return "\n".intercalate ctors
 
 partial def printInductive (ind : Inductive) : PrintM String := do
   let structStr ← match ind.struct with
-  | some ctor => printExpr ctor.type
+  | some ctor => printConstructors [ctor]
   | none => pure "none"
-  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} (fields : (recr := {ind.recr})  (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {structStr}))"
+  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} [fields : (recr := {ind.recr}) (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {structStr})]"
   return s!"{indHeader}\n"
 
 partial def printConst (const : Const) : PrintM String := do
