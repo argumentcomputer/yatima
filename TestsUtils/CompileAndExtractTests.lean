@@ -112,22 +112,28 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def compareExpr : Expr → Expr → Bool
-  | .var _ _ , .var _ _ => true
-  | .sort _, .sort _
-  | .lit .., .lit ..
-  | .lty .., .lty .. => true
+  | .var n i, .var n' i' => n == n' && i == i'
+  | .sort x, .sort y
+  | .lit x, .lit y
+  | .lty x, .lty y => x == y
   | .const n i lvls, .const n' i' lvls' => 
     let nameEq := n == n'
     let iEq := i == i'
-    dbg_trace s!"{n}: {i}, {n'}: {i'}"
     let lvlsEq := lvls == lvls'
     nameEq && iEq && lvlsEq
   | .app e₁ e₂, .app e₁' e₂' => compareExpr e₁ e₁' && compareExpr e₂ e₂'
-  | .lam n bi e₁ e₂, .lam n' bi' e₁' e₂' => compareExpr e₁ e₁' && compareExpr e₂ e₂'
-  | .pi n bi e₁ e₂, .pi n' bi' e₁' e₂' =>
+  | .lam n bi e₁ e₂, .lam n' bi' e₁' e₂' =>
+    n == n' && bi == bi' &&
     compareExpr e₁ e₁' && compareExpr e₂ e₂'
-  | .letE n e₁ e₂ e₃, .letE n' e₁' e₂' e₃' => compareExpr e₁ e₁' && compareExpr e₂ e₂' && compareExpr e₃ e₃'
-  | .proj n e, .proj n' e' => compareExpr e e'
+  | .pi n bi e₁ e₂, .pi n' bi' e₁' e₂' =>
+    n == n' && bi == bi' &&
+    compareExpr e₁ e₁' && compareExpr e₂ e₂'
+  | .letE n e₁ e₂ e₃, .letE n' e₁' e₂' e₃' =>
+    n == n' &&
+    compareExpr e₁ e₁' && compareExpr e₂ e₂' && compareExpr e₃ e₃'
+  | .proj n e, .proj n' e' =>
+    n == n' &&
+    compareExpr e e'
   | _ , _ => false
 
 def compareConstructor : Option Constructor → Option Constructor → Bool
@@ -142,15 +148,25 @@ def compareConstructor : Option Constructor → Option Constructor → Bool
 def compareConst : Const → Const → Bool
   | .inductive i₁, .inductive i₂ => 
     let nameEq := i₁.name == i₂.name
+    dbg_trace nameEq
     let lvlsEq := i₁.lvls == i₂.lvls
+    dbg_trace lvlsEq
     let typeEq := i₁.type == i₂.type
+    dbg_trace typeEq
     let paramsEq := i₁.params == i₂.params
+    dbg_trace paramsEq
     let indicesEq := i₁.indices == i₂.indices
+    dbg_trace indicesEq
     let recrEq := i₁.recr == i₂.recr
+    dbg_trace recrEq
     let safeEq := i₁.safe == i₂.safe
+    dbg_trace safeEq
     let reflEq := i₁.refl == i₂.refl
+    dbg_trace reflEq
     let unitEq := i₁.unit == i₂.unit
+    dbg_trace unitEq
     let structEq := compareConstructor i₁.struct i₂.struct
+    dbg_trace structEq
     nameEq && lvlsEq && typeEq && paramsEq && indicesEq && recrEq && safeEq && reflEq && unitEq && structEq
   | _, _ => true
   
@@ -161,22 +177,21 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
       let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          if c₁.name == "OfNat" then
+          -- if c₁.name == "OfNat" then
             let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
               | .ok r  => r
               | _      => "ERROR"
             let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
               | .ok r  => r
               | _      => "ERROR"
-            --dbg_trace "-----------"
-            --dbg_trace c₁Str
-            --dbg_trace c₂Str
-            --dbg_trace (reindexConst map c₁).type == c₂.type
-            --dbg_trace "-----------"
+            -- dbg_trace "-----------"
+            -- dbg_trace c₁Str
+            -- dbg_trace c₂Str
+            -- dbg_trace "-----------"
             
-            tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (compareConst (reindexConst map c₁) c₂)
+            tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
-          else
-            tSeq
+          -- else
+          --   tSeq
 
 end IpldRoundtrip

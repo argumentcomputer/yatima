@@ -401,8 +401,8 @@ mutual
     let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
     let rhs ← exprFromIpld ⟨ctor.anon.rhs, ctor.meta.rhs⟩
     let idx := ctor.anon.idx
-    let params := ctor.anon.fields
-    let fields := ctor.anon.params
+    let params := ctor.anon.params
+    let fields := ctor.anon.fields
     let safe := ctor.anon.safe
     pure { name, lvls, type, idx, params, fields, rhs, safe }
 
