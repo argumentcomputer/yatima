@@ -56,6 +56,9 @@ inductive Expr where
 
 namespace Expr 
 
+instance : Inhabited Expr where 
+  default := .lit .nil
+
 class ToExpr (α : Type u) where 
   toExpr : α → Expr 
 

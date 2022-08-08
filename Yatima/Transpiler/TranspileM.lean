@@ -1,6 +1,5 @@
-import Yatima.ForLurkRepo.DSL
-import Yatima.Compiler.Compiler
 import Yatima.Ipld.FromIpld
+import Yatima.Transpiler.TranspileError
 
 namespace Yatima.Transpiler
 
@@ -10,17 +9,17 @@ structure State where
   visited : Std.RBTree Name compare
   deriving Inhabited
 
+open Yatima.Compiler Yatima.FromIpld
 
-def State.getStringBindings (s : State) : List (Name × Lurk.Expr) :=
-  s.appendedBindings.data
-
-open Yatima.Compiler
-open Yatima.FromIpld
-
-abbrev TranspileM := ReaderT CompileState $ EStateM String State
+abbrev TranspileM := ReaderT CompileState $
+  ExceptT TranspileError $ StateT State IO
 
 def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
-  dbg_trace s!"append {b.1}"
+  IO.println "\n========================================="
+  IO.println    b.1
+  IO.println   "========================================="
+  IO.println s!"{b.2.pprint false |>.pretty 50}"
+  IO.println   "========================================="
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
 
@@ -29,9 +28,9 @@ def visit (name : Name) : TranspileM Unit := do
   set $ { (← get) with visited := (← get).visited.insert name }
 
 def TranspileM.run (store : CompileState) (ste : State) (m : TranspileM α) :
-    Except String State :=
-  match EStateM.run (ReaderT.run m store) ste with
-  | .ok _ ste  => .ok ste
-  | .error e _ => .error e
+    IO $ Except String State := do
+  match ← StateT.run (ReaderT.run m store) ste with
+  | (.ok _, ste)  => return .ok ste
+  | (.error e, _) => return .error (toString e)
 
 end Yatima.Transpiler
