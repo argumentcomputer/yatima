@@ -22,7 +22,6 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
       let mut errMsg : Option String := none
       for arg in args do
         for filePath in ← getLeanFilePathsList ⟨arg⟩ do
-          let filePathStr := filePath.toString
           match ← compile filePath log stt with
           | .ok stt' => match stt.union stt' with
             | .ok stt' =>
@@ -40,7 +39,8 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
       | .ok out => 
         let path ← IO.currentDir
         let output := p.flag? "output" |>.map (Flag.as! · String) |>.getD "output"
-        let fname : FilePath := path/output |>.withExtension "lurk"
+        IO.FS.createDirAll $ path/"lurk_output"
+        let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
         IO.FS.writeFile fname s!"{out}" 
         if p.hasFlag "summary" then
           IO.println s!"{stt.summary}"
