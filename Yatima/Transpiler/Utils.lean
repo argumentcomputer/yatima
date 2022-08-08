@@ -22,7 +22,7 @@ def StoreKey.find? : (key : StoreKey A) → TranspileM (Option A)
     | _, _ => pure none
 
 def StoreKey.find! (key : StoreKey A) : TranspileM A := do
-  let some value ← StoreKey.find? key | throw $ .custom "Cannot find key in store"
+  let some value ← StoreKey.find? key | throw $ .custom $ .custom "Cannot find key in store"
   return value
 
 /-- 
