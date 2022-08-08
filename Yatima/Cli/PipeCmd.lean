@@ -3,7 +3,7 @@ import Yatima.Cli.CompileCmd
 import Yatima.Transpiler.Transpiler
 import Lean.Util.Path
 
-open System Yatima.Compiler Yatima.Transpiler in
+open System Yatima.Compiler Yatima.Transpiler Cli.Parsed in
 def pipeRun (p : Cli.Parsed) : IO UInt32 := do
   match ← getToolchain with
   | .error msg => IO.eprintln msg; return 1
@@ -20,16 +20,13 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
       setLibsPaths
       let mut stt : CompileState := default
       let mut errMsg : Option String := none
-      let mut cronos := Cronos.new
       for arg in args do
         for filePath in ← getLeanFilePathsList ⟨arg⟩ do
           let filePathStr := filePath.toString
-          cronos ← cronos.clock filePathStr
           match ← compile filePath log stt with
           | .ok stt' => match stt.union stt' with
             | .ok stt' =>
               stt := stt'
-              cronos ← cronos.clock filePathStr
             | .error msg => errMsg := some msg; break
           | .error msg => errMsg := some (toString msg); break
         if errMsg.isSome then break
@@ -42,20 +39,20 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
       | .error msg => IO.eprintln msg
       | .ok out => 
         let path ← IO.currentDir
-        let fname : FilePath := path/ s!"output" |>.withExtension "lurk"
+        let output := p.flag? "output" |>.map (Flag.as! · String) |>.getD "output"
+        let fname : FilePath := path/output |>.withExtension "lurk"
         IO.FS.writeFile fname s!"{out}" 
         if p.hasFlag "summary" then
           IO.println s!"{stt.summary}"
-          IO.println s!"\n{cronos.summary}"
           IO.println s!"\n{out}"
       return 0
     else
       IO.eprintln "No store argument was found."
-      IO.eprintln "Run `yatima store -h` for further information."
+      IO.eprintln "Run `yatima pipe -h` for further information."
       return 1
   | none =>
     IO.eprintln "Couldn't parse store arguments."
-    IO.eprintln "Run `yatima store -h` for further information."
+    IO.eprintln "Run `yatima pipe -h` for further information."
     return 1
 
 -- TODO: `no-erase-types` 
@@ -64,9 +61,10 @@ def pipeCmd : Cli.Cmd := `[Cli|
   "Transpile Yatima IR to Lurk code"
   
   FLAGS:
-    l, "log";            "Logs transpilation progress"
-    s, "summary";        "Prints a transpilation summary at the end of the process"
-    "no-erase-types";    "Do not erase types from the Yatima source"
+    l, "log";                 "Logs transpilation progress"
+    s, "summary";             "Prints a transpilation summary at the end of the process"
+    o, "output" : String;     "Write resulting lurk to given output file"
+    "no-erase-types";         "Do not erase types from the Yatima source"
 
   ARGS:
     ...sources : String; "List of Lean files or directories"
