@@ -5,6 +5,8 @@ match n with
   | 0 => true
   | n + 1 => false
 
+def four := two + two
+
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
 --   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
