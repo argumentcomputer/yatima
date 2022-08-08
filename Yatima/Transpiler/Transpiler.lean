@@ -57,7 +57,7 @@ mutual
       fun (n : Name) (acc : Lurk.Expr) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
     let body := if binds.length == 0 then 
-      ⟦,($(name.getPrefix) $idx)⟧
+      ⟦(cons $(name.getPrefix) $idx)⟧
     else ⟦
       (lambda ($binds) (
         cons $(name.getPrefix) (cons $idx $lurkBinds)

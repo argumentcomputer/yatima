@@ -20,7 +20,7 @@
        succ
        (getelem (cdr (cdr _t)) 0))
       nil))))
-  (Nat_zero (quote (Nat 0)))
+  (Nat_zero (cons Nat 0))
   (Nat_succ
    (lambda (n) (cons Nat (cons 1 (cons n nil)))))
   (two (Nat_succ (Nat_succ Nat_zero)))
@@ -38,7 +38,7 @@
     (if (= (car (cdr _t)) 0)
      ((lambda (motive unit) unit) motive unit)
      nil)))
-  (PUnit_unit (quote (PUnit 0)))
+  (PUnit_unit (cons PUnit 0))
   (Unit_unit PUnit_unit)
   (toZero_match_1
    (lambda
