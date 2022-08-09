@@ -118,8 +118,6 @@ mutual
     | .const name cid .. => do
       let visited? := (← get).visited.contains name
       if !visited? then 
-        dbg_trace s!"visit {name}"
-        visit name -- cache
         let const := (← read).defns[cid]! -- TODO: Add proof later
         -- The binding works here because `constToLurkExpr`
         -- will recursively process its children.

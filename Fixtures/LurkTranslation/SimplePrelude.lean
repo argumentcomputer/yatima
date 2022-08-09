@@ -9,14 +9,13 @@ def toZero : Nat → Nat
   | 0 => Nat.zero
   | n + 1 => toZero n
 
+def four := two + two
+
+#check Add.add
 -- def isZ (n : Nat) : Bool :=
 -- match n with
 --   | 0 => true
 --   | n + 1 => false
-
--- def four := two + two
-
-def four := two + two
 
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
