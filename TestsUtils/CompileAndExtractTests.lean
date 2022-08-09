@@ -93,11 +93,16 @@ def reindexExpr (map : NatNatMap) : Expr → Expr
     .letE n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
   | .proj n e => .proj n (reindexExpr map e)
 
+def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
+  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs }
+
 def reindexConst (map : NatNatMap) : Const → Const
   | .axiom x => .axiom { x with type := reindexExpr map x.type }
   | .theorem x => .theorem { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
-  | .inductive x => .inductive { x with type := reindexExpr map x.type, struct := x.struct.map fun ctor => {ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs} }
+  | .inductive x => .inductive { x with
+    type := reindexExpr map x.type,
+    struct := x.struct.map (reindexCtor map) }
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
@@ -105,7 +110,9 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .constructor x => .constructor { x with
     type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
   | .extRecursor x =>
-    let rules := x.rules.map fun r => { r with rhs := reindexExpr map r.rhs }
+    let rules := x.rules.map fun r => { r with
+      rhs := reindexExpr map r.rhs,
+      ctor := reindexCtor map r.ctor }
     .extRecursor { x with
       type := reindexExpr map x.type, rules := rules }
   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
@@ -177,7 +184,7 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
       let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          -- if c₁.name == "OfNat" then
+          -- if c₁.name.toString == "Treew.rec_1" then
             let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
               | .ok r  => r
               | _      => "ERROR"
