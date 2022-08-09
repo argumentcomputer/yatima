@@ -185,10 +185,11 @@ def getDefnIdx (n : Name) : ConvertM Nat := do
   | some idx => pure idx
   | none => throw $ .defnsIdxNotFound $ n.toString
 
-def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM $ RBMap Nat (Nat × Name) compare := do
+def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) :
+    ConvertM $ RBMap Nat (Nat × Name) compare := do
   let indBlockMeta ← match indBlock.meta with
-  | .mutIndBlock x => pure x
-  | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
+    | .mutIndBlock x => pure x
+    | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
 
   let mut constList : List (Nat × Name) := []
   for ind in indBlockMeta do
