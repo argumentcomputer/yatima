@@ -111,34 +111,45 @@ mutual
       --   mkProjections ctor
       -- | none => ctors.forM ctorToLurkExpr
 
-  partial def exprToLurkExpr : Expr → TranspileM Lurk.Expr
+  partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
+    IO.print ">> exprToLurkExpr: "
+    match e with 
     | .sort  ..
     | .lty   .. => return ⟦nil⟧
-    | .var name _     => return ⟦$name⟧
-    | .const name cid .. => do
+    | .var name _     => 
+      IO.println s!"var {name}"
+      return ⟦$name⟧
+    | .const name idx .. => do
+      IO.println s!"const {name} {idx}"
       let visited? := (← get).visited.contains name
       if !visited? then 
-        let const := (← read).defns[cid]! -- TODO: Add proof later
+        let const := (← read).defns[idx]! -- TODO: Add proof later
         -- The binding works here because `constToLurkExpr`
         -- will recursively process its children.
         -- Hence we know that this binding will always come after
         -- all of its children have already been bound 
         constToLurkExpr const
       return ⟦$name⟧
-    | e@(.app ..) => telescopeApp e
-    | e@(.lam ..) => telescopeLam e
+    | e@(.app ..) => 
+      IO.println s!"app"
+      telescopeApp e
+    | e@(.lam ..) => 
+      IO.println s!"lam"
+      telescopeLam e
     -- TODO: Do we erase?
     -- MP: I think we erase
     | .pi    .. => return ⟦nil⟧
     | .letE name _ value body  => do
+      IO.println s!"let {name}"
       let val ← exprToLurkExpr value 
       let body ← exprToLurkExpr body
       return .letE [(name, val)] body
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
-      | .nat n => return ⟦$n⟧
-      | .str s => return ⟦$s⟧
+      | .nat n => IO.println s!"lit {n}"; return ⟦$n⟧
+      | .str s => IO.println s!"lit {s}"; return ⟦$s⟧
     | .proj idx e => do
+      IO.println s!"proj {idx}"; 
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection
       let e ← exprToLurkExpr e 
@@ -156,6 +167,7 @@ mutual
   the same block more than once.
   -/
   partial def constToLurkExpr (c : Const) : TranspileM Unit := do 
+    IO.println s!">> constToLurkExpr {c.name}"
     match c with 
     | .axiom    _
     | .quotient _ => return ()

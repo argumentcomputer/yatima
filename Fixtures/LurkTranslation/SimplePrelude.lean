@@ -1,17 +1,7 @@
-def one := Nat.succ Nat.zero
-def two := Nat.succ $ Nat.succ $ Nat.zero
+-- def two := Nat.succ $ Nat.succ $ Nat.zero
 
-def pair := (one, two)
-
-def anotherTwo := pair.2
-
-def toZero : Nat → Nat 
-  | 0 => Nat.zero
-  | n + 1 => toZero n
-
-def four := two + two
-
-#check Add.add
+def Nat_prod := Nat × Nat
+#print Nat_prod
 -- def isZ (n : Nat) : Bool :=
 -- match n with
 --   | 0 => true

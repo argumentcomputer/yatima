@@ -62,8 +62,10 @@ def union (s s' : CompileState) : Except String CompileState := Id.run do
   ⟩
 
 def summary (s : CompileState) : String :=
-  let consts := ", ".intercalate $ s.defns.toList.map
+  let consts := ", ".intercalate $ s.defns.toList.map 
     fun c => s!"{c.name} : {c.ctorName}"
+  let fullCache := "\n".intercalate $ s.cache.toList.map 
+    fun (n, cid, idx) => s!"    {n}, {idx}, {cid.anon.data}"
   "Compilation summary:\n" ++
   s!"-----------Constants-----------\n" ++
   s!"{consts}\n" ++
@@ -74,7 +76,8 @@ def summary (s : CompileState) : String :=
   s!"  expr_meta  size: {s.store.expr_meta.size}\n" ++
   s!"  const_anon size: {s.store.const_anon.size}\n" ++
   s!"  const_meta size: {s.store.const_meta.size}\n" ++
-  s!"  cache      size: {s.cache.size}"
+  s!"  cache      size: {s.cache.size}\n\n" ++
+  s!"  full cache:\n{fullCache}"
 
 end CompileState
 
