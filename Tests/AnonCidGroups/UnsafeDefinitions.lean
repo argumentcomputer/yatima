@@ -23,7 +23,6 @@ def unsafeExtractor := extractAnonCidGroupsTests [
 open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
-    "Fixtures/AnonCidGroups/Definitions.lean"
-    [wellFoundedExtractor, partialExtractor, unsafeExtractor,
-      extractIpldRoundtripTests]
+    "Fixtures/AnonCidGroups/UnsafeDefinitions.lean"
+    [extractIpldRoundtripTests]
   lspecIO tSeq
