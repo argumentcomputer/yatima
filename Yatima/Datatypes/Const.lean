@@ -57,7 +57,7 @@ structure DefinitionProj (k : Kind) where
   lvls  : ListName? k
   type  : ExprCid k
   block : ConstCid k
-  idx   : Nat? k
+  idx   : Nat
   deriving Repr
 
 structure Constructor (k : Kind) where

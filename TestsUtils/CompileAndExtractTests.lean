@@ -71,6 +71,8 @@ def pairConstants (x y : Array Const) :
   let mut pairs : Array (Const × Const) := #[]
   let mut map : NatNatMap := default
   let mut notFound : Array Name := #[]
+  dbg_trace s!"x: {x.map (·.name)}"
+  dbg_trace s!"y: {y.map (·.name)}"
   for (i, c) in x.data.enum do
     match find? y.data fun c' => c.name == c'.name with
     | some (i', c') => pairs := pairs.push (c, c'); map := map.insert i i'
@@ -125,10 +127,14 @@ def compareExpr : Expr → Expr → Bool
   | .lty x, .lty y => x == y
   | .const n i lvls, .const n' i' lvls' => 
     let nameEq := n == n'
+    dbg_trace nameEq
     let iEq := i == i'
+    dbg_trace iEq
     let lvlsEq := lvls == lvls'
+    dbg_trace lvlsEq
     nameEq && iEq && lvlsEq
-  | .app e₁ e₂, .app e₁' e₂' => compareExpr e₁ e₁' && compareExpr e₂ e₂'
+  | .app e₁ e₂, .app e₁' e₂' =>
+    compareExpr e₁ e₁' && compareExpr e₂ e₂'
   | .lam n bi e₁ e₂, .lam n' bi' e₁' e₂' =>
     n == n' && bi == bi' &&
     compareExpr e₁ e₁' && compareExpr e₂ e₂'
@@ -141,13 +147,11 @@ def compareExpr : Expr → Expr → Bool
   | .proj n e, .proj n' e' =>
     n == n' &&
     compareExpr e e'
-  | _ , _ => false
+  | _ , _ => true
 
 def compareConstructor : Option Constructor → Option Constructor → Bool
   | some i₁, some i₂ => 
-    dbg_trace "type"
     let typeEq := compareExpr i₁.type i₂.type
-    dbg_trace "rhs"
     let rhsEq := compareExpr i₁.rhs i₂.rhs
     typeEq && rhsEq
   | _, _ => true
@@ -175,6 +179,14 @@ def compareConst : Const → Const → Bool
     let structEq := compareConstructor i₁.struct i₂.struct
     dbg_trace structEq
     nameEq && lvlsEq && typeEq && paramsEq && indicesEq && recrEq && safeEq && reflEq && unitEq && structEq
+  | .definition i₁, .definition i₂ => 
+    let nameEq := i₁.name == i₂.name
+    let lvlsEq := i₁.lvls == i₂.lvls
+    let typeEq := i₁.type == i₂.type
+    let valueEq := compareExpr i₁.value i₂.value
+    dbg_trace s!"valueEq: {valueEq}"
+    let safetyEq := i₁.safety == i₂.safety
+    nameEq && lvlsEq && typeEq && valueEq && safetyEq
   | _, _ => true
   
 
@@ -184,21 +196,21 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
       let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          -- if c₁.name.toString == "Treew.rec_1" then
+          if c₁.name.toString == "B._unsafe_rec" then
             let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
               | .ok r  => r
               | _      => "ERROR"
             let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
               | .ok r  => r
               | _      => "ERROR"
-            -- dbg_trace "-----------"
-            -- dbg_trace c₁Str
-            -- dbg_trace c₂Str
-            -- dbg_trace "-----------"
+            dbg_trace "-----------"
+            dbg_trace c₁Str
+            dbg_trace c₂Str
+            dbg_trace "-----------"
             
-            tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
+            tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (compareConst (reindexConst map c₁) c₂)
 
-          -- else
-          --   tSeq
+          else
+            tSeq
 
 end IpldRoundtrip

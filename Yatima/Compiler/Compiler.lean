@@ -565,15 +565,17 @@ mutual
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
 
+    let mut i : Nat := 0
     for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do
       let some (idx, _) := mutualIdxs.find? defn.name | throw $ .cantFindMutDefIndex defn.name
       let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
-                   , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, ()⟩ ⟩
+                   , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, i⟩ ⟩
       let cid ← StoreValue.insert $ .const value
-      let constIdx := idx + firstIdx
+      let constIdx := i + firstIdx
       addToDefns constIdx $ .definition defn
       addToCache defn.name (cid, constIdx)
       if defn.name == struct.name then ret? := some (cid, constIdx)
+      i := i + 1
 
     match ret? with
     | some ret => return ret
