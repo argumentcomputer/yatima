@@ -328,7 +328,6 @@ mutual
           | ⟨.mutDefBlock _, .mutDefBlock metas⟩ =>
             let metas := metas.map (·.proj₂)
             let name := defn.meta.name
-            dbg_trace s!"names: {meta.name}, {name.proj₂}"
             let lvls := defn.meta.lvls
             let safety := defn.anon.safety
             let mut recrCtx : RecrCtx := default
