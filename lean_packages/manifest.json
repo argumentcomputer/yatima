@@ -1,4 +1,4 @@
-{"version": 1,
+{"version": 2,
  "packages":
  [{"url": "https://github.com/mhuisi/lean4-cli",
    "rev": "b0efab6f62d171b76d8fbed03e0abd3e38854589",
