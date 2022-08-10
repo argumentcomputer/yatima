@@ -25,7 +25,7 @@ namespace Ipld
 abbrev BinderInfo? k := Split BinderInfo Unit k
 
 inductive Expr (k : Kind)
-  | var   : Name? k → Nat? k → List (UnivCid k) → Expr k
+  | var   : Name? k → Nat? k → Nat?? k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
   | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
   | app   : ExprCid k → ExprCid k → Expr k

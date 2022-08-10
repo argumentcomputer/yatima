@@ -42,7 +42,7 @@ instance : ToString ConvertError where toString
 
 structure ConvertEnv where
   store     : Ipld.Store
-  recrCtx   : RBMap Nat (Nat × Name) compare
+  recrCtx   : RBMap (Nat × Option Nat) (Nat × Name) compare
   bindDepth : Nat
   deriving Inhabited
 
@@ -71,7 +71,7 @@ def ConvertM.unwrap : Option A → ConvertM A :=
 def withResetBindDepth : ConvertM α → ConvertM α :=
   withReader $ fun e => { e with bindDepth := 0 }
 
-def withRecrs (recrCtx : RBMap Nat (Nat × Name) compare) :
+def withRecrs (recrCtx : RBMap (Nat × Option Nat) (Nat × Name) compare) :
     ConvertM α → ConvertM α :=
   withReader $ fun e => { e with recrCtx }
 
@@ -186,7 +186,7 @@ def getDefnIdx (n : Name) : ConvertM Nat := do
   | none => throw $ .defnsIdxNotFound $ n.toString
 
 def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) :
-    ConvertM $ RBMap Nat (Nat × Name) compare := do
+    ConvertM $ RBMap (Nat × Option Nat) (Nat × Name) compare := do
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
@@ -207,7 +207,7 @@ def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) :
     constList := constList.append addList
   
   return constList.enum.foldl (init := default)
-    fun acc (i, tup) => acc.insert i tup
+    fun acc (i, tup) => acc.insert (i, none) tup
 
 mutual
   partial def inductiveIsStructure (ind : Ipld.Both Ipld.Inductive) : ConvertM (Option Constructor) :=
@@ -223,7 +223,7 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .var () idx lvlsAnon, .var name () lvlsMeta =>
+        | .var () idx () lvlsAnon, .var name () idx' lvlsMeta =>
           let depth := (← read).bindDepth
           if depth > idx.proj₁ then
             -- this is a bound free variable
@@ -235,7 +235,7 @@ mutual
             -- this free variable came from recrCtx, and thus represents a mutual reference
             let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
               fun (anon, meta) => univFromIpld ⟨anon, meta⟩
-            match (← read).recrCtx.find? (idx.proj₁ - depth) with
+            match (← read).recrCtx.find? (idx.proj₁ - depth, idx') with
             | some (constIdx, name) => return .const name constIdx lvls
             | none => throw $ .mutRefFVNotFound (idx.proj₁ - depth)
         | .sort uAnonCid, .sort uMetaCid =>
@@ -320,21 +320,16 @@ mutual
           let value ← exprFromIpld ⟨opaqueAnon.value, opaqueMeta.value⟩
           let safe := opaqueAnon.safe
           pure $ .opaque { name, lvls, type, value, safe }
-        | .definition definitionAnon, .definition definitionMeta =>
-          let name := definitionMeta.name
-          let lvls := definitionMeta.lvls
-          let type ← exprFromIpld ⟨definitionAnon.type, definitionMeta.type⟩
-          let value ← exprFromIpld ⟨definitionAnon.value, definitionMeta.value⟩
-          let safety := definitionAnon.safety
-          pure $ .definition { name, lvls, type, value, safety }
         | .definitionProj definitionAnon, .definitionProj definitionMeta =>
           let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionAnon.idx
+          let defBlock ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩
           let name := defn.meta.name
           let lvls := defn.meta.lvls
           -- TODO correctly substitute free variables with mutual definitions
           let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
           let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
           let safety := defn.anon.safety
+          dbg_trace s!"reached .definitionProj case"
           pure $ .definition { name, lvls, type, value, safety }
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩

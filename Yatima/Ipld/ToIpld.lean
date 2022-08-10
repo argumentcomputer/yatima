@@ -196,7 +196,7 @@ def univToIpld : (Ipld.Univ k) → Ipld
   | .var n i   => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
 
 def exprToIpld : (Ipld.Expr k) → Ipld
-  | .var n i ls   => .array #[.number $ Ipld.EXPR k, .number 0, i, n, ls]
+  | .var n i i' ls   => .array #[.number $ Ipld.EXPR k, .number 0, i, i', n, ls]
   | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
   | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
   | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
@@ -212,7 +212,6 @@ def constToIpld : (Ipld.Const k) → Ipld
   | .theorem ⟨n, l, t, v⟩               => .array #[.number $ Ipld.CONST k, .number 1,  n, l, t, v]
   | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ Ipld.CONST k, .number 2,  n, l, t, v, s]
   | .quotient ⟨n, l, t, K⟩              => .array #[.number $ Ipld.CONST k, .number 3,  n, l, t, K]
-  | .definition ⟨n, l, t, v, s⟩         => .array #[.number $ Ipld.CONST k, .number 4,  n, l, t, v, s]
   | .inductiveProj ⟨n, l, t, b, i⟩      => .array #[.number $ Ipld.CONST k, .number 5, n, l, t, b, i]
   | .constructorProj ⟨n, l, t, b, i, j⟩ => .array #[.number $ Ipld.CONST k, .number 6, n, l, t, b, i, j]
   | .recursorProj ⟨n, l, t, b, i, j⟩    => .array #[.number $ Ipld.CONST k, .number 7, n, l, t, b, i, j]

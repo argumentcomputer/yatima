@@ -146,7 +146,6 @@ inductive Const (k : Kind) where
   | «theorem»   : Theorem k → Const k
   | «opaque»    : Opaque k → Const k
   | quotient    : Quotient k → Const k
-  | definition  : Definition k → Const k
   -- projections of mutual blocks
   | inductiveProj   : InductiveProj k → Const k
   | constructorProj : ConstructorProj k → Const k
@@ -161,7 +160,6 @@ def Const.ctorName : Ipld.Const k → String
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
   | .quotient        _ => "quotient"
-  | .definition      _ => "definition"
   | .definitionProj  _ => "definition projection"
   | .inductiveProj   _ => "inductive projection"
   | .constructorProj _ => "constructor projection"
@@ -174,7 +172,6 @@ def Const.name : Ipld.Const .Meta → Name
   | .theorem         x 
   | .opaque          x 
   | .quotient        x 
-  | .definition      x 
   | .definitionProj  x 
   | .inductiveProj   x 
   | .constructorProj x 

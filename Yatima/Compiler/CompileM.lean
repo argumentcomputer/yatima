@@ -8,7 +8,6 @@ def Yatima.Ipld.Const.ctorType : Const k → String
   | «theorem»       .. => "theorem"
   | «opaque»        .. => "opaque"
   | quotient        .. => "quotient"
-  | definition      .. => "definition"
   | inductiveProj   .. => "inductiveProj"
   | constructorProj .. => "constructorProj"
   | recursorProj    .. => "recursorProj"
@@ -77,11 +76,14 @@ def summary (s : CompileState) : String :=
 
 end CompileState
 
+abbrev RecrCtxEntry := (Nat × Option Nat × Nat)
+
 structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Lean.Name (Nat × Nat) compare
+  -- (mutual index in recrCtx, weakly equal index (N/A inductives), constant index in array of constants)
+  recrCtx  : Std.RBMap Lean.Name RecrCtxEntry compare
   log      : Bool
   deriving Inhabited
 
@@ -105,7 +107,7 @@ def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, levels, [], .empty, e.log⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name (Nat × Nat) compare) :
+def withRecrs (recrCtx : RBMap Lean.Name RecrCtxEntry compare) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx, e.log⟩
 
