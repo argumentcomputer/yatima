@@ -542,7 +542,9 @@ mutual
     return (recrRule, tcRecrRule)
 
   partial def toYatimaDef (struct : Lean.DefinitionVal) : CompileM (ConstCid × ConstIdx) := do
-    let mutualDefs ← struct.all.mapM fun name => do
+    let all := if struct.all.length == 1 then [struct.name] else struct.all
+
+    let mutualDefs ← all.mapM fun name => do
       match ← findConstant name with
       | .defnInfo defn => pure defn
       | const => throw $ .invalidConstantKind const "definition"
