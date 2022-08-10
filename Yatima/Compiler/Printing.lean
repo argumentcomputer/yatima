@@ -89,17 +89,17 @@ mutual
     if isAtom e then printExpr e
     else return s!"({← printExpr e})"
 
-  partial def printUniv (u : Univ) : PrintM String := do match u with
-    | .zero       => pure "0"
-    | .succ v     => pure s!"(succ {← printUniv v})"
-    | .max  v w   => pure s!"(max {← printUniv v} {← printUniv w})"
-    | .imax v w   => pure s!"(imax {← printUniv v} {← printUniv w})"
-    | .var  n idx => pure s!"({n}.{idx})"
+  partial def printUniv : Univ → String
+    | .zero       => "0"
+    | .succ v     => s!"(succ {printUniv v})"
+    | .max  v w   => s!"(max {printUniv v} {printUniv w})"
+    | .imax v w   => s!"(imax {printUniv v} {printUniv w})"
+    | .var  n idx => s!"({n}.{idx})"
 
   partial def printExpr (e : Expr) : PrintM String := match e with
-    | .var name _ => return s!"{name}"
-    | .sort u => return s!"Sort {← printUniv u}"
-    | .const name .. => return s!"{name}"
+    | .var name i => return s!"{name}@{i}"
+    | .sort u => return s!"Sort {printUniv u}"
+    | .const name i us => return s!"{name}@{i}{us.map printUniv}"
     | .app func body => match func with
       | .app .. => return s!"{← printExpr func} {← paren body}"
       | _ => return s!"{← paren func} {← paren body}"
