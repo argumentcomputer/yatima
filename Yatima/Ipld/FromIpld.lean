@@ -156,6 +156,7 @@ instance : Coe (Split A B .false) B where coe := Split.proj₂
 -- Conversion functions
 partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
   match ← Key.find? $ .univ_cache $ cid with
+  | some univ => pure univ
   | none =>
     let ⟨anon, meta⟩ ← Key.find $ .univ_store cid
     let univ ← match anon, meta with
@@ -172,7 +173,6 @@ partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
       | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
     Key.store (.univ_cache cid) univ
     pure univ
-  | some univ => pure univ
 
 def inductiveIsUnit (ind : Ipld.Inductive .Anon) : Bool :=
   if ind.recr || ind.indices.proj₁ != 0 then false
@@ -219,7 +219,8 @@ mutual
 
   partial def exprFromIpld (cid : Ipld.Both Ipld.ExprCid) : ConvertM Expr := do
     match ← Key.find? (.expr_cache cid) with
-    | _ =>
+    | some expr => return expr
+    | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
         | .var () idx lvlsAnon, .var name () lvlsMeta =>
@@ -232,7 +233,8 @@ mutual
             return .var name.proj₂ idx
           else
             -- this free variable came from recrCtx, and thus represents a mutual reference
-            let lvls ← lvlsAnon.zip lvlsMeta |>.mapM fun (anon, meta) => univFromIpld ⟨anon, meta⟩
+            let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
+              fun (anon, meta) => univFromIpld ⟨anon, meta⟩
             match (← read).recrCtx.find? (idx.proj₁ - depth) with
             | some (constIdx, name) => return .const name constIdx lvls
             | none => throw $ .mutRefFVNotFound (idx.proj₁ - depth)

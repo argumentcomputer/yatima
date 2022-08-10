@@ -565,7 +565,8 @@ mutual
         | const => throw $ .invalidConstantKind const "definition"
       let mutualDefs ← sortDefs [mutualDefs]
       let mutualSize := struct.all.length
-      let mut firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray mutualSize default) }))
+      let mut firstIdx ← modifyGet fun stt =>
+        (stt.defns.size, { stt with defns := stt.defns.append (mkArray mutualSize default) })
       let mut mutualIdxs : RBMap Lean.Name (Nat × Nat) compare := RBMap.empty
       for (i, ds) in mutualDefs.enum do
         for d in ds do
