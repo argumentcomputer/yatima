@@ -20,7 +20,8 @@ inductive ConvertError where
   | cannotFindNameIdx : String → ConvertError
   | constIdxOutOfRange : Nat → Nat → ConvertError
   | invalidIndexDepth : Nat → Nat → ConvertError
-  | invalidMutIndBlock : String → ConvertError
+  | invalidMutBlock : String → ConvertError
+  | unexpectedConst : String → String → ConvertError
   | defnsIdxNotFound : String → ConvertError
   | mutRefFVNotFound : Nat → ConvertError
   deriving Inhabited
@@ -36,13 +37,16 @@ instance : ToString ConvertError where toString
   | .cannotFindNameIdx name => s!"Cannot find index for '{name}'"
   | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
   | .invalidIndexDepth i min => s!"Invalid mutual referencing free variable index {i}. Must be ≥ {min}"
-  | .invalidMutIndBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
+  | .invalidMutBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
   | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
   | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
+  | .unexpectedConst got exp => s!"Unexpected constant. Got {got} but expected {exp}"
+
+abbrev RecrCtx := RBMap (Nat × Option Nat) (Nat × Name) compare
 
 structure ConvertEnv where
   store     : Ipld.Store
-  recrCtx   : RBMap (Nat × Option Nat) (Nat × Name) compare
+  recrCtx   : RecrCtx
   bindDepth : Nat
   deriving Inhabited
 
@@ -71,8 +75,7 @@ def ConvertM.unwrap : Option A → ConvertM A :=
 def withResetBindDepth : ConvertM α → ConvertM α :=
   withReader $ fun e => { e with bindDepth := 0 }
 
-def withRecrs (recrCtx : RBMap (Nat × Option Nat) (Nat × Name) compare) :
-    ConvertM α → ConvertM α :=
+def withRecrs (recrCtx : RecrCtx) : ConvertM α → ConvertM α :=
   withReader $ fun e => { e with recrCtx }
 
 def withNewBind : ConvertM α → ConvertM α :=
@@ -185,11 +188,10 @@ def getDefnIdx (n : Name) : ConvertM Nat := do
   | some idx => pure idx
   | none => throw $ .defnsIdxNotFound $ n.toString
 
-def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) :
-    ConvertM $ RBMap (Nat × Option Nat) (Nat × Name) compare := do
+def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
-    | _ => throw $ .invalidMutIndBlock indBlock.meta.ctorName
+    | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
 
   let mut constList : List (Nat × Name) := []
   for ind in indBlockMeta do
@@ -322,15 +324,21 @@ mutual
           pure $ .opaque { name, lvls, type, value, safe }
         | .definitionProj definitionAnon, .definitionProj definitionMeta =>
           let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionAnon.idx
-          let defBlock ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩
-          let name := defn.meta.name
-          let lvls := defn.meta.lvls
-          -- TODO correctly substitute free variables with mutual definitions
-          let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
-          let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
-          let safety := defn.anon.safety
-          dbg_trace s!"reached .definitionProj case"
-          pure $ .definition { name, lvls, type, value, safety }
+          match ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩ with
+          | ⟨.mutDefBlock _, .mutDefBlock metas⟩ =>
+            let metas := metas.map (·.proj₂)
+            let name := defn.meta.name
+            let lvls := defn.meta.lvls
+            let safety := defn.anon.safety
+            let mut recrCtx : RecrCtx := default
+            for (i, ms) in metas.enum do
+              for (j, m) in ms.enum do
+                recrCtx := recrCtx.insert (i, some j) (← getDefnIdx m.name, m.name)
+            let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+            withRecrs recrCtx do
+              let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
+              pure $ .definition { name, lvls, type, value, safety }
+          | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
