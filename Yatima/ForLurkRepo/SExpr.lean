@@ -124,7 +124,6 @@ partial def elabSExpr : Syntax → TermElabM Expr
       mkAppM ``ToSExpr.toSExpr #[e]
     else 
       throwUnsupportedSyntax 
-  | _ => throwUnsupportedSyntax
   where 
     mkNameLit (name : String) := 
       mkAppM ``Name.mkSimple #[mkStrLit name]

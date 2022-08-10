@@ -14,13 +14,13 @@ lean_exe yatima {
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "c77099a6151816687750d65fea71d8cee995f29c"
+  "https://github.com/yatima-inc/Ipld.lean" @ "66957120705d384ea2445fa080a8155eb3104ea7"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "77fc51697abeff937ffd20d2050723dc0fa1c8c0"
+  "https://github.com/yatima-inc/LSpec.git" @ "28c24d851c614b88f3c7f1874f29f393ee35ba8e"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "a2bbc9a48db7efd5d761a5b27f2cc6c1863b9622"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "40568b0c3e58646dc525bee32ba7a42a80b993a1"
 
 require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "b0efab6f62d171b76d8fbed03e0abd3e38854589"

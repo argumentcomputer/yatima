@@ -22,6 +22,12 @@ def validCharsTree : RBTree Char compare :=
     'q', 'r', 'w', 'x', 'Q', 'R', '-', ':',
     '_']
 
+def charToHex (c : Char) : String :=
+  let n  := Char.toNat c;
+  let d2 := n / 16;
+  let d1 := n % 16;
+  hexDigitRepr d2 ++ hexDigitRepr d1
+
 /-- Generates a sequence of valid characters in Lurk from a given character. -/
 def charToValidChars (c : Char) : List Char :=
   if validCharsTree.contains c then [c]
