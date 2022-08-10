@@ -6,6 +6,7 @@ namespace Yatima
 namespace Ipld
 abbrev Name? k := Split Unit Name k
 abbrev Nat?  k := Split Nat Unit k
+abbrev Nat??  k := Split Unit (Option Nat) k
 
 inductive Univ (k : Kind) where
   | zero

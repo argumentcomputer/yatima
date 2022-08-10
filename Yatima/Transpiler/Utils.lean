@@ -48,8 +48,8 @@ def getMutualIndInfo (ind : Inductive) :
       let mut extRs : List Name := []
       for ⟨b, recr⟩ in indMeta.recrs do 
         match b with 
-        | .Intr => intR := recr.name.proj₂ 
-        | .Extr => extRs := recr.name.proj₂ :: extRs
+        | .intr => intR := recr.name.proj₂ 
+        | .extr => extRs := recr.name.proj₂ :: extRs
       let ind : Inductive := ← match cache.find? indName with 
         | some (_, idx) => match defns[idx]! with 
           | .inductive ind => return ind 

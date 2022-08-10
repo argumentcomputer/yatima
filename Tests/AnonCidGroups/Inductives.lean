@@ -15,6 +15,6 @@ open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/AnonCidGroups/Inductives.lean"
-    [inductivesExtractor]
+    [inductivesExtractor, extractIpldRoundtripTests]
     false
   lspecIO tSeq
