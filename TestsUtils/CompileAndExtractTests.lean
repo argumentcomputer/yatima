@@ -71,7 +71,7 @@ def pairConstants (x y : Array Const) :
   let mut pairs : Array (Const × Const) := #[]
   let mut map : NatNatMap := default
   let mut notFound : Array Name := #[]
-  dbg_trace "\n---------\nWHY ARE THESE DIFFERENT?"
+  dbg_trace "\n---------\nWHY SO MUCH ANONYMOUS?"
   dbg_trace s!"x: {x.map (·.name)}"
   dbg_trace s!"y: {y.map (·.name)}\n"
   for (i, c) in x.data.enum do
