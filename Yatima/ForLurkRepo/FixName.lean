@@ -27,7 +27,8 @@ def charToValidChars (c : Char) : List Char :=
   if validCharsTree.contains c then [c]
   else s!"{charToHex c}".replace "*" ":" |>.data
 
-def invalidNames := ["t", "nil", "_", "cons", "car", "cdr", "strcons", "eq", "quote"]
+-- TODO: "5banonymous5d" is a hack, should be removed
+def invalidNames := ["t", "nil", "_", "cons", "car", "cdr", "strcons", "eq", "quote", "5banonymous5d"]
 
 /-- Turns a `Name` into a valid variable identifier in Lurk. -/
 def fixName (name : Name) (pretty := true) : String :=
@@ -41,5 +42,7 @@ def fixName (name : Name) (pretty := true) : String :=
   where 
     validate (n : String) := 
       if invalidNames.contains n then 
-        if n == "_" then "_x" else "_" ++ n
+        if n == "_" then "_x" 
+        else if n == "5banonymous5d" then "anonymous"
+        else "_" ++ n
       else n

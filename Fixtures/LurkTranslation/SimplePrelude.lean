@@ -1,7 +1,14 @@
--- def two := Nat.succ $ Nat.succ $ Nat.zero
+def two := Nat.succ $ Nat.succ $ Nat.zero
 
-def Nat_prod := Nat × Nat
-#print Nat_prod
+def two₂ := (two, two)
+
+def toZero : Nat → Nat 
+  | 0 => Nat.zero 
+  | n + 1 => toZero n
+
+def four := two₂.1 + two₂.2
+
+-- #print Nat_prod
 -- def isZ (n : Nat) : Bool :=
 -- match n with
 --   | 0 => true
@@ -11,6 +18,7 @@ def Nat_prod := Nat × Nat
 --   | nil : Vector A Nat.zero
 --   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
 
+-- #print Vector.cons
 /- 
 # Example: Three
 inductive Three where 

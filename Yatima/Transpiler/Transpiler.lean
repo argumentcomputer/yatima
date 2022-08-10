@@ -32,43 +32,38 @@ mutual
   /-- This is a hack. TODO(Winston) explain why -/
   partial def mkProjections (ctor : Constructor) : TranspileM Unit := do 
     let (name, params, type) := (ctor.name, ctor.params, ctor.type)
-    let (_, ⟨binds⟩) := descend type #[]
+    let (_, ⟨binds⟩) := descendPi type #[]
     for (i, bind) in (binds.drop params).enum do 
       let projName := name.getPrefix ++ bind
       let args := (List.range params).map fun i => Lean.Name.mkSimple s!"_{i}"
       appendBinding (projName, ⟦(
         lambda ($args self) (getelem (cdr (cdr self)) $(params + i))
       )⟧)
-  where
-    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
-      match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push name
-        | _ => (expr, bindAcc)
 
-  partial def ctorToLurkExpr (ctor : Constructor) : TranspileM Unit := do 
+  /-- TODO(Winston): Explain `indices` argument -/
+  partial def ctorToLurkExpr (ctor : Constructor) (indices : Nat) : TranspileM Unit := do 
       -- For example, the type of `Nat.succ` is `Nat → Nat`,
       -- but we don't want to translate the type; 
       -- we want to build a lambda out of this type
       -- which requires (a bit awkwardly) descending into
       -- the foralls and reconstructing a `lambda` term
-    let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
-    let (_, ⟨binds⟩) := descend type #[]
+    let (name, idx, params, type) := (ctor.name, ctor.idx, ctor.params, ctor.type)
+    let (_, ⟨binds⟩) := descendPi type #[]
     let lurkBinds := binds.foldr (
       fun (n : Name) (acc : Lurk.Expr) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
+    -- TODO(Winston): Explain
+    let ind : Lurk.Expr := match (indices + params) with 
+      | 0 => ⟦$(name.getPrefix)⟧
+      | _ => .app ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
     let body := if binds.length == 0 then 
-      ⟦(cons $(name.getPrefix) $idx)⟧
+      ⟦(cons $ind (cons $idx nil))⟧
     else ⟦
       (lambda ($binds) (
-        cons $(name.getPrefix) (cons $idx $lurkBinds)
+        cons $ind (cons $idx $lurkBinds)
       ))
     ⟧
     appendBinding (name, body)
-  where 
-    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
-      match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push name
-        | _ => (expr, bindAcc)
 
   -- Very delicate, requires logic on the 
   -- indices/major/minor arguments of the inductive
@@ -79,8 +74,8 @@ mutual
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
-    let (_, ⟨binds⟩) := descend recr.type #[]
-    let argName : Lurk.Expr := .lit $ .sym binds.last!
+    let (_, ⟨binds⟩) := descendPi recr.type #[]
+    let argName : Lurk.Expr := ⟦$(binds.last!)⟧
     let ifThens ← rhs.mapM fun ctor => do 
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       let rhs ← exprToLurkExpr rhs 
@@ -90,21 +85,22 @@ mutual
       let newArgs := recrArgs.reverse ++ ctorArgs
       return (⟦(= (car (cdr $argName)) $idx)⟧, .app rhs newArgs) -- extract snd element
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
-  where
-    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
-      match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push name
-        | _ => (expr, bindAcc)
+    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧)
 
   partial def mutIndBlockToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) : 
       TranspileM Unit := do
     for (ind, ctors, irecr, _) in inds do
       if (← get).visited.contains ind.name then 
         break
-      appendBinding (ind.name, ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧)
+      let (_, ⟨binds⟩) := descendPi ind.type #[]
+      -- TODO(Winston): Explain
+      let lurkInd := if binds.length == 0 then 
+        ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
+      else 
+        ⟦(lambda ($binds) ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
+      appendBinding (ind.name, lurkInd)
       intRecrToLurkExpr irecr ctors
-      ctors.forM ctorToLurkExpr
+      ctors.forM fun c => ctorToLurkExpr c ind.indices
       -- match ind.struct with 
       -- | some ctor => 
       --   ctorToLurkExpr ctor 

@@ -94,6 +94,12 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Name := do
     return defs.join
   | _ => throw $ .custom "blockCid not found in store"
 
+
+def descendPi (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
+  match expr with 
+    | .pi name _ _ body => descendPi body <| bindAcc.push name
+    | _ => (expr, bindAcc)
+
 end Yatima.Transpiler
 
 namespace List 
