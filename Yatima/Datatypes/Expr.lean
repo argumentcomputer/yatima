@@ -39,7 +39,7 @@ inductive Expr (k : Kind)
   | proj  : LNat k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
-def Expr.ctoNameᵣ : Expr k → String
+def Expr.ctorName : Expr k → String
   | .var   .. => "var"
   | .sort  .. => "sort"
   | .const .. => "const"

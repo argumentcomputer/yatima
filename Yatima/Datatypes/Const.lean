@@ -156,7 +156,7 @@ inductive Const (k : Kind) where
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
 
-def Const.ctoNameᵣ : Ipld.Const k → String
+def Const.ctorName : Ipld.Const k → String
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
@@ -306,7 +306,7 @@ def Const.type : Const → Expr
   | .extRecursor x
   | .quotient    x => x.type
 
-def Const.ctoNameᵣ : Const → String
+def Const.ctorName : Const → String
   | .axiom       _ => "axiom"
   | .theorem     _ => "theorem"
   | .opaque      _ => "opaque"
