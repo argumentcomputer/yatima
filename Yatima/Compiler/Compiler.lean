@@ -735,5 +735,3 @@ def setLibsPaths : IO Unit := do
   Lean.initSearchPath (← Lean.findSysroot) paths
 
 end Yatima.Compiler
-
-set_option pp.all true
