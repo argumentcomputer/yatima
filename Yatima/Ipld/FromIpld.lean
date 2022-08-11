@@ -10,8 +10,6 @@ open Std (RBMap)
 
 -- Conversion monad
 inductive ConvertError where
-  | cannotFindAnon : ConvertError
-  | cannotFindMeta : ConvertError
   | ipldError : ConvertError
   | cannotStoreValue : ConvertError
   | mutDefBlockFound : ConvertError
@@ -27,8 +25,6 @@ inductive ConvertError where
   deriving Inhabited
 
 instance : ToString ConvertError where toString
-  | .cannotFindAnon => "Cannot find anon"
-  | .cannotFindMeta => "Cannot find meta"
   | .anonMetaMismatch anon meta => s!"Anon/Meta mismatch: Anon is of kind {anon} but Meta is of kind {meta}"
   | .ipldError => "IPLD broken"
   | .cannotStoreValue => "Cannot store value"
@@ -344,18 +340,18 @@ mutual
           let induct ← getInductive indBlock anon.idx
           let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx;
           let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx;
-          let name := constructorMeta.name
-          let lvls := constructorMeta.lvls
+          let name   := constructorMeta.name
+          let lvls   := constructorMeta.lvls
           let idx    := constructorAnon.idx
           let params := constructorAnon.params
           let fields := constructorAnon.fields
+          let safe   := constructorAnon.safe
 
           let recrCtx ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIpld ⟨constructorAnon.type, constructorMeta.type⟩
             let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            let safe := constructorAnon.safe
             pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩

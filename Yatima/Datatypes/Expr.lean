@@ -22,22 +22,24 @@ inductive Literal
 
 namespace Ipld
 
-abbrev BinderInfo? k := Split BinderInfo Unit k
+abbrev Nat?ᵣ k := Split Unit (Option Nat) k
+
+abbrev BinderInfoₗ k := Split BinderInfo Unit k
 
 inductive Expr (k : Kind)
-  | var   : Name? k → Nat? k → Nat?? k → List (UnivCid k) → Expr k
+  | var   : Nameᵣ k → LNat k → Nat?ᵣ k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
-  | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
+  | const : Nameᵣ k → ConstCid k → List (UnivCid k) → Expr k
   | app   : ExprCid k → ExprCid k → Expr k
-  | lam   : Name? k → BinderInfo? k → ExprCid k → ExprCid k → Expr k
-  | pi    : Name? k → BinderInfo? k → ExprCid k → ExprCid k → Expr k
-  | letE  : Name? k → ExprCid k → ExprCid k → ExprCid k → Expr k
+  | lam   : Nameᵣ k → BinderInfoₗ k → ExprCid k → ExprCid k → Expr k
+  | pi    : Nameᵣ k → BinderInfoₗ k → ExprCid k → ExprCid k → Expr k
+  | letE  : Nameᵣ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | lty   : Split LitType Unit k → Expr k
-  | proj  : Nat? k → ExprCid k → Expr k
+  | proj  : LNat k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
-def Expr.ctorName : Expr k → String
+def Expr.ctoNameᵣ : Expr k → String
   | .var   .. => "var"
   | .sort  .. => "sort"
   | .const .. => "const"
