@@ -66,14 +66,14 @@ def find? [BEq α] (as : List α) (f : α → Bool) : Option (Nat × α) := Id.r
 
 abbrev NatNatMap := Std.RBMap Nat Nat compare
 
+instance : Ord Const where
+  compare x y := compare x.name y.name
+
 def pairConstants (x y : Array Const) :
     Except String ((Array (Const × Const)) × NatNatMap) := Id.run do
   let mut pairs : Array (Const × Const) := #[]
   let mut map : NatNatMap := default
   let mut notFound : Array Name := #[]
-  dbg_trace "\n---------\nWHY SO MUCH ANONYMOUS?"
-  dbg_trace s!"x: {x.map (·.name)}"
-  dbg_trace s!"y: {y.map (·.name)}\n"
   for (i, c) in x.data.enum do
     match find? y.data fun c' => c.name == c'.name with
     | some (i', c') => pairs := pairs.push (c, c'); map := map.insert i i'
