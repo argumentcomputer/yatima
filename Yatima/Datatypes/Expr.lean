@@ -21,37 +21,40 @@ inductive Literal
   deriving BEq, Inhabited
 
 namespace Ipld
-abbrev BinderInfo? k := Split BinderInfo Unit k
+
+abbrev Nat?ᵣ k := Split Unit (Option Nat) k
+
+abbrev BinderInfoₗ k := Split BinderInfo Unit k
 
 inductive Expr (k : Kind)
-  | uvar  : Name? k → Nat? k → List (UnivCid k) → Expr k
-  | var   : Name? k → Nat? k → Expr k
+  | var   : Nameᵣ k → LNat k → Nat?ᵣ k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
-  | const : Name? k → ConstCid k → List (UnivCid k) → Expr k
+  | const : Nameᵣ k → ConstCid k → List (UnivCid k) → Expr k
   | app   : ExprCid k → ExprCid k → Expr k
-  | lam   : Name? k → BinderInfo? k → ExprCid k → ExprCid k → Expr k
-  | pi    : Name? k → BinderInfo? k → ExprCid k → ExprCid k → Expr k
-  | letE  : Name? k → ExprCid k → ExprCid k → ExprCid k → Expr k
+  | lam   : Nameᵣ k → BinderInfoₗ k → ExprCid k → ExprCid k → Expr k
+  | pi    : Nameᵣ k → BinderInfoₗ k → ExprCid k → ExprCid k → Expr k
+  | letE  : Nameᵣ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | lty   : Split LitType Unit k → Expr k
-  | proj  : Nat? k → ExprCid k → Expr k
+  | proj  : LNat k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
 def Expr.ctorName : Expr k → String
-  | .uvar  .. => "uvar"
   | .var   .. => "var"
   | .sort  .. => "sort"
   | .const .. => "const"
-  | .app .. => "app"
-  | .lam .. => "lam"
-  | .pi .. => "pi"
-  | .letE .. => "let"
-  | .lit .. => "lit"
-  | .lty .. => "lty"
-  | .proj .. => "proj"
+  | .app   .. => "app"
+  | .lam   .. => "lam"
+  | .pi    .. => "pi"
+  | .letE  .. => "let"
+  | .lit   .. => "lit"
+  | .lty   .. => "lty"
+  | .proj  .. => "proj"
+
 end Ipld
 
 abbrev ConstIdx := Nat
+
 inductive Expr
   | var   : Name → Nat → Expr
   | sort  : Univ → Expr
@@ -64,17 +67,20 @@ inductive Expr
   | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
   deriving Inhabited, BEq
+
 namespace Expr
 
 def name : Expr → Option Name
-  | lam name .. => some name
-  | pi name .. => some name
-  | letE name .. => some name
+  | var   n _
+  | const n ..
+  | lam   n ..
+  | pi    n ..
+  | letE  n .. => some n
   | _ => none
 
 def bInfo : Expr → Option BinderInfo
-  | lam _ b _ _ => some b
-  | pi _ b _ _ => some b
+  | lam _ b ..
+  | pi  _ b .. => some b
   | _ => none
 
 def type : Expr → Option (Expr)
@@ -84,8 +90,8 @@ def type : Expr → Option (Expr)
   | _ => none
 
 def body : Expr → Option (Expr)
-  | lam _ _ _ b => some b
-  | pi _ _ _ b => some b
+  | lam  _ _ _ b
+  | pi   _ _ _ b
   | letE _ _ _ b => some b
   | _ => none
 
@@ -118,21 +124,21 @@ def getBVars : Expr → List Name
   | _ => [] -- All the rest of the cases are treated at once
 
 def ctorType : Expr → String
-  | var .. => "var"
-  | sort .. => "sort"
+  | var   .. => "var"
+  | sort  .. => "sort"
   | const .. => "const"
-  | app .. => "app"
-  | lam .. => "lam"
-  | pi .. => "pi"
-  | letE .. => "let"
-  | lit .. => "lit"
-  | lty .. => "lty"
-  | proj .. => "proj"
+  | app   .. => "app"
+  | lam   .. => "lam"
+  | pi    .. => "pi"
+  | letE  .. => "let"
+  | lit   .. => "lit"
+  | lty   .. => "lty"
+  | proj  .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
 def numBinders : Expr → Nat
-  | lam _ _ _ body  => 1 + numBinders body
-  | pi _ _ _ body   => 1 + numBinders body
+  | lam  _ _ _ body
+  | pi   _ _ _ body
   | letE _ _ _ body => 1 + numBinders body
   | _ => 0
 
@@ -143,11 +149,9 @@ Shift the de Bruijn indices of all variables at depth > `cutoff` in expression `
 -/
 def shiftFreeVars (expr : Expr) (inc : Int) (cutoff : Nat) : Expr :=
   let rec walk (cutoff : Nat) (expr : Expr) : Expr := match expr with
-    | var name idx              =>
-      let idx : Nat := idx
-      match inc with
-        | .ofNat inc   => if idx < cutoff then var name idx else var name <| idx + inc
-        | .negSucc inc => if idx < cutoff then var name idx else var name <| idx - inc.succ -- 0 - 1 = 0
+    | var name idx => match inc with
+      | .ofNat inc   => if idx < cutoff then var name idx else var name <| idx + inc
+      | .negSucc inc => if idx < cutoff then var name idx else var name <| idx - inc.succ -- 0 - 1 = 0
     | app func input            => app (walk cutoff func) (walk cutoff input)
     | lam name bind type body   => lam name bind (walk cutoff type) (walk cutoff.succ body)
     | pi name bind type body    => pi name bind (walk cutoff type) (walk cutoff.succ body)
@@ -175,16 +179,15 @@ def shiftVars (expr : Expr) (inc : Int) : Expr :=
   walk expr
 
 /--
-Substitute the expression `term` for any bound variable with de Bruijn index `dep` in the expression `expr`
+Substitute the expression `term` for any bound variable with de Bruijn index
+`dep` in the expression `expr`
 -/
 def subst (expr term : Expr) (dep : Nat) : Expr :=
-  let rec walk (acc : Nat) (expr : Expr) : Expr := match expr with
-    | var name idx => let idx : Nat := idx
-      match compare idx (dep + acc) with
-        | .eq => term.shiftFreeVars acc 0
-        | .gt => let pred : Nat := idx - 1
-          var name pred
-        | .lt => var name idx
+  let rec walk (acc : Nat) : Expr → Expr
+    | var name idx => match compare idx (dep + acc) with
+      | .eq => term.shiftFreeVars acc 0
+      | .gt => var name (idx - 1)
+      | .lt => var name idx
     | app func input => app (walk acc func) (walk acc input)
     | lam name bind type body =>
       lam name bind (walk acc type) (walk acc.succ body)
@@ -196,7 +199,8 @@ def subst (expr term : Expr) (dep : Nat) : Expr :=
   walk 0 expr
 
 /--
-Substitute the expression `term` for the top level bound variable of the expression `expr`.
+Substitute the expression `term` for the top level bound variable of the
+expression `expr`.
 
 (essentially just `(λ. M) N` )
 -/

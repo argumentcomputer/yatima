@@ -47,8 +47,8 @@ def getMutualIndInfo (ind : Inductive) :
       let mut extRs : List Name := []
       for ⟨b, recr⟩ in indMeta.recrs do 
         match b with 
-        | .Intr => intR := recr.name.proj₂ 
-        | .Extr => extRs := recr.name.proj₂ :: extRs
+        | .intr => intR := recr.name.proj₂ 
+        | .extr => extRs := recr.name.proj₂ :: extRs
       return (indName, ctors, intR, extRs)
   | _ => throw $ .custom "blockCid not found in store"
 

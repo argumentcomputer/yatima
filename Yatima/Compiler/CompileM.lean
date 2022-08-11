@@ -8,7 +8,6 @@ def Yatima.Ipld.Const.ctorType : Const k → String
   | «theorem»       .. => "theorem"
   | «opaque»        .. => "opaque"
   | quotient        .. => "quotient"
-  | definition      .. => "definition"
   | inductiveProj   .. => "inductiveProj"
   | constructorProj .. => "constructorProj"
   | recursorProj    .. => "recursorProj"
@@ -24,7 +23,6 @@ def Yatima.Ipld.Univ.ctorType : Univ k → String
   | var  .. => "var"
 
 def Yatima.Ipld.Expr.ctorType : Expr k → String
-  | uvar  .. => "uvar"
   | var   .. => "var"
   | sort  .. => "sort"
   | const .. => "const"
@@ -78,11 +76,14 @@ def summary (s : CompileState) : String :=
 
 end CompileState
 
+abbrev RecrCtxEntry := (Nat × Option Nat × Nat)
+
 structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Lean.Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Lean.Name (Nat × Nat) compare
+  -- (mutual index in recrCtx, weakly equal index (N/A inductives), constant index in array of constants)
+  recrCtx  : Std.RBMap Lean.Name RecrCtxEntry compare
   log      : Bool
   deriving Inhabited
 
@@ -106,7 +107,7 @@ def withResetCompileEnv (levels : List Lean.Name) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, levels, [], .empty, e.log⟩
 
-def withRecrs (recrCtx : RBMap Lean.Name (Nat × Nat) compare) :
+def withRecrs (recrCtx : RBMap Lean.Name RecrCtxEntry compare) :
     CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx, e.log⟩
 
@@ -114,23 +115,22 @@ def withLevels (lvls : List Lean.Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx, e.log⟩
 
 inductive StoreKey : Type → Type
-  | univ   : Ipld.Both Ipld.UnivCid  → StoreKey (Ipld.Both Ipld.Univ)
-  | expr   : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
-  | const  : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
+  | univ  : Ipld.Both Ipld.UnivCid  → StoreKey (Ipld.Both Ipld.Univ)
+  | expr  : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
+  | const : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
 
-def StoreKey.find? : (key : StoreKey A) → CompileM (Option A)
-  | .univ  univCid => do
-    let store := (← get).store
+def StoreKey.find? (key : StoreKey A) : CompileM (Option A) := do
+  let store := (← get).store
+  match key with
+  | .univ univCid =>
     match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
     | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
     | _, _ => pure none
-  | .expr  exprCid => do
-    let store := (← get).store
+  | .expr exprCid =>
     match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
     | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
     | _, _ => pure none
-  | .const constCid => do
-    let store := (← get).store
+  | .const constCid =>
     match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
     | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
     | _, _ => pure none
@@ -140,9 +140,9 @@ def StoreKey.find! (key : StoreKey A) : CompileM A := do
   return value
 
 inductive StoreValue : Type → Type
-  | univ   : Ipld.Both Ipld.Univ  → StoreValue (Ipld.Both Ipld.UnivCid)
-  | expr   : Ipld.Both Ipld.Expr  → StoreValue (Ipld.Both Ipld.ExprCid)
-  | const  : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
+  | univ  : Ipld.Both Ipld.Univ  → StoreValue (Ipld.Both Ipld.UnivCid)
+  | expr  : Ipld.Both Ipld.Expr  → StoreValue (Ipld.Both Ipld.ExprCid)
+  | const : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
 
 def StoreValue.insert : StoreValue A → CompileM A
   | .univ  obj  =>
@@ -161,22 +161,22 @@ def StoreValue.insert : StoreValue A → CompileM A
     -- Mutual definition/inductive blocks do not get added to the set of definitions
     | .mutDefBlock .., .mutDefBlock ..
     | .mutIndBlock .., .mutIndBlock .. =>
-      modifyGet (fun stt => (cid, { stt with store :=
-            { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                             const_meta := stt.store.const_meta.insert cid.meta obj.meta } }))
+      modifyGet fun stt => (cid, { stt with store :=
+        { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                         const_meta := stt.store.const_meta.insert cid.meta obj.meta } })
     | _, _ =>
-      modifyGet (fun stt => (cid, { stt with store :=
-            { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                             const_meta := stt.store.const_meta.insert cid.meta obj.meta,
-                             defns      := stt.store.defns.insert cid } }))
+      modifyGet fun stt => (cid, { stt with store :=
+        { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
+                         const_meta := stt.store.const_meta.insert cid.meta obj.meta,
+                         defns      := stt.store.defns.insert cid } })
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
 def addToDefns (idx : Nat) (c : Const): CompileM Unit := do
   let defns := (← get).defns
-  if h : (idx < defns.size) then
-    modify (fun stt => { stt with defns := defns.set ⟨idx, h⟩ c })
+  if h : idx < defns.size then
+    modify fun stt => { stt with defns := defns.set ⟨idx, h⟩ c }
   else
     throw $ .invalidDereferringIndex idx defns.size
 

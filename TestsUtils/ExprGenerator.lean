@@ -1,5 +1,5 @@
-import Yatima.Expr
-import Yatima.Cid
+import Yatima.Datatypes.Expr
+import Yatima.Datatypes.Cid
 import Std.Data.HashMap
 
 -- Not recommended going over 15 unless generation parameters are adjusted below

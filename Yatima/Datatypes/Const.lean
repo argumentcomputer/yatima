@@ -3,13 +3,13 @@ import Yatima.Datatypes.Expr
 namespace Yatima
 
 inductive RecType where
-| Intr : RecType
-| Extr : RecType
-deriving BEq, Inhabited
+  | intr : RecType
+  | extr : RecType
+  deriving BEq, Inhabited
 
-instance : Coe RecType Bool where coe | .Intr => .true | .Extr => .false
-def Split.intr : A → Split A B RecType.Intr := Split.inj₁
-def Split.extr : B → Split A B RecType.Extr := Split.inj₂
+instance : Coe RecType Bool where coe | .intr => .true | .extr => .false
+def Split.intr : A → Split A B RecType.intr := Split.inj₁
+def Split.extr : B → Split A B RecType.extr := Split.inj₂
 
 inductive DefinitionSafety where
   | safe | «unsafe» | «partial» deriving BEq, Inhabited, Repr
@@ -19,126 +19,127 @@ inductive QuotKind where
 
 namespace Ipld
 
-abbrev ListName? := Split Nat (List Name)
-abbrev Bool? := Split Bool Unit
+abbrev NatₗListNameᵣ := Split Nat (List Name)
+
+abbrev Boolₗ := Split Bool Unit
 
 structure Axiom (k : Kind) where
-  name : Name? k
-  lvls : ListName? k
+  name : Nameᵣ k
+  lvls : NatₗListNameᵣ k
   type : ExprCid k
-  safe : Bool? k
-deriving Repr
+  safe : Boolₗ k
+  deriving Repr
 
 structure Theorem (k : Kind) where
-  name  : Name? k
-  lvls  : ListName? k
+  name  : Nameᵣ k
+  lvls  : NatₗListNameᵣ k
   type  : ExprCid k
   value : ExprCid k
-deriving Repr
+  deriving Repr
 
 structure Opaque (k : Kind) where
-  name  : Name? k
-  lvls  : ListName? k
+  name  : Nameᵣ k
+  lvls  : NatₗListNameᵣ k
   type  : ExprCid k
   value : ExprCid k
-  safe  : Bool? k
-deriving Repr
+  safe  : Boolₗ k
+  deriving Repr
 
 structure Definition (k : Kind) where
-  name   : Name? k
-  lvls   : ListName? k
+  name   : Nameᵣ k
+  lvls   : NatₗListNameᵣ k
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
   deriving Inhabited
 
 structure DefinitionProj (k : Kind) where
-  name  : Name? k
-  lvls  : ListName? k
+  name  : Nameᵣ k
+  lvls  : NatₗListNameᵣ k
   type  : ExprCid k
   block : ConstCid k
-  idx   : Nat? k
-deriving Repr
+  idx   : Nat
+  deriving Repr
 
 structure Constructor (k : Kind) where
-  name   : Name? k
-  lvls   : ListName? k
+  name   : Nameᵣ k
+  lvls   : NatₗListNameᵣ k
   type   : ExprCid k
-  idx    : Nat? k
-  params : Nat? k
-  fields : Nat? k
+  idx    : LNat k
+  params : LNat k
+  fields : LNat k
   rhs    : ExprCid k
-  safe   : Bool? k
-deriving Repr
+  safe   : Boolₗ k
+  deriving Repr
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
-  fields : Nat? k
+  fields : LNat k
   rhs    : ExprCid k
-deriving Repr
+  deriving Repr
 
 structure Recursor (b : RecType) (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
-  params  : Nat? k
-  indices : Nat? k
-  motives : Nat? k
-  minors  : Nat? k
+  params  : LNat k
+  indices : LNat k
+  motives : LNat k
+  minors  : LNat k
   rules   : Split Unit (List (RecursorRule k)) b
-  k       : Bool? k
-deriving Repr
+  k       : Boolₗ k
+  deriving Repr
 
 structure Inductive (k : Kind) where
-  name     : Name? k
-  lvls     : ListName? k
+  name     : Nameᵣ k
+  lvls     : NatₗListNameᵣ k
   type     : ExprCid k
-  params   : Nat? k
-  indices  : Nat? k
+  params   : LNat k
+  indices  : LNat k
   ctors    : List (Constructor k)
   recrs    : List (Sigma (Recursor · k))
-  recr     : Bool? k
-  safe     : Bool? k
-  refl     : Bool? k
-deriving Inhabited
+  recr     : Boolₗ k
+  safe     : Boolₗ k
+  refl     : Boolₗ k
+  deriving Inhabited
 
 instance {k : Kind} : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Nat? k
-deriving Repr
+  idx     : LNat k
+  deriving Repr
 
 structure ConstructorProj (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Nat? k
-  cidx    : Nat? k
-deriving Repr
+  idx     : LNat k
+  cidx    : LNat k
+  deriving Repr
 
 structure RecursorProj (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Nat? k
-  ridx    : Nat? k
-deriving Repr
+  idx     : LNat k
+  ridx    : LNat k
+  deriving Repr
 
 structure Quotient (k : Kind) where
-  name : Name? k
-  lvls : ListName? k
+  name : Nameᵣ k
+  lvls : NatₗListNameᵣ k
   type : ExprCid k
   kind : Split QuotKind Unit k
 
 instance {k : Kind} : Repr (Quotient k) where
-reprPrec a n := reprPrec a.name n
+  reprPrec a n := reprPrec a.name n
 
 inductive Const (k : Kind) where
   -- standalone constants
@@ -146,7 +147,6 @@ inductive Const (k : Kind) where
   | «theorem»   : Theorem k → Const k
   | «opaque»    : Opaque k → Const k
   | quotient    : Quotient k → Const k
-  | definition  : Definition k → Const k
   -- projections of mutual blocks
   | inductiveProj   : InductiveProj k → Const k
   | constructorProj : ConstructorProj k → Const k
@@ -161,14 +161,25 @@ def Const.ctorName : Ipld.Const k → String
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
   | .quotient        _ => "quotient"
-  | .definition      _ => "definition"
   | .definitionProj  _ => "definition projection"
   | .inductiveProj   _ => "inductive projection"
   | .constructorProj _ => "constructor projection"
   | .recursorProj    _ => "recursor projection"
   | .mutDefBlock     _ => "mutual definition block"
   | .mutIndBlock     _ => "mutual inductive block"
-    
+
+def Const.name : Ipld.Const .Meta → Name
+  | .axiom           x 
+  | .theorem         x 
+  | .opaque          x 
+  | .quotient        x 
+  | .definitionProj  x 
+  | .inductiveProj   x 
+  | .constructorProj x 
+  | .recursorProj    x => x.name.proj₂
+  | .mutDefBlock     _
+  | .mutIndBlock     _ => .anonymous
+
 end Ipld
 
 structure Axiom where
@@ -273,38 +284,37 @@ inductive Const
   | quotient    : Quotient → Const
   deriving Inhabited, BEq
 
-def Const.type (k : Const) : Expr :=
-  match k with
-  | .axiom x => x.type
-  | .theorem x => x.type
-  | .inductive x => x.type
-  | .opaque x => x.type
-  | .definition x => x.type
-  | .constructor x => x.type
-  | .intRecursor x => x.type
-  | .extRecursor x => x.type
-  | .quotient x => x.type
-
 def Const.name : Const → Name
-  | .axiom           x
-  | .theorem         x
-  | .opaque          x
-  | .inductive       x
-  | .definition      x
-  | .constructor     x
-  | .extRecursor     x
-  | .intRecursor     x
-  | .quotient        x => x.name
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .inductive   x
+  | .definition  x
+  | .constructor x
+  | .extRecursor x
+  | .intRecursor x
+  | .quotient    x => x.name
+
+def Const.type : Const → Expr
+  | .axiom       x
+  | .theorem     x
+  | .inductive   x
+  | .opaque      x
+  | .definition  x
+  | .constructor x
+  | .intRecursor x
+  | .extRecursor x
+  | .quotient    x => x.type
 
 def Const.ctorName : Const → String
-  | .axiom           _ => "axiom"
-  | .theorem         _ => "theorem"
-  | .opaque          _ => "opaque"
-  | .definition      _ => "definition"
-  | .inductive       _ => "inductive"
-  | .constructor     _ => "constructor"
-  | .extRecursor     _ => "external recursor"
-  | .intRecursor     _ => "internal recursor"
-  | .quotient        _ => "quotient"
+  | .axiom       _ => "axiom"
+  | .theorem     _ => "theorem"
+  | .opaque      _ => "opaque"
+  | .definition  _ => "definition"
+  | .inductive   _ => "inductive"
+  | .constructor _ => "constructor"
+  | .extRecursor _ => "external recursor"
+  | .intRecursor _ => "internal recursor"
+  | .quotient    _ => "quotient"
 
 end Yatima

@@ -126,7 +126,7 @@ script import_all? do
   let expectedImports ← getImportsString
   if importsFromUser != expectedImports then
     IO.eprintln "Invalid import list in 'Yatima.lean'"
-    IO.eprintln "Try running 'lake script run import_all'"
+    IO.eprintln "Try running 'lake run import_all'"
     return 1
   return 0
 

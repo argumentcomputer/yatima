@@ -192,5 +192,23 @@ def runFrontend (input : String) (fileName : String := default) :
       (← msgs.toList.mapM (·.toString)).map String.trim
     else none
   return (errMsg, s.commandState.env)
-
 end Lean
+
+instance : HMul Ordering Ordering Ordering where
+  hMul
+  | .gt, _ => .gt
+  | .lt, _ => .lt
+  | .eq, x => x
+
+instance [Ord α] : Ord $ Option α where
+  compare x y := match x, y with
+  | some x, some y => compare x y
+  | some _, none => .gt
+  | none, some _ => .lt
+  | none, none => .eq
+
+instance [Ord α] [Ord β] : Ord $ α × β where
+  compare x y := compare x.1 y.1 * compare x.2 y.2
+
+def concatOrds : List Ordering → Ordering :=
+  List.foldl (fun x y => x * y) .eq
