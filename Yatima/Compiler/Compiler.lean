@@ -553,9 +553,11 @@ mutual
     let mut firstIdx ← modifyGet fun stt =>
       (stt.defns.size, { stt with defns := stt.defns.append (mkArray mutualSize default) })
     let mut mutualIdxs : RBMap Lean.Name RecrCtxEntry compare := RBMap.empty
+    let mut mutIdx := 0
     for (i, ds) in mutualDefs.enum do
       for (j, d) in ds.enum do
-        mutualIdxs := mutualIdxs.insert d.name (i, some j, firstIdx + i)
+        mutualIdxs := mutualIdxs.insert d.name (i, some j, firstIdx + mutIdx)
+        mutIdx := mutIdx + 1
     let definitions ← withRecrs mutualIdxs $
       mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld
     let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join

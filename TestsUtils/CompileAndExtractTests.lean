@@ -197,7 +197,7 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
       let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          if c₁.name.toString == "Unsafe.B" then
+          --if c₁.name.toString == "Unsafe.B" then
             let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
               | .ok r  => r
               | _      => "ERROR"
@@ -211,7 +211,7 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
             
             tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
-          else
-            tSeq
+          --else
+          --  tSeq
 
 end IpldRoundtrip
