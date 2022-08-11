@@ -194,20 +194,20 @@ def compareConst : Const → Const → Bool
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractConstArray` succeeds"
     (FromIpld.extractConstArray stt.store) fun defns =>
-      let convStt := {stt with defns := defns}
+      -- let convStt := {stt with defns := defns}
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           --if c₁.name.toString == "Unsafe.B" then
-            let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
-              | .ok r  => r
-              | _      => "ERROR"
-            let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
-              | .ok r  => r
-              | _      => "ERROR"
-            dbg_trace "-----------"
-            dbg_trace c₁Str
-            dbg_trace c₂Str
-            dbg_trace "-----------"
+            -- let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
+            --   | .ok r  => r
+            --   | _      => "ERROR"
+            -- let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
+            --   | .ok r  => r
+            --   | _      => "ERROR"
+            -- dbg_trace "-----------"
+            -- dbg_trace c₁Str
+            -- dbg_trace c₂Str
+            -- dbg_trace "-----------"
             
             tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 

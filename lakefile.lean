@@ -39,8 +39,6 @@ lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
 lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 
-lean_exe Tests.AnonCidGroups.UnsafeDefinitions { supportInterpreter := true }
-
 end Testing
 
 section Setup
