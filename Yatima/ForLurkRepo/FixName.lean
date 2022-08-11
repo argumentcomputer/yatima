@@ -30,12 +30,15 @@ def charToValidChars (c : Char) : List Char :=
 -- TODO: "5banonymous5d" is a hack, should be removed
 def invalidNames := ["t", "nil", "_", "cons", "car", "cdr", "strcons", "eq", "quote", "5banonymous5d"]
 
+-- TODO: This is a GIGANTIC HACK; unacceptable workaround, must be rem
+def invalidCaptureNames : List Name := [`add, `hAdd]
+
 /-- Turns a `Name` into a valid variable identifier in Lurk. -/
 def fixName (name : Name) (pretty := true) : String :=
   if pretty then 
     validate $ Lean.Name.toString name false
   else 
-    let name := name.toString.replace "." "_" -- |>.replace "_" "??" FIX: If they haven't merged the change yet, we need to revist this.
+    let name := (fixClassNameCapture name).toString.replace "." "_"
     let charsArray : Array Char := name.foldl (init := #[]) fun acc c =>
       acc.append ⟨charToValidChars c⟩
     validate ⟨charsArray.data⟩
@@ -45,4 +48,8 @@ def fixName (name : Name) (pretty := true) : String :=
         if n == "_" then "_x" 
         else if n == "5banonymous5d" then "anonymous"
         else "_" ++ n
+      else n
+    fixClassNameCapture (n : Name) := 
+      if invalidCaptureNames.contains n then 
+        `_uncap ++ n
       else n
