@@ -3,12 +3,28 @@ import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Utils
 import Yatima.Transpiler.LurkFunctions 
 
+/-!
+
+# The Transpiler
+
+This file provides all core functions needed to build Lurk expressions from raw Yatima IR. 
+
+Each function takes some Yatima object and converts it to its lurk representation; 
+we follow the naming convention `<yatima-object>ToLurkExpr`.
+
+For many functions, we choose to return `TranspileM Unit` instead of `TranspileM Lurk.Expr`. 
+This may be slightly strange as the naming suggests that we are producing Lurk expressions, 
+but the final action is binding the transpiled result into the Lurk output, so `Unit` is
+often more natural to return. 
+
+-/
+
 namespace Yatima.Transpiler
 
 open Yatima.Converter
 
 mutual
-
+  /-- Converts Yatima function applications `f a₁ a₂ ..` into `Lurk.Expr.app f [a₁, a₂, ..]` -/
   partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
       match expr with 
@@ -19,7 +35,8 @@ mutual
       let fn ← exprToLurkExpr expr
       let args ← args.mapM exprToLurkExpr
       return .app fn args
-        
+    
+  /-- Converts Yatima lambda `fun x₁ x₂ .. => body` into `Lurk.Expr.lam [x₁, x₂, ..] body` -/    
   partial def telescopeLam (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
       match expr with 
@@ -30,7 +47,19 @@ mutual
       let fn ← exprToLurkExpr expr
       return .lam binds fn
 
-  /-- TODO(Winston): Explain `indices` argument -/
+  /-- Construct a Lurk function representing a Yatima constructor.
+    Let `ind` be the inductive parent of `ctor` and `idx` be its index.
+    
+    * Data (0-ary) constructors are represented as `((ind <params> <indices>) idx)`.
+    * Function constructors are represented as 
+      `(lambda (a₁ a₂ ..) ((ind <params> <indices>) idx a₁ a₂ ..))`
+    
+    Recall that when `ind` has parameters and indices, it is represented as a function.
+    Hence we must apply arguments to access the inductive data. This is required for 
+    projections. 
+
+    The `indices` argument is necessary since `Constructor` contains the
+    `params` field of its parent's inductive, but not the `indices` field. -/
   partial def ctorToLurkExpr (ctor : Constructor) (indices : Nat) : TranspileM Unit := do 
     let (name, idx, params, type) := (ctor.name, ctor.idx, ctor.params, ctor.type)
     let (_, ⟨binds⟩) := descendPi type #[]
@@ -53,6 +82,10 @@ mutual
   -- TODO: Implement
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
+  /-- Construct a Lurk function representing a Yatima recursor. 
+    Yatima recursors provide computational content through recursion rules.
+    These rules are emulated in Lurk by `if-else` statements checking the 
+    constructor index of the arguments given.  -/
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
     let (_, ⟨binds⟩) := descendPi recr.type #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
