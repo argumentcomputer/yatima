@@ -27,7 +27,7 @@ structure Axiom (k : Kind) where
   name : Nameᵣ k
   lvls : NatₗListNameᵣ k
   type : ExprCid k
-  safe : Bool? k
+  safe : Boolₗ k
 deriving Repr
 
 structure Theorem (k : Kind) where

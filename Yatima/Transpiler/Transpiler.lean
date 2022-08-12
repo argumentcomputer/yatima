@@ -30,24 +30,8 @@ mutual
       let fn ← exprToLurkExpr expr
       return .lam binds fn
 
-  /-- This is a hack. TODO(Winston) explain why -/
-  partial def mkProjections (ctor : Constructor) : TranspileM Unit := do 
-    let (name, params, type) := (ctor.name, ctor.params, ctor.type)
-    let (_, ⟨binds⟩) := descendPi type #[]
-    for (i, bind) in (binds.drop params).enum do 
-      let projName := name.getPrefix ++ bind
-      let args := (List.range params).map fun i => Lean.Name.mkSimple s!"_{i}"
-      appendBinding (projName, ⟦(
-        lambda ($args self) (getelem (cdr (cdr self)) $(params + i))
-      )⟧)
-
   /-- TODO(Winston): Explain `indices` argument -/
   partial def ctorToLurkExpr (ctor : Constructor) (indices : Nat) : TranspileM Unit := do 
-      -- For example, the type of `Nat.succ` is `Nat → Nat`,
-      -- but we don't want to translate the type; 
-      -- we want to build a lambda out of this type
-      -- which requires (a bit awkwardly) descending into
-      -- the foralls and reconstructing a `lambda` term
     let (name, idx, params, type) := (ctor.name, ctor.idx, ctor.params, ctor.type)
     let (_, ⟨binds⟩) := descendPi type #[]
     let lurkBinds := binds.foldr (
@@ -66,12 +50,7 @@ mutual
     ⟧
     appendBinding (name, body)
 
-  -- Very delicate, requires logic on the 
-  -- indices/major/minor arguments of the inductive
-  -- in order to insert the argument correctly.
-  -- See lines 27 and 38 in `TypeChecker.Eval`
-  -- partial def ruleRHSToLurkExpr (rhs : Expr) : Lurk.Expr := sorry
-
+  -- TODO: Implement
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
@@ -102,11 +81,6 @@ mutual
       appendBinding (ind.name, lurkInd)
       intRecrToLurkExpr irecr ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
-      -- match ind.struct with 
-      -- | some ctor => 
-      --   ctorToLurkExpr ctor 
-      --   mkProjections ctor
-      -- | none => ctors.forM ctorToLurkExpr
 
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     IO.print ">> exprToLurkExpr: "
@@ -121,10 +95,6 @@ mutual
       let visited? := (← get).visited.contains name
       if !visited? then 
         let const := (← read).defns[idx]! -- TODO: Add proof later
-        -- The binding works here because `constToLurkExpr`
-        -- will recursively process its children.
-        -- Hence we know that this binding will always come after
-        -- all of its children have already been bound 
         constToLurkExpr const
       return ⟦$name⟧
     | e@(.app ..) => 
@@ -133,8 +103,6 @@ mutual
     | e@(.lam ..) => 
       IO.println s!"lam"
       telescopeLam e
-    -- TODO: Do we erase?
-    -- MP: I think we erase
     | .pi    .. => return ⟦nil⟧
     | .letE name _ value body  => do
       IO.println s!"let {name}"
@@ -209,10 +177,6 @@ end
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/
 def builtinInitialize : TranspileM Unit := do
-  -- appendBinding Lurk.append
-  -- appendBinding Lurk.length
-  -- appendBinding Lurk.take
-  -- appendBinding Lurk.drop
   appendBinding Lurk.getelem
 
 /--
