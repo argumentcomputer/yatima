@@ -48,8 +48,8 @@ def getMutualIndInfo (ind : Inductive) :
       let mut extRs : List Name := []
       for ⟨b, recr⟩ in indMeta.recrs do 
         match b with 
-        | .intr => intR := recr.name.proj₂ 
-        | .extr => extRs := recr.name.proj₂ :: extRs
+        | .intr => intR := recr.name.projᵣ 
+        | .extr => extRs := recr.name.projᵣ :: extRs
       let ind : Inductive := ← match cache.find? indName with 
         | some (_, idx) => match defns[idx]! with 
           | .inductive ind => return ind 
@@ -90,7 +90,7 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Name := do
   match ← StoreKey.find! $ .const blockCid with 
   | ⟨_, .mutDefBlock blockMeta⟩ => 
     let defs ← blockMeta.mapM fun defsMeta => do 
-      return defsMeta.proj₂.map (·.name.proj₂)
+      return defsMeta.projᵣ.map (·.name.projᵣ)
     return defs.join
   | _ => throw $ .custom "blockCid not found in store"
 
