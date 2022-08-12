@@ -19,12 +19,10 @@ jobs:
       - name: build yatima
         run: lake build
       - name: check Yatima lib completeness
-        run: lake script run import_all?
+        run: lake run import_all?
       - name: build Yatima lib
         run: lake build Yatima
-      - name: build LSpec binary
-        run: lake build lspec
       - name: build imported fixtures
         run: lake build Fixtures
-      - name: run LSpec
+      - name: build and run LSpec
         run: lake exe lspec

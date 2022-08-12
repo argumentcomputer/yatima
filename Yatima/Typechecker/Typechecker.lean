@@ -1,5 +1,6 @@
 import Yatima.Typechecker.Infer
-import Yatima.Ipld.FromIpld
+import Yatima.Typechecker.TypecheckM
+import Yatima.Converter.Converter
 import Yatima.Datatypes.Store
 
 namespace Yatima.Typechecker

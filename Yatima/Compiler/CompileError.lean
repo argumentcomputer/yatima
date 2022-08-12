@@ -21,6 +21,7 @@ inductive CompileError
   | nonRecursorExtractedFromChildren : Lean.Name → CompileError
   | cantFindMutDefIndex : Lean.Name → CompileError
   | errorsOnFile : String → String → CompileError
+  | custom : String → CompileError
   deriving Inhabited
 
 instance : ToString CompileError where toString
@@ -44,5 +45,6 @@ instance : ToString CompileError where toString
     s!"Non-recursor '{n}' extracted from children"
   | .cantFindMutDefIndex n => s!"Can't find index for mutual definition '{n}'"
   | .errorsOnFile file err => s!"Errors on file {file}:\n\n{err}"
+  | .custom s => s
 
 end Yatima.Compiler

@@ -1,12 +1,15 @@
-prelude
+def two := Nat.succ $ Nat.succ $ Nat.zero
 
-inductive Nat where 
-  | zero : Nat 
-  | succ : Nat → Nat 
+def isZ (n : Nat) : Bool :=
+match n with
+  | 0 => true
+  | n + 1 => false
 
-inductive Vector (A : Type) : (n : Nat) → Type where
-  | nil : Vector A Nat.zero
-  | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
+def four := two + two
+
+-- inductive Vector (A : Type) : (n : Nat) → Type where
+--   | nil : Vector A Nat.zero
+--   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
 
 /- 
 # Example: Three
@@ -132,7 +135,4 @@ if `v`.cidx == 0
 else if `v`.cidx == 1
   (n, a, as) ← `v`.args
   caseCons n a as (Vector.rec A motive caseNil caseCons n as)
-
 -/
-
-#check Nat

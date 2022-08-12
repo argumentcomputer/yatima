@@ -21,8 +21,8 @@ def Expr.isStr (e : Expr) : Bool :=
 def Expr.eqStr (e : Expr) (s₁ : String) : Bool := 
   match e with | .lit $ .str s₂ => s₁ == s₂ | _ => false
 
-def Expr.mkIfElses (ifThen : List (Expr × Expr)) (finalElse : Expr) : Expr := 
-  match ifThen with 
+def Expr.mkIfElses (ifThens : List (Expr × Expr)) (finalElse : Expr) : Expr := 
+  match ifThens with 
   | [] => .lit .nil 
   | [(cond, body)] => .ifE cond body finalElse
   | (cond, body) :: es => .ifE cond body (Expr.mkIfElses es finalElse)
