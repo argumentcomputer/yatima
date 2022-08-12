@@ -4,24 +4,26 @@ import Yatima.Datatypes.Name
 namespace Yatima
 
 namespace Ipld
-abbrev Name? k := Split Unit Name k
-abbrev Nat?  k := Split Nat Unit k
-abbrev Nat??  k := Split Unit (Option Nat) k
+
+abbrev Nameᵣ k := Split Unit Name k
+
+abbrev LNat k := Split Nat Unit k
 
 inductive Univ (k : Kind) where
   | zero
   | succ  : UnivCid k → Univ k
   | max   : UnivCid k → UnivCid k → Univ k
   | imax  : UnivCid k → UnivCid k → Univ k
-  | var   : Name? k → Nat? k → Univ k
+  | var   : Nameᵣ k → LNat k → Univ k
   deriving BEq, Inhabited
 
 def Univ.ctorName : Univ k → String
   | .zero .. => "zero"
   | .succ .. => "succ"
-  | .max .. => "max"
+  | .max  .. => "max"
   | .imax .. => "imax"
-  | .var .. => "var"
+  | .var  .. => "var"
+
 end Ipld
 
 inductive Univ where

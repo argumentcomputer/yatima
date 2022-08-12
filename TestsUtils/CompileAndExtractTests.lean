@@ -1,10 +1,10 @@
 import LSpec
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
-import Yatima.Ipld.FromIpld
 import Yatima.Compiler.Printing
+import Yatima.Converter.Converter
 
-open LSpec Yatima Compiler FromIpld
+open LSpec Yatima Compiler Converter
 
 def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
@@ -24,11 +24,11 @@ creates tests that assert that:
 -/
 
 def extractCidGroups (groups : List (List Lean.Name)) (stt : CompileState) :
-    Except String (Array (Array (Lean.Name × Ipld.ConstCid .Anon))) := Id.run do
+    Except String (Array (Array (Lean.Name × Ipld.ConstCid .anon))) := Id.run do
   let mut notFound : Array Lean.Name := #[]
-  let mut cidGroups : Array (Array (Lean.Name × Ipld.ConstCid .Anon)) := #[]
+  let mut cidGroups : Array (Array (Lean.Name × Ipld.ConstCid .anon)) := #[]
   for group in groups do
-    let mut cidGroup : Array (Lean.Name × Ipld.ConstCid .Anon) := #[]
+    let mut cidGroup : Array (Lean.Name × Ipld.ConstCid .anon) := #[]
     for name in group do
       match stt.cache.find? name with
       | none          => notFound := notFound.push name
@@ -59,12 +59,16 @@ This section defines an extractor that validates that the Ipld conversion
 roundtrips for every constant in the `CompileState.store`.
 -/
 
+@[specialize]
 def find? [BEq α] (as : List α) (f : α → Bool) : Option (Nat × α) := Id.run do
   for x in as.enum do
     if f x.2 then return some x
   return none
 
 abbrev NatNatMap := Std.RBMap Nat Nat compare
+
+instance : Ord Const where
+  compare x y := compare x.name y.name
 
 def pairConstants (x y : Array Const) :
     Except String ((Array (Const × Const)) × NatNatMap) := Id.run do
@@ -118,87 +122,11 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
-def compareExpr : Expr → Expr → Bool
-  | .var n i, .var n' i' => n == n' && i == i'
-  | .sort x, .sort y
-  | .lit x, .lit y
-  | .lty x, .lty y => x == y
-  | .const n i lvls, .const n' i' lvls' => 
-    let nameEq := n == n'
-    let iEq := i == i'
-    let lvlsEq := lvls == lvls'
-    nameEq && iEq && lvlsEq
-  | .app e₁ e₂, .app e₁' e₂' => compareExpr e₁ e₁' && compareExpr e₂ e₂'
-  | .lam n bi e₁ e₂, .lam n' bi' e₁' e₂' =>
-    n == n' && bi == bi' &&
-    compareExpr e₁ e₁' && compareExpr e₂ e₂'
-  | .pi n bi e₁ e₂, .pi n' bi' e₁' e₂' =>
-    n == n' && bi == bi' &&
-    compareExpr e₁ e₁' && compareExpr e₂ e₂'
-  | .letE n e₁ e₂ e₃, .letE n' e₁' e₂' e₃' =>
-    n == n' &&
-    compareExpr e₁ e₁' && compareExpr e₂ e₂' && compareExpr e₃ e₃'
-  | .proj n e, .proj n' e' =>
-    n == n' &&
-    compareExpr e e'
-  | _ , _ => false
-
-def compareConstructor : Option Constructor → Option Constructor → Bool
-  | some i₁, some i₂ => 
-    dbg_trace "type"
-    let typeEq := compareExpr i₁.type i₂.type
-    dbg_trace "rhs"
-    let rhsEq := compareExpr i₁.rhs i₂.rhs
-    typeEq && rhsEq
-  | _, _ => true
-
-def compareConst : Const → Const → Bool
-  | .inductive i₁, .inductive i₂ => 
-    let nameEq := i₁.name == i₂.name
-    dbg_trace nameEq
-    let lvlsEq := i₁.lvls == i₂.lvls
-    dbg_trace lvlsEq
-    let typeEq := i₁.type == i₂.type
-    dbg_trace typeEq
-    let paramsEq := i₁.params == i₂.params
-    dbg_trace paramsEq
-    let indicesEq := i₁.indices == i₂.indices
-    dbg_trace indicesEq
-    let recrEq := i₁.recr == i₂.recr
-    dbg_trace recrEq
-    let safeEq := i₁.safe == i₂.safe
-    dbg_trace safeEq
-    let reflEq := i₁.refl == i₂.refl
-    dbg_trace reflEq
-    let unitEq := i₁.unit == i₂.unit
-    dbg_trace unitEq
-    let structEq := compareConstructor i₁.struct i₂.struct
-    dbg_trace structEq
-    nameEq && lvlsEq && typeEq && paramsEq && indicesEq && recrEq && safeEq && reflEq && unitEq && structEq
-  | _, _ => true
-  
-
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractConstArray` succeeds"
-    (FromIpld.extractConstArray stt.store) fun defns =>
-      let convStt := {stt with defns := defns}
+    (extractConstArray stt.store) fun defns =>
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          -- if c₁.name.toString == "Treew.rec_1" then
-            let c₁Str := match Yatima.Compiler.PrintYatima.printConst (reindexConst map c₁) convStt with
-              | .ok r  => r
-              | _      => "ERROR"
-            let c₂Str := match Yatima.Compiler.PrintYatima.printConst c₂ convStt with
-              | .ok r  => r
-              | _      => "ERROR"
-            -- dbg_trace "-----------"
-            -- dbg_trace c₁Str
-            -- dbg_trace c₂Str
-            -- dbg_trace "-----------"
-            
-            tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
-
-          -- else
-          --   tSeq
+          tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
 end IpldRoundtrip

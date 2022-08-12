@@ -1,4 +1,4 @@
-import Yatima.Ipld.FromIpld
+import Yatima.Converter.Converter
 import Yatima.Transpiler.TranspileError
 
 namespace Yatima.Transpiler
@@ -9,7 +9,7 @@ structure State where
   visited : Std.RBTree Name compare
   deriving Inhabited
 
-open Yatima.Compiler Yatima.FromIpld
+open Yatima.Compiler Yatima.Converter
 
 abbrev TranspileM := ReaderT CompileState $
   ExceptT TranspileError $ StateT State IO

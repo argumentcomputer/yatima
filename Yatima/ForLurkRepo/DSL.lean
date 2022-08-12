@@ -172,7 +172,6 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
       mkAppM ``Lurk.Expr.ToExpr.toExpr #[e]
     else 
       throwUnsupportedSyntax 
-  | _ => throwUnsupportedSyntax
 end
 
 --#eval Name.mkSimple ""

@@ -146,7 +146,4 @@ if `v`.cidx == 0
 else if `v`.cidx == 1
   (n, a, as) ← `v`.args
   caseCons n a as (Vector.rec A motive caseNil caseCons n as)
-
 -/
-
--- #check Nat

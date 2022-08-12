@@ -19,121 +19,122 @@ inductive QuotKind where
 
 namespace Ipld
 
-abbrev ListName? := Split Nat (List Name)
-abbrev Bool? := Split Bool Unit
+abbrev NatₗListNameᵣ := Split Nat (List Name)
+
+abbrev Boolₗ := Split Bool Unit
 
 structure Axiom (k : Kind) where
-  name : Name? k
-  lvls : ListName? k
+  name : Nameᵣ k
+  lvls : NatₗListNameᵣ k
   type : ExprCid k
   safe : Bool? k
-  deriving Repr
+deriving Repr
 
 structure Theorem (k : Kind) where
-  name  : Name? k
-  lvls  : ListName? k
+  name  : Nameᵣ k
+  lvls  : NatₗListNameᵣ k
   type  : ExprCid k
   value : ExprCid k
   deriving Repr
 
 structure Opaque (k : Kind) where
-  name  : Name? k
-  lvls  : ListName? k
+  name  : Nameᵣ k
+  lvls  : NatₗListNameᵣ k
   type  : ExprCid k
   value : ExprCid k
-  safe  : Bool? k
+  safe  : Boolₗ k
   deriving Repr
 
 structure Definition (k : Kind) where
-  name   : Name? k
-  lvls   : ListName? k
+  name   : Nameᵣ k
+  lvls   : NatₗListNameᵣ k
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
   deriving Inhabited
 
 structure DefinitionProj (k : Kind) where
-  name  : Name? k
-  lvls  : ListName? k
+  name  : Nameᵣ k
+  lvls  : NatₗListNameᵣ k
   type  : ExprCid k
   block : ConstCid k
-  idx   : Nat? k
+  idx   : Nat
   deriving Repr
 
 structure Constructor (k : Kind) where
-  name   : Name? k
-  lvls   : ListName? k
+  name   : Nameᵣ k
+  lvls   : NatₗListNameᵣ k
   type   : ExprCid k
-  idx    : Nat? k
-  params : Nat? k
-  fields : Nat? k
+  idx    : LNat k
+  params : LNat k
+  fields : LNat k
   rhs    : ExprCid k
-  safe   : Bool? k
+  safe   : Boolₗ k
   deriving Repr
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
-  fields : Nat? k
+  fields : LNat k
   rhs    : ExprCid k
   deriving Repr
 
 structure Recursor (b : RecType) (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
-  params  : Nat? k
-  indices : Nat? k
-  motives : Nat? k
-  minors  : Nat? k
+  params  : LNat k
+  indices : LNat k
+  motives : LNat k
+  minors  : LNat k
   rules   : Split Unit (List (RecursorRule k)) b
-  k       : Bool? k
+  k       : Boolₗ k
   deriving Repr
 
 structure Inductive (k : Kind) where
-  name     : Name? k
-  lvls     : ListName? k
+  name     : Nameᵣ k
+  lvls     : NatₗListNameᵣ k
   type     : ExprCid k
-  params   : Nat? k
-  indices  : Nat? k
+  params   : LNat k
+  indices  : LNat k
   ctors    : List (Constructor k)
   recrs    : List (Sigma (Recursor · k))
-  recr     : Bool? k
-  safe     : Bool? k
-  refl     : Bool? k
+  recr     : Boolₗ k
+  safe     : Boolₗ k
+  refl     : Boolₗ k
   deriving Inhabited
 
 instance {k : Kind} : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Nat? k
+  idx     : LNat k
   deriving Repr
 
 structure ConstructorProj (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Nat? k
-  cidx    : Nat? k
+  idx     : LNat k
+  cidx    : LNat k
   deriving Repr
 
 structure RecursorProj (k : Kind) where
-  name    : Name? k
-  lvls    : ListName? k
+  name    : Nameᵣ k
+  lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Nat? k
-  ridx    : Nat? k
+  idx     : LNat k
+  ridx    : LNat k
   deriving Repr
 
 structure Quotient (k : Kind) where
-  name : Name? k
-  lvls : ListName? k
+  name : Nameᵣ k
+  lvls : NatₗListNameᵣ k
   type : ExprCid k
   kind : Split QuotKind Unit k
 
@@ -167,7 +168,7 @@ def Const.ctorName : Ipld.Const k → String
   | .mutDefBlock     _ => "mutual definition block"
   | .mutIndBlock     _ => "mutual inductive block"
 
-def Const.name : Ipld.Const .Meta → Name
+def Const.name : Ipld.Const .meta → Name
   | .axiom           x 
   | .theorem         x 
   | .opaque          x 

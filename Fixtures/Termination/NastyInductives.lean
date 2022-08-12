@@ -1,5 +1,11 @@
 prelude
 
+inductive QWE (α : Sort u)
+  | qwe : QWE α → QWE α
+
+inductive ASD (α : Sort u)
+  | asd : α → ASD α
+
 inductive Option (α : Type u) where 
   | none : Option α
   | some (a : α) : Option α

@@ -24,5 +24,6 @@ open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/AnonCidGroups/Definitions.lean"
-    [wellFoundedExtractor, partialExtractor, unsafeExtractor, extractIpldRoundtripTests]
+    [wellFoundedExtractor, partialExtractor, unsafeExtractor,
+      extractIpldRoundtripTests]
   lspecIO tSeq
