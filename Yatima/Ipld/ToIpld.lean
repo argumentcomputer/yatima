@@ -10,42 +10,42 @@ namespace Yatima
 
 def Opaque.toIpld {k : Ipld.Kind} (d : Opaque) (typeCid valueCid: ExprCid) : Ipld.Opaque k :=
 match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
 def Quotient.toIpld {k : Ipld.Kind} (d : Quotient) (typeCid : ExprCid) : Ipld.Quotient k :=
 match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
 def Axiom.toIpld {k : Ipld.Kind} (d : Axiom) (typeCid : ExprCid) : Ipld.Axiom k :=
 match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
 def Theorem.toIpld {k : Ipld.Kind} (d : Theorem) (typeCid valueCid : ExprCid) : Ipld.Theorem k :=
 match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
 
 def Definition.toIpld {k : Ipld.Kind} (d : Definition) (typeCid valueCid : ExprCid) : Ipld.Definition k :=
 match k with
-  | .Anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
-  | .Meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
 def Constructor.toIpld {k : Ipld.Kind} (c : Constructor) (typeCid rhsCid : ExprCid) : Ipld.Constructor k :=
 match k with
-  | .Anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
-  | .Meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
+  | .anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
+  | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
 
 def RecursorRule.toIpld {k : Ipld.Kind} (r : RecursorRule) (ctorCid : ConstCid) (rhsCid : ExprCid) : Ipld.RecursorRule k :=
 match k with
-  | .Anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
-  | .Meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
+  | .anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
+  | .meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
 def ExtRecursor.toIpld {k : Ipld.Kind} (r : ExtRecursor) (typeCid : ExprCid) (rulesCids : List $ Ipld.RecursorRule k) : Ipld.Recursor .extr k :=
 match k with 
-  | .Anon =>
+  | .anon =>
     ⟨ ()
     , r.lvls.length
     , typeCid.anon
@@ -54,9 +54,8 @@ match k with
     , r.motives
     , r.minors
     , rulesCids
-    --, .inj₂ $ r.rules.enum.map $ fun (i, rule) => rule.toIpld rulesCids[i]!.1 rulesCids[i]!.2
     , r.k ⟩
-  | .Meta =>
+  | .meta =>
     ⟨ r.name
     , r.lvls
     , typeCid.meta
@@ -66,7 +65,7 @@ match k with
 
 def IntRecursor.toIpld {k : Ipld.Kind} (r : IntRecursor) (typeCid : ExprCid) : Ipld.Recursor .intr k :=
 match k with 
-  | .Anon =>
+  | .anon =>
     ⟨ ()
     , r.lvls.length
     , typeCid.anon
@@ -76,7 +75,7 @@ match k with
     , r.minors
     , .inj₁ ()
     , r.k ⟩
-  | .Meta =>
+  | .meta =>
     ⟨ r.name
     , r.lvls
     , typeCid.meta
@@ -86,13 +85,13 @@ match k with
 
 def Inductive.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
 match k with
-  | .Anon =>
+  | .anon =>
     ⟨ ()
     , i.lvls.length
     , typeCid.anon
     , blockCid.anon
     , idx ⟩
-  | .Meta =>
+  | .meta =>
     ⟨ i.name
     , i.lvls
     , typeCid.meta
@@ -100,6 +99,7 @@ match k with
     , () ⟩
 
 namespace Ipld
+
 instance : Coe Nat Ipld where
   coe x := .bytes x.toByteArrayBE
 
@@ -109,21 +109,20 @@ instance : Coe Bool Ipld where
 instance : Coe Name Ipld where
   coe x := .string (Lean.Name.toString x)
 
-
 instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
 instance : Coe (ExprCid k)  Ipld where coe u := .link u.data
 instance : Coe (ConstCid k) Ipld where coe u := .link u.data
 
 instance [Coe α Ipld] [Coe β Ipld] : Coe (α ⊕ β) Ipld where coe
-  | .inl i => i
-  | .inr c => c
+  | .inl a => a
+  | .inr b => b
 
 instance [Coe α Ipld] : Coe (Option α) Ipld where coe
   | none   => .null
   | some a => a
 
 instance [Coe α Ipld] : Coe (List α) Ipld where
-  coe l := .array ⟨List.map (fun (x : α) => x) l⟩
+  coe l := .array ⟨l.map fun (x : α) => x⟩
 
 instance [Coe α Ipld] [Coe β Ipld] : Coe (α × β) Ipld where
   coe x := .array #[x.1, x.2]
@@ -156,8 +155,8 @@ instance : Coe Unit Ipld where coe
   | .unit => .array #[]
 
 instance : (k : Kind) → Coe (RecursorRule k) Ipld
-  | .Anon => { coe := fun | .mk c f r => .array #[c, f, r] }
-  | .Meta => { coe := fun | .mk c f r => .array #[c, f, r] }
+  | .anon => { coe := fun | .mk c f r => .array #[c, f, r] }
+  | .meta => { coe := fun | .mk c f r => .array #[c, f, r] }
 
 instance : Coe (Recursor b k) Ipld where coe
   | .mk n l t p i m m' rs k => .array #[n, l, t, p, i, m, m', rs, k]
@@ -181,6 +180,7 @@ instance : Coe (Definition k) Ipld where coe
   | .mk n l t v s => .array #[n, l, t, v, s]
 
 end Ipld
+
 namespace ToIpld
 
 def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
@@ -196,16 +196,16 @@ def univToIpld : (Ipld.Univ k) → Ipld
   | .var n i   => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
 
 def exprToIpld : (Ipld.Expr k) → Ipld
-  | .var n i i' ls   => .array #[.number $ Ipld.EXPR k, .number 0, i, i', n, ls]
-  | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
-  | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
-  | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
-  | .lam n i d b  => .array #[.number $ Ipld.EXPR k, .number 4, n, i, d, b]
-  | .pi n i d c   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
-  | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
-  | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
-  | .lty l        => .array #[.number $ Ipld.EXPR k, .number 8, l]
-  | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
+  | .var n i i' ls => .array #[.number $ Ipld.EXPR k, .number 0, i, i', n, ls]
+  | .sort u        => .array #[.number $ Ipld.EXPR k, .number 1, u]
+  | .const n c ls  => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
+  | .app f a       => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
+  | .lam n i d b   => .array #[.number $ Ipld.EXPR k, .number 4, n, i, d, b]
+  | .pi n i d c    => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
+  | .letE n t v b  => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
+  | .lit l         => .array #[.number $ Ipld.EXPR k, .number 7, l]
+  | .lty l         => .array #[.number $ Ipld.EXPR k, .number 8, l]
+  | .proj n e      => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
 
 def constToIpld : (Ipld.Const k) → Ipld
   | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0,  n, l, t, s]
@@ -216,8 +216,8 @@ def constToIpld : (Ipld.Const k) → Ipld
   | .constructorProj ⟨n, l, t, b, i, j⟩ => .array #[.number $ Ipld.CONST k, .number 6, n, l, t, b, i, j]
   | .recursorProj ⟨n, l, t, b, i, j⟩    => .array #[.number $ Ipld.CONST k, .number 7, n, l, t, b, i, j]
   | .definitionProj ⟨n, l, t, b, i⟩     => .array #[.number $ Ipld.CONST k, .number 8, n, l, t, b, i]
-  | .mutDefBlock ds                    => .array #[.number $ Ipld.CONST k, .number 9,  ds]
-  | .mutIndBlock is                    => .array #[.number $ Ipld.CONST k, .number 10, is]
+  | .mutDefBlock ds                     => .array #[.number $ Ipld.CONST k, .number 9,  ds]
+  | .mutIndBlock is                     => .array #[.number $ Ipld.CONST k, .number 10, is]
 
 def univToCid (univ : Ipld.Univ k) : Ipld.UnivCid k :=
   { data := ipldToCid (Ipld.UNIV k).toNat (univToIpld univ) }
@@ -229,4 +229,5 @@ def constToCid (const : Ipld.Const k) : Ipld.ConstCid k :=
   { data := ipldToCid (Ipld.CONST k).toNat (constToIpld const) }
 
 end ToIpld
+
 end Yatima

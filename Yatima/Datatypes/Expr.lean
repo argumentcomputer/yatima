@@ -175,7 +175,7 @@ def shiftVars (expr : Expr) (inc : Int) : Expr :=
     | pi name bind type body    => pi name bind (walk type) (walk body)
     | letE name type value body =>
       letE name (walk type) (walk value) (walk body)
-    | other                     => other -- All the rest of the cases are treated at once
+    | other => other -- All the rest of the cases are treated at once
   walk expr
 
 /--

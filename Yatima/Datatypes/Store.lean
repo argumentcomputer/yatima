@@ -8,13 +8,13 @@ open Std (RBMap RBTree) in
 structure Store where
   defns : RBTree (Both ConstCid) compare
 
-  univ_anon  : RBMap (UnivCid  .Anon) (Univ  .Anon) compare
-  expr_anon  : RBMap (ExprCid  .Anon) (Expr  .Anon) compare
-  const_anon : RBMap (ConstCid .Anon) (Const .Anon) compare
+  univ_anon  : RBMap (UnivCid  .anon) (Univ  .anon) compare
+  expr_anon  : RBMap (ExprCid  .anon) (Expr  .anon) compare
+  const_anon : RBMap (ConstCid .anon) (Const .anon) compare
 
-  univ_meta  : RBMap (UnivCid  .Meta) (Univ  .Meta) compare
-  expr_meta  : RBMap (ExprCid  .Meta) (Expr  .Meta) compare
-  const_meta : RBMap (ConstCid .Meta) (Const .Meta) compare
+  univ_meta  : RBMap (UnivCid  .meta) (Univ  .meta) compare
+  expr_meta  : RBMap (ExprCid  .meta) (Expr  .meta) compare
+  const_meta : RBMap (ConstCid .meta) (Const .meta) compare
   deriving Inhabited
 
 def Store.union (s s' : Store) : Store := ⟨

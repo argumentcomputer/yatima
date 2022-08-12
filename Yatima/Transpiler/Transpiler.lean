@@ -5,7 +5,8 @@ import Yatima.Transpiler.LurkFunctions
 
 namespace Yatima.Transpiler
 
-open Yatima.FromIpld
+open Yatima.Converter
+
 mutual
 
   partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
