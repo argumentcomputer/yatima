@@ -1,13 +1,6 @@
 import Lean 
 import Yatima.ForLurkRepo.AST
 
-namespace List 
-/-- TODO(Winston): MOVE -/
-def find (p : α → Bool) [BEq α] : List α → Option α
-| [] => none
-| a :: l => if p a then some a else find p l
-end List 
-
 namespace Lurk.Expr
 
 def mkNum (n : Nat) : Expr := 
@@ -70,14 +63,13 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
       let e := replace e target replacement
       let env? := env?.map fun env => replace env target replacement
       .eval e env?
-#check List.find
 
 /-- Given pairs `(tgtᵢ, rplᵢ)`, replaces all occurences of `tgtᵢ` with `rplᵢ`.
   This is more efficient than `replace` since one does not have to traverse
   the `Expr` tree multiple times. We do not recursively call `replaceN` on 
   the newly replaced `rplᵢ` expressions. -/
 partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
-  match targets.find fun (tgt, _) => e == tgt with 
+  match targets.find? fun (tgt, _) => e == tgt with 
   | some (_, rpl) => rpl 
   | none => match e with 
     | .lit _ => e
