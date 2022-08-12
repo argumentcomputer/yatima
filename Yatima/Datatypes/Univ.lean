@@ -1,5 +1,6 @@
 import Yatima.Datatypes.Cid
 import Yatima.Datatypes.Name
+import Yatima.Datatypes.Split
 
 namespace Yatima
 
@@ -7,14 +8,14 @@ namespace Ipld
 
 abbrev Nameᵣ k := Split Unit Name k
 
-abbrev LNat k := Split Nat Unit k
+abbrev Natₗ k := Split Nat Unit k
 
 inductive Univ (k : Kind) where
   | zero
   | succ  : UnivCid k → Univ k
   | max   : UnivCid k → UnivCid k → Univ k
   | imax  : UnivCid k → UnivCid k → Univ k
-  | var   : Nameᵣ k → LNat k → Univ k
+  | var   : Nameᵣ k → Natₗ k → Univ k
   deriving BEq, Inhabited
 
 def Univ.ctorName : Univ k → String
@@ -34,8 +35,12 @@ inductive Univ where
   | var   : Name → Nat → Univ
   deriving BEq, Inhabited
 
--- Reduces as a `max` applied to two values: `max a 0 = max 0 a = a` and `max (succ a) (succ b) = succ (max a b)`.
--- It is assumed that `a` and `b` are already reduced
+/--
+Reduces as a `max` applied to two values: `max a 0 = max 0 a = a` and
+`max (succ a) (succ b) = succ (max a b)`.
+
+It is assumed that `a` and `b` are already reduced
+-/
 def reduceMax (a b : Univ) : Univ :=
   match a, b with
   | Univ.zero, _ => b
@@ -43,8 +48,11 @@ def reduceMax (a b : Univ) : Univ :=
   | Univ.succ a, Univ.succ b => Univ.succ (reduceMax a b)
   | _, _ => Univ.max a b
 
--- Reduces as an `imax` applied to two values.
--- It is assumed that `a` and `b` are already reduced
+/--
+Reduces as an `imax` applied to two values.
+
+It is assumed that `a` and `b` are already reduced
+-/
 def reduceIMax (a b : Univ) : Univ :=
   match b with
   -- IMax(a, b) will reduce to 0 if b == 0
@@ -54,8 +62,11 @@ def reduceIMax (a b : Univ) : Univ :=
   -- Otherwise, IMax(a, b) is stuck, with a and b reduced
   | _ => Univ.imax a b
 
--- Reduce, or simplify, the universe levels to a normal form. Notice that universe levels with no free variables
--- always reduce to a number, i.e., a sequence of `succ`s followed by a `zero`
+/--
+Reduce, or simplify, the universe levels to a normal form. Notice that universe
+levels with no free variables always reduce to a number, i.e., a sequence of
+`succ`s followed by a `zero`
+-/
 def reduce (u : Univ) : Univ :=
   match u with
   | Univ.succ u' => Univ.succ (reduce u')
@@ -68,10 +79,13 @@ def reduce (u : Univ) : Univ :=
     | _ => Univ.imax (reduce a) b_prime
   | _ => u
 
--- Instantiate a variable and reduce at the same time. Assumes an already reduced `subst`. This function is only
--- used in the comparison algorithm, and it doesn't shift variables, because we want to instantiate a variable
--- `var idx` with `succ (var idx)`, so by shifting the variables we would transform `var (idx+1)` into `var idx`
--- which is not what we want
+/--
+Instantiate a variable and reduce at the same time. Assumes an already reduced
+`subst`. This function is only used in the comparison algorithm, and it doesn't
+shift variables, because we want to instantiate a variable `var idx` with
+`succ (var idx)`, so by shifting the variables we would transform `var (idx+1)`
+into `var idx` which is not what we want
+-/
 def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
   match u with
   | Univ.succ u => Univ.succ (instReduce u idx subst)
@@ -85,8 +99,10 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
   | Univ.var _ idx' => if idx' == idx then subst else u
   | Univ.zero => u
 
--- Instantiate multiple variables at the same time and reduce. Assumes already
--- reduced `substs`
+/--
+Instantiate multiple variables at the same time and reduce. Assumes already
+reduced `substs`
+-/
 def instBulkReduce (substs : List Univ) (u : Univ) : Univ :=
   match u with
   | Univ.succ u => Univ.succ (instBulkReduce substs u)

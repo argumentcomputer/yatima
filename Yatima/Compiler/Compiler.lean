@@ -198,7 +198,7 @@ mutual
     let (value, expr) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         | some name =>
-          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx () [], .var name () (Split.inj₂ none) [] ⟩
+          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx () [], .var name () (Split.injᵣ none) [] ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
@@ -291,7 +291,7 @@ mutual
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
-      let name := indMeta.name.proj₂
+      let name := indMeta.name.projᵣ
       let indProj :=
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
@@ -302,7 +302,7 @@ mutual
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Add the IPLD constructor projections and constructors to the cache
-        let name := ctorMeta.name.proj₂
+        let name := ctorMeta.name.projᵣ
         let ctorProj :=
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
@@ -312,7 +312,7 @@ mutual
 
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Add the IPLD recursor projections and recursors to the cache
-        let name := recrMeta.2.name.proj₂
+        let name := recrMeta.2.name.projᵣ
         let recrProj :=
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, indIdx, recrIdx ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
@@ -408,7 +408,7 @@ mutual
             match ctors.indexOf? r.ctor with
             | some _ =>
               let ctor ← toYatimaConstructor r
-              return ctorMap.insert ctor.meta.name.proj₂ ctor
+              return ctorMap.insert ctor.meta.name.projᵣ ctor
             -- this is an external recursor rule
             | none => return ctorMap
         let retCtors ← ctors.mapM fun ctor => do

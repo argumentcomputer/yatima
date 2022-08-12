@@ -73,14 +73,14 @@ match k with
     , r.indices
     , r.motives
     , r.minors
-    , .inj₁ ()
+    , .injₗ ()
     , r.k ⟩
   | .meta =>
     ⟨ r.name
     , r.lvls
     , typeCid.meta
     , (), (), (), ()
-    , .inj₁ ()
+    , .injₗ ()
     , ()⟩
 
 def Inductive.toIpld {k : Ipld.Kind} (i : Inductive) (idx : Nat) (typeCid : ExprCid) (blockCid : ConstCid) : Ipld.InductiveProj k :=
@@ -148,8 +148,8 @@ instance : Coe DefinitionSafety Ipld where coe
   | .partial => .number 2
 
 instance [Coe A Ipld] [Coe B Ipld] : Coe (Split A B k) Ipld where coe
-  | .inj₁ a => .array #[.number 0, a]
-  | .inj₂ b => .array #[.number 1, b]
+  | .injₗ a => .array #[.number 0, a]
+  | .injᵣ b => .array #[.number 1, b]
 
 instance : Coe Unit Ipld where coe
   | .unit => .array #[]

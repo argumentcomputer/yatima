@@ -41,14 +41,14 @@ def getMutualIndInfo (ind : Inductive) :
   match ← StoreKey.find! $ .const blockCid with 
   | ⟨.mutIndBlock blockAnon, .mutIndBlock blockMeta⟩ => 
     blockAnon.zip blockMeta |>.mapM fun (_, indMeta) => do 
-      let indName := indMeta.name.proj₂
-      let ctors := indMeta.ctors.map fun ctor => ctor.name.proj₂
+      let indName := indMeta.name.projᵣ
+      let ctors := indMeta.ctors.map fun ctor => ctor.name.projᵣ
       let mut intR : Name := `none
       let mut extRs : List Name := []
       for ⟨b, recr⟩ in indMeta.recrs do 
         match b with 
-        | .intr => intR := recr.name.proj₂ 
-        | .extr => extRs := recr.name.proj₂ :: extRs
+        | .intr => intR := recr.name.projᵣ 
+        | .extr => extRs := recr.name.projᵣ :: extRs
       return (indName, ctors, intR, extRs)
   | _ => throw $ .custom "blockCid not found in store"
 

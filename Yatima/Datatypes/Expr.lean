@@ -27,7 +27,7 @@ abbrev Nat?ᵣ k := Split Unit (Option Nat) k
 abbrev BinderInfoₗ k := Split BinderInfo Unit k
 
 inductive Expr (k : Kind)
-  | var   : Nameᵣ k → LNat k → Nat?ᵣ k → List (UnivCid k) → Expr k
+  | var   : Nameᵣ k → Natₗ k → Nat?ᵣ k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
   | const : Nameᵣ k → ConstCid k → List (UnivCid k) → Expr k
   | app   : ExprCid k → ExprCid k → Expr k
@@ -36,7 +36,7 @@ inductive Expr (k : Kind)
   | letE  : Nameᵣ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | lty   : Split LitType Unit k → Expr k
-  | proj  : LNat k → ExprCid k → Expr k
+  | proj  : Natₗ k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
 def Expr.ctorName : Expr k → String

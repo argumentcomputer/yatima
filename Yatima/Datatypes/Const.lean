@@ -8,8 +8,8 @@ inductive RecType where
   deriving BEq, Inhabited
 
 instance : Coe RecType Bool where coe | .intr => .true | .extr => .false
-def Split.intr : A → Split A B RecType.intr := Split.inj₁
-def Split.extr : B → Split A B RecType.extr := Split.inj₂
+def Split.intr : A → Split A B RecType.intr := Split.injₗ
+def Split.extr : B → Split A B RecType.extr := Split.injᵣ
 
 inductive DefinitionSafety where
   | safe | «unsafe» | «partial» deriving BEq, Inhabited, Repr
@@ -65,16 +65,16 @@ structure Constructor (k : Kind) where
   name   : Nameᵣ k
   lvls   : NatₗListNameᵣ k
   type   : ExprCid k
-  idx    : LNat k
-  params : LNat k
-  fields : LNat k
+  idx    : Natₗ k
+  params : Natₗ k
+  fields : Natₗ k
   rhs    : ExprCid k
   safe   : Boolₗ k
   deriving Repr
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
-  fields : LNat k
+  fields : Natₗ k
   rhs    : ExprCid k
   deriving Repr
 
@@ -82,10 +82,10 @@ structure Recursor (b : RecType) (k : Kind) where
   name    : Nameᵣ k
   lvls    : NatₗListNameᵣ k
   type    : ExprCid k
-  params  : LNat k
-  indices : LNat k
-  motives : LNat k
-  minors  : LNat k
+  params  : Natₗ k
+  indices : Natₗ k
+  motives : Natₗ k
+  minors  : Natₗ k
   rules   : Split Unit (List (RecursorRule k)) b
   k       : Boolₗ k
   deriving Repr
@@ -94,8 +94,8 @@ structure Inductive (k : Kind) where
   name     : Nameᵣ k
   lvls     : NatₗListNameᵣ k
   type     : ExprCid k
-  params   : LNat k
-  indices  : LNat k
+  params   : Natₗ k
+  indices  : Natₗ k
   ctors    : List (Constructor k)
   recrs    : List (Sigma (Recursor · k))
   recr     : Boolₗ k
@@ -111,7 +111,7 @@ structure InductiveProj (k : Kind) where
   lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : LNat k
+  idx     : Natₗ k
   deriving Repr
 
 structure ConstructorProj (k : Kind) where
@@ -119,8 +119,8 @@ structure ConstructorProj (k : Kind) where
   lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : LNat k
-  cidx    : LNat k
+  idx     : Natₗ k
+  cidx    : Natₗ k
   deriving Repr
 
 structure RecursorProj (k : Kind) where
@@ -128,8 +128,8 @@ structure RecursorProj (k : Kind) where
   lvls    : NatₗListNameᵣ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : LNat k
-  ridx    : LNat k
+  idx     : Natₗ k
+  ridx    : Natₗ k
   deriving Repr
 
 structure Quotient (k : Kind) where
@@ -176,7 +176,7 @@ def Const.name : Ipld.Const .meta → Name
   | .definitionProj  x 
   | .inductiveProj   x 
   | .constructorProj x 
-  | .recursorProj    x => x.name.proj₂
+  | .recursorProj    x => x.name.projᵣ
   | .mutDefBlock     _
   | .mutIndBlock     _ => .anonymous
 
