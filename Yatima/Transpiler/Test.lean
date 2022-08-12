@@ -5,7 +5,7 @@ import Lean.Util.Path
 
 open System
 
-open Yatima.Compiler Yatima.FromIpld Yatima.Transpiler 
+open Yatima.Compiler Yatima.Converter Yatima.Transpiler 
 
 def test : IO Unit := do
   match (← compile "./Fixtures/LurkTranslation/SimplePrelude.lean") with 
@@ -18,4 +18,4 @@ def test : IO Unit := do
         IO.FS.writeFile fname s!"{out}"
         IO.print out
 
-#eval test
+-- #eval test

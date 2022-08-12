@@ -1,5 +1,5 @@
 import Yatima.Typechecker.TypecheckM
-import Yatima.Ipld.FromIpld
+import Yatima.Converter.Converter
 import Yatima.Datatypes.Store
 
 namespace Yatima.Typechecker
@@ -9,7 +9,7 @@ def typecheckM : TypecheckM Unit :=
   pure ()
 
 def typecheck (store : Ipld.Store) : Bool × Option String :=
-  match FromIpld.extractConstArray store with
+  match Converter.extractConstArray store with
   | .ok store => match TypecheckM.run (.init store) typecheckM with
     | .ok _ => (true, none)
     | .error msg => (false, some "toString msg")

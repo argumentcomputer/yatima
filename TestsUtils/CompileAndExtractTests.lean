@@ -1,10 +1,10 @@
 import LSpec
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
-import Yatima.Ipld.FromIpld
 import Yatima.Compiler.Printing
+import Yatima.Converter.Converter
 
-open LSpec Yatima Compiler FromIpld
+open LSpec Yatima Compiler Converter
 
 def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
@@ -24,11 +24,11 @@ creates tests that assert that:
 -/
 
 def extractCidGroups (groups : List (List Lean.Name)) (stt : CompileState) :
-    Except String (Array (Array (Lean.Name × Ipld.ConstCid .Anon))) := Id.run do
+    Except String (Array (Array (Lean.Name × Ipld.ConstCid .anon))) := Id.run do
   let mut notFound : Array Lean.Name := #[]
-  let mut cidGroups : Array (Array (Lean.Name × Ipld.ConstCid .Anon)) := #[]
+  let mut cidGroups : Array (Array (Lean.Name × Ipld.ConstCid .anon)) := #[]
   for group in groups do
-    let mut cidGroup : Array (Lean.Name × Ipld.ConstCid .Anon) := #[]
+    let mut cidGroup : Array (Lean.Name × Ipld.ConstCid .anon) := #[]
     for name in group do
       match stt.cache.find? name with
       | none          => notFound := notFound.push name
@@ -124,7 +124,7 @@ def reindexConst (map : NatNatMap) : Const → Const
 
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractConstArray` succeeds"
-    (FromIpld.extractConstArray stt.store) fun defns =>
+    (extractConstArray stt.store) fun defns =>
       withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)

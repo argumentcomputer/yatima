@@ -1,83 +1,13 @@
 import Yatima.Datatypes.Store
-import Yatima.Compiler.Utils
 import YatimaStdLib.RBMap
+import Yatima.Compiler.Utils
+import Yatima.Converter.ConvertError
+import Yatima.Converter.ConvertM
 
 namespace Yatima
 
-namespace FromIpld
+namespace Converter
 
-open Std (RBMap)
-
--- Conversion monad
-inductive ConvertError where
-  | ipldError : ConvertError
-  | cannotStoreValue : ConvertError
-  | mutDefBlockFound : ConvertError
-  | mutIndBlockFound : ConvertError
-  | anonMetaMismatch : String → String → ConvertError
-  | cannotFindNameIdx : String → ConvertError
-  | constIdxOutOfRange : Nat → Nat → ConvertError
-  | invalidIndexDepth : Nat → Nat → ConvertError
-  | invalidMutBlock : String → ConvertError
-  | unexpectedConst : String → String → ConvertError
-  | defnsIdxNotFound : String → ConvertError
-  | mutRefFVNotFound : Nat → ConvertError
-  deriving Inhabited
-
-instance : ToString ConvertError where toString
-  | .anonMetaMismatch anon meta => s!"Anon/Meta mismatch: Anon is of kind {anon} but Meta is of kind {meta}"
-  | .ipldError => "IPLD broken"
-  | .cannotStoreValue => "Cannot store value"
-  | .mutDefBlockFound => "Found a mutual definition block inside an expression"
-  | .mutIndBlockFound => "Found a mutual inductive block inside an expression"
-  | .cannotFindNameIdx name => s!"Cannot find index for '{name}'"
-  | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
-  | .invalidIndexDepth i min => s!"Invalid mutual referencing free variable index {i}. Must be ≥ {min}"
-  | .invalidMutBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
-  | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
-  | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
-  | .unexpectedConst got exp => s!"Unexpected constant. Got {got} but expected {exp}"
-
-abbrev RecrCtx := RBMap (Nat × Option Nat) (Nat × Name) compare
-
-structure ConvertEnv where
-  store     : Ipld.Store
-  recrCtx   : RecrCtx
-  bindDepth : Nat
-  deriving Inhabited
-
-def ConvertEnv.init (store : Ipld.Store) : ConvertEnv :=
-  ⟨store, default, 0⟩
-
-structure ConvertState where
-  univ_cache  : RBMap UnivCid Univ compare
-  expr_cache  : RBMap ExprCid Expr compare
-  const_cache : RBMap ConstCid ConstIdx compare
-  defns       : Array Const
-  defnsIdx    : RBMap Name ConstIdx compare
-  deriving Inhabited
-
-abbrev ConvertM := ReaderT ConvertEnv <| EStateM ConvertError ConvertState
-
-def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
-    Except ConvertError ConvertState :=
-  match EStateM.run (ReaderT.run m env) ste with
-  | .ok _ stt  => .ok stt
-  | .error e _ => .error e
-
-def ConvertM.unwrap : Option A → ConvertM A :=
-  Option.option (throw .ipldError) pure
-
-def withResetBindDepth : ConvertM α → ConvertM α :=
-  withReader $ fun e => { e with bindDepth := 0 }
-
-def withRecrs (recrCtx : RecrCtx) : ConvertM α → ConvertM α :=
-  withReader $ fun e => { e with recrCtx }
-
-def withNewBind : ConvertM α → ConvertM α :=
-  withReader $ fun e => { e with bindDepth := e.bindDepth + 1 }
-
--- Auxiliary definitions
 inductive Key : Type → Type
   | univ_cache  : UnivCid  → Key Univ
   | expr_cache  : ExprCid  → Key Expr
@@ -86,25 +16,27 @@ inductive Key : Type → Type
   | expr_store  : ExprCid  → Key (Ipld.Both Ipld.Expr)
   | const_store : ConstCid → Key (Ipld.Both Ipld.Const)
 
-def Key.find? : (key : Key A) → ConvertM (Option A)
-  | .univ_cache  univ  => return (← get).univ_cache.find? univ
-  | .expr_cache  expr  => return (← get).expr_cache.find? expr
-  | .const_cache const => return (← get).const_cache.find? const
-  | .univ_store  univ  => do
+namespace Key
+
+def find? : (key : Key A) → ConvertM (Option A)
+  | univ_cache  univ  => return (← get).univ_cache.find? univ
+  | expr_cache  expr  => return (← get).expr_cache.find? expr
+  | const_cache const => return (← get).const_cache.find? const
+  | univ_store  univ  => do
     let store := (← read).store
     let anon? := store.univ_anon.find? univ.anon
     let meta? := store.univ_meta.find? univ.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
-  | .expr_store  expr  => do
+  | expr_store  expr  => do
     let store := (← read).store
     let anon? := store.expr_anon.find? expr.anon
     let meta? := store.expr_meta.find? expr.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
-  | .const_store const => do
+  | const_store const => do
     let store := (← read).store
     let anon? := store.const_anon.find? const.anon
     let meta? := store.const_meta.find? const.meta
@@ -112,14 +44,19 @@ def Key.find? : (key : Key A) → ConvertM (Option A)
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
 
-def Key.find (key : Key A) : ConvertM A := do
-  ConvertM.unwrap (← Key.find? key)
+def find (key : Key A) : ConvertM A := do
+  ConvertM.unwrap (← find? key)
 
-def Key.store : (Key A) → A → ConvertM Unit
-  | .univ_cache  univ,  a => modify (fun stt => { stt with univ_cache  := stt.univ_cache.insert  univ  a })
-  | .expr_cache  expr,  a => modify (fun stt => { stt with expr_cache  := stt.expr_cache.insert  expr  a })
-  | .const_cache const, a => modify (fun stt => { stt with const_cache := stt.const_cache.insert const a })
+def store : (Key A) → A → ConvertM Unit
+  | univ_cache  univ,  a => modify fun stt =>
+    { stt with univ_cache  := stt.univ_cache.insert  univ  a }
+  | expr_cache  expr,  a => modify fun stt =>
+    { stt with expr_cache  := stt.expr_cache.insert  expr  a }
+  | const_cache const, a => modify fun stt =>
+    { stt with const_cache := stt.const_cache.insert const a }
   | _, _ => throw .cannotStoreValue
+
+end Key
 
 def getInductive : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Inductive)
   | ⟨.mutIndBlock indsAnon, .mutIndBlock indsMeta⟩, idx =>
@@ -173,7 +110,7 @@ partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
     Key.store (.univ_cache cid) univ
     pure univ
 
-def inductiveIsUnit (ind : Ipld.Inductive .Anon) : Bool :=
+def inductiveIsUnit (ind : Ipld.Inductive .anon) : Bool :=
   if ind.recr || ind.indices.proj₁ != 0 then false
   else match ind.ctors with
     | [ctor] => ctor.fields.proj₁ == 0
@@ -372,7 +309,7 @@ mutual
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIpld ⟨recursorAnon.type, recursorMeta.type⟩
-            let casesExtInt : (b₁ : RecType) → (b₂ : RecType) → (Ipld.Recursor b₁ .Anon) → (Ipld.Recursor b₂ .Meta) → ConvertM Const
+            let casesExtInt : (t₁ : RecType) → (t₂ : RecType) → (Ipld.Recursor t₁ .anon) → (Ipld.Recursor t₂ .meta) → ConvertM Const
             | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
             | .extr, .extr, recAnon, recMeta => do
               let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
@@ -436,5 +373,6 @@ def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   | .ok stt => pure stt.defns
   | .error err => .error $ toString err
 
-end FromIpld
+end Converter
+
 end Yatima

@@ -5,13 +5,13 @@ namespace Yatima
 namespace Ipld
 
 inductive Kind where
-  | Anon : Kind
-  | Meta : Kind
+  | anon : Kind
+  | meta : Kind
   deriving BEq, Inhabited
 
 instance : Coe Kind Bool where coe
-  | .Anon => .true
-  | .Meta => .false
+  | .anon => true
+  | .meta => false
 
 end Ipld
 

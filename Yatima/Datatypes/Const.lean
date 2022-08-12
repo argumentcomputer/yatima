@@ -168,7 +168,7 @@ def Const.ctorName : Ipld.Const k → String
   | .mutDefBlock     _ => "mutual definition block"
   | .mutIndBlock     _ => "mutual inductive block"
 
-def Const.name : Ipld.Const .Meta → Name
+def Const.name : Ipld.Const .meta → Name
   | .axiom           x 
   | .theorem         x 
   | .opaque          x 
