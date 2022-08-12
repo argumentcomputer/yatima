@@ -12,7 +12,7 @@ mutual
   partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
       match expr with 
-        | .app fn arg => descend fn <| argAcc.concat arg
+        | .app fn arg => descend fn <| arg :: argAcc
         | _ => (expr, argAcc)
     do
       let (expr, args) := descend expr []
@@ -30,42 +30,32 @@ mutual
       let fn ← exprToLurkExpr expr
       return .lam binds fn
 
-  partial def ctorToLurkExpr (ctor : Constructor) : TranspileM Unit := do 
-      -- For example, the type of `Nat.succ` is `Nat → Nat`,
-      -- but we don't want to translate the type; 
-      -- we want to build a lambda out of this type
-      -- which requires (a bit awkwardly) descending into
-      -- the foralls and reconstructing a `lambda` term
-    let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
-    let (_, ⟨binds⟩) := descend type #[]
-    let lurkBinds := binds.foldl (
-      fun (acc : Lurk.Expr) (n : Name) => ⟦(cons $n $acc)⟧
+  /-- TODO(Winston): Explain `indices` argument -/
+  partial def ctorToLurkExpr (ctor : Constructor) (indices : Nat) : TranspileM Unit := do 
+    let (name, idx, params, type) := (ctor.name, ctor.idx, ctor.params, ctor.type)
+    let (_, ⟨binds⟩) := descendPi type #[]
+    let lurkBinds := binds.foldr (
+      fun (n : Name) (acc : Lurk.Expr) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
+    -- TODO(Winston): Explain
+    let ind : Lurk.Expr := match (indices + params) with 
+      | 0 => ⟦$(name.getPrefix)⟧
+      | _ => .app ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
     let body := if binds.length == 0 then 
-      ⟦,($(toString name) $idx)⟧
+      ⟦(cons $ind (cons $idx nil))⟧
     else ⟦
       (lambda ($binds) (
-        append ,($(toString name) $idx) $lurkBinds
+        cons $ind (cons $idx $lurkBinds)
       ))
     ⟧
     appendBinding (name, body)
-  where 
-    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
-      match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push name
-        | _ => (expr, bindAcc)
 
-  -- Very delicate, requires logic on the 
-  -- indices/major/minor arguments of the inductive
-  -- in order to insert the argument correctly.
-  -- See lines 27 and 38 in `TypeChecker.Eval`
-  -- partial def ruleRHSToLurkExpr (rhs : Expr) : Lurk.Expr := sorry
-
+  -- TODO: Implement
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
-    let (_, ⟨binds⟩) := descend recr.type #[]
-    let argName : Lurk.Expr := .lit $ .sym binds.last!
+    let (_, ⟨binds⟩) := descendPi recr.type #[]
+    let argName : Lurk.Expr := ⟦$(binds.last!)⟧
     let ifThens ← rhs.mapM fun ctor => do 
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       let rhs ← exprToLurkExpr rhs 
@@ -75,89 +65,91 @@ mutual
       let newArgs := recrArgs.reverse ++ ctorArgs
       return (⟦(= (car (cdr $argName)) $idx)⟧, .app rhs newArgs) -- extract snd element
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧) 
-  where
-    descend (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
-      match expr with 
-        | .pi name _ _ body => descend body <| bindAcc.push name
-        | _ => (expr, bindAcc)
+    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧)
 
-  partial def exprToLurkExpr : Expr → TranspileM Lurk.Expr
+  partial def mutIndBlockToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) : 
+      TranspileM Unit := do
+    for (ind, ctors, irecr, _) in inds do
+      if (← get).visited.contains ind.name then 
+        break
+      let (_, ⟨binds⟩) := descendPi ind.type #[]
+      -- TODO(Winston): Explain
+      let lurkInd := if binds.length == 0 then 
+        ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
+      else 
+        ⟦(lambda ($binds) ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
+      appendBinding (ind.name, lurkInd)
+      intRecrToLurkExpr irecr ctors
+      ctors.forM fun c => ctorToLurkExpr c ind.indices
+
+  partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
+    IO.print ">> exprToLurkExpr: "
+    match e with 
     | .sort  ..
     | .lty   .. => return ⟦nil⟧
-    | .var name _     => return ⟦$name⟧
-    | .const name cid .. => do
+    | .var name _     => 
+      IO.println s!"var {name}"
+      return ⟦$name⟧
+    | .const name idx .. => do
+      IO.println s!"const {name} {idx}"
       let visited? := (← get).visited.contains name
       if !visited? then 
-        visit name -- cache
-        let const := (← read).defns[cid]! -- TODO: Add proof later
-        -- The binding works here because `constToLurkExpr`
-        -- will recursively process its children.
-        -- Hence we know that this binding will always come after
-        -- all of its children have already been bound 
+        let const := (← read).defns[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
-    | e@(.app ..) => telescopeApp e
-    | e@(.lam ..) => telescopeLam e
-    -- TODO: Do we erase?
-    -- MP: I think we erase
+    | e@(.app ..) => 
+      IO.println s!"app"
+      telescopeApp e
+    | e@(.lam ..) => 
+      IO.println s!"lam"
+      telescopeLam e
     | .pi    .. => return ⟦nil⟧
-    -- TODO
     | .letE name _ value body  => do
+      IO.println s!"let {name}"
       let val ← exprToLurkExpr value 
       let body ← exprToLurkExpr body
       return .letE [(name, val)] body
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
-      | .nat n => return ⟦$n⟧
-      | .str s => return ⟦$s⟧
-    -- TODO
-    -- MP: .proj should also go to .nil right? I am probably wrong though.
-    | .proj  .. => return ⟦nil⟧
-
-  -- /--
-  --  FIX: This is wrong, it just returns the literal name for unit type constructors, but it does 
-  --       help with debugging some of the above functions
-  -- -/
-  partial def mutIndBlockToLurkExpr (inds : List (Name × List Name × Name × List Name)) : 
-      TranspileM Unit := do
-    let store ← read
-    for (ind, ctors, intR, _) in inds do
-      if (← get).visited.contains ind then 
-        break
-      visit ind
-      appendBinding (ind, ⟦nil⟧)
-      let ctors ← ctors.mapM fun ctor => 
-        match store.cache.find? ctor with 
-        | some (_, idx) => match store.defns[idx]! with 
-          | .constructor ctor => return ctor 
-          | x => throw $ .invalidConstantKind x "constructor"
-        | none => throw $ .notFoundInCache ctor
-      let irecr : IntRecursor := ← match store.cache.find? intR with 
-        | some (_, idx) => match store.defns[idx]! with 
-          | .intRecursor recr => return recr 
-          | x => throw $ .invalidConstantKind x "internal recursor"
-        | none => throw $ .notFoundInCache intR
-      for ctor in ctors do
-        visit ctor.name
-        ctorToLurkExpr ctor
-      visit irecr.name
-      intRecrToLurkExpr irecr ctors
+      | .nat n => IO.println s!"lit {n}"; return ⟦$n⟧
+      | .str s => IO.println s!"lit {s}"; return ⟦$s⟧
+    | .proj idx e => do
+      IO.println s!"proj {idx}"; 
+      -- this is very nifty; `e` contains its type information *at run time*
+      -- which we can take advantage of to compute the projection
+      let e ← exprToLurkExpr e 
+      -- TODO(Winston): inlining of `e` causes term size blowup, need to remove
+      let offset := ⟦(+ (getelem (car $e) 1) (getelem (car $e) 2))⟧
+      let args := ⟦(cdr (cdr $e))⟧
+      return ⟦(getelem $args (+ $offset $idx))⟧
 
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
   projection separately to avoid some recursions.
-
   Arthur: I think there are some complications with mutual blocks for inductives
   because of recursors and constructors. We need to make sure we won't translate
   the same block more than once.
   -/
-  partial def constToLurkExpr : Const → TranspileM Unit
+  partial def constToLurkExpr (c : Const) : TranspileM Unit := do 
+    IO.println s!">> constToLurkExpr {c.name}"
+    match c with 
     | .axiom    _
     | .quotient _ => return ()
-    | .theorem  x => appendBinding (x.name, .lit .t)
-    | .opaque   x => do appendBinding (x.name, ← exprToLurkExpr x.value)
-    | .definition x => do appendBinding (x.name, ← exprToLurkExpr x.value)
+    | .theorem  x => 
+      if (← get).visited.contains x.name then return 
+      else appendBinding (x.name, .lit .t)
+    | .opaque   x => do 
+      if (← get).visited.contains x.name then 
+        return 
+      else 
+        visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
+        appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
+    | .definition x => do
+      if (← get).visited.contains x.name then 
+        return 
+      else 
+        visit x.name -- ditto
+        appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .inductive x => do 
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
@@ -184,10 +176,6 @@ end
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/
 def builtinInitialize : TranspileM Unit := do
-  appendBinding Lurk.append
-  -- appendBinding Lurk.length
-  -- appendBinding Lurk.take
-  -- appendBinding Lurk.drop
   appendBinding Lurk.getelem
 
 /--
@@ -200,7 +188,7 @@ def transpileM : TranspileM Unit := do
 
 open Yatima.Compiler in 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/
-def transpile (store : CompileState) : IO $ Except String String := do 
+def transpile (store : CompileState) : IO $ Except String String := do  do 
   match ← TranspileM.run store default transpileM with
   | .ok    s => 
     let env := Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧ -- the parens matter, represents evaluation
