@@ -105,7 +105,7 @@ partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
       | .imax univAnon₁ univAnon₂, .imax univMeta₁ univMeta₂ =>
         pure $ .imax (← univFromIpld ⟨univAnon₁, univMeta₁⟩)
           (← univFromIpld ⟨univAnon₂, univMeta₂⟩)
-      | .var () idx, .var nam () => pure $ .var nam idx
+      | .var idx, .var nam => pure $ .var nam idx
       | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
     Key.store (.univ_cache cid) univ
     pure univ
@@ -158,7 +158,7 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .var () idx () lvlsAnon, .var name () idx' lvlsMeta =>
+        | .var idx () lvlsAnon, .var name idx' lvlsMeta =>
           let depth := (← read).bindDepth
           if depth > idx.projₗ then
             -- this is a bound free variable

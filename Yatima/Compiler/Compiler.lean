@@ -68,7 +68,7 @@ def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
       let lvls := (← read).univCtx
       match lvls.indexOf? name with
       | some n =>
-        let value : Ipld.Both Ipld.Univ := ⟨ .var () n, .var name () ⟩
+        let value : Ipld.Both Ipld.Univ := ⟨ .var n, .var name ⟩
         pure (value, .var name n)
       | none   => throw $ .levelNotFound name lvls
     | .mvar .. => throw $ .unfilledLevelMetavariable l
@@ -198,7 +198,7 @@ mutual
     let (value, expr) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         | some name =>
-          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx () [], .var name () (Split.injᵣ none) [] ⟩
+          let value : Ipld.Both Ipld.Expr := ⟨ .var idx () [], .var name (Split.injᵣ none) [] ⟩
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
@@ -209,9 +209,10 @@ mutual
         let pairs ← lvls.mapM $ toYatimaUniv
         let (univCids, univs) ← pairs.foldrM (fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)) ([], [])
         match (← read).recrCtx.find? name with
-        | some (i, i', ref) =>
+        | some (i, i?, ref) =>
           let idx := (← read).bindCtx.length + i
-          let value : Ipld.Both Ipld.Expr := ⟨ .var () idx () (univCids.map (·.anon)), .var name () i' (univCids.map (·.meta))⟩
+          let value : Ipld.Both Ipld.Expr := ⟨ .var idx () (univCids.map (·.anon)),
+            .var name i? (univCids.map (·.meta)) ⟩
           pure (value, .const name ref univs)
         | none =>
           let const ← findConstant name

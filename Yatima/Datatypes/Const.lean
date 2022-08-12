@@ -19,83 +19,83 @@ inductive QuotKind where
 
 namespace Ipld
 
-abbrev NatₗListNameᵣ := Split Nat (List Name)
+abbrev NatₐListNameₘ := Split Nat (List Name)
 
 abbrev Boolₗ := Split Bool Unit
 
 structure Axiom (k : Kind) where
-  name : Nameᵣ k
-  lvls : NatₗListNameᵣ k
+  name : Nameₘ k
+  lvls : NatₐListNameₘ k
   type : ExprCid k
   safe : Boolₗ k
   deriving Repr
 
 structure Theorem (k : Kind) where
-  name  : Nameᵣ k
-  lvls  : NatₗListNameᵣ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
   deriving Repr
 
 structure Opaque (k : Kind) where
-  name  : Nameᵣ k
-  lvls  : NatₗListNameᵣ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
   safe  : Boolₗ k
   deriving Repr
 
 structure Definition (k : Kind) where
-  name   : Nameᵣ k
-  lvls   : NatₗListNameᵣ k
+  name   : Nameₘ k
+  lvls   : NatₐListNameₘ k
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
   deriving Inhabited
 
 structure DefinitionProj (k : Kind) where
-  name  : Nameᵣ k
-  lvls  : NatₗListNameᵣ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
   type  : ExprCid k
   block : ConstCid k
   idx   : Nat
   deriving Repr
 
 structure Constructor (k : Kind) where
-  name   : Nameᵣ k
-  lvls   : NatₗListNameᵣ k
+  name   : Nameₘ k
+  lvls   : NatₐListNameₘ k
   type   : ExprCid k
-  idx    : Natₗ k
-  params : Natₗ k
-  fields : Natₗ k
+  idx    : Natₐ k
+  params : Natₐ k
+  fields : Natₐ k
   rhs    : ExprCid k
   safe   : Boolₗ k
   deriving Repr
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
-  fields : Natₗ k
+  fields : Natₐ k
   rhs    : ExprCid k
   deriving Repr
 
 structure Recursor (b : RecType) (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
-  params  : Natₗ k
-  indices : Natₗ k
-  motives : Natₗ k
-  minors  : Natₗ k
+  params  : Natₐ k
+  indices : Natₐ k
+  motives : Natₐ k
+  minors  : Natₐ k
   rules   : Split Unit (List (RecursorRule k)) b
   k       : Boolₗ k
   deriving Repr
 
 structure Inductive (k : Kind) where
-  name     : Nameᵣ k
-  lvls     : NatₗListNameᵣ k
+  name     : Nameₘ k
+  lvls     : NatₐListNameₘ k
   type     : ExprCid k
-  params   : Natₗ k
-  indices  : Natₗ k
+  params   : Natₐ k
+  indices  : Natₐ k
   ctors    : List (Constructor k)
   recrs    : List (Sigma (Recursor · k))
   recr     : Boolₗ k
@@ -107,34 +107,34 @@ instance {k : Kind} : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Natₗ k
+  idx     : Natₐ k
   deriving Repr
 
 structure ConstructorProj (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Natₗ k
-  cidx    : Natₗ k
+  idx     : Natₐ k
+  cidx    : Natₐ k
   deriving Repr
 
 structure RecursorProj (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : Natₗ k
-  ridx    : Natₗ k
+  idx     : Natₐ k
+  ridx    : Natₐ k
   deriving Repr
 
 structure Quotient (k : Kind) where
-  name : Nameᵣ k
-  lvls : NatₗListNameᵣ k
+  name : Nameₘ k
+  lvls : NatₐListNameₘ k
   type : ExprCid k
   kind : Split QuotKind Unit k
 
