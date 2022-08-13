@@ -1,6 +1,21 @@
 import Yatima.ForLurkRepo.DSL 
 
+/-!
+
+# Helper Functions for the Transpiler and Examples 
+
+This file provides all helper functions needed to construct Lurk functions 
+from Yatima expressions. We also provide some detailed examples of what 
+transpiled output should look like. 
+
+-/
+
 namespace Lurk 
+
+/-! 
+## Helper Functions 
+Technically only `getelem` is used right now, but maybe the others will find use.
+-/
 
 def append : Name × Expr := (`append, ⟦
   (lambda (xs ys) (
@@ -49,6 +64,24 @@ def getelem : Name × Expr := (`getelem, ⟦
       getelem (cdr xs) (- n 1)
     )
   ))
+⟧)
+
+/-! 
+## `Nat` Example
+-/
+
+/-- The Lurk definition of `Nat`.
+  Currently, inductives encode three pieces of information.
+  1. The name of the inductive. This is not used anywhere in the transpiler, 
+     but is useful to keep around for humans to debug and identify objects.
+  2. The number of parameters. Used to generate projections.
+  3. The number of indices. Also used to generate projections.
+  
+  This information is somewhat arbitrary. It's the bare minimum needed to
+  make things work. If there are better representations or we need more 
+  metadata it should be freely changed. -/
+def nat := (`nat, ⟦
+  ,("Nat" 0 0)
 ⟧)
 
 def zero := (`zero, ⟦

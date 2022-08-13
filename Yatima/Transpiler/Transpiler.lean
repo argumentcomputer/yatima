@@ -17,6 +17,61 @@ This may be slightly strange as the naming suggests that we are producing Lurk e
 but the final action is binding the transpiled result into the Lurk output, so `Unit` is
 often more natural to return. 
 
+## Inductives
+
+Currently, inductives encode three pieces of information.
+1. The name of the inductive. This is not used anywhere in the transpiler, 
+   but is useful to keep around for humans to debug and identify objects.
+2. The number of parameters. Used to generate projections.
+3. The number of indices. Also used to generate projections.
+
+This information is somewhat arbitrary. It's the bare minimum needed to
+make things work. If there are better representations or we need more 
+metadata it should be freely changed.
+
+For example, the definition of `Nat` is (the comma is the Lurk `quote`)
+```
+,("Nat" 0 0)
+```
+
+For inductives with parameters and indices, we must encode the definitions
+as functions. When types are not erased, inductive types 
+must be treated as meaningful functions. For example, `Prod` is 
+```
+(lambda (:1 :2) ,("Prod" 2 0))
+```
+
+If types are erased, then these parameters and indices may be ignored.
+Perhaps with erased types, a different inductive representation could be used. 
+
+## Constructors 
+
+See the docstring for `ctorToLurkExpr`. Here are some examples:
+1. `Nat`
+  a. `Nat.zero` is `(Nat 0)`
+  b. `Nat.succ` is `(lambda n => (Nat 1 n))`
+
+So `2` is `(Nat 1 Nat 1 Nat 0)`. 
+This clearly duplicates `Nat` a lot, so we should try to find an
+more compact representation for constructor/inductive data.
+
+2. `Prod`
+  a. `Prod.mk` is `(lambda (:1 :2 fst snd) ((Prod :1 :2) 0 fst snd))`
+
+Note that `(Prod :1 :2)` reduces to `("Prod" 2 0)`, allowing us to access
+the inductive data. 
+
+## Recursors
+
+See the docstrings for `intRecrToLurkExpr` and `extRecrToLurkExpr`. 
+Here are some examples:
+
+TODO
+
+## Projections 
+
+TODO
+
 -/
 
 namespace Yatima.Transpiler
