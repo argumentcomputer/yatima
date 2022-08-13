@@ -6,16 +6,16 @@ namespace Yatima
 
 namespace Ipld
 
-abbrev Nameᵣ k := Split Unit Name k
+/-- Holds a `Nat` for anon and a `Yatima.Name` for meta -/
+abbrev NatₐNameₘ k := Split Nat Name k
 
-abbrev Natₗ k := Split Nat Unit k
-
+/-- Parametric representation of universe levels for IPLD -/
 inductive Univ (k : Kind) where
   | zero
   | succ  : UnivCid k → Univ k
   | max   : UnivCid k → UnivCid k → Univ k
   | imax  : UnivCid k → UnivCid k → Univ k
-  | var   : Nameᵣ k → Natₗ k → Univ k
+  | var   : NatₐNameₘ k → Univ k
   deriving BEq, Inhabited
 
 def Univ.ctorName : Univ k → String
@@ -27,6 +27,7 @@ def Univ.ctorName : Univ k → String
 
 end Ipld
 
+/-- Representation of universe levels for typechecking and transpilation -/
 inductive Univ where
   | zero
   | succ  : Univ → Univ

@@ -189,35 +189,35 @@ def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
   { version := 0x01, codec, hash }
 
 def univToIpld : (Ipld.Univ k) → Ipld
-  | .zero      => .array #[.number $ Ipld.UNIV k, .number 0]
-  | .succ p    => .array #[.number $ Ipld.UNIV k, .number 1, p]
-  | .max a b   => .array #[.number $ Ipld.UNIV k, .number 2, a, b]
-  | .imax a b  => .array #[.number $ Ipld.UNIV k, .number 3, a, b]
-  | .var n i   => .array #[.number $ Ipld.UNIV k, .number 4, n, i]
+  | .zero     => .array #[.number $ Ipld.UNIV k, .number 0]
+  | .succ p   => .array #[.number $ Ipld.UNIV k, .number 1, p]
+  | .max a b  => .array #[.number $ Ipld.UNIV k, .number 2, a, b]
+  | .imax a b => .array #[.number $ Ipld.UNIV k, .number 3, a, b]
+  | .var n    => .array #[.number $ Ipld.UNIV k, .number 4, n]
 
 def exprToIpld : (Ipld.Expr k) → Ipld
-  | .var n i i' ls => .array #[.number $ Ipld.EXPR k, .number 0, i, i', n, ls]
-  | .sort u        => .array #[.number $ Ipld.EXPR k, .number 1, u]
-  | .const n c ls  => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
-  | .app f a       => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
-  | .lam n i d b   => .array #[.number $ Ipld.EXPR k, .number 4, n, i, d, b]
-  | .pi n i d c    => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
-  | .letE n t v b  => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
-  | .lit l         => .array #[.number $ Ipld.EXPR k, .number 7, l]
-  | .lty l         => .array #[.number $ Ipld.EXPR k, .number 8, l]
-  | .proj n e      => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
+  | .var n i ls   => .array #[.number $ Ipld.EXPR k, .number 0, n, i, ls]
+  | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
+  | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
+  | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
+  | .lam n i d b  => .array #[.number $ Ipld.EXPR k, .number 4, n, i, d, b]
+  | .pi n i d c   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
+  | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
+  | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
+  | .lty l        => .array #[.number $ Ipld.EXPR k, .number 8, l]
+  | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
 
 def constToIpld : (Ipld.Const k) → Ipld
-  | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0,  n, l, t, s]
-  | .theorem ⟨n, l, t, v⟩               => .array #[.number $ Ipld.CONST k, .number 1,  n, l, t, v]
-  | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ Ipld.CONST k, .number 2,  n, l, t, v, s]
-  | .quotient ⟨n, l, t, K⟩              => .array #[.number $ Ipld.CONST k, .number 3,  n, l, t, K]
+  | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0, n, l, t, s]
+  | .theorem ⟨n, l, t, v⟩               => .array #[.number $ Ipld.CONST k, .number 1, n, l, t, v]
+  | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ Ipld.CONST k, .number 2, n, l, t, v, s]
+  | .quotient ⟨n, l, t, K⟩              => .array #[.number $ Ipld.CONST k, .number 3, n, l, t, K]
   | .inductiveProj ⟨n, l, t, b, i⟩      => .array #[.number $ Ipld.CONST k, .number 5, n, l, t, b, i]
   | .constructorProj ⟨n, l, t, b, i, j⟩ => .array #[.number $ Ipld.CONST k, .number 6, n, l, t, b, i, j]
   | .recursorProj ⟨n, l, t, b, i, j⟩    => .array #[.number $ Ipld.CONST k, .number 7, n, l, t, b, i, j]
   | .definitionProj ⟨n, l, t, b, i⟩     => .array #[.number $ Ipld.CONST k, .number 8, n, l, t, b, i]
-  | .mutDefBlock ds                     => .array #[.number $ Ipld.CONST k, .number 9,  ds]
-  | .mutIndBlock is                     => .array #[.number $ Ipld.CONST k, .number 10, is]
+  | .mutDefBlock b                      => .array #[.number $ Ipld.CONST k, .number 9, b]
+  | .mutIndBlock b                      => .array #[.number $ Ipld.CONST k, .number 10, b]
 
 def univToCid (univ : Ipld.Univ k) : Ipld.UnivCid k :=
   { data := ipldToCid (Ipld.UNIV k).toNat (univToIpld univ) }
