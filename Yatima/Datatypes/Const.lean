@@ -1,33 +1,65 @@
 import Yatima.Datatypes.Expr
 
+/-!
+# Encoding Lean constants
+
+This file defines the datatypes used to encode Lean constants: axioms, theorems,
+definitions, inductives etc.
+
+As with universes and expressions, we have datatypes for IPLD and for
+typechecking/transpilation.
+
+## Encoding for IPLD
+
+Most constants are straightfoward to encode. The tricky cases are inductives and
+definitions, mostly due to the fact that those can be declared in mutually
+recursive blocks.
+
+For generality, we're encoding every definition and inductive in mutual blocks,
+even in the standalone cases. Then we create "projections" that can point to the
+original declarations by keeping a reference to the encoded block and the index
+of the declaration inside the mutual block.
+
+However, there are some particularities to each case.
+
+### Encoding inductives
+
+
+-/
+
 namespace Yatima
 
+/-- The kind of recursor: internal or external -/
 inductive RecType where
   | intr : RecType
   | extr : RecType
   deriving BEq, Inhabited
 
-instance : Coe RecType Bool where coe | .intr => .true | .extr => .false
-def Split.intr : A → Split A B RecType.intr := Split.injₗ
-def Split.extr : B → Split A B RecType.extr := Split.injᵣ
+instance : Coe RecType Bool where coe
+  | .intr => true
+  | .extr => false
 
 inductive DefinitionSafety where
-  | safe | «unsafe» | «partial» deriving BEq, Inhabited, Repr
+  | safe | «unsafe» | «partial»
+  deriving BEq, Inhabited, Repr
 
 inductive QuotKind where
-  | type | ctor | lift | ind deriving BEq
+  | type | ctor | lift | ind
+  deriving BEq
 
 namespace Ipld
 
+/-- The number of universes for anon or their names for meta -/
 abbrev NatₐListNameₘ := Split Nat (List Name)
 
-abbrev Boolₗ := Split Bool Unit
+/-- Boolean flags for anon -/
+abbrev Boolₐ := Split Bool Unit
 
 structure Axiom (k : Kind) where
   name : Nameₘ k
   lvls : NatₐListNameₘ k
   type : ExprCid k
-  safe : Boolₗ k
+  safe : Boolₐ k
   deriving Repr
 
 structure Theorem (k : Kind) where
@@ -42,7 +74,7 @@ structure Opaque (k : Kind) where
   lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
-  safe  : Boolₗ k
+  safe  : Boolₐ k
   deriving Repr
 
 structure Definition (k : Kind) where
@@ -69,7 +101,7 @@ structure Constructor (k : Kind) where
   params : Natₐ k
   fields : Natₐ k
   rhs    : ExprCid k
-  safe   : Boolₗ k
+  safe   : Boolₐ k
   deriving Repr
 
 structure RecursorRule (k : Kind) where
@@ -78,7 +110,7 @@ structure RecursorRule (k : Kind) where
   rhs    : ExprCid k
   deriving Repr
 
-structure Recursor (b : RecType) (k : Kind) where
+structure Recursor (r : RecType) (k : Kind) where
   name    : Nameₘ k
   lvls    : NatₐListNameₘ k
   type    : ExprCid k
@@ -86,8 +118,8 @@ structure Recursor (b : RecType) (k : Kind) where
   indices : Natₐ k
   motives : Natₐ k
   minors  : Natₐ k
-  rules   : Split Unit (List (RecursorRule k)) b
-  k       : Boolₗ k
+  rules   : Split Unit (List (RecursorRule k)) r
+  k       : Boolₐ k
   deriving Repr
 
 structure Inductive (k : Kind) where
@@ -98,12 +130,12 @@ structure Inductive (k : Kind) where
   indices  : Natₐ k
   ctors    : List (Constructor k)
   recrs    : List (Sigma (Recursor · k))
-  recr     : Boolₗ k
-  safe     : Boolₗ k
-  refl     : Boolₗ k
+  recr     : Boolₐ k
+  safe     : Boolₐ k
+  refl     : Boolₐ k
   deriving Inhabited
 
-instance {k : Kind} : Repr (Inductive k) where
+instance : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
@@ -138,7 +170,7 @@ structure Quotient (k : Kind) where
   type : ExprCid k
   kind : Split QuotKind Unit k
 
-instance {k : Kind} : Repr (Quotient k) where
+instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
 
 inductive Const (k : Kind) where
