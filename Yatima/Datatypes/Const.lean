@@ -20,11 +20,19 @@ even in the standalone cases. Then we create "projections" that can point to the
 original declarations by keeping a reference to the encoded block and the index
 of the declaration inside the mutual block.
 
-However, there are some particularities to each case.
+There are, however, some particularities to each case.
+
+### Encoding definitions
+
 
 ### Encoding inductives
 
 
+## Encoding for typechecking and transpilation
+
+In this case, there's no need for indirect references via CID. We can encode
+everything with direct references, avoiding the searches that would make
+typechecking a lot slower than it needs to be.
 -/
 
 namespace Yatima

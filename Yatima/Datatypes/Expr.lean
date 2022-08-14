@@ -41,7 +41,7 @@ abbrev BinderInfoₐ k := Split BinderInfo Unit k
 inductive Expr (k : Kind)
   -- Variables are also used to represent recursive calls. For mutual
   -- definitions, so the second argument indicates the index of reference inside
-  -- the weakly equal group. When referencing constants, the third argument
+  -- the weakly equal group. And when referencing constants, the third argument
   -- keeps track of the universe levels
   | var   : NatₐNameₘ k → Nat?ₘ k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
