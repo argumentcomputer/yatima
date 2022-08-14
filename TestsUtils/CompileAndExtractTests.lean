@@ -124,8 +124,8 @@ def reindexConst (map : NatNatMap) : Const → Const
 
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractConstArray` succeeds"
-    (extractConstArray stt.store) fun defns =>
-      withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
+    (extractConstArray stt.store) fun consts =>
+      withExceptOk "Pairing succeeds" (pairConstants stt.consts consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 

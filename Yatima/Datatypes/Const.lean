@@ -1,40 +1,5 @@
 import Yatima.Datatypes.Expr
 
-/-!
-# Encoding Lean constants
-
-This file defines the datatypes used to encode Lean constants: axioms, theorems,
-definitions, inductives etc.
-
-As with universes and expressions, we have datatypes for IPLD and for
-typechecking/transpilation.
-
-## Encoding for IPLD
-
-Most constants are straightfoward to encode. The tricky cases are inductives and
-definitions, mostly due to the fact that those can be declared in mutually
-recursive blocks.
-
-For generality, we're encoding every definition and inductive in mutual blocks,
-even in the standalone cases. Then we create "projections" that can point to the
-original declarations by keeping a reference to the encoded block and the index
-of the declaration inside the mutual block.
-
-There are, however, some particularities to each case.
-
-### Encoding definitions
-
-
-### Encoding inductives
-
-
-## Encoding for typechecking and transpilation
-
-In this case, there's no need for indirect references via CID. We can encode
-everything with direct references, avoiding the searches that would make
-typechecking a lot slower than it needs to be.
--/
-
 namespace Yatima
 
 /-- The kind of recursor: internal or external -/
@@ -57,11 +22,11 @@ inductive QuotKind where
 
 namespace Ipld
 
-/-- The number of universes for anon or their names for meta -/
-abbrev NatₐListNameₘ := Split Nat (List Name)
+-- The number of universes for anon or their names for meta
+scoped notation "NatₐListNameₘ" => Split Nat (List Name)
 
-/-- Boolean flags for anon -/
-abbrev Boolₐ := Split Bool Unit
+-- Boolean flags for anon
+scoped notation "Boolₐ" => Split Bool Unit
 
 structure Axiom (k : Kind) where
   name : Nameₘ k
@@ -181,6 +146,7 @@ structure Quotient (k : Kind) where
 instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
 
+/-- Parametric representation of constants for IPLD -/
 inductive Const (k : Kind) where
   -- standalone constants
   | «axiom»     : Axiom k → Const k
@@ -312,6 +278,7 @@ structure Quotient where
   kind : QuotKind
   deriving BEq
 
+/-- Representation of constants for typechecking and transpilation -/
 inductive Const
   | «axiom»     : Axiom → Const
   | «theorem»   : Theorem → Const

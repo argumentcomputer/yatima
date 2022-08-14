@@ -31,7 +31,7 @@ Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 def getMutualIndInfo (ind : Inductive) : 
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let cache := (← read).cache
-  let defns := (← read).defns
+  let consts := (← read).consts
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name
@@ -51,24 +51,24 @@ def getMutualIndInfo (ind : Inductive) :
         | .intr => intR := recr.name.projᵣ 
         | .extr => extRs := recr.name.projᵣ :: extRs
       let ind : Inductive := ← match cache.find? indName with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .inductive ind => return ind 
           | x => throw $ .invalidConstantKind x "inductive"
         | none => throw $ .notFoundInCache intR
       let ctors ← ctors.mapM fun ctor => 
         match cache.find? ctor with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .constructor ctor => return ctor 
           | x => throw $ .invalidConstantKind x "constructor"
         | none => throw $ .notFoundInCache ctor
       let irecr : IntRecursor := ← match cache.find? intR with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .intRecursor recr => return recr 
           | x => throw $ .invalidConstantKind x "internal recursor"
         | none => throw $ .notFoundInCache intR
       let erecrs ← extRs.mapM fun extR => 
         match cache.find? extR with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .extRecursor extR => return extR 
           | x => throw $ .invalidConstantKind x "external recursor"
         | none => throw $ .notFoundInCache extR

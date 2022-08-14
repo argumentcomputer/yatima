@@ -3,45 +3,14 @@ import Yatima.Compiler.CompileError
 import Yatima.Ipld.ToIpld
 import Yatima.Compiler.Utils
 
-def Yatima.Ipld.Const.ctorType : Const k → String
-  | «axiom»         .. => "axiom"
-  | «theorem»       .. => "theorem"
-  | «opaque»        .. => "opaque"
-  | quotient        .. => "quotient"
-  | inductiveProj   .. => "inductiveProj"
-  | constructorProj .. => "constructorProj"
-  | recursorProj    .. => "recursorProj"
-  | definitionProj  .. => "definitionProj"
-  | mutDefBlock     .. => "mutDefBlock"
-  | mutIndBlock     .. => "mutIndBlock"
-
-def Yatima.Ipld.Univ.ctorType : Univ k → String
-  | succ .. => "succ"
-  | zero .. => "zero"
-  | imax .. => "imax"
-  | max  .. => "max"
-  | var  .. => "var"
-
-def Yatima.Ipld.Expr.ctorType : Expr k → String
-  | var   .. => "var"
-  | sort  .. => "sort"
-  | const .. => "const"
-  | app   .. => "app"
-  | lam   .. => "lam"
-  | pi    .. => "pi"
-  | letE  .. => "let"
-  | lit   .. => "lit"
-  | lty   .. => "lty"
-  | proj  .. => "proj"
-
 namespace Yatima.Compiler
 
 open Std (RBMap)
 
 structure CompileState where
-  store : Ipld.Store
-  defns : Array Const
-  cache : RBMap Name (ConstCid × ConstIdx) compare
+  store  : Ipld.Store
+  consts : Array Const
+  cache  : RBMap Name (ConstCid × ConstIdx) compare
   deriving Inhabited
 
 namespace CompileState
@@ -55,12 +24,12 @@ def union (s s' : CompileState) : Except String CompileState := Id.run do
     | none => cache := cache.insert n c'
   return .ok ⟨
     s.store.union s'.store,
-    s'.defns,
+    s'.consts,
     cache
   ⟩
 
 def summary (s : CompileState) : String :=
-  let consts := ", ".intercalate $ s.defns.toList.map
+  let consts := ", ".intercalate $ s.consts.toList.map
     fun c => s!"{c.name} : {c.ctorName}"
   "Compilation summary:\n" ++
   s!"-----------Constants-----------\n" ++
@@ -168,16 +137,16 @@ def StoreValue.insert : StoreValue A → CompileM A
       modifyGet fun stt => (cid, { stt with store :=
         { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
                          const_meta := stt.store.const_meta.insert cid.meta obj.meta,
-                         defns      := stt.store.defns.insert cid } })
+                         consts     := stt.store.consts.insert cid } })
 
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
-def addToDefns (idx : Nat) (c : Const): CompileM Unit := do
-  let defns := (← get).defns
-  if h : idx < defns.size then
-    modify fun stt => { stt with defns := defns.set ⟨idx, h⟩ c }
+def addToConsts (idx : Nat) (c : Const): CompileM Unit := do
+  let consts := (← get).consts
+  if h : idx < consts.size then
+    modify fun stt => { stt with consts := consts.set ⟨idx, h⟩ c }
   else
-    throw $ .invalidDereferringIndex idx defns.size
+    throw $ .invalidDereferringIndex idx consts.size
 
 end Yatima.Compiler

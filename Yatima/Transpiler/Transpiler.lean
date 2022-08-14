@@ -182,7 +182,7 @@ mutual
       IO.println s!"const {name} {idx}"
       let visited? := (← get).visited.contains name
       if !visited? then 
-        let const := (← read).defns[idx]! -- TODO: Add proof later
+        let const := (← read).consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
     | e@(.app ..) => 
@@ -249,7 +249,7 @@ mutual
       let indName := name.getPrefix
       let store ← read
       match store.cache.find? indName with 
-      | some (_, idx) => match store.defns[idx]! with 
+      | some (_, idx) => match store.consts[idx]! with 
         | .inductive i => return i 
         | x => throw $ .invalidConstantKind x "inductive"
       | none => throw $ .notFoundInCache indName
@@ -272,7 +272,7 @@ Main translation function.
 def transpileM : TranspileM Unit := do
   let store ← read
   builtinInitialize
-  store.defns.forM constToLurkExpr
+  store.consts.forM constToLurkExpr
 
 open Yatima.Compiler in 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/

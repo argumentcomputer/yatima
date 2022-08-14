@@ -6,8 +6,8 @@ namespace Yatima
 
 namespace Ipld
 
-/-- Holds a `Nat` for anon and a `Yatima.Name` for meta -/
-abbrev NatₐNameₘ k := Split Nat Name k
+-- Holds a `Nat` for anon and a `Yatima.Name` for meta
+scoped notation "NatₐNameₘ" => Split Nat Lean.Name
 
 /-- Parametric representation of universe levels for IPLD -/
 inductive Univ (k : Kind) where

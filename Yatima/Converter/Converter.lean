@@ -117,9 +117,9 @@ def inductiveIsUnit (ind : Ipld.Inductive .anon) : Bool :=
     | _ => false
 
 def getDefnIdx (n : Name) : ConvertM Nat := do
-  match (← get).defnsIdx.find? n with
+  match (← get).constsIdx.find? n with
   | some idx => pure idx
-  | none => throw $ .defnsIdxNotFound $ n.toString
+  | none => throw $ .constIdxNotFound $ n.toString
 
 def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
   let indBlockMeta ← match indBlock.meta with
@@ -215,7 +215,7 @@ mutual
     | none =>
       withResetBindDepth do
         let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
-        let some constIdx := (← get).defnsIdx.find? meta.name
+        let some constIdx := (← get).constsIdx.find? meta.name
           | throw $ .cannotFindNameIdx $ toString meta.name
         let const ← match anon, meta with
         | .axiom axiomAnon, .axiom axiomMeta =>
@@ -326,10 +326,10 @@ mutual
         | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
         | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
         Key.store (.const_cache cid) constIdx
-        let defns := (← get).defns
-        let maxSize := defns.size
+        let consts := (← get).consts
+        let maxSize := consts.size
         if h : constIdx < maxSize then
-          set { ← get with defns := defns.set ⟨constIdx, h⟩ const }
+          set { ← get with consts := consts.set ⟨constIdx, h⟩ const }
         else
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
@@ -348,10 +348,10 @@ mutual
   partial def ruleFromIpld (rule : Ipld.Both Ipld.RecursorRule) : ConvertM RecursorRule := do
     let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let defns := (← get).defns
-    let maxSize := defns.size
+    let consts := (← get).consts
+    let maxSize := consts.size
     if h : ctorIdx < maxSize then
-      let ctor ← match defns[ctorIdx]'h with
+      let ctor ← match consts[ctorIdx]'h with
         | .constructor ctor => pure ctor
         | _ => throw .ipldError
       return { rhs, ctor, fields := rule.anon.fields }
@@ -364,13 +364,13 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
     (← read).store.const_meta.toList.enum.forM fun (idx, (_, meta)) => do
       modifyGet fun state => (default, { state with
-        defns := state.defns.push default,
-        defnsIdx := state.defnsIdx.insert meta.name idx })
-    (← read).store.defns.forM fun cid => discard $ constFromIpld cid
+        consts := state.consts.push default,
+        constsIdx := state.constsIdx.insert meta.name idx })
+    (← read).store.consts.forM fun cid => discard $ constFromIpld cid
 
 def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   match convertStore store with
-  | .ok stt => pure stt.defns
+  | .ok stt => pure stt.consts
   | .error err => .error $ toString err
 
 end Converter

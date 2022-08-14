@@ -25,17 +25,17 @@ inductive Literal
 
 namespace Ipld
 
-/-- Carries a `Yatima.Name` for meta -/
-abbrev Nameₘ k := Split Unit Name k
+-- Carries a `Lean.Name` for meta
+scoped notation "Nameₘ" => Split Unit Name
 
-/-- Carries a `Nat` for anon -/
-abbrev Natₐ k := Split Nat Unit k
+-- Carries a `Nat` for anon
+scoped notation "Natₐ" => Split Nat Unit
 
-/-- Carries an `Option Nat` for meta -/
-abbrev Nat?ₘ k := Split Unit (Option Nat) k
+-- Carries an `Option Nat` for meta
+scoped notation "Nat?ₘ" => Split Unit (Option Nat)
 
-/-- Carries a `Yatima.BinderInfo` for anon -/
-abbrev BinderInfoₐ k := Split BinderInfo Unit k
+-- Carries a `Yatima.BinderInfo` for anon
+scoped notation "BinderInfoₐ" => Split BinderInfo Unit
 
 /-- Parametric representation of expressions for IPLD -/
 inductive Expr (k : Kind)
@@ -69,8 +69,8 @@ def Expr.ctorName : Expr k → String
 
 end Ipld
 
-/-- Points to a constant in an array of constants -/
-abbrev ConstIdx := Nat
+-- Points to a constant in an array of constants
+scoped notation "ConstIdx" => Nat
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
@@ -146,7 +146,7 @@ def getBVars : Expr → List Name
   | proj _ body => getBVars body
   | _ => [] -- All the rest of the cases are treated at once
 
-def ctorType : Expr → String
+def ctorName : Expr → String
   | var   .. => "var"
   | sort  .. => "sort"
   | const .. => "const"

@@ -33,10 +33,10 @@ instance : Coe Lean.QuotKind QuotKind where coe
 open ToIpld
 
 def derefConst (idx : ConstIdx) : CompileM Const := do
-  let defns := (← get).defns
-  let size := defns.size
+  let consts := (← get).consts
+  let size := consts.size
   if h : idx < size then
-    return defns[idx]'h
+    return consts[idx]'h
   else
     throw $ .invalidDereferringIndex idx size
 
@@ -143,7 +143,7 @@ mutual
   -- The rest adds the constants to the cache one by one
   | const => withResetCompileEnv const.levelParams do
     -- It is important to push first with some value so we don't lose the position of the constant in a recursive call
-    let constIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.push default }))
+    let constIdx ← modifyGet (fun stt => (stt.consts.size, { stt with consts := stt.consts.push default }))
     let values : Ipld.Both Ipld.Const × Const ← match const with
       | .axiomInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
@@ -188,7 +188,7 @@ mutual
         pure (value, .quotient quot)
       | _ => unreachable!
     let cid ← StoreValue.insert $ .const values.fst
-    addToDefns constIdx values.snd
+    addToConsts constIdx values.snd
     addToCache const.name (cid, constIdx)
     pure (cid, constIdx)
 
@@ -269,14 +269,14 @@ mutual
         constList := constList.append addList
       | const => throw $ .invalidConstantKind const "inductive"
 
-    -- All inductives, constructors and recursors are done in one go, so we must append an array of `constList.length` to `defns`
+    -- All inductives, constructors and recursors are done in one go, so we must append an array of `constList.length` to `consts`
     -- and save the mapping of all names in `constList` to their respective indices
-    let mut firstIdx ← modifyGet (fun stt => (stt.defns.size, { stt with defns := stt.defns.append (mkArray constList.length default) }))
+    let mut firstIdx ← modifyGet (fun stt => (stt.consts.size, { stt with consts := stt.consts.append (mkArray constList.length default) }))
     let mut mutualIdxs : RBMap Lean.Name RecrCtxEntry compare := RBMap.empty
     for (i, n) in constList.enum do
       mutualIdxs := mutualIdxs.insert n (i, none, firstIdx + i)
 
-    -- This part will build the inductive block and add all inductives, constructors and recursors to `defns`
+    -- This part will build the inductive block and add all inductives, constructors and recursors to `consts`
     let indInfos : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldrM (init := []) fun name acc => do
       match ← findConstant name with
       | .inductInfo ind => do
@@ -288,7 +288,7 @@ mutual
     let indBlockCid ← StoreValue.insert $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
-    let mut defnIdx := firstIdx
+    let mut constIdx := firstIdx
 
     for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
       -- Add the IPLD inductive projections and inductives to the cache
@@ -297,9 +297,9 @@ mutual
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
       let cid ← StoreValue.insert $ .const indProj
-      addToCache name (cid, defnIdx)
-      if name == initInd.name then ret? := some (cid, defnIdx)
-      defnIdx := defnIdx + 1
+      addToCache name (cid, constIdx)
+      if name == initInd.name then ret? := some (cid, constIdx)
+      constIdx := constIdx + 1
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Add the IPLD constructor projections and constructors to the cache
@@ -308,8 +308,8 @@ mutual
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const ctorProj
-        addToCache name (cid, defnIdx)
-        defnIdx := defnIdx + 1
+        addToCache name (cid, constIdx)
+        constIdx := constIdx + 1
 
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Add the IPLD recursor projections and recursors to the cache
@@ -318,8 +318,8 @@ mutual
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, indIdx, recrIdx ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
         let cid ← StoreValue.insert $ .const recrProj
-        addToCache name (cid, defnIdx)
-        defnIdx := defnIdx + 1
+        addToCache name (cid, constIdx)
+        constIdx := constIdx + 1
 
     match ret? with
     | some ret => return ret
@@ -366,8 +366,8 @@ mutual
       unit    := unit
       struct  := struct
     }
-    let some (_, _, defnIdx) := (← read).recrCtx.find? ind.name | throw $ .unknownConstant ind.name
-    addToDefns defnIdx tcInd
+    let some (_, _, constIdx) := (← read).recrCtx.find? ind.name | throw $ .unknownConstant ind.name
+    addToConsts constIdx tcInd
     return {
       anon := ⟨ ()
         , ind.levelParams.length
@@ -425,8 +425,8 @@ mutual
           motives := rec.numMotives
           minors  := rec.numMinors
           k       := rec.k }
-        let some (_, _, defnIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
-        addToDefns defnIdx tcRecr
+        let some (_, _, constIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
+        addToConsts constIdx tcRecr
         let recr := ⟨
           { name    := ()
             lvls    := rec.levelParams.length
@@ -464,8 +464,8 @@ mutual
         rhs     := rhs
         safe    := not ctor.isUnsafe
       }
-      let some (_, _, defnIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
-      addToDefns defnIdx tcCtor
+      let some (_, _, constIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
+      addToConsts constIdx tcCtor
       return ⟨
         { rhs    := rhsCid.anon
           lvls   := ctor.levelParams.length
@@ -505,8 +505,8 @@ mutual
           rules   := tcRules
           k       := rec.k
         }
-        let some (_, _, defnIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
-        addToDefns defnIdx tcRecr
+        let some (_, _, constIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
+        addToConsts constIdx tcRecr
         return ⟨
           { name    := ()
             lvls    := rec.levelParams.length
@@ -552,7 +552,7 @@ mutual
     let mutualDefs ← sortDefs [mutualDefs]
     let mutualSize := struct.all.length
     let mut firstIdx ← modifyGet fun stt =>
-      (stt.defns.size, { stt with defns := stt.defns.append (mkArray mutualSize default) })
+      (stt.consts.size, { stt with consts := stt.consts.append (mkArray mutualSize default) })
     let mut mutualIdxs : RBMap Lean.Name RecrCtxEntry compare := RBMap.empty
     let mut mutIdx := 0
     for (i, ds) in mutualDefs.enum do
@@ -575,7 +575,7 @@ mutual
                    , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, i⟩ ⟩
       let cid ← StoreValue.insert $ .const value
       let constIdx := i + firstIdx
-      addToDefns constIdx $ .definition defn
+      addToConsts constIdx $ .definition defn
       addToCache defn.name (cid, constIdx)
       if defn.name == struct.name then ret? := some (cid, constIdx)
       i := i + 1
