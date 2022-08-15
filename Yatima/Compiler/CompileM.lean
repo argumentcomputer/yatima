@@ -7,10 +7,15 @@ namespace Yatima.Compiler
 
 open Std (RBMap)
 
+/--
+The state for the `Yatima.Compiler.CompileM` monad.
+
+IMPORTANT: `consts` is unreliable when compiling multiple files!
+-/
 structure CompileState where
   store  : Ipld.Store
-  consts : Array Const
   cache  : RBMap Name (ConstCid × ConstIdx) compare
+  consts : Array Const
   deriving Inhabited
 
 namespace CompileState
@@ -24,8 +29,8 @@ def union (s s' : CompileState) : Except String CompileState := Id.run do
     | none => cache := cache.insert n c'
   return .ok ⟨
     s.store.union s'.store,
-    s'.consts,
-    cache
+    cache,
+    s'.consts
   ⟩
 
 def summary (s : CompileState) : String :=
@@ -114,18 +119,18 @@ inductive StoreValue : Type → Type
   | const : Ipld.Both Ipld.Const → StoreValue (Ipld.Both Ipld.ConstCid)
 
 def StoreValue.insert : StoreValue A → CompileM A
-  | .univ  obj  =>
-    let cid  := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
+  | .univ  obj =>
+    let cid := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
                            univ_meta := stt.store.univ_meta.insert cid.meta obj.meta, } }))
-  | .expr  obj  =>
-    let cid  := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
+  | .expr  obj =>
+    let cid := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
     modifyGet (fun stt => (cid, { stt with store :=
           { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
                            expr_meta := stt.store.expr_meta.insert cid.meta obj.meta, } }))
   | .const obj =>
-    let cid  := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
+    let cid := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
     match obj.anon, obj.meta with
     -- Mutual definition/inductive blocks do not get added to the set of definitions
     | .mutDefBlock .., .mutDefBlock ..
