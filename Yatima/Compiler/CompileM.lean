@@ -7,11 +7,7 @@ namespace Yatima.Compiler
 
 open Std (RBMap)
 
-/--
-The state for the `Yatima.Compiler.CompileM` monad.
-
-IMPORTANT: `consts` is unreliable when compiling multiple files!
--/
+/-- The state for the `Yatima.Compiler.CompileM` monad -/
 structure CompileState where
   store  : Ipld.Store
   cache  : RBMap Name (ConstCid × ConstIdx) compare
@@ -19,19 +15,6 @@ structure CompileState where
   deriving Inhabited
 
 namespace CompileState
-
-def union (s s' : CompileState) : Except String CompileState := Id.run do
-  let mut cache := s.cache
-  for (n, c') in s'.cache do
-    match s.cache.find? n with
-    | some c₁ =>
-      if c₁.1 != c'.1 then return throw s!"Conflicting declarations for '{n}'"
-    | none => cache := cache.insert n c'
-  return .ok ⟨
-    s.store.union s'.store,
-    cache,
-    s'.consts
-  ⟩
 
 def summary (s : CompileState) : String :=
   let consts := ", ".intercalate $ s.consts.toList.map
