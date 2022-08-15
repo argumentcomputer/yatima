@@ -2,145 +2,151 @@ import Yatima.Datatypes.Expr
 
 namespace Yatima
 
+/-- The kind of recursor: internal or external -/
 inductive RecType where
   | intr : RecType
   | extr : RecType
   deriving BEq, Inhabited
 
-instance : Coe RecType Bool where coe | .intr => .true | .extr => .false
-def Split.intr : A → Split A B RecType.intr := Split.inj₁
-def Split.extr : B → Split A B RecType.extr := Split.inj₂
+instance : Coe RecType Bool where coe
+  | .intr => true
+  | .extr => false
 
 inductive DefinitionSafety where
-  | safe | «unsafe» | «partial» deriving BEq, Inhabited, Repr
+  | safe | «unsafe» | «partial»
+  deriving BEq, Inhabited, Repr
 
 inductive QuotKind where
-  | type | ctor | lift | ind deriving BEq
+  | type | ctor | lift | ind
+  deriving BEq
 
 namespace Ipld
 
-abbrev NatₗListNameᵣ := Split Nat (List Name)
+-- The number of universes for anon or their names for meta
+scoped notation "NatₐListNameₘ" => Split Nat (List Name)
 
-abbrev Boolₗ := Split Bool Unit
+-- Boolean flags for anon
+scoped notation "Boolₐ" => Split Bool Unit
 
 structure Axiom (k : Kind) where
-  name : Nameᵣ k
-  lvls : NatₗListNameᵣ k
+  name : Nameₘ k
+  lvls : NatₐListNameₘ k
   type : ExprCid k
-  safe : Boolₗ k
+  safe : Boolₐ k
   deriving Repr
 
 structure Theorem (k : Kind) where
-  name  : Nameᵣ k
-  lvls  : NatₗListNameᵣ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
   deriving Repr
 
 structure Opaque (k : Kind) where
-  name  : Nameᵣ k
-  lvls  : NatₗListNameᵣ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
-  safe  : Boolₗ k
+  safe  : Boolₐ k
   deriving Repr
 
 structure Definition (k : Kind) where
-  name   : Nameᵣ k
-  lvls   : NatₗListNameᵣ k
+  name   : Nameₘ k
+  lvls   : NatₐListNameₘ k
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
   deriving Inhabited
 
 structure DefinitionProj (k : Kind) where
-  name  : Nameᵣ k
-  lvls  : NatₗListNameᵣ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
   type  : ExprCid k
   block : ConstCid k
   idx   : Nat
   deriving Repr
 
 structure Constructor (k : Kind) where
-  name   : Nameᵣ k
-  lvls   : NatₗListNameᵣ k
+  name   : Nameₘ k
+  lvls   : NatₐListNameₘ k
   type   : ExprCid k
-  idx    : LNat k
-  params : LNat k
-  fields : LNat k
+  idx    : Natₐ k
+  params : Natₐ k
+  fields : Natₐ k
   rhs    : ExprCid k
-  safe   : Boolₗ k
+  safe   : Boolₐ k
   deriving Repr
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
-  fields : LNat k
+  fields : Natₐ k
   rhs    : ExprCid k
   deriving Repr
 
-structure Recursor (b : RecType) (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+structure Recursor (r : RecType) (k : Kind) where
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
-  params  : LNat k
-  indices : LNat k
-  motives : LNat k
-  minors  : LNat k
-  rules   : Split Unit (List (RecursorRule k)) b
-  k       : Boolₗ k
+  params  : Natₐ k
+  indices : Natₐ k
+  motives : Natₐ k
+  minors  : Natₐ k
+  rules   : Split Unit (List (RecursorRule k)) r
+  k       : Boolₐ k
   deriving Repr
 
 structure Inductive (k : Kind) where
-  name     : Nameᵣ k
-  lvls     : NatₗListNameᵣ k
+  name     : Nameₘ k
+  lvls     : NatₐListNameₘ k
   type     : ExprCid k
-  params   : LNat k
-  indices  : LNat k
+  params   : Natₐ k
+  indices  : Natₐ k
   ctors    : List (Constructor k)
   recrs    : List (Sigma (Recursor · k))
-  recr     : Boolₗ k
-  safe     : Boolₗ k
-  refl     : Boolₗ k
+  recr     : Boolₐ k
+  safe     : Boolₐ k
+  refl     : Boolₐ k
   deriving Inhabited
 
-instance {k : Kind} : Repr (Inductive k) where
+instance : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : LNat k
+  idx     : Natₐ k
   deriving Repr
 
 structure ConstructorProj (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : LNat k
-  cidx    : LNat k
+  idx     : Natₐ k
+  cidx    : Natₐ k
   deriving Repr
 
 structure RecursorProj (k : Kind) where
-  name    : Nameᵣ k
-  lvls    : NatₗListNameᵣ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
   type    : ExprCid k
   block   : ConstCid k
-  idx     : LNat k
-  ridx    : LNat k
+  idx     : Natₐ k
+  ridx    : Natₐ k
   deriving Repr
 
 structure Quotient (k : Kind) where
-  name : Nameᵣ k
-  lvls : NatₗListNameᵣ k
+  name : Nameₘ k
+  lvls : NatₐListNameₘ k
   type : ExprCid k
   kind : Split QuotKind Unit k
 
-instance {k : Kind} : Repr (Quotient k) where
+instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
 
+/-- Parametric representation of constants for IPLD -/
 inductive Const (k : Kind) where
   -- standalone constants
   | «axiom»     : Axiom k → Const k
@@ -176,7 +182,7 @@ def Const.name : Ipld.Const .meta → Name
   | .definitionProj  x 
   | .inductiveProj   x 
   | .constructorProj x 
-  | .recursorProj    x => x.name.proj₂
+  | .recursorProj    x => x.name.projᵣ
   | .mutDefBlock     _
   | .mutIndBlock     _ => .anonymous
 
@@ -272,6 +278,7 @@ structure Quotient where
   kind : QuotKind
   deriving BEq
 
+/-- Representation of constants for typechecking and transpilation -/
 inductive Const
   | «axiom»     : Axiom → Const
   | «theorem»   : Theorem → Const

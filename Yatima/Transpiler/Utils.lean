@@ -31,7 +31,7 @@ Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 def getMutualIndInfo (ind : Inductive) : 
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let cache := (← read).cache
-  let defns := (← read).defns
+  let consts := (← read).consts
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name
@@ -42,33 +42,33 @@ def getMutualIndInfo (ind : Inductive) :
   match ← StoreKey.find! $ .const blockCid with 
   | ⟨.mutIndBlock blockAnon, .mutIndBlock blockMeta⟩ => 
     blockAnon.zip blockMeta |>.mapM fun (_, indMeta) => do 
-      let indName := indMeta.name.proj₂
-      let ctors := indMeta.ctors.map fun ctor => ctor.name.proj₂
+      let indName := indMeta.name.projᵣ
+      let ctors := indMeta.ctors.map fun ctor => ctor.name.projᵣ
       let mut intR : Name := `none
       let mut extRs : List Name := []
       for ⟨b, recr⟩ in indMeta.recrs do 
         match b with 
-        | .intr => intR := recr.name.proj₂ 
-        | .extr => extRs := recr.name.proj₂ :: extRs
+        | .intr => intR := recr.name.projᵣ 
+        | .extr => extRs := recr.name.projᵣ :: extRs
       let ind : Inductive := ← match cache.find? indName with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .inductive ind => return ind 
           | x => throw $ .invalidConstantKind x "inductive"
         | none => throw $ .notFoundInCache intR
       let ctors ← ctors.mapM fun ctor => 
         match cache.find? ctor with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .constructor ctor => return ctor 
           | x => throw $ .invalidConstantKind x "constructor"
         | none => throw $ .notFoundInCache ctor
       let irecr : IntRecursor := ← match cache.find? intR with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .intRecursor recr => return recr 
           | x => throw $ .invalidConstantKind x "internal recursor"
         | none => throw $ .notFoundInCache intR
       let erecrs ← extRs.mapM fun extR => 
         match cache.find? extR with 
-        | some (_, idx) => match defns[idx]! with 
+        | some (_, idx) => match consts[idx]! with 
           | .extRecursor extR => return extR 
           | x => throw $ .invalidConstantKind x "external recursor"
         | none => throw $ .notFoundInCache extR
@@ -90,7 +90,7 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Name := do
   match ← StoreKey.find! $ .const blockCid with 
   | ⟨_, .mutDefBlock blockMeta⟩ => 
     let defs ← blockMeta.mapM fun defsMeta => do 
-      return defsMeta.proj₂.map (·.name.proj₂)
+      return defsMeta.projᵣ.map (·.name.projᵣ)
     return defs.join
   | _ => throw $ .custom "blockCid not found in store"
 
