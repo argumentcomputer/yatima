@@ -9,7 +9,7 @@ inductive ConvertError where
   | invalidIndexDepth : Nat → Nat → ConvertError
   | invalidMutBlock : String → ConvertError
   | unexpectedConst : String → String → ConvertError
-  | defnsIdxNotFound : String → ConvertError
+  | constIdxNotFound : String → ConvertError
   | mutRefFVNotFound : Nat → ConvertError
   deriving Inhabited
 
@@ -23,6 +23,6 @@ instance : ToString ConvertError where toString
   | .constIdxOutOfRange i max => s!"Const index {i} out of range. Must be < {max}"
   | .invalidIndexDepth i min => s!"Invalid mutual referencing free variable index {i}. Must be ≥ {min}"
   | .invalidMutBlock type => s!"Invalid mutual block Ipld.Const reference, {type} found."
-  | .defnsIdxNotFound name => s!"Could not find {name} in index of definitions."
+  | .constIdxNotFound name => s!"Could not find {name} in index of definitions."
   | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
   | .unexpectedConst got exp => s!"Unexpected constant. Got {got} but expected {exp}"

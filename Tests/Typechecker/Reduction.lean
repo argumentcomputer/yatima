@@ -23,10 +23,10 @@ partial def shiftEnv (env : Typechecker.Env Value) : Typechecker.Env Value :=
     | other => other
   }
 
-partial def readBack (defns : Array Const) : Value → Option Expr
+partial def readBack (consts : Array Const) : Value → Option Expr
   | .sort univ => pure $ .sort univ
   | .app neu args => args.foldlM (init := readBackNeutral neu) fun acc arg => do
-    pure $ Expr.app acc $ ← readBack defns arg.get
+    pure $ Expr.app acc $ ← readBack consts arg.get
   | .lam name binfo bod env => do
     -- any neutral fvars in the environment are now additionally nested,
     -- and so must have their de bruijn indices incremented
@@ -37,20 +37,20 @@ partial def readBack (defns : Array Const) : Value → Option Expr
       -- TODO double-check ordering here
       exprs := ⟨fun _ => Value.app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩ :: lamEnv.exprs
     }
-    let evalBod ← Typechecker.eval bod  |>.run (.initEnv lamEnv defns)
-    pure $ .lam name binfo (.sort .zero) $ ← readBack defns evalBod
+    let evalBod ← Typechecker.eval bod  |>.run (.initEnv lamEnv consts)
+    pure $ .lam name binfo (.sort .zero) $ ← readBack consts evalBod
   | .pi name binfo dom bod env => do
     let piEnv := shiftEnv env
     let piEnv := { piEnv with
       -- TODO double-check ordering here
       exprs := ⟨fun _ => Value.app (.fvar name 0 dom) []⟩ :: piEnv.exprs
     }
-    let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv defns)
-    pure $ .lam name binfo (← readBack defns dom.get) $ ← readBack defns evalBod
+    let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv consts)
+    pure $ .lam name binfo (← readBack consts dom.get) $ ← readBack consts evalBod
   | .lit lit => pure $ .lit lit
   | .lty lty => pure $ .lty lty
   -- TODO need to look into this case in the typechecker to make sure this is correct
-  | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack defns val.get)
+  | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack consts val.get)
   | .exception _ => none
 
 def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
@@ -64,11 +64,11 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       match state.cache.find? rconstName with
       | none            => notFound := rconstName :: notFound
       | some (_, ridx)  =>
-        let some (.definition const) ← pure state.defns[idx]? | throw "invalid definition index"
-        let some (.definition rconst) ← pure state.defns[ridx]? | throw "invalid definition index"
-        match Typechecker.TypecheckM.run (.init state.defns) $ Typechecker.eval const.value with
+        let some (.definition const) ← pure state.consts[idx]? | throw "invalid definition index"
+        let some (.definition rconst) ← pure state.consts[ridx]? | throw "invalid definition index"
+        match Typechecker.TypecheckM.run (.init state.consts) $ Typechecker.eval const.value with
           | .ok value =>
-            let some expr ← pure $ readBack state.defns value | throw "failed to read back value"
+            let some expr ← pure $ readBack state.consts value | throw "failed to read back value"
             pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
           | _ => .error "failed to evaluate value"
   if notFound.isEmpty then

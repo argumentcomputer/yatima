@@ -12,12 +12,12 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
       IO.eprintln
         s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
       return 1
-  let log := p.hasFlag "log"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
       if !(p.hasFlag "prelude") then setLibsPaths
       let mut stt : CompileState := default
+      let log := p.hasFlag "log"
       let mut errMsg : Option String := none
       let mut cronos := Cronos.new
       for arg in args do

@@ -67,10 +67,10 @@ def getInductive : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Ind
 
 def getDefinition : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Definition)
   | ⟨.mutDefBlock defsAnon, .mutDefBlock defsMeta⟩, idx => do
-    let defsMeta' := (defsMeta.map (·.proj₂)).join
+    let defsMeta' := (defsMeta.map (·.projᵣ)).join
     let defsAnon' := (← defsMeta.enum.mapM fun (i, defMeta) =>
       if h : i < defsAnon.length then
-        return List.replicate defMeta.proj₂.length (defsAnon[i]'h).proj₁
+        return List.replicate defMeta.projᵣ.length (defsAnon[i]'h).projₗ
       else throw .ipldError).join
     match defsAnon'.get? idx, defsMeta'.get? idx with
     | some defAnon, some defMeta => pure ⟨defAnon, defMeta⟩
@@ -86,8 +86,8 @@ def Ipld.zipWith {A : Ipld.Kind → Type} (f : Ipld.Both A → ConvertM B) :
   | ⟨[], []⟩ => pure []
   | _ => throw .ipldError
 
-instance : Coe (Split A B .true) A where coe  := Split.proj₁
-instance : Coe (Split A B .false) B where coe := Split.proj₂
+instance : Coe (Split A B .true) A where coe  := Split.projₗ
+instance : Coe (Split A B .false) B where coe := Split.projᵣ
 
 -- Conversion functions
 partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
@@ -105,21 +105,21 @@ partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
       | .imax univAnon₁ univAnon₂, .imax univMeta₁ univMeta₂ =>
         pure $ .imax (← univFromIpld ⟨univAnon₁, univMeta₁⟩)
           (← univFromIpld ⟨univAnon₂, univMeta₂⟩)
-      | .var () idx, .var nam () => pure $ .var nam idx
+      | .var idx, .var nam => pure $ .var nam idx
       | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
     Key.store (.univ_cache cid) univ
     pure univ
 
 def inductiveIsUnit (ind : Ipld.Inductive .anon) : Bool :=
-  if ind.recr || ind.indices.proj₁ != 0 then false
+  if ind.recr || ind.indices.projₗ != 0 then false
   else match ind.ctors with
-    | [ctor] => ctor.fields.proj₁ == 0
+    | [ctor] => ctor.fields.projₗ == 0
     | _ => false
 
 def getDefnIdx (n : Name) : ConvertM Nat := do
-  match (← get).defnsIdx.find? n with
+  match (← get).constsIdx.find? n with
   | some idx => pure idx
-  | none => throw $ .defnsIdxNotFound $ n.toString
+  | none => throw $ .constIdxNotFound $ n.toString
 
 def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
   let indBlockMeta ← match indBlock.meta with
@@ -128,8 +128,8 @@ def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
 
   let mut constList : List (Nat × Name) := []
   for ind in indBlockMeta do
-    let indIdx ← getDefnIdx ind.name.proj₂
-    let indTup := (indIdx, ind.name.proj₂)
+    let indIdx ← getDefnIdx ind.name.projᵣ
+    let indTup := (indIdx, ind.name.projᵣ)
     let ctorTups : List (Nat × Name) ← ind.ctors.mapM fun ctor => do
       let name := ctor.name
       let indIdx ← getDefnIdx name
@@ -146,7 +146,7 @@ def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
 
 mutual
   partial def inductiveIsStructure (ind : Ipld.Both Ipld.Inductive) : ConvertM (Option Constructor) :=
-    if ind.anon.recr || ind.anon.indices.proj₁ != 0 then pure $ none
+    if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
       | [ctorAnon], [ctorMeta] => do
         pure $ some (← ctorFromIpld ⟨ctorAnon, ctorMeta⟩)
@@ -158,21 +158,21 @@ mutual
     | none =>
       let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
       let expr ← match anon, meta with
-        | .var () idx () lvlsAnon, .var name () idx' lvlsMeta =>
+        | .var idx () lvlsAnon, .var name idx' lvlsMeta =>
           let depth := (← read).bindDepth
-          if depth > idx.proj₁ then
+          if depth > idx.projₗ then
             -- this is a bound free variable
             if !lvlsAnon.isEmpty then
               -- bound free variables should never have universe levels
-              throw $ .invalidIndexDepth idx.proj₁ depth
-            return .var name.proj₂ idx
+              throw $ .invalidIndexDepth idx.projₗ depth
+            return .var name.projᵣ idx
           else
             -- this free variable came from recrCtx, and thus represents a mutual reference
             let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
               fun (anon, meta) => univFromIpld ⟨anon, meta⟩
-            match (← read).recrCtx.find? (idx.proj₁ - depth, idx') with
+            match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
             | some (constIdx, name) => return .const name constIdx lvls
-            | none => throw $ .mutRefFVNotFound (idx.proj₁ - depth)
+            | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
         | .sort uAnonCid, .sort uMetaCid =>
           pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
         | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
@@ -215,7 +215,7 @@ mutual
     | none =>
       withResetBindDepth do
         let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
-        let some constIdx := (← get).defnsIdx.find? meta.name
+        let some constIdx := (← get).constsIdx.find? meta.name
           | throw $ .cannotFindNameIdx $ toString meta.name
         let const ← match anon, meta with
         | .axiom axiomAnon, .axiom axiomMeta =>
@@ -259,7 +259,7 @@ mutual
           let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionMeta.idx
           match ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩ with
           | ⟨.mutDefBlock _, .mutDefBlock metas⟩ =>
-            let metas := metas.map (·.proj₂)
+            let metas := metas.map (·.projᵣ)
             let name := defn.meta.name
             let lvls := defn.meta.lvls
             let safety := defn.anon.safety
@@ -326,10 +326,10 @@ mutual
         | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
         | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
         Key.store (.const_cache cid) constIdx
-        let defns := (← get).defns
-        let maxSize := defns.size
+        let consts := (← get).consts
+        let maxSize := consts.size
         if h : constIdx < maxSize then
-          set { ← get with defns := defns.set ⟨constIdx, h⟩ const }
+          set { ← get with consts := consts.set ⟨constIdx, h⟩ const }
         else
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
@@ -348,10 +348,10 @@ mutual
   partial def ruleFromIpld (rule : Ipld.Both Ipld.RecursorRule) : ConvertM RecursorRule := do
     let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let defns := (← get).defns
-    let maxSize := defns.size
+    let consts := (← get).consts
+    let maxSize := consts.size
     if h : ctorIdx < maxSize then
-      let ctor ← match defns[ctorIdx]'h with
+      let ctor ← match consts[ctorIdx]'h with
         | .constructor ctor => pure ctor
         | _ => throw .ipldError
       return { rhs, ctor, fields := rule.anon.fields }
@@ -364,13 +364,13 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
     (← read).store.const_meta.toList.enum.forM fun (idx, (_, meta)) => do
       modifyGet fun state => (default, { state with
-        defns := state.defns.push default,
-        defnsIdx := state.defnsIdx.insert meta.name idx })
-    (← read).store.defns.forM fun cid => discard $ constFromIpld cid
+        consts := state.consts.push default,
+        constsIdx := state.constsIdx.insert meta.name idx })
+    (← read).store.consts.forM fun cid => discard $ constFromIpld cid
 
 def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
   match convertStore store with
-  | .ok stt => pure stt.defns
+  | .ok stt => pure stt.consts
   | .error err => .error $ toString err
 
 end Converter

@@ -19,6 +19,7 @@ import Yatima.Datatypes.Const
 import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Kind
 import Yatima.Datatypes.Name
+import Yatima.Datatypes.Split
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Univ
 import Yatima.ForLurkRepo.AST

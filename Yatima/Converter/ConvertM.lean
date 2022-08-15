@@ -24,8 +24,8 @@ structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare
   expr_cache  : RBMap ExprCid Expr compare
   const_cache : RBMap ConstCid ConstIdx compare
-  defns       : Array Const
-  defnsIdx    : RBMap Name ConstIdx compare
+  consts      : Array Const
+  constsIdx   : RBMap Name ConstIdx compare
   deriving Inhabited
 
 abbrev ConvertM := ReaderT ConvertEnv <| EStateM ConvertError ConvertState

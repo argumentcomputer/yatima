@@ -2,6 +2,7 @@ import Yatima.Datatypes.Univ
 
 namespace Yatima
 
+/-- The type of binder for λ and Π expressions -/
 inductive BinderInfo
   | default
   | implicit
@@ -10,11 +11,13 @@ inductive BinderInfo
   | auxDecl
   deriving BEq, Inhabited
 
+/-- There are only two types of literals -/
 inductive LitType
   | nat : LitType
   | str : LitType
   deriving BEq, Inhabited
 
+/-- The literal values: numbers or words -/
 inductive Literal
   | nat : Nat → Literal
   | str : String → Literal
@@ -22,21 +25,34 @@ inductive Literal
 
 namespace Ipld
 
-abbrev Nat?ᵣ k := Split Unit (Option Nat) k
+-- Carries a `Lean.Name` for meta
+scoped notation "Nameₘ" => Split Unit Name
 
-abbrev BinderInfoₗ k := Split BinderInfo Unit k
+-- Carries a `Nat` for anon
+scoped notation "Natₐ" => Split Nat Unit
 
+-- Carries an `Option Nat` for meta
+scoped notation "Nat?ₘ" => Split Unit (Option Nat)
+
+-- Carries a `Yatima.BinderInfo` for anon
+scoped notation "BinderInfoₐ" => Split BinderInfo Unit
+
+/-- Parametric representation of expressions for IPLD -/
 inductive Expr (k : Kind)
-  | var   : Nameᵣ k → LNat k → Nat?ᵣ k → List (UnivCid k) → Expr k
+  -- Variables are also used to represent recursive calls. For mutual
+  -- definitions, so the second argument indicates the index of reference inside
+  -- the weakly equal group. And when referencing constants, the third argument
+  -- keeps track of the universe levels
+  | var   : NatₐNameₘ k → Nat?ₘ k → List (UnivCid k) → Expr k
   | sort  : UnivCid k → Expr k
-  | const : Nameᵣ k → ConstCid k → List (UnivCid k) → Expr k
+  | const : Nameₘ k → ConstCid k → List (UnivCid k) → Expr k
   | app   : ExprCid k → ExprCid k → Expr k
-  | lam   : Nameᵣ k → BinderInfoₗ k → ExprCid k → ExprCid k → Expr k
-  | pi    : Nameᵣ k → BinderInfoₗ k → ExprCid k → ExprCid k → Expr k
-  | letE  : Nameᵣ k → ExprCid k → ExprCid k → ExprCid k → Expr k
+  | lam   : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
+  | pi    : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
+  | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | lty   : Split LitType Unit k → Expr k
-  | proj  : LNat k → ExprCid k → Expr k
+  | proj  : Natₐ k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
 def Expr.ctorName : Expr k → String
@@ -53,8 +69,10 @@ def Expr.ctorName : Expr k → String
 
 end Ipld
 
-abbrev ConstIdx := Nat
+-- Points to a constant in an array of constants
+scoped notation "ConstIdx" => Nat
 
+/-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
   | var   : Name → Nat → Expr
   | sort  : Univ → Expr
@@ -83,18 +101,19 @@ def bInfo : Expr → Option BinderInfo
   | pi  _ b .. => some b
   | _ => none
 
-def type : Expr → Option (Expr)
-  | lam _ _ t _ => some t
-  | pi _ _ t _ => some t
+def type : Expr → Option Expr
+  | lam  _ _ t _
+  | pi   _ _ t _
   | letE _ t _ _ => some t
   | _ => none
 
-def body : Expr → Option (Expr)
+def body : Expr → Option Expr
   | lam  _ _ _ b
   | pi   _ _ _ b
   | letE _ _ _ b => some b
   | _ => none
 
+/-- Whether a variable is free -/
 def isVarFree (name : Name) : Expr → Bool
   | var name' _ => name == name'
   | app func input => isVarFree name func || isVarFree name input
@@ -104,7 +123,10 @@ def isVarFree (name : Name) : Expr → Bool
   | proj _ body => isVarFree name body
   | _ => false
 
--- Get the list of de Bruijn indices of all the variables of a Yatima `Expr` (helpful for debugging later)
+/--
+Get the list of de Bruijn indices of all the variables of a `Yatima.Expr`
+(helpful for debugging later)
+-/
 def getIndices : Expr → List Nat
   | var _ idx => [idx]
   | app func input => getIndices func ++ getIndices input
@@ -114,6 +136,7 @@ def getIndices : Expr → List Nat
   | proj _ body => getIndices body
   | _ => [] -- All the rest of the cases are treated at once
 
+/-- Get the list of bound variables in an expression -/
 def getBVars : Expr → List Name
   | var name _ => [name]
   | app func input => getBVars func ++ getBVars input
@@ -123,7 +146,7 @@ def getBVars : Expr → List Name
   | proj _ body => getBVars body
   | _ => [] -- All the rest of the cases are treated at once
 
-def ctorType : Expr → String
+def ctorName : Expr → String
   | var   .. => "var"
   | sort  .. => "sort"
   | const .. => "const"
@@ -143,9 +166,11 @@ def numBinders : Expr → Nat
   | _ => 0
 
 /--
-Shift the de Bruijn indices of all variables at depth > `cutoff` in expression `expr` by an increment `inc`.
+Shift the de Bruijn indices of all variables at depth > `cutoff` in expression
+`expr` by an increment `inc`.
 
-`shiftFreeVars` and `subst` implementations are variation on those for untyped λ-expressions from `ExprGen.lean`.
+`shiftFreeVars` and `subst` implementations are variation on those for untyped
+λ-expressions from `ExprGen.lean`.
 -/
 def shiftFreeVars (expr : Expr) (inc : Int) (cutoff : Nat) : Expr :=
   let rec walk (cutoff : Nat) (expr : Expr) : Expr := match expr with
@@ -161,7 +186,8 @@ def shiftFreeVars (expr : Expr) (inc : Int) (cutoff : Nat) : Expr :=
   walk cutoff expr
 
 /--
-Shift the de Bruijn indices of all variables in expression `expr` by increment `inc`.
+Shift the de Bruijn indices of all variables in expression `expr` by increment
+`inc`.
 -/
 def shiftVars (expr : Expr) (inc : Int) : Expr :=
   let rec walk (expr : Expr) : Expr := match expr with
@@ -202,7 +228,7 @@ def subst (expr term : Expr) (dep : Nat) : Expr :=
 Substitute the expression `term` for the top level bound variable of the
 expression `expr`.
 
-(essentially just `(λ. M) N` )
+(essentially just `(λ. M) N`)
 -/
 def substTop (expr term : Expr) : Expr :=
   expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
