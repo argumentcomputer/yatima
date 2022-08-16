@@ -61,8 +61,8 @@ def Expr.ctorName : Expr k → String
 
 end Ipld
 
--- Points to a constant in an array of constants
-scoped notation "ConstIdx" => Nat
+/-- Points to a constant in an array of constants -/
+abbrev ConstIdx := Nat
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr

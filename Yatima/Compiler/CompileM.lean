@@ -98,6 +98,16 @@ def withRecrs (recrCtx : RBMap Name RecrCtxEntry compare) :
 def withLevels (lvls : List Name) : CompileM α → CompileM α :=
   withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx, e.log⟩
 
+/-- Possibly gets a `Yatima.Compiler.RecrCtxEntry` from the `recrCtx` by name -/
+def getFromRecrCtx (name : Name) : CompileM $ Option RecrCtxEntry :=
+  return (← read).recrCtx.find? name
+
+/-- Forcibly gets a `Yatima.Compiler.RecrCtxEntry` from the `recrCtx` by name -/
+def getFromRecrCtx! (name : Name) : CompileM $ RecrCtxEntry := do
+  match ← getFromRecrCtx name with
+  | some entry => pure entry
+  | none => throw $ .notFoundInRecrCtx name
+
 /-- Auxiliary type to standardize additions of CIDs to the store -/
 inductive StoreEntry : Type → Type
   | univ  : Ipld.Both Ipld.Univ  → StoreEntry (Ipld.Both Ipld.UnivCid)

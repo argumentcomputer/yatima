@@ -7,6 +7,7 @@ namespace Yatima.Compiler
 /-- Errors that can be thrown in `Yatima.Compiler.CompileM` -/
 inductive CompileError
   | notFoundInCache : Name → CompileError
+  | notFoundInRecrCtx : Name → CompileError
   | invalidDereferringIndex : Nat → Nat → CompileError
   | unknownConstant : Name → CompileError
   | unfilledLevelMetavariable : Lean.Level → CompileError
@@ -27,6 +28,7 @@ inductive CompileError
 
 instance : ToString CompileError where toString
   | .notFoundInCache n => s!"Could not find cid of '{n}' in cache"
+  | .notFoundInRecrCtx n => s!"Could not find '{n}' in recrCtx"
   | .invalidDereferringIndex idx size =>
     s!"Invalid index {idx} for dereferring a constant. Must be < {size}."
   | .unknownConstant n => s!"Unknown constant '{n}'"

@@ -102,15 +102,15 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none,    _       => throw $ .levelNotFound x lvls
     | _,       none    => throw $ .levelNotFound y lvls
 
-def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
+def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
   match expr with
   | .forallE _ t e _  => match e with
     | .forallE ..  => isInternalRec e name
     -- t is the major premise
     | _ => isInternalRec t name
   | .app e .. => isInternalRec e name
-  | .const n .. => return n == name
-  | _ => return false
+  | .const n .. => n == name
+  | _ => false
 
 mutual
   /--
@@ -278,7 +278,7 @@ mutual
       | .lit lit =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
-      | .proj _ idx exp=> do
+      | .proj _ idx exp =>
         let (expCid, exp) ← compileExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
@@ -288,6 +288,13 @@ mutual
     let cid ← addToStore $ .expr value
     pure (cid, expr)
 
+  /--
+  Compiles an inductive and all inductives in the mutual block as a mutual
+  block, even if the inductive itself is not in a mutual block.
+
+  The compilation of an inductive involves the compilation of its associated
+  constructors and recursors, hence the lenght of this function.
+  -/
   partial def compileInductive (initInd : Lean.InductiveVal) :
       CompileM (ConstCid × ConstIdx) := do
     -- `mutualConsts` is the list of the names of all constants associated with an
@@ -304,40 +311,46 @@ mutual
     -- All inductives, constructors and recursors are done in one go, so we must
     -- append an array of `mutualConsts.length` to `consts` and save the mapping
     -- of all names in `mutualConsts` to their respective indices
-    let mut firstIdx ← modifyGet fun stt =>
-      (stt.consts.size, { stt with consts := stt.consts.append (mkArray mutualConsts.length default) })
-    let mut mutualIdxs : RBMap Lean.Name RecrCtxEntry compare := RBMap.empty
-    for (i, n) in mutualConsts.enum do
-      mutualIdxs := mutualIdxs.insert n (i, none, firstIdx + i)
+    let mut firstIdx : ConstIdx ← modifyGet fun stt =>
+      (stt.consts.size,
+        { stt with consts := stt.consts ++ mkArray mutualConsts.length default })
+
+    let recrCtx := mutualConsts.enum.foldl (init := default)
+      fun acc (i, n) => acc.insert n (i, none, firstIdx + i)
 
     -- This part will build the inductive block and add all inductives,
     -- constructors and recursors to `consts`
-    let ipldInds : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldrM (init := []) fun name acc => do
-      match ← getLeanConstant name with
-      | .inductInfo ind => do
-        withRecrs mutualIdxs do
-          let ipldInd ← toYatimaIpldInductive ind
-          pure $ ipldInd :: acc
-      | const => throw $ .invalidConstantKind const "inductive"
-    let indBlock := ⟨.mutIndBlock $ ipldInds.map (·.anon), .mutIndBlock $ ipldInds.map (·.meta)⟩
-    let indBlockCid ← addToStore $ .const indBlock
+    let ipldInds : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldrM (init := [])
+      fun name acc => do
+        match ← getLeanConstant name with
+        | .inductInfo ind => do
+          withRecrs recrCtx do
+            let ipldInd ← toYatimaIpldInductive ind
+            pure $ ipldInd :: acc
+        | const => throw $ .invalidConstantKind const "inductive"
+    let indBlockCid ← addToStore $ .const
+      ⟨.mutIndBlock $ ipldInds.map (·.anon), .mutIndBlock $ ipldInds.map (·.meta)⟩
 
+    -- While iterating on the inductives from the mutual block, we need to track
+    -- the correct objects to return
     let mut ret? : Option (ConstCid × ConstIdx) := none
+
+    -- `constIdx` keeps track of the constant index for the next addition to cache
     let mut constIdx := firstIdx
 
     for (indIdx, ⟨indAnon, indMeta⟩) in ipldInds.enum do
-      -- Add the IPLD inductive projections and inductives to the cache
+      -- Store and cache inductive projections
       let name := indMeta.name.projᵣ
       let indProj :=
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
       let cid ← addToStore $ .const indProj
-      addToCache name (cid, constIdx)
       if name == initInd.name then ret? := some (cid, constIdx)
+      addToCache name (cid, constIdx)
       constIdx := constIdx + 1
 
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
-        -- Add the IPLD constructor projections and constructors to the cache
+        -- Store and cache constructor projections
         let name := ctorMeta.name.projᵣ
         let ctorProj :=
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
@@ -347,7 +360,7 @@ mutual
         constIdx := constIdx + 1
 
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
-        -- Add the IPLD recursor projections and recursors to the cache
+        -- Store and cache recursor projections
         let name := recrMeta.2.name.projᵣ
         let recrProj :=
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, indIdx, recrIdx ⟩
@@ -364,24 +377,25 @@ mutual
       CompileM $ Ipld.Both Ipld.Inductive := do
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let (recs, ctors) : (List $ Ipld.Both (Sigma fun x => Ipld.Recursor x ·)) × (List $ Ipld.Both Ipld.Constructor) :=
-      ← leanRecs.foldrM (init := ([], [])) fun r (recs, ctors) =>
+    let (recs, ctors) : (List $ Ipld.Both (Sigma fun x => Ipld.Recursor x ·)) ×
+        (List $ Ipld.Both Ipld.Constructor) :=
+      ← leanRecs.foldrM (init := ([], [])) fun r (recs, ctors) => do
         match r with
-        | .recInfo rv => do
-          if ← isInternalRec rv.type ind.name then do
+        | .recInfo rv =>
+          if isInternalRec rv.type ind.name then
             let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
             let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
-          else do
-            let thisRec := ← toYatimaIpldExternalRec r
+          else
+            let thisRec ← toYatimaIpldExternalRec r
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
     let (typeCid, type) ← compileExpr ind.type
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
-      | [ctor] => do
-        let some (_, _, ctorIdx) := (← read).recrCtx.find? ctor | throw $ .unknownConstant ctor
+      | [ctorName] => do
+        let (_, _, ctorIdx) ← getFromRecrCtx! ctorName
         match ← derefConst ctorIdx with
         | .constructor ctor => pure $ some ctor
         | const => throw $ .invalidConstantKind' const "constructor"
@@ -401,7 +415,7 @@ mutual
       unit    := unit
       struct  := struct
     }
-    let some (_, _, constIdx) := (← read).recrCtx.find? ind.name | throw $ .unknownConstant ind.name
+    let (_, _, constIdx) ← getFromRecrCtx! ind.name
     addToConsts constIdx tcInd
     return {
       anon := ⟨ ()
@@ -431,16 +445,15 @@ mutual
         let (typeCid, type) ← compileExpr rec.type
         let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
-            match ctors.indexOf? r.ctor with
-            | some _ =>
+            if ctors.contains r.ctor then
               let ctor ← toYatimaIpldConstructor r
               return ctorMap.insert ctor.meta.name.projᵣ ctor
             -- this is an external recursor rule
-            | none => return ctorMap
-        let retCtors ← ctors.mapM fun ctor => do
-          match ctorMap.find? ctor with
+            else return ctorMap
+        let retCtors ← ctors.mapM fun ctorName => do
+          match ctorMap.find? ctorName with
           | some thisCtor => pure thisCtor
-          | none => throw $ .unknownConstant ctor
+          | none => throw $ .custom s!"Couldn't find constructor {ctorName}"
         let tcRecr : Const := .intRecursor {
           name    := rec.name
           lvls    := rec.levelParams
@@ -450,7 +463,7 @@ mutual
           motives := rec.numMotives
           minors  := rec.numMinors
           k       := rec.k }
-        let some (_, _, constIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
+        let (_, _, constIdx) ← getFromRecrCtx! rec.name
         addToConsts constIdx tcRecr
         let recr := ⟨
           { name    := ()
@@ -490,7 +503,7 @@ mutual
         rhs     := rhs
         safe    := not ctor.isUnsafe
       }
-      let some (_, _, constIdx) := (← read).recrCtx.find? ctor.name | throw $ .unknownConstant ctor.name
+      let (_, _, constIdx) ← getFromRecrCtx! ctor.name
       addToConsts constIdx tcCtor
       return ⟨
         { rhs    := rhsCid.anon
@@ -530,7 +543,7 @@ mutual
         rules   := tcRules
         k       := rec.k
       }
-      let some (_, _, constIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
+      let (_, _, constIdx) ← getFromRecrCtx! rec.name
       addToConsts constIdx tcRecr
       return ⟨
         { name    := ()
