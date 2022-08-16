@@ -664,18 +664,18 @@ mutual
     return (⟨defn.toIpld typeCid valueCid, defn.toIpld typeCid valueCid⟩, defn)
 
   /--
-  A name-irrelevant ordering of Lean expressions. It relies on the output of
-  compilation itself to break the tie when comparing constants.
+  A name-irrelevant ordering of Lean expressions. 
+  `weakOrd` contains the best known current mutual ordering
   -/
-  partial def cmpExpr (names : Std.RBMap Name Nat compare) :
+  partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
     | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
     | e@(.fvar ..), _ => throw $ .freeVariableExpr e
     | _, e@(.fvar ..) => throw $ .freeVariableExpr e
-    | .mdata _ x, .mdata _ y  => cmpExpr names x y
-    | .mdata _ x, y  => cmpExpr names x y
-    | x, .mdata _ y  => cmpExpr names x y
+    | .mdata _ x, .mdata _ y  => cmpExpr weakOrd x y
+    | .mdata _ x, y  => cmpExpr weakOrd x y
+    | x, .mdata _ y  => cmpExpr weakOrd x y
     | .bvar x, .bvar y => return (compare x y)
     | .bvar .., _ => return .lt
     | _, .bvar .. => return .gt
@@ -685,30 +685,30 @@ mutual
     | .const x xls, .const y yls => do
       let univs ← concatOrds <$> (xls.zip yls).mapM fun (x,y) => cmpLevel x y
       if univs != .eq then return univs
-      match names.find? x, names.find? y with
+      match weakOrd.find? x, weakOrd.find? y with
       | some nx, some ny => return compare nx ny
       | none, some _ => return .gt
       | some _, none => return .lt
       | none, none => do
         let xCid := (← getCompiledConst (← getLeanConstant x)).fst
         let yCid := (← getCompiledConst (← getLeanConstant y)).fst
-        return (compare xCid.anon yCid.anon)
+        return compare xCid.anon yCid.anon
     | .const .., _ => return .lt
     | _, .const .. => return .gt
     | .app xf xa, .app yf ya =>
-      (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
+      (· * ·) <$> cmpExpr weakOrd xf yf <*> cmpExpr weakOrd xa ya
     | .app .., _ => return .lt
     | _, .app .. => return .gt
     | .lam _ xt xb _, .lam _ yt yb _ =>
-      (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+      (· * ·) <$> cmpExpr weakOrd xt yt <*> cmpExpr weakOrd xb yb
     | .lam .., _ => return .lt
     | _, .lam .. => return .gt
     | .forallE _ xt xb _, .forallE _ yt yb _ =>
-      (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+      (· * ·) <$> cmpExpr weakOrd xt yt <*> cmpExpr weakOrd xb yb
     | .forallE .., _ => return .lt
     | _, .forallE .. => return .gt
     | .letE _ xt xv xb _, .letE _ yt yv yb _ =>
-      (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
+      (· * · * ·) <$> cmpExpr weakOrd xt yt <*> cmpExpr weakOrd xv yv <*> cmpExpr weakOrd xb yb
     | .letE .., _ => return .lt
     | _, .letE .. => return .gt
     | .lit x, .lit y =>
@@ -716,37 +716,72 @@ mutual
     | .lit .., _ => return .lt
     | _, .lit .. => return .gt
     | .proj _ nx tx, .proj _ ny ty => do
-      let ts ← cmpExpr names tx ty
+      let ts ← cmpExpr weakOrd tx ty
       return concatOrds [compare nx ny, ts]
 
-  /-- A name-irrelevant ordering for Lean definitions -/
-  partial def cmpDef (names : Std.RBMap Name Nat compare)
+  /-- AST comparison of two Lean definitions. 
+    `weakOrd` contains the best known current mutual ordering -/
+  partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
-    let ts ← cmpExpr names x.type y.type
-    let vs ← cmpExpr names x.value y.value
+    let ts ← cmpExpr weakOrd x.type y.type
+    let vs ← cmpExpr weakOrd x.value y.value
     return concatOrds [ls, ts, vs]
 
-  /-- A name-irrelevant boolean comparation for Lean definitions -/
-  partial def eqDef (names : Std.RBMap Name Nat compare)
+  /-- AST equality between two Lean definitions.
+    `weakOrd` contains the best known current mutual ordering -/
+  partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
       (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Bool := do
-    match (← cmpDef names x y) with
+    match (← cmpDef weakOrd x y) with
     | .eq => pure true
     | _ => pure false
 
-  /-- todo -/
+  /-- `sortDefs` recursively sorts a list of mutual definitions into weakly equal blocks. 
+    At each stage, we take as input the current best approximation of known weakly equal 
+    blocks as a List of blocks, hence the `List (List DefinitionVal)` as the argument type. 
+    We recursively take the input blocks and resort to improve the approximate known 
+    weakly equal blocks, obtaining a sequence of list of blocks:
+    ```
+    dss₀ := [startDefs]
+    dss₁ := sortDefs dss₀
+    dss₂ := sortDefs dss₁
+    dss₍ᵢ₊₁₎ := sortDefs dssᵢ ...
+    ```
+    Initially, `startDefs` is simply the list of definitions we receive from `DefinitionVal.all`; 
+    since there is no order yet, we treat it as one block all weakly equal. On the other hand, 
+    at the end, there is some point where `dss₍ᵢ₊₁₎ := dssᵢ`, then we have hit a fixed point 
+    and we may end the sorting process. (We claim that such a fixed point exists, although 
+    technically we don't really have a proof.)
+
+    On each iteration, we hope to improve our knowledge of weakly equal blocks and use that 
+    knowledge in the next iteration. e.g. We start with just one block with everything in it, 
+    but the first sort may differentiate the one block into 3 blocks. Then in the second 
+    iteration, we have more information than than first, since the relationship of the 3 blocks 
+    gives us more information; this information may then be used to sort again, turning 3 blocks 
+    into 4 blocks, and again 4 blocks into 6 blocks, etc, until we have hit a fixed point. 
+    This step is done in the computation of `newDss` and then comparing it to the original `dss`.
+
+    Two optimizations:
+
+    1. `names := enum dss` records the ordering information in a map for faster access. 
+       Directly using `List.findIdx?` on dss is slow and introduces `Option` everywhere. 
+       `names` is used as a custom comparison in `ds.sortByM (cmpDef names)`.
+    2. `normDss/normNewDss`. We want to compare if two lists of blocks are equal. 
+       Technically blocks are sets and their order doesn't matter, but we have encoded 
+       them as lists. To fix this, we sort the list by name before comparing. Note we 
+       could maybe also use `List (RBTree ..)` everywhere, but it seemed like a hassle. -/
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
       CompileM (List (List Lean.DefinitionVal)) := do
     let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
-    let names := enum dss
+    let weakOrd := enum dss
     let newDss ← (← dss.mapM fun ds =>
       match ds with
       | []  => unreachable!
       | [d] => return [[d]]
-      | ds  => return (← List.groupByM (eqDef names) $
-        ← ds.sortByM (cmpDef names))).joinM
+      | ds  => return (← List.groupByM (eqDef weakOrd) $
+        ← ds.sortByM (cmpDef weakOrd))).joinM
 
     -- must normalize, see comments
     let normDss    := dss.map    fun ds => ds.map (·.name) |>.sort
