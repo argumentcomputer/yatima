@@ -53,7 +53,7 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
         | (true, _) => cronos ← cronos.clock "Typechecking"
         | (false, msg) => IO.eprintln msg; return 1
       cronos ← cronos.clock "Transpilation"
-      match ← transpile stt with
+      match ← transpile ⟨stt, []⟩ with
       | .error msg => IO.eprintln msg
       | .ok out =>
         cronos ← cronos.clock "Transpilation"

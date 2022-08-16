@@ -182,7 +182,7 @@ mutual
       IO.println s!"const {name} {idx}"
       let visited? := (← get).visited.contains name
       if !visited? then 
-        let const := (← read).consts[idx]! -- TODO: Add proof later
+        let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
     | e@(.app ..) => 
@@ -247,7 +247,7 @@ mutual
   where 
     getInductive (name : Name) : TranspileM Inductive := do 
       let indName := name.getPrefix
-      let store ← read
+      let store := (← read).compileState
       match store.cache.find? indName with 
       | some (_, idx) => match store.consts[idx]! with 
         | .inductive i => return i 
@@ -263,21 +263,31 @@ end
 /-- 
 Initialize builtin lurk constants defined in `LurkFunctions.lean`
 -/
-def builtinInitialize : TranspileM Unit := do
-  appendBinding Lurk.getelem
+def builtinInitialize : TranspileM Unit := do 
+  let decls := [
+    Lurk.getelem, 
+    Lurk.Nat, 
+    Lurk.Nat_zero, 
+    Lurk.Nat_succ, 
+    Lurk.Nat_rec,
+    Lurk.Nat_add,
+    Lurk.Nat_mul
+  ] 
+  withBuiltin (decls.map fun x => x.fst) $ 
+    decls.forM fun (n, e) => appendBinding (n, e)
 
 /--
 Main translation function.
 -/
 def transpileM : TranspileM Unit := do
-  let store ← read
+  let store := (← read).compileState
   builtinInitialize
   store.consts.forM constToLurkExpr
 
 open Yatima.Compiler in 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/
-def transpile (store : CompileState) : IO $ Except String String := do  do 
-  match ← TranspileM.run store default transpileM with
+def transpile (ctx : Context) : IO $ Except String String := do  do 
+  match ← TranspileM.run ctx default transpileM with
   | .ok    s => 
     let env := Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧ -- the parens matter, represents evaluation
     return .ok $ (env.pprint false).pretty 50
