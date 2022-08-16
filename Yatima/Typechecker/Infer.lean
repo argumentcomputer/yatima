@@ -80,7 +80,6 @@ mutual
       | _ => throw CheckError.notTyp
     | .lit (Literal.nat _) => pure $ Value.lty LitType.nat
     | .lit (Literal.str _) => pure $ Value.lty LitType.str
-    | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
     | .const _ k const_univs =>
       let univs := (← read).env.univs
       let const := (← read).store.get! k

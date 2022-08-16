@@ -11,12 +11,6 @@ inductive BinderInfo
   | auxDecl
   deriving BEq, Inhabited
 
-/-- There are only two types of literals -/
-inductive LitType
-  | nat : LitType
-  | str : LitType
-  deriving BEq, Inhabited
-
 /-- The literal values: numbers or words -/
 inductive Literal
   | nat : Nat → Literal
@@ -51,7 +45,6 @@ inductive Expr (k : Kind)
   | pi    : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
   | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
-  | lty   : Split LitType Unit k → Expr k
   | proj  : Natₐ k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
@@ -64,7 +57,6 @@ def Expr.ctorName : Expr k → String
   | .pi    .. => "pi"
   | .letE  .. => "let"
   | .lit   .. => "lit"
-  | .lty   .. => "lty"
   | .proj  .. => "proj"
 
 end Ipld
@@ -82,7 +74,6 @@ inductive Expr
   | pi    : Name → BinderInfo → Expr → Expr → Expr
   | letE  : Name → Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
-  | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
   deriving Inhabited, BEq
 
@@ -155,7 +146,6 @@ def ctorName : Expr → String
   | pi    .. => "pi"
   | letE  .. => "let"
   | lit   .. => "lit"
-  | lty   .. => "lty"
   | proj  .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)

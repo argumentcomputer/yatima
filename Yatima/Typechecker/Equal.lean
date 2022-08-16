@@ -57,7 +57,6 @@ mutual
     if isU || isP then pure true else
     match term, term' with
     | .lit lit, .lit lit' => pure $ lit == lit'
-    | .lty lty, .lty lty' => pure $ lty == lty'
     | .sort u, .sort u' => pure $ equalUniv u u'
     | .pi name _ dom img env, .pi name' _ dom' img' env' => do
       -- For equality we don't need to know the universe levels, only the "shape" of the type.

@@ -23,8 +23,6 @@ def printExpr (expr : Expr) : String :=
   | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
   | .lit (.nat x) => s!"{x}"
   | .lit (.str x) => s!"\"{x}\""
-  | .lty .nat => s!"Nat"
-  | .lty .str => s!"String"
   | .proj idx val => s!"{printExpr val}.{idx}"
 
 mutual
@@ -79,8 +77,6 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
   | .letE nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
   | .lit (.nat x) => s!"{x}"
   | .lit (.str x) => s!"\"{x}\""
-  | .lty .nat => s!"Nat"
-  | .lty .str => s!"String"
   | .proj idx val => s!"{printLamBod val env}.{idx}"
   
 partial def printSpine (neu : Neutral) (args : Args) : String :=

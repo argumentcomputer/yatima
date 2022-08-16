@@ -209,7 +209,9 @@ mutual
   * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
   and thus we can compile the actual constant right away
   -/
-  partial def toYatimaExpr (expr : Lean.Expr) : CompileM (ExprCid × Expr) := do
+  partial def toYatimaExpr : Lean.Expr → CompileM (ExprCid × Expr)
+  | .mdata _ e => toYatimaExpr e
+  | expr => do
     let (value, expr) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         -- Bound variables must be in the bind context
@@ -241,25 +243,29 @@ mutual
       | .app fnc arg =>
         let (fncCid, fnc) ← toYatimaExpr fnc
         let (argCid, arg) ← toYatimaExpr arg
-        let value : Ipld.Both Ipld.Expr := ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
+        let value : Ipld.Both Ipld.Expr :=
+          ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         pure (value, .app fnc arg)
       | .lam name typ bod bnd =>
         let (typCid, typ) ← toYatimaExpr typ
         let (bodCid, bod) ← withBinder name $ toYatimaExpr bod
-        let value : Ipld.Both Ipld.Expr := ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
+        let value : Ipld.Both Ipld.Expr :=
+          ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         pure (value, .lam name bnd typ bod)
       | .forallE name dom img bnd =>
         let (domCid, dom) ← toYatimaExpr dom
         let (imgCid, img) ← withBinder name $ toYatimaExpr img
-        let value : Ipld.Both Ipld.Expr := ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
+        let value : Ipld.Both Ipld.Expr :=
+          ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         pure (value, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← toYatimaExpr typ
         let (expCid, exp) ← toYatimaExpr exp
         let (bodCid, bod) ← withBinder name $ toYatimaExpr bod
-        let value : Ipld.Both Ipld.Expr := ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
+        let value : Ipld.Both Ipld.Expr :=
+          ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         pure (value, .letE name typ exp bod)
-      | .lit lit=>
+      | .lit lit =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
       | .proj _ idx exp=> do

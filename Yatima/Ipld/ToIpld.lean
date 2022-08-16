@@ -134,10 +134,6 @@ instance : Coe BinderInfo Ipld where coe
   | .instImplicit   => .number 3
   | .auxDecl        => .number 4
 
-instance : Coe LitType Ipld where coe
-  | .nat => .number 0
-  | .str => .number 1
-
 instance : Coe Literal Ipld where coe
   | .nat n => n
   | .str s => .string s
@@ -204,8 +200,7 @@ def exprToIpld : (Ipld.Expr k) → Ipld
   | .pi n i d c   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
   | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
   | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
-  | .lty l        => .array #[.number $ Ipld.EXPR k, .number 8, l]
-  | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
+  | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 8, n, e]
 
 def constToIpld : (Ipld.Const k) → Ipld
   | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0, n, l, t, s]

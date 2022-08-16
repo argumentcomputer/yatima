@@ -195,8 +195,7 @@ mutual
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     IO.print ">> exprToLurkExpr: "
     match e with 
-    | .sort  ..
-    | .lty   .. => return ⟦nil⟧
+    | .sort  .. => return ⟦nil⟧
     | .var name _     => 
       IO.println s!"var {name}"
       return ⟦$name⟧
