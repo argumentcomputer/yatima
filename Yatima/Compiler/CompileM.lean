@@ -141,7 +141,7 @@ def addToStore : StoreEntry A → CompileM A
                          const_meta := stt.store.const_meta.insert cid.meta obj.meta,
                          consts     := stt.store.consts.insert cid } })
 
-/-- Adds data to the cache associated to a name -/
+/-- Adds data associated with a name to the cache -/
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
@@ -151,6 +151,6 @@ def addToConsts (idx : ConstIdx) (c : Const) : CompileM Unit := do
   if h : idx < consts.size then
     modify fun stt => { stt with consts := consts.set ⟨idx, h⟩ c }
   else
-    throw $ .invalidDereferringIndex idx consts.size
+    throw $ .invalidConstantIndex idx consts.size
 
 end Yatima.Compiler

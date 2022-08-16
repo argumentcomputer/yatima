@@ -39,7 +39,7 @@ def derefConst (idx : ConstIdx) : CompileM Const := do
   if h : idx < size then
     return consts[idx]'h
   else
-    throw $ .invalidDereferringIndex idx size
+    throw $ .invalidConstantIndex idx size
 
 /-- Retrieves a Lean constant from the environment by its name -/
 def getLeanConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
@@ -48,23 +48,23 @@ def getLeanConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   | none => throw $ .unknownConstant name
 
 /-- Compiles a Lean universe level and adds it to the store -/
-def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
+def compileUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let (value, univ) ← match l with
     | .zero      => do
       let value : Ipld.Both Ipld.Univ := ⟨ .zero, .zero ⟩
       pure (value, .zero)
     | .succ n    => do
-      let (univCid, univ) ← toYatimaUniv n
+      let (univCid, univ) ← compileUniv n
       let value : Ipld.Both Ipld.Univ := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
       pure (value, .succ univ)
     | .max  a b  => do
-      let (univACid, univA) ← toYatimaUniv a
-      let (univBCid, univB) ← toYatimaUniv b
+      let (univACid, univA) ← compileUniv a
+      let (univBCid, univB) ← compileUniv b
       let value : Ipld.Both Ipld.Univ := ⟨ .max univACid.anon univBCid.anon, .max univACid.meta univBCid.meta ⟩
       pure (value, .max univA univB)
     | .imax  a b  => do
-      let (univACid, univA) ← toYatimaUniv a
-      let (univBCid, univB) ← toYatimaUniv b
+      let (univACid, univA) ← compileUniv a
+      let (univBCid, univB) ← compileUniv b
       let value : Ipld.Both Ipld.Univ := ⟨ .imax univACid.anon univBCid.anon, .imax univACid.meta univBCid.meta ⟩
       pure (value, .imax univA univB)
     | .param name => do
@@ -230,11 +230,11 @@ mutual
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
-        let (univCid, univ) ← toYatimaUniv lvl
+        let (univCid, univ) ← compileUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         pure (value, .sort univ)
       | .const name lvls =>
-        let pairs ← lvls.mapM $ toYatimaUniv
+        let pairs ← lvls.mapM $ compileUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
           fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
