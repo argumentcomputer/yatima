@@ -32,6 +32,7 @@ instance : Coe Lean.QuotKind QuotKind where coe
 
 open ToIpld
 
+/-- Gets a constant from the array of constants -/
 def derefConst (idx : ConstIdx) : CompileM Const := do
   let consts := (← get).consts
   let size := consts.size
@@ -40,11 +41,13 @@ def derefConst (idx : ConstIdx) : CompileM Const := do
   else
     throw $ .invalidDereferringIndex idx size
 
+/-- Retrieves a Lean constant from the environment by its name -/
 def findConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
   | some const => pure const
   | none => throw $ .unknownConstant name
 
+/-- Compiles a Lean universe level and adds it to the store -/
 def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
   let (value, univ) ← match l with
     | .zero      => do
@@ -72,9 +75,10 @@ def toYatimaUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
         pure (value, .var name n)
       | none   => throw $ .levelNotFound name lvls
     | .mvar .. => throw $ .unfilledLevelMetavariable l
-  let cid ← StoreValue.insert $ .univ value
+  let cid ← addToStore $ .univ value
   pure (cid, univ)
 
+/-- Defines an ordering for Lean universes -/
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
   match x, y with
   | .mvar .., _ => throw $ .unfilledLevelMetavariable x
@@ -100,18 +104,13 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
 
 mutual
   /--
-  Process a Lean constant into a Yatima constant, returning both the Yatima
-  constant and its cid.
+  Gets the Yatima constant references off of a Lean constant, returning its CID
+  and its index in the array of constants.
 
-  Different behavior is taken if the input `leanConst` is in a mutual block,
-  since `toYatimaConst` returns the constant of the entire block (see
-  `toYatimaConst`). We avoid returning the entire block and return the `mutDef`
-  corresponding the input.
-
-  Side effects: caches any new processed values in `cache`, `expr_cache`, and
-  `const_cache`.
+  If the result is already cached, returns it right away. Otherwise, calls
+  `toYatimaConst` to do the actual compilation.
   -/
-  partial def processYatimaConst (const : Lean.ConstantInfo) :
+  partial def getYatimaConst (const : Lean.ConstantInfo) :
       CompileM $ ConstCid × ConstIdx := do
     let name := const.name
     let log  := (← read).log
@@ -125,25 +124,35 @@ mutual
         IO.println s!"↟ Popping  {name}"
       return c
 
+  /--
+  Performs the compilation of Lean constants.
+
+  For the `.defnInfo`, `.inductInfo`, `.ctorInfo` and `.recInfo`  cases, the
+  side-effects are responsability of the auxiliary functions.
+
+  For other cases, adds them to the cache, the store and the array of constants.
+  -/
   partial def toYatimaConst : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
   -- These cases add multiple constants at the same time
-  | .inductInfo struct => withResetCompileEnv struct.levelParams $ toYatimaInductive struct
-  | .defnInfo struct => withResetCompileEnv struct.levelParams $ toYatimaDef struct
+  | .defnInfo struct => withLevelsAndReset struct.levelParams $ toYatimaDef struct
+  | .inductInfo struct => withLevelsAndReset struct.levelParams $ toYatimaInductive struct
   -- These cases are subsumed by the inductive case
   | .ctorInfo struct => do
-    match ← findConstant struct.induct with
-    | .inductInfo ind => processYatimaConst (.inductInfo ind)
-    | const => throw $ .invalidConstantKind const "inductive"
-    processYatimaConst (.ctorInfo struct)
+    discard $ match ← findConstant struct.induct with
+      | .inductInfo ind => getYatimaConst (.inductInfo ind)
+      | const => throw $ .invalidConstantKind const "inductive"
+    getYatimaConst (.ctorInfo struct)
   | .recInfo struct => do
-    match ← findConstant struct.getInduct with
-    | .inductInfo ind => processYatimaConst (.inductInfo ind)
-    | const => throw $ .invalidConstantKind const "inductive"
-    processYatimaConst (.recInfo struct)
+    discard $ match ← findConstant struct.getInduct with
+      | .inductInfo ind => getYatimaConst (.inductInfo ind)
+      | const => throw $ .invalidConstantKind const "inductive"
+    getYatimaConst (.recInfo struct)
   -- The rest adds the constants to the cache one by one
-  | const => withResetCompileEnv const.levelParams do
-    -- It is important to push first with some value so we don't lose the position of the constant in a recursive call
-    let constIdx ← modifyGet (fun stt => (stt.consts.size, { stt with consts := stt.consts.push default }))
+  | const => withLevelsAndReset const.levelParams do
+    -- It is important to push first with some value so we don't lose the
+    -- position of the constant in a recursive call
+    let constIdx ← modifyGet fun stt =>
+      (stt.consts.size, { stt with consts := stt.consts.push default })
     let values : Ipld.Both Ipld.Const × Const ← match const with
       | .axiomInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
@@ -167,7 +176,6 @@ mutual
         pure (value, Const.theorem thm)
       | .opaqueInfo struct =>
         let (typeCid, type) ← toYatimaExpr struct.type
-        -- TODO: Is `RBMap.single` correct? Shouldn't we add a new entry to the underlying `recrCtx`?
         let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ toYatimaExpr struct.value
         let opaq := {
           name  := struct.name
@@ -186,17 +194,25 @@ mutual
           kind := struct.kind }
         let value := ⟨.quotient $ quot.toIpld typeCid, .quotient $ quot.toIpld typeCid⟩
         pure (value, .quotient quot)
-      | _ => unreachable!
-    let cid ← StoreValue.insert $ .const values.fst
+      | _ => unreachable! -- the other cases were already dealt with
+    let cid ← addToStore $ .const values.fst
     addToConsts constIdx values.snd
     addToCache const.name (cid, constIdx)
     pure (cid, constIdx)
 
-  partial def toYatimaExpr : Lean.Expr → CompileM (ExprCid × Expr)
-  | .mdata _ e => toYatimaExpr e
-  | expr => do
+  /--
+  Compiles a Lean expression and adds it to the store.
+
+  Constants are the tricky case, for which there are two possibilities:
+  * The constant belongs to `recrCtx`, representing a recursive call. Those are
+  encoded as variables with indexes that go beyod the bind indexes
+  * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
+  and thus we can compile the actual constant right away
+  -/
+  partial def toYatimaExpr (expr : Lean.Expr) : CompileM (ExprCid × Expr) := do
     let (value, expr) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
+        -- Bound variables must be in the bind context
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () [], .var name (Split.injᵣ none) [] ⟩
           pure (value, .var name idx)
@@ -207,7 +223,8 @@ mutual
         pure (value, .sort univ)
       | .const name lvls =>
         let pairs ← lvls.mapM $ toYatimaUniv
-        let (univCids, univs) ← pairs.foldrM (fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)) ([], [])
+        let (univCids, univs) ← pairs.foldrM (init := ([], []))
+          fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
         | some (i, i?, ref) =>
           let idx := (← read).bindCtx.length + i
@@ -216,7 +233,7 @@ mutual
           pure (value, .const name ref univs)
         | none =>
           let const ← findConstant name
-          let (constCid, const) ← processYatimaConst const
+          let (constCid, const) ← getYatimaConst const
           let value : Ipld.Both Ipld.Expr :=
             ⟨ .const () constCid.anon $ univCids.map (·.anon),
               .const name constCid.meta $ univCids.map (·.meta) ⟩
@@ -228,18 +245,18 @@ mutual
         pure (value, .app fnc arg)
       | .lam name typ bod bnd =>
         let (typCid, typ) ← toYatimaExpr typ
-        let (bodCid, bod) ← withName name $ toYatimaExpr bod
+        let (bodCid, bod) ← withBinder name $ toYatimaExpr bod
         let value : Ipld.Both Ipld.Expr := ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         pure (value, .lam name bnd typ bod)
       | .forallE name dom img bnd =>
         let (domCid, dom) ← toYatimaExpr dom
-        let (imgCid, img) ← withName name $ toYatimaExpr img
+        let (imgCid, img) ← withBinder name $ toYatimaExpr img
         let value : Ipld.Both Ipld.Expr := ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         pure (value, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← toYatimaExpr typ
         let (expCid, exp) ← toYatimaExpr exp
-        let (bodCid, bod) ← withName name $ toYatimaExpr bod
+        let (bodCid, bod) ← withBinder name $ toYatimaExpr bod
         let value : Ipld.Both Ipld.Expr := ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         pure (value, .letE name typ exp bod)
       | .lit lit=>
@@ -249,10 +266,10 @@ mutual
         let (expCid, exp) ← toYatimaExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
-      | .fvar .. => throw $ .freeVariableExpr expr
-      | .mvar .. => throw $ .metaVariableExpr expr
+      | .fvar ..  => throw $ .freeVariableExpr expr
+      | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr
-    let cid ← StoreValue.insert $ .expr value
+    let cid ← addToStore $ .expr value
     pure (cid, expr)
 
   partial def toYatimaInductive (initInd : Lean.InductiveVal) : CompileM (ConstCid × ConstIdx) := do
@@ -285,7 +302,7 @@ mutual
           pure $ ipldInd :: acc
       | const => throw $ .invalidConstantKind const "inductive"
     let indBlock := ⟨.mutIndBlock $ indInfos.map (·.anon), .mutIndBlock $ indInfos.map (·.meta)⟩
-    let indBlockCid ← StoreValue.insert $ .const indBlock
+    let indBlockCid ← addToStore $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
     let mut constIdx := firstIdx
@@ -296,7 +313,7 @@ mutual
       let indProj :=
         ⟨ .inductiveProj ⟨ (), indAnon.lvls, indAnon.type, indBlockCid.anon, indIdx ⟩
         , .inductiveProj ⟨ indMeta.name, indMeta.lvls, indMeta.type, indBlockCid.meta, () ⟩ ⟩
-      let cid ← StoreValue.insert $ .const indProj
+      let cid ← addToStore $ .const indProj
       addToCache name (cid, constIdx)
       if name == initInd.name then ret? := some (cid, constIdx)
       constIdx := constIdx + 1
@@ -307,7 +324,7 @@ mutual
         let ctorProj :=
           ⟨ .constructorProj ⟨ (), ctorAnon.lvls, ctorAnon.type, indBlockCid.anon, indIdx, ctorIdx ⟩
           , .constructorProj ⟨ ctorMeta.name, ctorMeta.lvls, ctorMeta.type, indBlockCid.meta, (), () ⟩ ⟩
-        let cid ← StoreValue.insert $ .const ctorProj
+        let cid ← addToStore $ .const ctorProj
         addToCache name (cid, constIdx)
         constIdx := constIdx + 1
 
@@ -317,7 +334,7 @@ mutual
         let recrProj :=
           ⟨ .recursorProj ⟨ (), recrAnon.2.lvls, recrAnon.2.type, indBlockCid.anon, indIdx, recrIdx ⟩
           , .recursorProj ⟨ recrMeta.2.name, recrMeta.2.lvls, recrMeta.2.type, indBlockCid.meta, (), () ⟩ ⟩
-        let cid ← StoreValue.insert $ .const recrProj
+        let cid ← addToStore $ .const recrProj
         addToCache name (cid, constIdx)
         constIdx := constIdx + 1
 
@@ -399,8 +416,8 @@ mutual
       | _ => return false
 
   partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
-      Lean.ConstantInfo → CompileM
-        (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
+    Lean.ConstantInfo → CompileM
+      (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← toYatimaExpr rec.type
@@ -532,7 +549,7 @@ mutual
       CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
     let (rhsCid, rhs) ← toYatimaExpr rule.rhs
     let const ← findConstant rule.ctor
-    let (ctorCid, ctor?) ← processYatimaConst const
+    let (ctorCid, ctor?) ← getYatimaConst const
     let ctor ← match ← derefConst ctor? with
       | .constructor ctor => pure ctor
       | const => throw $ .invalidConstantKind' const "constructor"
@@ -564,7 +581,7 @@ mutual
     let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join
     let definitionsMeta := definitions.map fun ds => ds.map $ (·.meta) ∘ Prod.fst
     let block : Ipld.Both Ipld.Const := ⟨ .mutDefBlock definitionsAnon, .mutDefBlock definitionsMeta ⟩
-    let blockCid ← StoreValue.insert $ .const block
+    let blockCid ← addToStore $ .const block
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
 
@@ -573,7 +590,7 @@ mutual
       let some (idx, _) := mutualIdxs.find? defn.name | throw $ .cantFindMutDefIndex defn.name
       let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
                    , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, i⟩ ⟩
-      let cid ← StoreValue.insert $ .const value
+      let cid ← addToStore $ .const value
       let constIdx := i + firstIdx
       addToConsts constIdx $ .definition defn
       addToCache defn.name (cid, constIdx)
@@ -619,8 +636,8 @@ mutual
       | none, some _ => return .gt
       | some _, none => return .lt
       | none, none => do
-        let xCid := (← processYatimaConst (← findConstant x)).fst
-        let yCid := (← processYatimaConst (← findConstant y)).fst
+        let xCid := (← getYatimaConst (← findConstant x)).fst
+        let yCid := (← getYatimaConst (← findConstant y)).fst
         return (compare xCid.anon yCid.anon)
     | .const .., _ => return .lt
     | _, .const .. => return .gt
@@ -685,7 +702,7 @@ end
 def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
   let log := (← read).log
   constMap.forM fun _ const => do
-    let (_, c) ← processYatimaConst const
+    let (_, c) ← getYatimaConst const
     if log then
       IO.println "\n========================================="
       IO.println    const.name

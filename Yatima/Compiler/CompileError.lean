@@ -4,6 +4,7 @@ import Yatima.Datatypes.Const
 
 namespace Yatima.Compiler
 
+/-- Errors that can be thrown in `Yatima.Compiler.CompileM` -/
 inductive CompileError
   | notFoundInCache : Name → CompileError
   | invalidDereferringIndex : Nat → Nat → CompileError
