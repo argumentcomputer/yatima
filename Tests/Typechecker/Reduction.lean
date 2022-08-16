@@ -87,7 +87,11 @@ def extractTcTests := fun stt state =>
 
 def tcExtractor := extractTcTests
     [(`A, `A'),
-     (`B, `B')]
+     (`B, `B'),
+     (`C, `C'),
+     (`D, `D'),
+     (`E, `E')
+    ]
 
 def main := do
   let tSeq ← compileAndExtractTests

@@ -24,15 +24,18 @@ mutual
     | _ => pure $ mkConst name const univs
 
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
+    dbg_trace s!"Applying: {name}"
     -- Assumes a partial application of k to args, which means in particular, that it is in normal form
-    match (← read).store.get! k with
+    match ← getConst? name k with
     | .intRecursor recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
+        dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
         match arg.get with
-        | .app (Neutral.const _ ctor _) args' => match (← read).store.get! ctor with
+        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
           | .constructor ctor =>
+            dbg_trace s!"ctor: {ctor.rhs}, {recur.indices}"
             let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
             withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
@@ -42,7 +45,7 @@ mutual
       if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         match arg.get with
-        | .app (Neutral.const _ ctor _) args' => match (← read).store.get! ctor with
+        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
             match List.find? (fun r => r.ctor.idx == ctor.idx) recur.rules with
@@ -51,13 +54,13 @@ mutual
               withEnv ⟨exprs, univs⟩ $ eval rule.rhs
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule
+            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .quotient quotVal => match quotVal.kind with
       | .lift => reduceQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
       | .ind  => reduceQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | _ => throw .cannotEvalQuotient
+      | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
@@ -70,7 +73,10 @@ mutual
     | .app fnc arg => do
       let ctx ← read
       let arg_thunk := suspend arg ctx
-      apply (← eval fnc) arg_thunk
+      dbg_trace s!"Apply: {fnc} to {arg}"
+      let fnc := (← eval fnc)
+      dbg_trace s!"evaluated fnc: {fnc}"
+      apply fnc arg_thunk
     | .lam name info _ bod => do
        let env := (← read).env
        pure $ Value.lam name info bod env
@@ -79,6 +85,7 @@ mutual
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
       pure thunk.get
     | .const name k const_univs => do
+      dbg_trace s!"Processing: {name}"
       let env := (← read).env
       evalConst name k (const_univs.map (instBulkReduce env.univs))
     | .letE _ _ val bod => do
@@ -121,47 +128,11 @@ mutual
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
     | .lam _ _ bod lam_env => withExtEnv lam_env arg (eval bod)
-    | .app (.const name k k_univs) args' => applyConst name k k_univs arg args'
+    | .app (.const name k k_univs) args' => do dbg_trace s!"HERE: {name}"
+                                               applyConst name k k_univs arg args'
     | .app var@(.fvar ..) args' => pure $ Value.app var (arg :: args')
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
-
-  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
-    -- Assumes a partial application of k to args, which means in particular, that it is in normal form
-    match ← getConst? name k with
-    | .intRecursor recur =>
-      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
-      else
-        match arg.get with
-        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
-          | .constructor ctor =>
-            let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
-            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
-          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .extRecursor recur =>
-      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
-      else
-        match arg.get with
-        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
-          | .constructor ctor =>
-            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-            match List.find? (fun r => r.ctor.idx == ctor.idx) recur.rules with
-            | some rule =>
-              let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
-              withEnv ⟨exprs, univs⟩ $ eval rule.rhs
-            -- Since we assume expressions are previously type checked, we know that this constructor
-            -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
-          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .quotient quotVal => match quotVal.kind with
-      | .lift => reduceQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | .ind  => reduceQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def reduceQuot (major? : Thunk Value) (args : Args) (reduceSize : Nat) (argPos : Nat) (default : Value) :
       TypecheckM Value :=

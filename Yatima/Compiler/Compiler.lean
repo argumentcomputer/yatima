@@ -98,6 +98,10 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none,    _       => throw $ .levelNotFound x lvls
     | _,       none    => throw $ .levelNotFound y lvls
 
+def implicitLambda : Expr → Expr
+  | .lam _ _ _ body => implicitLambda body
+  | x => x
+
 mutual
   /--
   Process a Lean constant into a Yatima constant, returning both the Yatima
@@ -451,6 +455,7 @@ mutual
 
   partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
     let (rhsCid, rhs) ← toYatimaExpr rule.rhs
+    let rhs := implicitLambda rhs
     match ← findConstant rule.ctor with
     | .ctorInfo ctor =>
       let (typeCid, type) ← toYatimaExpr ctor.type
