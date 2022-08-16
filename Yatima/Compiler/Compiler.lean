@@ -42,7 +42,7 @@ def derefConst (idx : ConstIdx) : CompileM Const := do
     throw $ .invalidDereferringIndex idx size
 
 /-- Retrieves a Lean constant from the environment by its name -/
-def findConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
+def getLeanConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
   | some const => pure const
   | none => throw $ .unknownConstant name
@@ -102,15 +102,25 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none,    _       => throw $ .levelNotFound x lvls
     | _,       none    => throw $ .levelNotFound y lvls
 
+def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
+  match expr with
+  | .forallE _ t e _  => match e with
+    | .forallE ..  => isInternalRec e name
+    -- t is the major premise
+    | _ => isInternalRec t name
+  | .app e .. => isInternalRec e name
+  | .const n .. => return n == name
+  | _ => return false
+
 mutual
   /--
   Gets the Yatima constant references off of a Lean constant, returning its CID
   and its index in the array of constants.
 
   If the result is already cached, returns it right away. Otherwise, calls
-  `toYatimaConst` to do the actual compilation.
+  `compileConstant` to do the actual compilation.
   -/
-  partial def getYatimaConst (const : Lean.ConstantInfo) :
+  partial def getCompiledConst (const : Lean.ConstantInfo) :
       CompileM $ ConstCid × ConstIdx := do
     let name := const.name
     let log  := (← read).log
@@ -119,7 +129,7 @@ mutual
     | none   =>
       if log then
         IO.println s!"↡ Stacking {name}{const.formatAll}"
-      let c ← toYatimaConst const
+      let c ← compileConstant const
       if log then
         IO.println s!"↟ Popping  {name}"
       return c
@@ -132,21 +142,21 @@ mutual
 
   For other cases, adds them to the cache, the store and the array of constants.
   -/
-  partial def toYatimaConst : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
+  partial def compileConstant : Lean.ConstantInfo → CompileM (ConstCid × ConstIdx)
   -- These cases add multiple constants at the same time
-  | .defnInfo struct => withLevelsAndReset struct.levelParams $ toYatimaDef struct
-  | .inductInfo struct => withLevelsAndReset struct.levelParams $ toYatimaInductive struct
+  | .defnInfo struct => withLevelsAndReset struct.levelParams $ compileDefinition struct
+  | .inductInfo struct => withLevelsAndReset struct.levelParams $ compileInductive struct
   -- These cases are subsumed by the inductive case
   | .ctorInfo struct => do
-    discard $ match ← findConstant struct.induct with
-      | .inductInfo ind => getYatimaConst (.inductInfo ind)
+    discard $ match ← getLeanConstant struct.induct with
+      | .inductInfo ind => getCompiledConst (.inductInfo ind)
       | const => throw $ .invalidConstantKind const "inductive"
-    getYatimaConst (.ctorInfo struct)
+    getCompiledConst (.ctorInfo struct)
   | .recInfo struct => do
-    discard $ match ← findConstant struct.getInduct with
-      | .inductInfo ind => getYatimaConst (.inductInfo ind)
+    discard $ match ← getLeanConstant struct.getInduct with
+      | .inductInfo ind => getCompiledConst (.inductInfo ind)
       | const => throw $ .invalidConstantKind const "inductive"
-    getYatimaConst (.recInfo struct)
+    getCompiledConst (.recInfo struct)
   -- The rest adds the constants to the cache one by one
   | const => withLevelsAndReset const.levelParams do
     -- It is important to push first with some value so we don't lose the
@@ -155,7 +165,7 @@ mutual
       (stt.consts.size, { stt with consts := stt.consts.push default })
     let values : Ipld.Both Ipld.Const × Const ← match const with
       | .axiomInfo struct =>
-        let (typeCid, type) ← toYatimaExpr struct.type
+        let (typeCid, type) ← compileExpr struct.type
         let ax := {
           name := struct.name
           lvls := struct.levelParams
@@ -164,9 +174,9 @@ mutual
         let value := ⟨ .axiom $ ax.toIpld typeCid, .axiom $ ax.toIpld typeCid ⟩
         pure (value, .axiom ax)
       | .thmInfo struct =>
-        let (typeCid, type) ← toYatimaExpr struct.type
+        let (typeCid, type) ← compileExpr struct.type
         -- Theorems are never truly recursive, though they can use recursive schemes
-        let (valueCid, value) ← toYatimaExpr struct.value
+        let (valueCid, value) ← compileExpr struct.value
         let thm := {
           name  := struct.name
           lvls  := struct.levelParams
@@ -175,8 +185,8 @@ mutual
         let value := ⟨.theorem $ thm.toIpld typeCid valueCid, .theorem $ thm.toIpld typeCid valueCid⟩
         pure (value, Const.theorem thm)
       | .opaqueInfo struct =>
-        let (typeCid, type) ← toYatimaExpr struct.type
-        let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ toYatimaExpr struct.value
+        let (typeCid, type) ← compileExpr struct.type
+        let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ compileExpr struct.value
         let opaq := {
           name  := struct.name
           lvls  := struct.levelParams
@@ -186,7 +196,7 @@ mutual
           let value := ⟨.opaque $ opaq.toIpld typeCid valueCid, .opaque $ opaq.toIpld typeCid valueCid⟩
         pure (value, .opaque opaq)
       | .quotInfo struct =>
-        let (typeCid, type) ← toYatimaExpr struct.type
+        let (typeCid, type) ← compileExpr struct.type
         let quot := {
           name := struct.name
           lvls := struct.levelParams
@@ -205,12 +215,12 @@ mutual
 
   Constants are the tricky case, for which there are two possibilities:
   * The constant belongs to `recrCtx`, representing a recursive call. Those are
-  encoded as variables with indexes that go beyod the bind indexes
+  encoded as variables with indexes that go beyond the bind indexes
   * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
   and thus we can compile the actual constant right away
   -/
-  partial def toYatimaExpr : Lean.Expr → CompileM (ExprCid × Expr)
-  | .mdata _ e => toYatimaExpr e
+  partial def compileExpr : Lean.Expr → CompileM (ExprCid × Expr)
+  | .mdata _ e => compileExpr e
   | expr => do
     let (value, expr) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
@@ -228,40 +238,40 @@ mutual
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
           fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
-        | some (i, i?, ref) =>
+        | some (i, i?, ref) => -- recursing!
           let idx := (← read).bindCtx.length + i
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () (univCids.map (·.anon)),
             .var name i? (univCids.map (·.meta)) ⟩
           pure (value, .const name ref univs)
         | none =>
-          let const ← findConstant name
-          let (constCid, const) ← getYatimaConst const
+          let const ← getLeanConstant name
+          let (constCid, const) ← getCompiledConst const
           let value : Ipld.Both Ipld.Expr :=
             ⟨ .const () constCid.anon $ univCids.map (·.anon),
               .const name constCid.meta $ univCids.map (·.meta) ⟩
           pure (value, .const name const univs)
       | .app fnc arg =>
-        let (fncCid, fnc) ← toYatimaExpr fnc
-        let (argCid, arg) ← toYatimaExpr arg
+        let (fncCid, fnc) ← compileExpr fnc
+        let (argCid, arg) ← compileExpr arg
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         pure (value, .app fnc arg)
       | .lam name typ bod bnd =>
-        let (typCid, typ) ← toYatimaExpr typ
-        let (bodCid, bod) ← withBinder name $ toYatimaExpr bod
+        let (typCid, typ) ← compileExpr typ
+        let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         pure (value, .lam name bnd typ bod)
       | .forallE name dom img bnd =>
-        let (domCid, dom) ← toYatimaExpr dom
-        let (imgCid, img) ← withBinder name $ toYatimaExpr img
+        let (domCid, dom) ← compileExpr dom
+        let (imgCid, img) ← withBinder name $ compileExpr img
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         pure (value, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
-        let (typCid, typ) ← toYatimaExpr typ
-        let (expCid, exp) ← toYatimaExpr exp
-        let (bodCid, bod) ← withBinder name $ toYatimaExpr bod
+        let (typCid, typ) ← compileExpr typ
+        let (expCid, exp) ← compileExpr exp
+        let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         pure (value, .letE name typ exp bod)
@@ -269,7 +279,7 @@ mutual
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
       | .proj _ idx exp=> do
-        let (expCid, exp) ← toYatimaExpr exp
+        let (expCid, exp) ← compileExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
       | .fvar ..  => throw $ .freeVariableExpr expr
@@ -278,42 +288,44 @@ mutual
     let cid ← addToStore $ .expr value
     pure (cid, expr)
 
-  partial def toYatimaInductive (initInd : Lean.InductiveVal) : CompileM (ConstCid × ConstIdx) := do
-    -- `constList` is the list of the names of all constants associated with an inductive block: the inductives themselves,
-    -- the constructors and the recursors.
-    let mut constList : List Lean.Name := []
+  partial def compileInductive (initInd : Lean.InductiveVal) :
+      CompileM (ConstCid × ConstIdx) := do
+    -- `mutualConsts` is the list of the names of all constants associated with an
+    -- inductive block: the inductives themselves, the constructors and the recursors
+    let mut mutualConsts : List Lean.Name := []
     for indName in initInd.all do
-      match ← findConstant indName with
+      match ← getLeanConstant indName with
       | .inductInfo ind =>
-        let leanRecs := (← read).constMap.childrenOfWith ind.name -- reverses once
-          fun c => match c with | .recInfo _ => true | _ => false
-        let leanRecs := leanRecs.map (·.name)
-        let addList := (indName :: ind.ctors).append leanRecs
-        constList := constList.append addList
+        let leanRecs := ((← read).constMap.childrenOfWith ind.name
+          fun c => match c with | .recInfo _ => true | _ => false).map (·.name)
+        mutualConsts := mutualConsts ++ (indName :: ind.ctors) ++ leanRecs
       | const => throw $ .invalidConstantKind const "inductive"
 
-    -- All inductives, constructors and recursors are done in one go, so we must append an array of `constList.length` to `consts`
-    -- and save the mapping of all names in `constList` to their respective indices
-    let mut firstIdx ← modifyGet (fun stt => (stt.consts.size, { stt with consts := stt.consts.append (mkArray constList.length default) }))
+    -- All inductives, constructors and recursors are done in one go, so we must
+    -- append an array of `mutualConsts.length` to `consts` and save the mapping
+    -- of all names in `mutualConsts` to their respective indices
+    let mut firstIdx ← modifyGet fun stt =>
+      (stt.consts.size, { stt with consts := stt.consts.append (mkArray mutualConsts.length default) })
     let mut mutualIdxs : RBMap Lean.Name RecrCtxEntry compare := RBMap.empty
-    for (i, n) in constList.enum do
+    for (i, n) in mutualConsts.enum do
       mutualIdxs := mutualIdxs.insert n (i, none, firstIdx + i)
 
-    -- This part will build the inductive block and add all inductives, constructors and recursors to `consts`
-    let indInfos : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldrM (init := []) fun name acc => do
-      match ← findConstant name with
+    -- This part will build the inductive block and add all inductives,
+    -- constructors and recursors to `consts`
+    let ipldInds : List (Ipld.Both Ipld.Inductive) ← initInd.all.foldrM (init := []) fun name acc => do
+      match ← getLeanConstant name with
       | .inductInfo ind => do
         withRecrs mutualIdxs do
           let ipldInd ← toYatimaIpldInductive ind
           pure $ ipldInd :: acc
       | const => throw $ .invalidConstantKind const "inductive"
-    let indBlock := ⟨.mutIndBlock $ indInfos.map (·.anon), .mutIndBlock $ indInfos.map (·.meta)⟩
+    let indBlock := ⟨.mutIndBlock $ ipldInds.map (·.anon), .mutIndBlock $ ipldInds.map (·.meta)⟩
     let indBlockCid ← addToStore $ .const indBlock
 
     let mut ret? : Option (ConstCid × ConstIdx) := none
     let mut constIdx := firstIdx
 
-    for (indIdx, ⟨indAnon, indMeta⟩) in indInfos.enum do
+    for (indIdx, ⟨indAnon, indMeta⟩) in ipldInds.enum do
       -- Add the IPLD inductive projections and inductives to the cache
       let name := indMeta.name.projᵣ
       let indProj :=
@@ -352,20 +364,20 @@ mutual
       CompileM $ Ipld.Both Ipld.Inductive := do
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let (recs, ctors) : ((List $ Ipld.Both (Sigma fun x => Ipld.Recursor x ·)) × (List $ Ipld.Both Ipld.Constructor)) :=
+    let (recs, ctors) : (List $ Ipld.Both (Sigma fun x => Ipld.Recursor x ·)) × (List $ Ipld.Both Ipld.Constructor) :=
       ← leanRecs.foldrM (init := ([], [])) fun r (recs, ctors) =>
         match r with
         | .recInfo rv => do
           if ← isInternalRec rv.type ind.name then do
             let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
-            let recs := (⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩) :: recs
+            let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else do
             let thisRec := ← toYatimaIpldExternalRec r
-            let recs := (⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩) :: recs
+            let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
-    let (typeCid, type) ← toYatimaExpr ind.type
+    let (typeCid, type) ← compileExpr ind.type
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
       | [ctor] => do
@@ -411,27 +423,17 @@ mutual
         , () , () , () ⟩
     }
 
-  partial def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : CompileM Bool :=
-    match expr with
-      | .forallE _ t e _  => match e with
-        | .forallE ..  => isInternalRec e name
-        -- t is the major premise
-        | _ => isInternalRec t name
-      | .app e .. => isInternalRec e name
-      | .const n .. => return n == name
-      | _ => return false
-
   partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
     Lean.ConstantInfo → CompileM
       (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
-        let (typeCid, type) ← toYatimaExpr rec.type
+        let (typeCid, type) ← compileExpr rec.type
         let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             match ctors.indexOf? r.ctor with
             | some _ =>
-              let ctor ← toYatimaConstructor r
+              let ctor ← toYatimaIpldConstructor r
               return ctorMap.insert ctor.meta.name.projᵣ ctor
             -- this is an external recursor rule
             | none => return ctorMap
@@ -472,11 +474,12 @@ mutual
         return (recr, retCtors)
     | const => throw $ .invalidConstantKind const "recursor"
 
-  partial def toYatimaConstructor (rule : Lean.RecursorRule) : CompileM $ Ipld.Both Ipld.Constructor := do
-    let (rhsCid, rhs) ← toYatimaExpr rule.rhs
-    match ← findConstant rule.ctor with
+  partial def toYatimaIpldConstructor (rule : Lean.RecursorRule) :
+      CompileM $ Ipld.Both Ipld.Constructor := do
+    let (rhsCid, rhs) ← compileExpr rule.rhs
+    match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
-      let (typeCid, type) ← toYatimaExpr ctor.type
+      let (typeCid, type) ← compileExpr ctor.type
       let tcCtor : Const := .constructor {
         name    := ctor.name
         lvls    := ctor.levelParams
@@ -510,52 +513,51 @@ mutual
 
   partial def toYatimaIpldExternalRec :
       Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .extr))
-    | .recInfo rec => do
-      withLevels rec.levelParams do
-        let (typeCid, type) ← toYatimaExpr rec.type
-        let (rules, tcRules) : Ipld.Both (fun k => List $ Ipld.RecursorRule k) × List RecursorRule := ← rec.rules.foldlM
-          (init := (⟨[], []⟩, [])) fun rules r => do
-            let (recrRule, tcRecrRule) ← toYatimaExternalRecRule r
-            return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
-        let tcRecr : Const := .extRecursor {
-          name    := rec.name
-          lvls    := rec.levelParams
-          type    := type
+    | .recInfo rec => withLevels rec.levelParams do
+      let (typeCid, type) ← compileExpr rec.type
+      let (rules, tcRules) : Ipld.Both (fun k => List $ Ipld.RecursorRule k) × List RecursorRule := ← rec.rules.foldlM
+        (init := (⟨[], []⟩, [])) fun rules r => do
+          let (recrRule, tcRecrRule) ← toYatimaIpldExternalRecRule r
+          return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
+      let tcRecr : Const := .extRecursor {
+        name    := rec.name
+        lvls    := rec.levelParams
+        type    := type
+        params  := rec.numParams
+        indices := rec.numIndices
+        motives := rec.numMotives
+        minors  := rec.numMinors
+        rules   := tcRules
+        k       := rec.k
+      }
+      let some (_, _, constIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
+      addToConsts constIdx tcRecr
+      return ⟨
+        { name    := ()
+          lvls    := rec.levelParams.length
+          type    := typeCid.anon
           params  := rec.numParams
           indices := rec.numIndices
           motives := rec.numMotives
           minors  := rec.numMinors
-          rules   := tcRules
-          k       := rec.k
-        }
-        let some (_, _, constIdx) := (← read).recrCtx.find? rec.name | throw $ .unknownConstant rec.name
-        addToConsts constIdx tcRecr
-        return ⟨
-          { name    := ()
-            lvls    := rec.levelParams.length
-            type    := typeCid.anon
-            params  := rec.numParams
-            indices := rec.numIndices
-            motives := rec.numMotives
-            minors  := rec.numMinors
-            rules   := rules.anon
-            k       := rec.k },
-          { name    := rec.name
-            lvls    := rec.levelParams
-            type    := typeCid.meta
-            params  := ()
-            indices := ()
-            motives := ()
-            minors  := ()
-            rules   := rules.meta
-            k       := () } ⟩
+          rules   := rules.anon
+          k       := rec.k },
+        { name    := rec.name
+          lvls    := rec.levelParams
+          type    := typeCid.meta
+          params  := ()
+          indices := ()
+          motives := ()
+          minors  := ()
+          rules   := rules.meta
+          k       := () } ⟩
     | const => throw $ .invalidConstantKind const "recursor"
     
-  partial def toYatimaExternalRecRule (rule : Lean.RecursorRule) :
+  partial def toYatimaIpldExternalRecRule (rule : Lean.RecursorRule) :
       CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
-    let (rhsCid, rhs) ← toYatimaExpr rule.rhs
-    let const ← findConstant rule.ctor
-    let (ctorCid, ctor?) ← getYatimaConst const
+    let (rhsCid, rhs) ← compileExpr rule.rhs
+    let const ← getLeanConstant rule.ctor
+    let (ctorCid, ctor?) ← getCompiledConst const
     let ctor ← match ← derefConst ctor? with
       | .constructor ctor => pure ctor
       | const => throw $ .invalidConstantKind' const "constructor"
@@ -565,11 +567,10 @@ mutual
     let tcRecrRule := { ctor := ctor, fields := rule.nfields, rhs := rhs }
     return (recrRule, tcRecrRule)
 
-  partial def toYatimaDef (struct : Lean.DefinitionVal) : CompileM (ConstCid × ConstIdx) := do
+  partial def compileDefinition (struct : Lean.DefinitionVal) : CompileM (ConstCid × ConstIdx) := do
     let all := if struct.all.length == 1 then [struct.name] else struct.all
-
     let mutualDefs ← all.mapM fun name => do
-      match ← findConstant name with
+      match ← getLeanConstant name with
       | .defnInfo defn => pure defn
       | const => throw $ .invalidConstantKind const "definition"
     let mutualDefs ← sortDefs [mutualDefs]
@@ -583,7 +584,7 @@ mutual
         mutualIdxs := mutualIdxs.insert d.name (i, some j, firstIdx + mutIdx)
         mutIdx := mutIdx + 1
     let definitions ← withRecrs mutualIdxs $
-      mutualDefs.mapM fun ds => ds.mapM $ toYatimaDefIpld
+      mutualDefs.mapM fun ds => ds.mapM $ toYatimaIpldDefinition
     let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join
     let definitionsMeta := definitions.map fun ds => ds.map $ (·.meta) ∘ Prod.fst
     let block : Ipld.Both Ipld.Const := ⟨ .mutDefBlock definitionsAnon, .mutDefBlock definitionsMeta ⟩
@@ -607,10 +608,10 @@ mutual
     | some ret => return ret
     | none => throw $ .constantNotCompiled struct.name
 
-  partial def toYatimaDefIpld (defn : Lean.DefinitionVal) :
+  partial def toYatimaIpldDefinition (defn : Lean.DefinitionVal) :
       CompileM (Ipld.Both Ipld.Definition × Definition) := do
-    let (typeCid, type) ← toYatimaExpr defn.type
-    let (valueCid, value) ← toYatimaExpr defn.value
+    let (typeCid, type) ← compileExpr defn.type
+    let (valueCid, value) ← compileExpr defn.value
     let defn := {
       name   := defn.name
       lvls   := defn.levelParams
@@ -642,8 +643,8 @@ mutual
       | none, some _ => return .gt
       | some _, none => return .lt
       | none, none => do
-        let xCid := (← getYatimaConst (← findConstant x)).fst
-        let yCid := (← getYatimaConst (← findConstant y)).fst
+        let xCid := (← getCompiledConst (← getLeanConstant x)).fst
+        let yCid := (← getCompiledConst (← getLeanConstant y)).fst
         return (compare xCid.anon yCid.anon)
     | .const .., _ => return .lt
     | _, .const .. => return .gt
@@ -708,7 +709,7 @@ end
 def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
   let log := (← read).log
   constMap.forM fun _ const => do
-    let (_, c) ← getYatimaConst const
+    let (_, c) ← getCompiledConst const
     if log then
       IO.println "\n========================================="
       IO.println    const.name
