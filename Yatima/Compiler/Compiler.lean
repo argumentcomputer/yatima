@@ -587,6 +587,12 @@ mutual
     let tcRecrRule := { ctor := ctor, fields := rule.nfields, rhs := rhs }
     return (recrRule, tcRecrRule)
 
+  /--
+  Compiles adefinition and all definitions in the mutual block as a mutual
+  block, even if the definition itself is not in a mutual block.
+
+  This function is rather similar to `Yatima.Compiler.compileInductive`.
+  -/
   partial def compileDefinition (struct : Lean.DefinitionVal) :
       CompileM (ConstCid × ConstIdx) := do
     let mutualSize := struct.all.length
@@ -752,6 +758,7 @@ mutual
 
 end
 
+/-- Iterates over the constants of a `Lean.ConstMap` triggering their compilation -/
 def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
   let log := (← read).log
   constMap.forM fun _ const => do
@@ -760,11 +767,19 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
       IO.println "\n========================================="
       IO.println    const.name
       IO.println   "========================================="
-      IO.println s!"{PrintLean.printLeanConst const}"
+      IO.println $  PrintLean.printLeanConst const
       IO.println   "========================================="
-      IO.println s!"{← PrintYatima.printYatimaConst (← derefConst c)}"
+      IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
 
+/--
+Compiles the "delta" of a file, that is, the content that is added on top of
+what is imported by it.
+
+Important: constants with open references in their expressions are filtered out.
+Open references are variables that point to names which aren't present in the
+`Lean.ConstMap`.
+-/
 def compile (filePath : System.FilePath) (log : Bool := false)
     (stt : CompileState := default) : IO $ Except CompileError CompileState := do
   let filePathStr := filePath.toString
@@ -792,6 +807,8 @@ def compile (filePath : System.FilePath) (log : Bool := false)
     CompileM.run (.init map log) stt (compileM delta)
 
 /--
+Sets the directories where `olean` files can be found.
+
 This function must be called before `compile` if the file to be compiled has
 imports (the automatic imports from `Init` also count).
 -/
