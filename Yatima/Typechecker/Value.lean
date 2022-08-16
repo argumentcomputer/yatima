@@ -50,6 +50,12 @@ inductive CheckError where
   | impossible : CheckError
   deriving Inhabited
 
+/-- There are only two types of literals -/
+inductive LitType
+  | nat : LitType
+  | str : LitType
+  deriving BEq, Inhabited
+
 mutual
 -- A neutral term is either a variable or a constant with not enough arguments to reduce.
 -- They appear as the head of a stuck application.

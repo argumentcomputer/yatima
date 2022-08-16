@@ -56,9 +56,9 @@ This clearly duplicates `Nat` a lot, so we should try to find an
 more compact representation for constructor/inductive data.
 
 2. `Prod`
-  a. `Prod.mk` is `(lambda (:1 :2 fst snd) ((Prod :1 :2) 0 fst snd))`
+  a. `Prod.mk` is `(lambda (α β fst snd) ((Prod α β) 0 α β fst snd))`
 
-Note that `(Prod :1 :2)` reduces to `("Prod" 2 0)`, allowing us to access
+Note that `(Prod α β)` reduces to `("Prod" 2 0)`, allowing us to access
 the inductive data. 
 
 ## Recursors
@@ -70,8 +70,28 @@ TODO
 
 ## Projections 
 
-TODO
+Yatima projections are encoded by `.proj idx e`, where `e` is the expression
+and `idx` is the index of the data we want to extract out of `e`. 
 
+Recall that we encode inductive constructors with a list: `ctorᵢ a₁ a₂ ..`.
+In particular, structures only have one constructor: `struct.mk`, and their 
+data is simply recorded in a list. Hence, one may think that we can simply 
+write `getelem e (idx + 2)` (the `+2` is to skip the name and constructor index). 
+
+However! This fails because structures may have parameters. For example,
+the tuple `(1, 2)` is encoded in Lurk as `e := ((Prod Nat Nat) 0 Nat Nat 1 2)`.
+If we want `e.1`, then `getelem e (1 + 2)` is `Nat`. In general, constructor
+arguments will always first contain the parameters and indices, before the 
+actual fields of the constructor. So we modify our first solution to include 
+these. `let args := cdr (cdr e) in getelem args (idx + params + indices)`. 
+
+Great! Now how do we find `params` and `indices`? We can simply look at the
+head of `e`: since `e` is an inductive, we know that the head holds some 
+inductive type `((<ind> <args>) <params> <indices>)`! This is the reason we 
+include the two `params` and `indices` in the inductive data. 
+
+Note that because we don't know what the head of `e` is until we reduce it, 
+this logic occurs *at run time*!
 -/
 
 namespace Yatima.Transpiler
@@ -121,7 +141,7 @@ mutual
     let lurkBinds := binds.foldr (
       fun (n : Name) (acc : Lurk.Expr) => ⟦(cons $n $acc)⟧
     ) ⟦nil⟧
-    -- TODO(Winston): Explain
+    -- if the inductive has arguments, then apply them from `ctor`'s bindings
     let ind : Lurk.Expr := match (indices + params) with 
       | 0 => ⟦$(name.getPrefix)⟧
       | _ => .app ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
@@ -161,7 +181,9 @@ mutual
       if (← get).visited.contains ind.name then 
         break
       let (_, ⟨binds⟩) := descendPi ind.type #[]
-      -- TODO(Winston): Explain
+      -- when the inductive type is a function, i.e.
+      -- we have params or indices, then `lurkInd` is 
+      -- encoded as a lambda
       let lurkInd := if binds.length == 0 then 
         ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
       else 
@@ -173,8 +195,7 @@ mutual
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     IO.print ">> exprToLurkExpr: "
     match e with 
-    | .sort  ..
-    | .lty   .. => return ⟦nil⟧
+    | .sort  .. => return ⟦nil⟧
     | .var name _     => 
       IO.println s!"var {name}"
       return ⟦$name⟧
