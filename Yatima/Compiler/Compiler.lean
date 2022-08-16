@@ -373,6 +373,7 @@ mutual
     | some ret => return ret
     | none => throw $ .constantNotCompiled initInd.name
 
+  /-- Encodes a Lean inductive to IPLD -/
   partial def toYatimaIpldInductive (ind : Lean.InductiveVal) :
       CompileM $ Ipld.Both Ipld.Inductive := do
     let leanRecs := (← read).constMap.childrenOfWith ind.name
@@ -392,8 +393,10 @@ mutual
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
     let (typeCid, type) ← compileExpr ind.type
+    -- Structures can't be recursive nor have indices
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
+      -- Structures can only have one constructor
       | [ctorName] => do
         let (_, _, ctorIdx) ← getFromRecrCtx! ctorName
         match ← derefConst ctorIdx with
@@ -437,6 +440,7 @@ mutual
         , () , () , () ⟩
     }
 
+  /-- Encodes an internal recursor to to IPLD -/
   partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
     Lean.ConstantInfo → CompileM
       (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
@@ -487,6 +491,7 @@ mutual
         return (recr, retCtors)
     | const => throw $ .invalidConstantKind const "recursor"
 
+  /-- Encodes a Lean constructor to IPLD -/
   partial def toYatimaIpldConstructor (rule : Lean.RecursorRule) :
       CompileM $ Ipld.Both Ipld.Constructor := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
@@ -524,6 +529,7 @@ mutual
           safe   := () } ⟩
     | const => throw $ .invalidConstantKind const "constructor"
 
+  /-- Encodes an external recursor to IPLD -/
   partial def toYatimaIpldExternalRec :
       Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .extr))
     | .recInfo rec => withLevels rec.levelParams do
@@ -565,7 +571,8 @@ mutual
           rules   := rules.meta
           k       := () } ⟩
     | const => throw $ .invalidConstantKind const "recursor"
-    
+
+  /-- Encodes an external recursor rule to IPLD -/
   partial def toYatimaIpldExternalRecRule (rule : Lean.RecursorRule) :
       CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
@@ -580,40 +587,56 @@ mutual
     let tcRecrRule := { ctor := ctor, fields := rule.nfields, rhs := rhs }
     return (recrRule, tcRecrRule)
 
-  partial def compileDefinition (struct : Lean.DefinitionVal) : CompileM (ConstCid × ConstIdx) := do
-    let all := if struct.all.length == 1 then [struct.name] else struct.all
+  partial def compileDefinition (struct : Lean.DefinitionVal) :
+      CompileM (ConstCid × ConstIdx) := do
+    let mutualSize := struct.all.length
+
+    -- This solves an issue in which the constant name comes different in the
+    -- `all` attribute
+    let all := if mutualSize == 1 then [struct.name] else struct.all
+
+    -- Collecting and sorting all definitions in the mutual block
     let mutualDefs ← all.mapM fun name => do
       match ← getLeanConstant name with
       | .defnInfo defn => pure defn
       | const => throw $ .invalidConstantKind const "definition"
     let mutualDefs ← sortDefs [mutualDefs]
-    let mutualSize := struct.all.length
+    
+    -- Reserving the slots in the array of constants
     let mut firstIdx ← modifyGet fun stt =>
-      (stt.consts.size, { stt with consts := stt.consts.append (mkArray mutualSize default) })
-    let mut mutualIdxs : RBMap Lean.Name RecrCtxEntry compare := RBMap.empty
+      (stt.consts.size, { stt with consts := stt.consts ++ mkArray mutualSize default })
+
+    -- Building the `recrCtx`
+    let mut recrCtx : RBMap Name RecrCtxEntry compare := RBMap.empty
     let mut mutIdx := 0
     for (i, ds) in mutualDefs.enum do
       for (j, d) in ds.enum do
-        mutualIdxs := mutualIdxs.insert d.name (i, some j, firstIdx + mutIdx)
+        recrCtx := recrCtx.insert d.name (i, some j, firstIdx + mutIdx)
         mutIdx := mutIdx + 1
-    let definitions ← withRecrs mutualIdxs $
-      mutualDefs.mapM fun ds => ds.mapM $ toYatimaIpldDefinition
+
+    let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM toYatimaIpldDefinition)
+
+    -- Building and storing the block
     let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join
     let definitionsMeta := definitions.map fun ds => ds.map $ (·.meta) ∘ Prod.fst
     let block : Ipld.Both Ipld.Const := ⟨ .mutDefBlock definitionsAnon, .mutDefBlock definitionsMeta ⟩
     let blockCid ← addToStore $ .const block
 
+    -- While iterating on the definitions from the mutual block, we need to track
+    -- the correct objects to return
     let mut ret? : Option (ConstCid × ConstIdx) := none
 
     let mut i : Nat := 0
     for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do
-      let some (idx, _) := mutualIdxs.find? defn.name | throw $ .cantFindMutDefIndex defn.name
+      -- Storing and caching the definition projection
+      -- Also adds the constant to the array of constants
+      let some (idx, _) := recrCtx.find? defn.name | throw $ .cantFindMutDefIndex defn.name
       let value := ⟨ .definitionProj $ ⟨(), defn.lvls.length, defnAnon.type, blockCid.anon, idx⟩
                    , .definitionProj $ ⟨defn.name, defn.lvls, defnMeta.type, blockCid.meta, i⟩ ⟩
       let cid ← addToStore $ .const value
       let constIdx := i + firstIdx
-      addToConsts constIdx $ .definition defn
       addToCache defn.name (cid, constIdx)
+      addToConsts constIdx $ .definition defn
       if defn.name == struct.name then ret? := some (cid, constIdx)
       i := i + 1
 
@@ -621,6 +644,7 @@ mutual
     | some ret => return ret
     | none => throw $ .constantNotCompiled struct.name
 
+  /-- Encodes a definition to IPLD -/
   partial def toYatimaIpldDefinition (defn : Lean.DefinitionVal) :
       CompileM (Ipld.Both Ipld.Definition × Definition) := do
     let (typeCid, type) ← compileExpr defn.type
@@ -633,7 +657,11 @@ mutual
       safety := defn.safety }
     return (⟨defn.toIpld typeCid valueCid, defn.toIpld typeCid valueCid⟩, defn)
 
-  partial def cmpExpr (names : Std.RBMap Lean.Name Nat compare) :
+  /--
+  A name-irrelevant ordering of Lean expressions. It relies on the output of
+  compilation itself to break the tie when comparing constants.
+  -/
+  partial def cmpExpr (names : Std.RBMap Name Nat compare) :
       Lean.Expr → Lean.Expr → CompileM Ordering
     | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
     | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
@@ -649,7 +677,7 @@ mutual
     | .sort .., _ => return .lt
     | _, .sort .. => return .gt
     | .const x xls, .const y yls => do
-      let univs ← concatOrds <$> (List.zip xls yls).mapM (fun (x,y) => cmpLevel x y)
+      let univs ← concatOrds <$> (xls.zip yls).mapM fun (x,y) => cmpLevel x y
       if univs != .eq then return univs
       match names.find? x, names.find? y with
       | some nx, some ny => return compare nx ny
@@ -661,16 +689,20 @@ mutual
         return (compare xCid.anon yCid.anon)
     | .const .., _ => return .lt
     | _, .const .. => return .gt
-    | .app xf xa, .app yf ya => (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
+    | .app xf xa, .app yf ya =>
+      (· * ·) <$> cmpExpr names xf yf <*> cmpExpr names xa ya
     | .app .., _ => return .lt
     | _, .app .. => return .gt
-    | .lam _ xt xb _, .lam _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+    | .lam _ xt xb _, .lam _ yt yb _ =>
+      (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
     | .lam .., _ => return .lt
     | _, .lam .. => return .gt
-    | .forallE _ xt xb _, .forallE _ yt yb _ => (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
+    | .forallE _ xt xb _, .forallE _ yt yb _ =>
+      (· * ·) <$> cmpExpr names xt yt <*> cmpExpr names xb yb
     | .forallE .., _ => return .lt
     | _, .forallE .. => return .gt
-    | .letE _ xt xv xb _, .letE _ yt yv yb _ => (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
+    | .letE _ xt xv xb _, .letE _ yt yv yb _ =>
+      (· * · * ·) <$> cmpExpr names xt yt <*> cmpExpr names xv yv <*> cmpExpr names xb yb
     | .letE .., _ => return .lt
     | _, .letE .. => return .gt
     | .lit x, .lit y =>
@@ -681,7 +713,8 @@ mutual
       let ts ← cmpExpr names tx ty
       return concatOrds [compare nx ny, ts]
 
-  partial def cmpDef (names : Std.RBMap Lean.Name Nat compare)
+  /-- A name-irrelevant ordering for Lean definitions -/
+  partial def cmpDef (names : Std.RBMap Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
       CompileM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
@@ -689,12 +722,12 @@ mutual
     let vs ← cmpExpr names x.value y.value
     return concatOrds [ls, ts, vs]
 
-  partial def eqDef (names : Std.RBMap Lean.Name Nat compare)
-    (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
-      CompileM Bool := do
+  /-- A name-irrelevant boolean comparation for Lean definitions -/
+  partial def eqDef (names : Std.RBMap Name Nat compare)
+      (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Bool := do
     match (← cmpDef names x y) with
-      | .eq => pure true
-      | _ => pure false
+    | .eq => pure true
+    | _ => pure false
 
   /-- todo -/
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
