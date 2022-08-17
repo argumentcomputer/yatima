@@ -22,6 +22,7 @@ structure Env (Value : Type) where
   deriving Inhabited
 
 mutual
+
 -- A neutral term is either a variable or a constant with not enough arguments to reduce.
 -- They appear as the head of a stuck application.
 inductive Neutral
@@ -47,6 +48,7 @@ inductive Value
 | proj : Nat → Neutral → List (Thunk Value) → Value
 | exception : TypecheckError → Value
 deriving Inhabited
+
 end
 
 -- The arguments of a stuck sequence of applications `(h a1 ... an)`

@@ -67,8 +67,8 @@ mutual
       check exp exp_typ
       let exp := suspend exp (← read)
       extCtx exp exp_typ $ infer bod
-    | .lit (Literal.nat _) => pure $ Value.lty LitType.nat
-    | .lit (Literal.str _) => pure $ Value.lty LitType.str
+    | .lit (.num _) => pure $ Value.lty .num
+    | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
     | .const name k const_univs =>
       let univs := (← read).env.univs

@@ -48,7 +48,6 @@ partial def readBack (consts : Array Const) : Value → Option Expr
     let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv consts)
     pure $ .lam name binfo (← readBack consts dom.get) $ ← readBack consts evalBod
   | .lit lit => pure $ .lit lit
-  | .lty lty => pure $ .lty lty
   -- TODO need to look into this case in the typechecker to make sure this is correct
   | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack consts val.get)
   | .exception _ => none

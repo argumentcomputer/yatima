@@ -200,7 +200,6 @@ mutual
             let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
             pure $ .letE name typ val bod
         | .lit lit, .lit () => pure $ .lit lit
-        | .lty lty, .lty () => pure $ .lty lty
         | .proj idx bodAnon, .proj () bodMeta =>
           let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
           pure $ .proj idx bod
