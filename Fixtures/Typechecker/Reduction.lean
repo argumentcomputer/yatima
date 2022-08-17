@@ -24,3 +24,19 @@ def D' := Nat.succ .zero
 
 def E  := proj₂ $ .injᵣ $ true
 def E' := true
+
+-- recursive inductive type
+inductive MyNat
+  | nope
+  | next : MyNat → MyNat
+  deriving Repr
+
+def three : MyNat := .next $ .next $ .next .nope
+def six : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
+
+def add (x y : MyNat) : MyNat := match x with
+  | .nope => y
+  | .next x' => .next $ add x' y
+
+def F  := add three three
+def F' := six
