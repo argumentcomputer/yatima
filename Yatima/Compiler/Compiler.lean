@@ -47,36 +47,49 @@ def getLeanConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   | some const => pure const
   | none => throw $ .unknownConstant name
 
-/-- Compiles a Lean universe level and adds it to the store -/
-def compileUniv (l : Lean.Level) : CompileM (UnivCid × Univ) := do
-  let (value, univ) ← match l with
-    | .zero      => do
-      let value : Ipld.Both Ipld.Univ := ⟨ .zero, .zero ⟩
-      pure (value, .zero)
-    | .succ n    => do
-      let (univCid, univ) ← compileUniv n
-      let value : Ipld.Both Ipld.Univ := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
-      pure (value, .succ univ)
-    | .max  a b  => do
-      let (univACid, univA) ← compileUniv a
-      let (univBCid, univB) ← compileUniv b
-      let value : Ipld.Both Ipld.Univ := ⟨ .max univACid.anon univBCid.anon, .max univACid.meta univBCid.meta ⟩
-      pure (value, .max univA univB)
-    | .imax  a b  => do
-      let (univACid, univA) ← compileUniv a
-      let (univBCid, univB) ← compileUniv b
-      let value : Ipld.Both Ipld.Univ := ⟨ .imax univACid.anon univBCid.anon, .imax univACid.meta univBCid.meta ⟩
-      pure (value, .imax univA univB)
-    | .param name => do
-      let lvls := (← read).univCtx
-      match lvls.indexOf? name with
-      | some n =>
-        let value : Ipld.Both Ipld.Univ := ⟨ .var n, .var name ⟩
-        pure (value, .var name n)
-      | none   => throw $ .levelNotFound name lvls
-    | .mvar .. => throw $ .unfilledLevelMetavariable l
-  let cid ← addToStore $ .univ value
-  pure (cid, univ)
+mutual
+
+  partial def getCompiledUniv (u : Lean.Level) : CompileM (UnivCid × Univ) := do
+    match (← get).uCache.find? u with
+    | some u => pure u
+    | none => compileUniv u
+
+  /-- Compiles a Lean universe level and adds it to the store -/
+  partial def compileUniv (u : Lean.Level) : CompileM (UnivCid × Univ) := do
+    let (value, univ) ← match u with
+      | .zero      =>
+        let value : Ipld.Both Ipld.Univ := ⟨ .zero, .zero ⟩
+        pure (value, .zero)
+      | .succ n    =>
+        let (univCid, univ) ← getCompiledUniv n
+        let value : Ipld.Both Ipld.Univ :=
+          ⟨ .succ univCid.anon, .succ univCid.meta ⟩
+        pure (value, .succ univ)
+      | .max  a b  =>
+        let (univACid, univA) ← getCompiledUniv a
+        let (univBCid, univB) ← getCompiledUniv b
+        let value : Ipld.Both Ipld.Univ :=
+          ⟨ .max univACid.anon univBCid.anon, .max univACid.meta univBCid.meta ⟩
+        pure (value, .max univA univB)
+      | .imax  a b  =>
+        let (univACid, univA) ← getCompiledUniv a
+        let (univBCid, univB) ← getCompiledUniv b
+        let value : Ipld.Both Ipld.Univ :=
+          ⟨ .imax univACid.anon univBCid.anon, .imax univACid.meta univBCid.meta ⟩
+        pure (value, .imax univA univB)
+      | .param name =>
+        let lvls := (← read).univCtx
+        match lvls.indexOf? name with
+        | some n =>
+          let value : Ipld.Both Ipld.Univ := ⟨ .var n, .var name ⟩
+          pure (value, .var name n)
+        | none   => throw $ .levelNotFound name lvls
+      | .mvar .. => throw $ .unfilledLevelMetavariable u
+    let cid ← addToStore $ .univ value
+    addToUCache u (cid, univ)
+    pure (cid, univ)
+
+end
 
 /-- Defines an ordering for Lean universes -/
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
@@ -165,7 +178,7 @@ mutual
       (stt.consts.size, { stt with consts := stt.consts.push default })
     let values : Ipld.Both Ipld.Const × Const ← match const with
       | .axiomInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
+        let (typeCid, type) ← getCompiledExpr struct.type
         let ax := {
           name := struct.name
           lvls := struct.levelParams
@@ -174,9 +187,9 @@ mutual
         let value := ⟨ .axiom $ ax.toIpld typeCid, .axiom $ ax.toIpld typeCid ⟩
         pure (value, .axiom ax)
       | .thmInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
+        let (typeCid, type) ← getCompiledExpr struct.type
         -- Theorems are never truly recursive, though they can use recursive schemes
-        let (valueCid, value) ← compileExpr struct.value
+        let (valueCid, value) ← getCompiledExpr struct.value
         let thm := {
           name  := struct.name
           lvls  := struct.levelParams
@@ -185,8 +198,8 @@ mutual
         let value := ⟨.theorem $ thm.toIpld typeCid valueCid, .theorem $ thm.toIpld typeCid valueCid⟩
         pure (value, Const.theorem thm)
       | .opaqueInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
-        let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ compileExpr struct.value
+        let (typeCid, type) ← getCompiledExpr struct.type
+        let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ getCompiledExpr struct.value
         let opaq := {
           name  := struct.name
           lvls  := struct.levelParams
@@ -196,7 +209,7 @@ mutual
           let value := ⟨.opaque $ opaq.toIpld typeCid valueCid, .opaque $ opaq.toIpld typeCid valueCid⟩
         pure (value, .opaque opaq)
       | .quotInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
+        let (typeCid, type) ← getCompiledExpr struct.type
         let quot := {
           name := struct.name
           lvls := struct.levelParams
@@ -210,6 +223,11 @@ mutual
     addToCache const.name (cid, constIdx)
     pure (cid, constIdx)
 
+  partial def getCompiledExpr (e : Lean.Expr) : CompileM (ExprCid × Expr) := do
+    match (← get).eCache.find? e with
+    | some e => pure e
+    | none => compileExpr e
+
   /--
   Compiles a Lean expression and adds it to the store.
 
@@ -220,9 +238,12 @@ mutual
   and thus we can compile the actual constant right away
   -/
   partial def compileExpr : Lean.Expr → CompileM (ExprCid × Expr)
-  | .mdata _ e => compileExpr e
-  | expr => do
-    let (value, expr) ← match expr with
+  | e@(.mdata _ e') => do
+    let eCompiled ← getCompiledExpr e'
+    addToECache e eCompiled
+    pure eCompiled
+  | e => do
+    let (value, expr) ← match e with
       | .bvar idx => match (← read).bindCtx.get? idx with
         -- Bound variables must be in the bind context
         | some name =>
@@ -230,11 +251,11 @@ mutual
           pure (value, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
-        let (univCid, univ) ← compileUniv lvl
+        let (univCid, univ) ← getCompiledUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         pure (value, .sort univ)
       | .const name lvls =>
-        let pairs ← lvls.mapM $ compileUniv
+        let pairs ← lvls.mapM getCompiledUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
           fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
@@ -251,27 +272,27 @@ mutual
               .const name constCid.meta $ univCids.map (·.meta) ⟩
           pure (value, .const name const univs)
       | .app fnc arg =>
-        let (fncCid, fnc) ← compileExpr fnc
-        let (argCid, arg) ← compileExpr arg
+        let (fncCid, fnc) ← getCompiledExpr fnc
+        let (argCid, arg) ← getCompiledExpr arg
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         pure (value, .app fnc arg)
       | .lam name typ bod bnd =>
-        let (typCid, typ) ← compileExpr typ
-        let (bodCid, bod) ← withBinder name $ compileExpr bod
+        let (typCid, typ) ← getCompiledExpr typ
+        let (bodCid, bod) ← withBinder name $ getCompiledExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         pure (value, .lam name bnd typ bod)
       | .forallE name dom img bnd =>
-        let (domCid, dom) ← compileExpr dom
-        let (imgCid, img) ← withBinder name $ compileExpr img
+        let (domCid, dom) ← getCompiledExpr dom
+        let (imgCid, img) ← withBinder name $ getCompiledExpr img
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         pure (value, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
-        let (typCid, typ) ← compileExpr typ
-        let (expCid, exp) ← compileExpr exp
-        let (bodCid, bod) ← withBinder name $ compileExpr bod
+        let (typCid, typ) ← getCompiledExpr typ
+        let (expCid, exp) ← getCompiledExpr exp
+        let (bodCid, bod) ← withBinder name $ getCompiledExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         pure (value, .letE name typ exp bod)
@@ -279,13 +300,14 @@ mutual
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         pure (value, .lit lit)
       | .proj _ idx exp =>
-        let (expCid, exp) ← compileExpr exp
+        let (expCid, exp) ← getCompiledExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         pure (value, .proj idx exp)
-      | .fvar ..  => throw $ .freeVariableExpr expr
-      | .mvar ..  => throw $ .metaVariableExpr expr
-      | .mdata .. => throw $ .metaDataExpr expr
+      | .fvar ..  => throw $ .freeVariableExpr e
+      | .mvar ..  => throw $ .metaVariableExpr e
+      | .mdata .. => throw $ .metaDataExpr e
     let cid ← addToStore $ .expr value
+    addToECache e (cid, expr)
     pure (cid, expr)
 
   /--
@@ -392,7 +414,7 @@ mutual
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
-    let (typeCid, type) ← compileExpr ind.type
+    let (typeCid, type) ← getCompiledExpr ind.type
     -- Structures can't be recursive nor have indices
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
@@ -446,7 +468,7 @@ mutual
       (Ipld.Both (Ipld.Recursor .intr) × (List $ Ipld.Both Ipld.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
-        let (typeCid, type) ← compileExpr rec.type
+        let (typeCid, type) ← getCompiledExpr rec.type
         let ctorMap : RBMap Name (Ipld.Both Ipld.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             if ctors.contains r.ctor then
@@ -494,10 +516,10 @@ mutual
   /-- Encodes a Lean constructor to IPLD -/
   partial def toYatimaIpldConstructor (rule : Lean.RecursorRule) :
       CompileM $ Ipld.Both Ipld.Constructor := do
-    let (rhsCid, rhs) ← compileExpr rule.rhs
+    let (rhsCid, rhs) ← getCompiledExpr rule.rhs
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
-      let (typeCid, type) ← compileExpr ctor.type
+      let (typeCid, type) ← getCompiledExpr ctor.type
       let tcCtor : Const := .constructor {
         name    := ctor.name
         lvls    := ctor.levelParams
@@ -533,7 +555,7 @@ mutual
   partial def toYatimaIpldExternalRec :
       Lean.ConstantInfo → CompileM (Ipld.Both (Ipld.Recursor .extr))
     | .recInfo rec => withLevels rec.levelParams do
-      let (typeCid, type) ← compileExpr rec.type
+      let (typeCid, type) ← getCompiledExpr rec.type
       let (rules, tcRules) : Ipld.Both (fun k => List $ Ipld.RecursorRule k) × List RecursorRule := ← rec.rules.foldlM
         (init := (⟨[], []⟩, [])) fun rules r => do
           let (recrRule, tcRecrRule) ← toYatimaIpldExternalRecRule r
@@ -575,7 +597,7 @@ mutual
   /-- Encodes an external recursor rule to IPLD -/
   partial def toYatimaIpldExternalRecRule (rule : Lean.RecursorRule) :
       CompileM (Ipld.Both Ipld.RecursorRule × RecursorRule) := do
-    let (rhsCid, rhs) ← compileExpr rule.rhs
+    let (rhsCid, rhs) ← getCompiledExpr rule.rhs
     let const ← getLeanConstant rule.ctor
     let (ctorCid, ctor?) ← getCompiledConst const
     let ctor ← match ← derefConst ctor? with
@@ -653,8 +675,8 @@ mutual
   /-- Encodes a definition to IPLD -/
   partial def toYatimaIpldDefinition (defn : Lean.DefinitionVal) :
       CompileM (Ipld.Both Ipld.Definition × Definition) := do
-    let (typeCid, type) ← compileExpr defn.type
-    let (valueCid, value) ← compileExpr defn.value
+    let (typeCid, type) ← getCompiledExpr defn.type
+    let (valueCid, value) ← getCompiledExpr defn.value
     let defn := {
       name   := defn.name
       lvls   := defn.levelParams

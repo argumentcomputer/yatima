@@ -12,12 +12,14 @@ The state for the `Yatima.Compiler.CompileM` monad.
 
 * `store` contains the resulting set of objects in the IPLD format
 * `consts` is the "pure" array of constants, without CIDs
-* `cache` is just for optimization purposes
+* `cache`, `uCache` and `eCache` are just for optimization purposes
 -/
 structure CompileState where
   store  : Ipld.Store
   consts : Array Const
   cache  : RBMap Name (ConstCid × ConstIdx) compare
+  uCache : RBMap Lean.Level (UnivCid × Univ) compare
+  eCache : RBMap Lean.Expr  (ExprCid × Expr) compare
   deriving Inhabited
 
 /-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
@@ -141,10 +143,6 @@ def addToStore : StoreEntry A → CompileM A
                          const_meta := stt.store.const_meta.insert cid.meta obj.meta,
                          consts     := stt.store.consts.insert cid } })
 
-/-- Adds data associated with a name to the cache -/
-def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
-  modify fun stt => { stt with cache := stt.cache.insert name c }
-
 /-- Adds a constant to the array of constants at a given index -/
 def addToConsts (idx : ConstIdx) (c : Const) : CompileM Unit := do
   let consts := (← get).consts
@@ -152,5 +150,17 @@ def addToConsts (idx : ConstIdx) (c : Const) : CompileM Unit := do
     modify fun stt => { stt with consts := consts.set ⟨idx, h⟩ c }
   else
     throw $ .invalidConstantIndex idx consts.size
+
+/-- Adds compiled constant data associated with a name to `cache` -/
+def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
+  modify fun stt => { stt with cache := stt.cache.insert name c }
+
+/-- Adds compiled universe level data to `uCache` -/
+def addToUCache (u : Lean.Level) (u' : UnivCid × Univ) : CompileM Unit := do
+  modify fun stt => { stt with uCache := stt.uCache.insert u u' }
+
+/-- Adds compiled expression data to `eCache` -/
+def addToECache (e : Lean.Expr) (e' : ExprCid × Expr) : CompileM Unit := do
+  modify fun stt => { stt with eCache := stt.eCache.insert e e' }
 
 end Yatima.Compiler

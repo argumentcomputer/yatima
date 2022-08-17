@@ -2,18 +2,18 @@ import Lean
 
 namespace Lean
 
-def compareNames : Name → Name → Ordering
+def cmpNames : Name → Name → Ordering
   | .anonymous, .anonymous => .eq
   | .num namₗ nₗ, .num namᵣ nᵣ =>
     if nₗ < nᵣ then .lt
     else
       if nₗ > nᵣ then .gt
-      else compareNames namₗ namᵣ
+      else cmpNames namₗ namᵣ
   | .str namₗ sₗ, .str namᵣ sᵣ =>
     if sₗ < sᵣ then .lt
     else
       if sₗ > sᵣ then .gt
-      else compareNames namₗ namᵣ
+      else cmpNames namₗ namᵣ
   | .anonymous, .num .. => .lt
   | .anonymous, .str .. => .lt
   | .num .., .str .. => .lt
@@ -21,8 +21,17 @@ def compareNames : Name → Name → Ordering
   | .str .., .anonymous => .gt
   | .str .., .num .. => .gt
 
-instance : Ord Name where
-  compare := compareNames
+instance : Ord Name := ⟨cmpNames⟩
+
+def cmpLevels : Level → Level → Ordering
+  | x, y => compare x.hash y.hash
+
+instance : Ord Level := ⟨cmpLevels⟩
+
+def cmpExpr : Expr → Expr → Ordering
+  | x, y => compare x.hash y.hash
+
+instance : Ord Expr := ⟨cmpExpr⟩
 
 def ConstantInfo.formatAll (c : ConstantInfo) : String :=
   match c.all with
