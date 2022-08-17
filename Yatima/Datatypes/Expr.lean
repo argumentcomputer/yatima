@@ -231,6 +231,15 @@ expression `expr`.
 def substTop (expr term : Expr) : Expr :=
   expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
 
+/--
+Remove all binders from an expression, converting a lambda into
+an "implicit lambda". This is useful for constructing the `rhs` of
+recursor rules.
+-/
+def toImplicitLambda : Expr → Expr
+  | .lam _ _ _ body => toImplicitLambda body
+  | x => x
+
 end Expr
 
 end Yatima

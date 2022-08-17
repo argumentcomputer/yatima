@@ -102,10 +102,6 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : (CompileM Ordering) := do
     | none,    _       => throw $ .levelNotFound x lvls
     | _,       none    => throw $ .levelNotFound y lvls
 
-def implicitLambda : Expr → Expr
-  | .lam _ _ _ body => implicitLambda body
-  | x => x
-
 def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
   match expr with
   | .forallE _ t e _  => match e with
@@ -500,7 +496,7 @@ mutual
       CompileM $ Ipld.Both Ipld.Constructor := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
     -- TODO: explain why
-    let rhs := implicitLambda rhs
+    let rhs := rhs.toImplicitLambda
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
       let (typeCid, type) ← compileExpr ctor.type

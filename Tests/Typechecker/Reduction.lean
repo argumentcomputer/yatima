@@ -50,6 +50,7 @@ partial def readBack (consts : Array Const) : Value → Option Expr
   | .lit lit => pure $ .lit lit
   -- TODO need to look into this case in the typechecker to make sure this is correct
   | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack consts val.get)
+  | .lty l => pure $ .lty l
   | .exception _ => none
 
 def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
