@@ -1,4 +1,3 @@
-import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Eval
 
 namespace Yatima.Typechecker

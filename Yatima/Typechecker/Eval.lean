@@ -1,4 +1,5 @@
 import Yatima.Typechecker.TypecheckM
+import Yatima.Typechecker.Printing
 
 namespace Yatima.Typechecker
 
