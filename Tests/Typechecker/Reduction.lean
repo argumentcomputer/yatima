@@ -87,7 +87,8 @@ def tcExtractor := extractTcTests
      (`C, `C'),
      (`D, `D'),
      (`E, `E'),
-     (`F, `F')
+     (`F, `F'),
+     (`G, `G')
     ]
 
 def main := do
