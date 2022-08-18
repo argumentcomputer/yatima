@@ -2,20 +2,17 @@ import Yatima.Typechecker.TypecheckM
 
 namespace Yatima.Typechecker
 
-def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
-  Value.app (Neutral.const name k univs) []
-
-def getConst? (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
+def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   let store := (← read).store
   match store.get? constIdx with
   | some const => pure const
-  | none => throw $ .outOfDefnRange name constIdx store.size
+  | none => throw $ .outOfConstsRange name constIdx store.size
 
 mutual
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
     match (← read).store.get! const with
-    | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
+    | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
       | .safe => eval x.value
@@ -23,35 +20,39 @@ mutual
       | .unsafe => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
 
-  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ) (arg : Thunk Value) (args : Args) : TypecheckM Value := do
+  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
+      (arg : Thunk Value) (args : Args) : TypecheckM Value := do
     dbg_trace s!"Applying: {name}"
-    -- Assumes a partial application of k to args, which means in particular, that it is in normal form
-    match ← getConst? name k with
+    -- Assumes a partial application of k to args, which means in particular,
+    -- that it is in normal form
+    match ← derefConst name k with
     | .intRecursor recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      if args.length != major_idx then
+        pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
         match arg.get with
-        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
+        | .app (Neutral.const k_name k _) args' => match ← derefConst k_name k with
           | .constructor ctor =>
             dbg_trace s!"ctor: {ctor.rhs}, {recur.indices}"
-            let exprs := List.append (List.take ctor.fields args') (List.drop recur.indices args)
-            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
+            let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
+            withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
       let major_idx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != major_idx then pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      if args.length != major_idx then
+        pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         match arg.get with
-        | .app (Neutral.const k_name k _) args' => match ← getConst? k_name k with
+        | .app (Neutral.const k_name k _) args' => match ← derefConst k_name k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-            match List.find? (fun r => r.ctor.idx == ctor.idx) recur.rules with
+            match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
             | some rule =>
               let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
-              withEnv ⟨exprs, univs⟩ $ eval rule.rhs
+              withCtx ⟨exprs, univs⟩ $ eval rule.rhs
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
@@ -63,47 +64,46 @@ mutual
       | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
-  partial def suspend (expr : Expr) (ctx : Context) : Thunk Value :=
-    Thunk.mk (fun _ =>
-      match TypecheckM.run ctx (eval expr) with
+  partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
+    Thunk.mk fun _ => match TypecheckM.run env (eval expr) with
       | .ok a => a
-      | .error e => .exception e )
+      | .error e => .exception e
 
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
-      let ctx ← read
-      let arg_thunk := suspend arg ctx
+      let env ← read
+      let arg_thunk := suspend arg env
       dbg_trace s!"Apply: {fnc} to {arg}"
       let fnc := (← eval fnc)
       dbg_trace s!"evaluated fnc: {fnc}"
       apply fnc arg_thunk
     | .lam name info _ bod => do
-       let env := (← read).env
-       pure $ Value.lam name info bod env
+       let ctx := (← read).ctx
+       pure $ Value.lam name info bod ctx
     | .var name idx => do
-      let exprs := (← read).env.exprs
+      let exprs := (← read).ctx.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
       pure thunk.get
     | .const name k const_univs => do
       dbg_trace s!"Processing: {name}"
-      let env := (← read).env
-      evalConst name k (const_univs.map (instBulkReduce env.univs))
+      let ctx := (← read).ctx
+      evalConst name k (const_univs.map (instBulkReduce ctx.univs))
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
-      withExtendedEnv thunk (eval bod)
+      withExtendedCtx thunk (eval bod)
     | .pi name info dom img => do
-      let ctx ← read
-      let dom' := suspend dom ctx
-      pure $ Value.pi name info dom' img ctx.env
+      let env ← read
+      let dom' := suspend dom env
+      pure $ Value.pi name info dom' img env.ctx
     | .sort univ => do
-      let env := (← read).env
-      pure $ Value.sort (instBulkReduce env.univs univ)
+      let ctx := (← read).ctx
+      pure $ Value.sort (instBulkReduce ctx.univs univ)
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
     | .proj idx expr => do
       match (← eval expr) with
       | .app neu@(.const name k _) args => 
-        match ← getConst? name k with
+        match ← derefConst name k with
         | .constructor ctor =>
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
@@ -116,8 +116,8 @@ mutual
 
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    match ← getConst? name const with
-    | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
+    match ← derefConst name const with
+    | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
       | .safe => eval x.value
@@ -127,9 +127,10 @@ mutual
 
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
-    | .lam _ _ bod lam_env => withNewExtendedEnv lam_env arg (eval bod)
-    | .app (.const name k k_univs) args' => do dbg_trace s!"HERE: {name}"
-                                               applyConst name k k_univs arg args'
+    | .lam _ _ bod lamCtx => withNewExtendedCtx lamCtx arg (eval bod)
+    | .app (.const name k k_univs) args' =>
+      dbg_trace s!"HERE: {name}"
+      applyConst name k k_univs arg args'
     | .app var@(.fvar ..) args' => pure $ Value.app var (arg :: args')
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
@@ -140,7 +141,7 @@ mutual
     if argsLength == reduceSize then
       match major?.get with
       | .app (.const name majorFn _) majorArgs => do
-        match ← getConst? name majorFn with
+        match ← derefConst name majorFn with
         | Const.quotient {kind := QuotKind.ctor, ..} =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
           if majorArgs.length != 3 then throw .impossible

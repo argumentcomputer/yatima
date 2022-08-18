@@ -6,10 +6,9 @@ import Yatima.Datatypes.Store
 namespace Yatima.Typechecker
 
 def typecheckM : TypecheckM Unit := do
-  let defns := (← read).store
-  defns.forM checkConst
+  (← read).store.forM checkConst
 
-def typecheck (defns : Array Const) : Except TypecheckError Unit :=
-  TypecheckM.run (.init defns) typecheckM
+def typecheck (consts : Array Const) : Except TypecheckError Unit :=
+  TypecheckM.run (.init consts) typecheckM
 
 end Yatima.Typechecker

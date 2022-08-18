@@ -10,43 +10,43 @@ mutual
     match term with
     | .lam lam_name _ _lam_dom bod => do
       match type with
-      | .pi _ _ dom img env =>
+      | .pi _ _ dom img ctx =>
         -- TODO check that `lam_dom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
         let var := mkVar lam_name (← read).lvl dom
-        let img ← withNewExtendedEnv env var $ eval img
-        withExtendedCtx var dom $ check bod img
+        let img ← withNewExtendedCtx ctx var $ eval img
+        withExtendedEnv var dom $ check bod img
       | val => throw $ .notPi (printVal val)
     | .letE _ exp_typ exp bod =>
       let _ := isSort exp_typ
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
-      withExtendedCtx exp exp_typ $ check bod type
+      withExtendedEnv exp exp_typ $ check bod type
     | _ =>
-      let infer_type ← infer term
+      let inferType ← infer term
       let sort := Value.sort Univ.zero
-      if (← equal (← read).lvl type infer_type sort)
+      if (← equal (← read).lvl type inferType sort)
       then pure ()
-      else throw $ .valueMismatch (printVal infer_type) (printVal type)
+      else throw $ .valueMismatch (printVal inferType) (printVal type)
 
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
     | .var name idx =>
-      let ctx := (← read).types
-      let some type := List.get? ctx idx | throw $ .outOfContextRange name idx ctx.length
+      let types := (← read).types
+      let some type := types.get? idx | throw $ .outOfContextRange name idx types.length
       pure type.get
     | .sort lvl =>
-      let lvl := instBulkReduce (← read).env.univs lvl.succ
+      let lvl := instBulkReduce (← read).ctx.univs lvl.succ
       pure $ Value.sort lvl
     | .app fnc arg =>
       let fnc_typ ← infer fnc
       match fnc_typ with
-      | .pi _ _ dom img env =>
+      | .pi _ _ dom img ctx =>
         check arg dom.get
         let arg := suspend arg (← read)
-        let type ← withNewExtendedEnv env arg $ eval img
+        let type ← withNewExtendedCtx ctx arg $ eval img
         pure type
       | val => throw $ .notPi (printVal val)
     -- Should we add inference of lambda terms? Perhaps not on this checker,
@@ -57,7 +57,7 @@ mutual
       let dom_lvl ← isSort dom
       let ctx ← read
       let dom := suspend dom ctx
-      withExtendedCtx (mkVar name ctx.lvl dom) dom $ do
+      withExtendedEnv (mkVar name ctx.lvl dom) dom $ do
         let img_lvl ← isSort img
         let lvl := reduceIMax dom_lvl img_lvl
         pure (Value.sort lvl)
@@ -66,33 +66,30 @@ mutual
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
-      withExtendedCtx exp exp_typ $ infer bod
+      withExtendedEnv exp exp_typ $ infer bod
     | .lit (.num _) => pure $ Value.lty .num
     | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
-    | .const name k const_univs =>
-      let univs := (← read).env.univs
-      let store := (← read).store
-      let some const := store.get? k | throw $ .outOfDefnRange name k store.size
-      withEnv ⟨[], (List.map (instBulkReduce univs) const_univs)⟩ $ eval const.type
+    | .const name k constUnivs =>
+      let univs := (← read).ctx.univs
+      let const ← derefConst name k
+      withCtx ⟨[], constUnivs.map (instBulkReduce univs)⟩ $ eval const.type
     | .proj idx expr =>
       let exprTyp ← infer expr
       match exprTyp with
-      | .app (.const name k univs) params => 
-        let store := (← read).store
-        let some const := store.get? k | throw $ .outOfDefnRange name k store.size
-        match const with
+      | .app (.const name k univs) params =>
+        match ← derefConst name k with
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
             | none => throw $ .typNotStructure (printVal exprTyp)
           if ind.params != params.length then throw .impossible else
-          let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
+          let mut ctorType ← applyType (← withCtx ⟨[], univs⟩ $ eval ctor.type) params
           for i in [:idx] do
             match ctorType with
-            | .pi _ _ _ img pi_env =>
+            | .pi _ _ _ img piCtx =>
               let proj := suspend (Expr.proj i expr) (← read)
-              ctorType ← withNewExtendedEnv pi_env proj $ eval img
+              ctorType ← withNewExtendedCtx piCtx proj $ eval img
             | _ => pure ()
           match ctorType with
           | .pi _ _ dom _ _  =>
