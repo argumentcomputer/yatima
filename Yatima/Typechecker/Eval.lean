@@ -10,16 +10,16 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   | none => throw $ .outOfConstsRange name constIdx store.size
 
 mutual
-  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+  partial def evalConst (name : Name) (idx : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    match (← read).store.get! const with
+    match ← derefConst name idx with
     | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
       | .safe => eval x.value
-      | .partial => pure $ mkConst name const univs
+      | .partial => pure $ mkConst name idx univs
       | .unsafe => throw .unsafeDefinition
-    | _ => pure $ mkConst name const univs
+    | _ => pure $ mkConst name idx univs
 
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : Thunk Value) (args : Args) : TypecheckM Value := do
@@ -28,8 +28,8 @@ mutual
     -- that it is in normal form
     match ← derefConst name k with
     | .intRecursor recur =>
-      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != major_idx then
+      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != majorIdx then
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
