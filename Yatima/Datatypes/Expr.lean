@@ -17,12 +17,6 @@ inductive Literal
   | word : String → Literal
   deriving BEq, Inhabited
 
-/-- The literal values: numbers or words -/
-inductive LitType
-  | num 
-  | word
-  deriving BEq, Inhabited
-
 namespace Ipld
 
 -- Carries a `Lean.Name` for meta
@@ -69,6 +63,15 @@ end Ipld
 
 /-- Points to a constant in an array of constants -/
 abbrev ConstIdx := Nat
+
+/--
+The types for literal values. These only exist for us to be able to build
+expressions to represent them in the typechecker when infering types.
+-/
+inductive LitType
+  | num
+  | word
+  deriving BEq, Inhabited
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
