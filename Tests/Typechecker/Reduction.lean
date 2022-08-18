@@ -4,9 +4,9 @@ import TestsUtils.CompileAndExtractTests
 
 open Yatima LSpec
 
-open Typechecker (Value)
+open Typechecker
 
-def readBackNeutral : Typechecker.Neutral → Expr
+def readBackNeutral : Neutral → Expr
   | .fvar name idx _ => .var name idx
   | .const name idx univs => .const name idx univs
 
@@ -14,9 +14,9 @@ local instance : Coe (Except ε α) (Option α) where coe
   | .ok a => some a
   | .error _ => none
 
-partial def shiftEnv (env : Typechecker.Env) : Typechecker.Env :=
+partial def shiftCtx (ctx : Context) : Context :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
-  env.withExprs $ env.exprs.map fun val => match val.get with
+  ctx.withExprs $ ctx.exprs.map fun val => match val.get with
     | .app (.fvar name idx typ) args => ⟨fun _ => .app (.fvar name (idx + 1) typ) args⟩
     | other => other
 
@@ -27,20 +27,20 @@ partial def readBack (consts : Array Const) : Value → Option Expr
   | .lam name binfo bod env => do
     -- any neutral fvars in the environment are now additionally nested,
     -- and so must have their de bruijn indices incremented
-    let lamEnv := shiftEnv env
-    let lamEnv := lamEnv.extendWith
+    let lamCtx := shiftCtx env
+    let lamCtx := lamCtx.extendWith
       -- binder types are irrelevant to reduction and so are lost on evaluation;
       -- arbitrarily fill these in with `Sort 0`
       -- TODO double-check ordering here
       ⟨fun _ => .app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩
-    let evalBod ← Typechecker.eval bod |>.run (.initEnv lamEnv consts)
+    let evalBod ← eval bod |>.run (.initCtx lamCtx consts)
     pure $ .lam name binfo (.sort .zero) $ ← readBack consts evalBod
-  | .pi name binfo dom bod env => do
-    let piEnv := shiftEnv env
-    let piEnv := piEnv.extendWith
+  | .pi name binfo dom bod ctx => do
+    let piCtx := shiftCtx ctx
+    let piCtx := piCtx.extendWith
       -- TODO double-check ordering here
       ⟨fun _ => .app (.fvar name 0 dom) []⟩
-    let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv consts)
+    let evalBod ← eval bod  |>.run (.initCtx piCtx consts)
     pure $ .lam name binfo (← readBack consts dom.get) $ ← readBack consts evalBod
   | .lit lit => pure $ .lit lit
   -- TODO need to look into this case in the typechecker to make sure this is correct
@@ -62,7 +62,7 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       | some (_, ridx)  =>
         let some (.definition const) ← pure state.consts[idx]? | throw "invalid definition index"
         let some (.definition rconst) ← pure state.consts[ridx]? | throw "invalid definition index"
-        match Typechecker.TypecheckM.run (.init state.consts) $ Typechecker.eval const.value with
+        match TypecheckM.run (.init state.consts) $ eval const.value with
         | .ok value =>
           let some expr ← pure $ readBack state.consts value | throw "failed to read back value"
           pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
