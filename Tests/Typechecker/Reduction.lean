@@ -64,6 +64,7 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
         let some (.definition rconst) ← pure state.consts[ridx]? | throw "invalid definition index"
         match TypecheckM.run (.init state.consts) $ eval const.value with
         | .ok value =>
+          dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
           let some expr ← pure $ readBack state.consts value | throw "failed to read back value"
           pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
         | _ => .error "failed to evaluate value"
@@ -82,13 +83,13 @@ def extractTcTests := fun stt state =>
   fun constPairs => makeTcTests constPairs
 
 def tcExtractor := extractTcTests
-    [(`A, `A'),
-     (`B, `B'),
-     (`C, `C'),
-     (`D, `D'),
-     (`E, `E'),
-     (`F, `F'),
-     (`G, `G')
+    [--(`A, `A'),
+     --(`B, `B'),
+     --(`C, `C'),
+     --(`D, `D'),
+     --(`E, `E'),
+     (`F, `F')
+     --(`G, `G')
     ]
 
 def main := do

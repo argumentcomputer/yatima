@@ -47,8 +47,12 @@ def add' (x y : MyNat) : MyNat := match x with
 #print MyNat.brecOn
 #print MyNat.below
 
-def F  : MyNat := add three three
-def F' : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
+#print PUnit
+
+def Y := fun x y => add x y
+
+def F  := Y three three
+def F' := fun y => add (.next $ .next $ .next .nope) y
 
 def G  : MyNat := add' .nope .nope
 def G' : MyNat := .nope

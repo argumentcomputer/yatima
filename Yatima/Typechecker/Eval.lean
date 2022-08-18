@@ -23,7 +23,7 @@ mutual
 
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : Thunk Value) (args : Args) : TypecheckM Value := do
-    dbg_trace s!"Applying: {name}"
+    --dbg_trace s!"Applying: {name}"
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     match ← derefConst name k with
@@ -32,11 +32,11 @@ mutual
       if args.length != majorIdx then
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
-        dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
+        --dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
         match arg.get with
         | .app (Neutral.const k_name k _) args' => match ← derefConst k_name k with
           | .constructor ctor =>
-            dbg_trace s!"ctor: {ctor.rhs}, {recur.indices}"
+            --dbg_trace s!"ctor: {ctor.rhs}, {recur.indices}"
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
             withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
@@ -72,21 +72,24 @@ mutual
 
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
+      let origFnc := fnc
+      dbg_trace s!"[Eval] .app: {fnc} to {arg}"
       let env ← read
       let arg_thunk := suspend arg env
-      dbg_trace s!"Apply: {fnc} to {arg}"
       let fnc := (← eval fnc)
-      dbg_trace s!"evaluated fnc: {fnc}"
+      dbg_trace s!"[Eval] .app: evaluated fnc: {origFnc} to {arg}: {fnc}"
       apply fnc arg_thunk
     | .lam name info _ bod => do
-       let ctx := (← read).ctx
-       pure $ Value.lam name info bod ctx
+      let ctx := (← read).ctx
+      dbg_trace s!"[Eval] .lam: λ {name}, {bod}, ctx length: {ctx.exprs.length}"
+      pure $ Value.lam name info bod ctx
     | .var name idx => do
+      dbg_trace s!"[Eval] .var: {name}.{idx}"
       let exprs := (← read).ctx.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
       pure thunk.get
     | .const name k const_univs => do
-      dbg_trace s!"Processing: {name}"
+      dbg_trace s!"[Eval] .const: {name}.{k}"
       let ctx := (← read).ctx
       evalConst name k (const_univs.map (instBulkReduce ctx.univs))
     | .letE _ _ val bod => do
@@ -121,16 +124,20 @@ mutual
     | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
-      | .safe => eval x.value
+      | .safe => 
+        dbg_trace s!"[evalConst] .definition .safe: {x.value.ctorName}"
+        eval x.value
       | .partial => pure $ mkConst name const univs
       | .unsafe => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
 
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
-    | .lam _ _ bod lamCtx => withNewExtendedCtx lamCtx arg (eval bod)
+    -- bod : fun y => x^1 + y^0
+    | .lam _ _ bod lamCtx => 
+      dbg_trace s!"[Apply] .lam: {bod}"
+      withNewExtendedCtx lamCtx arg (eval bod)
     | .app (.const name k k_univs) args' =>
-      dbg_trace s!"HERE: {name}"
       applyConst name k k_univs arg args'
     | .app var@(.fvar ..) args' => pure $ Value.app var (arg :: args')
     -- Since terms are well-typed we know that any other case is impossible
