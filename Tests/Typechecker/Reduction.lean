@@ -16,12 +16,11 @@ local instance : Coe (Except ε α) (Option α) where coe
   | .ok a => some a
   | .error _ => none
 
-partial def shiftEnv (env : Typechecker.Env Value) : Typechecker.Env Value :=
+partial def shiftEnv (env : Typechecker.Env) : Typechecker.Env :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
-  { env with exprs := env.exprs.map fun val => match val.get with
+  env.withExprs $ env.exprs.map fun val => match val.get with
     | .app (.fvar name idx typ) args => ⟨fun _ => .app (.fvar name (idx + 1) typ) args⟩
     | other => other
-  }
 
 partial def readBack (consts : Array Const) : Value → Option Expr
   | .sort univ => pure $ .sort univ
@@ -31,25 +30,24 @@ partial def readBack (consts : Array Const) : Value → Option Expr
     -- any neutral fvars in the environment are now additionally nested,
     -- and so must have their de bruijn indices incremented
     let lamEnv := shiftEnv env
-    let lamEnv := { lamEnv with
+    let lamEnv := lamEnv.extendWith
       -- binder types are irrelevant to reduction and so are lost on evaluation;
       -- arbitrarily fill these in with `Sort 0`
       -- TODO double-check ordering here
-      exprs := ⟨fun _ => Value.app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩ :: lamEnv.exprs
-    }
-    let evalBod ← Typechecker.eval bod  |>.run (.initEnv lamEnv consts)
+      ⟨fun _ => Value.app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩
+    let evalBod ← Typechecker.eval bod |>.run (.initEnv lamEnv consts)
     pure $ .lam name binfo (.sort .zero) $ ← readBack consts evalBod
   | .pi name binfo dom bod env => do
     let piEnv := shiftEnv env
-    let piEnv := { piEnv with
+    let piEnv := piEnv.extendWith
       -- TODO double-check ordering here
-      exprs := ⟨fun _ => Value.app (.fvar name 0 dom) []⟩ :: piEnv.exprs
-    }
+      ⟨fun _ => Value.app (.fvar name 0 dom) []⟩
     let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv consts)
     pure $ .lam name binfo (← readBack consts dom.get) $ ← readBack consts evalBod
   | .lit lit => pure $ .lit lit
   -- TODO need to look into this case in the typechecker to make sure this is correct
-  | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val => do pure $ .app expr (← readBack consts val.get)
+  | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val =>
+    return .app expr (← readBack consts val.get)
   | .lty l => pure $ .lty l
   | .exception _ => none
 
@@ -67,10 +65,10 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
         let some (.definition const) ← pure state.consts[idx]? | throw "invalid definition index"
         let some (.definition rconst) ← pure state.consts[ridx]? | throw "invalid definition index"
         match Typechecker.TypecheckM.run (.init state.consts) $ Typechecker.eval const.value with
-          | .ok value =>
-            let some expr ← pure $ readBack state.consts value | throw "failed to read back value"
-            pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
-          | _ => .error "failed to evaluate value"
+        | .ok value =>
+          let some expr ← pure $ readBack state.consts value | throw "failed to read back value"
+          pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
+        | _ => .error "failed to evaluate value"
   if notFound.isEmpty then
     return pairList.reverse
   else

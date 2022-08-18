@@ -90,7 +90,7 @@ mutual
       evalConst name k (const_univs.map (instBulkReduce env.univs))
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
-      extEnv thunk (eval bod)
+      withExtendedEnv thunk (eval bod)
     | .pi name info dom img => do
       let ctx ← read
       let dom' := suspend dom ctx
@@ -127,7 +127,7 @@ mutual
 
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
-    | .lam _ _ bod lam_env => withExtEnv lam_env arg (eval bod)
+    | .lam _ _ bod lam_env => withNewExtendedEnv lam_env arg (eval bod)
     | .app (.const name k k_univs) args' => do dbg_trace s!"HERE: {name}"
                                                applyConst name k k_univs arg args'
     | .app var@(.fvar ..) args' => pure $ Value.app var (arg :: args')

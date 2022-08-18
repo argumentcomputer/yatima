@@ -8,7 +8,7 @@ mutual
     match univ with
     | .var nam _ => s!"{nam}"
     | .succ a => s!"{printSucc a 1}"
-    | .zero     => s!"0"
+    | .zero     => "0"
     | .imax a b => s!"(imax {printUniv a} {printUniv b})"
     | .max a b => s!"(max {printUniv a} {printUniv b})"
 
@@ -22,8 +22,7 @@ mutual
 
 end
 
-def printExpr (expr : Expr) : String :=
-  match expr with
+def printExpr : Expr → String
   | .var nam idx => s!"{nam}^{idx}"
   | .sort u => s!"(Sort {printUniv u})"
   | .const nam k univs => s!"{nam}&{k}.{univs.map printUniv}"
@@ -49,8 +48,7 @@ def printExpr (expr : Expr) : String :=
 
 mutual
 
-partial def printVal (val : Value) : String :=
-  match val with
+partial def printVal : Value → String
   | .sort u => s!"(Sort {printUniv u})"
   | .app neu args => printSpine neu args
   | .lam nam binfo bod env =>
@@ -73,7 +71,7 @@ partial def printVal (val : Value) : String :=
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"
   | .exception _ => "exception"
 
-partial def printLamBod (expr : Expr) (env : Env Value) : String :=
+partial def printLamBod (expr : Expr) (env : Env) : String :=
   match expr with
   | .var nam 0 => s!"{nam}^0"
   | .var nam idx =>
@@ -95,7 +93,6 @@ partial def printLamBod (expr : Expr) (env : Env Value) : String :=
     | .strictImplicit => s!"(⦃{nam}: {printLamBod dom env}⦄ → {printLamBod cod env})"
     | .instImplicit => s!"([{nam}: {printLamBod dom env}] → {printLamBod cod env})"
     | _ => s!"(({nam}: {printLamBod dom env}) → {printLamBod cod env})"
-  -- | .letE _ nam typ val bod => s!""
   | .letE nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
   | .lit (.num x) => s!"{x}"
   | .lit (.word x) => s!"\"{x}\""
@@ -110,8 +107,8 @@ partial def printSpine (neu : Neutral) (args : Args) : String :=
 
 end
 
-instance : ToString Expr where toString := printExpr
-instance : ToString Univ where toString := printUniv
+instance : ToString Expr  where toString := printExpr
+instance : ToString Univ  where toString := printUniv
 instance : ToString Value where toString := printVal
 
 end Yatima.Typechecker

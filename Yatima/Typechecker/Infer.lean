@@ -15,15 +15,15 @@ mutual
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
         let var := mkVar lam_name (← read).lvl dom
-        let img ← withExtEnv env var $ eval img
-        extCtx var dom $ check bod img
+        let img ← withNewExtendedEnv env var $ eval img
+        withExtendedCtx var dom $ check bod img
       | val => throw $ .notPi (printVal val)
     | .letE _ exp_typ exp bod =>
       let _ := isSort exp_typ
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
-      extCtx exp exp_typ $ check bod type
+      withExtendedCtx exp exp_typ $ check bod type
     | val =>
       let infer_type ← infer term
       let sort := Value.sort Univ.zero
@@ -46,7 +46,7 @@ mutual
       | .pi _ _ dom img env =>
         check arg dom.get
         let arg := suspend arg (← read)
-        let type ← withExtEnv env arg $ eval img
+        let type ← withNewExtendedEnv env arg $ eval img
         pure type
       | val => throw $ .notPi (printVal val)
     -- Should we add inference of lambda terms? Perhaps not on this checker,
@@ -57,7 +57,7 @@ mutual
       let dom_lvl ← isSort dom
       let ctx ← read
       let dom := suspend dom ctx
-      extCtx (mkVar name ctx.lvl dom) dom $ do
+      withExtendedCtx (mkVar name ctx.lvl dom) dom $ do
         let img_lvl ← isSort img
         let lvl := reduceIMax dom_lvl img_lvl
         pure (Value.sort lvl)
@@ -66,7 +66,7 @@ mutual
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
-      extCtx exp exp_typ $ infer bod
+      withExtendedCtx exp exp_typ $ infer bod
     | .lit (.num _) => pure $ Value.lty .num
     | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
@@ -92,7 +92,7 @@ mutual
             match ctorType with
             | .pi _ _ _ img pi_env =>
               let proj := suspend (Expr.proj i expr) (← read)
-              ctorType ← withExtEnv pi_env proj $ eval img
+              ctorType ← withNewExtendedEnv pi_env proj $ eval img
             | _ => pure ()
           match ctorType with
           | .pi _ _ dom _ _  =>

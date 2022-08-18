@@ -3,24 +3,16 @@ import Yatima.Typechecker.Eval
 
 namespace Yatima.Typechecker
 
-def mkVar (name : Name) (idx : Nat) (type : Thunk Value) : Value :=
-  Value.app (Neutral.fvar name idx type) []
-
-def withExtVar (env : Env Value) (name : Name) (i : Nat) (type : Thunk Value) :
-    TypecheckM α → TypecheckM α :=
-  withExtEnv env (mkVar name i type)
-
-def isUnit (type : Value) : TypecheckM Bool := do
-  match type with
-  | .app (.const _ const _) _ => match (← read).store.get! const with
-    | .inductive induct => pure induct.unit
-    | _ => pure false
+def isUnit : Value → TypecheckM Bool
+  -- TODO: remove unsafety
+  | .app (.const _ const _) _ => return match (← read).store.get! const with
+    | .inductive induct => induct.unit
+    | _ => false
   | _ => pure false
 
-def applyType (type : Value) (args : List (Thunk Value)) : TypecheckM Value :=
-  match type, args with
+def applyType : Value → List (Thunk Value) → TypecheckM Value
   | .pi _ _ _ img img_env, arg :: args => do
-    let res ← withEnv (extEnvHelper img_env arg) (eval img)
+    let res ← withEnv (img_env.extendWith arg) (eval img)
     applyType res args
   | type, [] => pure type
   | _, _ => throw .cannotApply
@@ -28,7 +20,7 @@ def applyType (type : Value) (args : List (Thunk Value)) : TypecheckM Value :=
 partial def isProp (lvl : Nat) (type : Value) : TypecheckM Bool :=
   match type with
   | .pi name _ dom img env => do
-    let res ← withExtVar env name lvl dom $ eval img
+    let res ← withNewExtendedEnvByVar env name lvl dom $ eval img
     -- A pi type is a proposition if and only if its image is a proposition
     isProp (lvl + 1) res
   | .app neu args => do
@@ -40,7 +32,7 @@ partial def isProp (lvl : Nat) (type : Value) : TypecheckM Bool :=
            pure $ suspend const.type ctx
       | .fvar _ _ typ => pure typ
     let t ← type
-    match (← applyType t.get args) with
+    match ← applyType t.get args with
     | .sort u => pure $ univIsZero u
     | _ => pure false
   | .lty _ => pure false
@@ -64,35 +56,35 @@ mutual
       -- If we did have to know the universe level, then we probably would have to cache it
       -- so that we wouldn't need to infer the type just to get the level.
       -- Here, it is assumed that `type` is some a `Sort`
-      let img ← withExtVar env name lvl dom $ eval img
-      let img' ← withExtVar env' name' lvl dom $ eval img'
+      let img ← withNewExtendedEnvByVar env name lvl dom $ eval img
+      let img' ← withNewExtendedEnvByVar env' name' lvl dom $ eval img'
       let res ← equal lvl dom.get dom'.get type
       let res' ← equal (lvl + 1) img img' type
       pure $ res && res'
     | .lam name _ bod env, .lam name' _ bod' env' =>
       match type with
       | .pi pi_name _ dom img pi_env => do
-        let bod ←  withExtVar env name lvl dom $ eval bod
-        let bod' ← withExtVar env' name' lvl dom $ eval bod'
-        let img ← withExtVar pi_env pi_name lvl dom $ eval img
+        let bod ←  withNewExtendedEnvByVar env name lvl dom $ eval bod
+        let bod' ← withNewExtendedEnvByVar env' name' lvl dom $ eval bod'
+        let img ← withNewExtendedEnvByVar pi_env pi_name lvl dom $ eval img
         equal (lvl + 1) bod bod' img
       | _ => throw .impossible
     | .lam name _ bod env, .app neu' args' =>
       match type with
       | .pi pi_name _ dom img pi_env =>
         let var := mkVar name lvl dom
-        let bod ← withExtEnv env var (eval bod)
+        let bod ← withNewExtendedEnv env var (eval bod)
         let app := Value.app neu' (var :: args')
-        let img ← withExtVar pi_env pi_name lvl dom $ eval img
+        let img ← withNewExtendedEnvByVar pi_env pi_name lvl dom $ eval img
         equal (lvl + 1) bod app img
       | _ => throw .impossible
     | .app neu args, .lam name _ bod env =>
       match type with
       | .pi pi_name _ dom img pi_env =>
         let var := mkVar name lvl dom
-        let bod ← withExtEnv env var (eval bod)
+        let bod ← withNewExtendedEnv env var (eval bod)
         let app := Value.app neu (var :: args)
-        let img ← withExtVar pi_env pi_name lvl dom $ eval img
+        let img ← withNewExtendedEnvByVar pi_env pi_name lvl dom $ eval img
         equal (lvl + 1) app bod img
       | _ => throw .impossible
     | .app (.fvar _ idx var_type) args, .app (.fvar _ idx' _) args' =>
@@ -126,7 +118,7 @@ mutual
     | val::vals, val'::vals' =>
       match type.get with
       | .pi name _ dom img pi_env => do
-        let img ← withExtVar pi_env name lvl dom $ eval img
+        let img ← withNewExtendedEnvByVar pi_env name lvl dom $ eval img
         let eq ← equal lvl val.get val'.get dom.get
         let eq' ← equalThunks lvl vals vals' img
         pure $ eq && eq'
