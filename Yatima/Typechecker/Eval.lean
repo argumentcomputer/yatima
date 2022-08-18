@@ -148,7 +148,6 @@ mutual
       let env := (← read).env
       pure $ Value.sort (instBulkReduce env.univs univ)
     | .lit lit => pure $ Value.lit lit
-    | .lty lty => pure $ Value.lty lty
     | .proj idx expr => do
       match (← eval expr) with
       | .app neu@(.const _ ctor _) args => match (← read).store.get! ctor with

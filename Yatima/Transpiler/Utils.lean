@@ -2,7 +2,10 @@ import Yatima.Transpiler.TranspileM
 
 namespace Yatima.Transpiler
 
-open Yatima.Compiler
+inductive StoreKey : Type → Type
+  | univ  : Ipld.Both Ipld.UnivCid  → StoreKey (Ipld.Both Ipld.Univ)
+  | expr  : Ipld.Both Ipld.ExprCid  → StoreKey (Ipld.Both Ipld.Expr)
+  | const : Ipld.Both Ipld.ConstCid → StoreKey (Ipld.Both Ipld.Const)
 
 def StoreKey.find? : (key : StoreKey A) → TranspileM (Option A)
   | .univ  univCid => do

@@ -4,9 +4,11 @@ import Yatima.Datatypes.Const
 
 namespace Yatima.Compiler
 
+/-- Errors that can be thrown in `Yatima.Compiler.CompileM` -/
 inductive CompileError
   | notFoundInCache : Name → CompileError
-  | invalidDereferringIndex : Nat → Nat → CompileError
+  | notFoundInRecrCtx : Name → CompileError
+  | invalidConstantIndex : Nat → Nat → CompileError
   | unknownConstant : Name → CompileError
   | unfilledLevelMetavariable : Lean.Level → CompileError
   | unfilledExprMetavariable : Lean.Expr → CompileError
@@ -26,7 +28,8 @@ inductive CompileError
 
 instance : ToString CompileError where toString
   | .notFoundInCache n => s!"Could not find cid of '{n}' in cache"
-  | .invalidDereferringIndex idx size =>
+  | .notFoundInRecrCtx n => s!"Could not find '{n}' in recrCtx"
+  | .invalidConstantIndex idx size =>
     s!"Invalid index {idx} for dereferring a constant. Must be < {size}."
   | .unknownConstant n => s!"Unknown constant '{n}'"
   | .unfilledLevelMetavariable l => s!"Unfilled level metavariable on universe '{l}'"
