@@ -24,7 +24,7 @@ mutual
       check exp exp_typ
       let exp := suspend exp (← read)
       withExtendedCtx exp exp_typ $ check bod type
-    | val =>
+    | _ =>
       let infer_type ← infer term
       let sort := Value.sort Univ.zero
       if (← equal (← read).lvl type infer_type sort)

@@ -1,4 +1,4 @@
-import Yatima.Typechecker.Value
+import Yatima.Typechecker.Datatypes
 
 namespace Yatima.Typechecker
 

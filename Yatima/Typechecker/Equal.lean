@@ -3,36 +3,36 @@ import Yatima.Typechecker.Eval
 
 namespace Yatima.Typechecker
 
+/-- Checks if a type is an unit inductive -/
 def isUnit : Value → TypecheckM Bool
-  -- TODO: remove unsafety
-  | .app (.const _ const _) _ => return match (← read).store.get! const with
-    | .inductive induct => induct.unit
-    | _ => false
+  | .app (.const name i _) _ => do
+    let store := (← read).store
+    let some const := store.get? i | throw $ .outOfDefnRange name i store.size
+    match const with
+    | .inductive induct => pure induct.unit
+    | _ => pure false
   | _ => pure false
 
 def applyType : Value → List (Thunk Value) → TypecheckM Value
-  | .pi _ _ _ img img_env, arg :: args => do
-    let res ← withEnv (img_env.extendWith arg) (eval img)
+  | .pi _ _ _ img imgEnv, arg :: args => do
+    let res ← withEnv (imgEnv.extendWith arg) (eval img)
     applyType res args
   | type, [] => pure type
   | _, _ => throw .cannotApply
 
-partial def isProp (lvl : Nat) (type : Value) : TypecheckM Bool :=
-  match type with
+partial def isProp (lvl : Nat) : Value → TypecheckM Bool
   | .pi name _ dom img env => do
     let res ← withNewExtendedEnvByVar env name lvl dom $ eval img
     -- A pi type is a proposition if and only if its image is a proposition
     isProp (lvl + 1) res
   | .app neu args => do
-    let type :=
-      match neu with
+    let type ← match neu with
       | .const k_name k us => do
-           let const := ← getConst? k_name k
-           let ctx := { (← read) with env := ⟨ [], us ⟩ }
-           pure $ suspend const.type ctx
+        let const := ← getConst? k_name k
+        let ctx := { (← read) with env := ⟨ [], us ⟩ }
+        pure $ suspend const.type ctx
       | .fvar _ _ typ => pure typ
-    let t ← type
-    match ← applyType t.get args with
+    match ← applyType type.get args with
     | .sort u => pure $ univIsZero u
     | _ => pure false
   | .lty _ => pure false

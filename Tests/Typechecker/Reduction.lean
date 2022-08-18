@@ -1,6 +1,4 @@
 import LSpec
-import Yatima.Compiler.Compiler
-import YatimaStdLib.List
 import Yatima.Typechecker.Eval
 import TestsUtils.CompileAndExtractTests
 
@@ -34,14 +32,14 @@ partial def readBack (consts : Array Const) : Value → Option Expr
       -- binder types are irrelevant to reduction and so are lost on evaluation;
       -- arbitrarily fill these in with `Sort 0`
       -- TODO double-check ordering here
-      ⟨fun _ => Value.app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩
+      ⟨fun _ => .app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩
     let evalBod ← Typechecker.eval bod |>.run (.initEnv lamEnv consts)
     pure $ .lam name binfo (.sort .zero) $ ← readBack consts evalBod
   | .pi name binfo dom bod env => do
     let piEnv := shiftEnv env
     let piEnv := piEnv.extendWith
       -- TODO double-check ordering here
-      ⟨fun _ => Value.app (.fvar name 0 dom) []⟩
+      ⟨fun _ => .app (.fvar name 0 dom) []⟩
     let evalBod ← Typechecker.eval bod  |>.run (.initEnv piEnv consts)
     pure $ .lam name binfo (← readBack consts dom.get) $ ← readBack consts evalBod
   | .lit lit => pure $ .lit lit

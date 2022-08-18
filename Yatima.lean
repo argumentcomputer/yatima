@@ -37,6 +37,7 @@ import Yatima.Transpiler.TranspileError
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Transpiler
 import Yatima.Transpiler.Utils
+import Yatima.Typechecker.Datatypes
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
 import Yatima.Typechecker.Infer
@@ -44,4 +45,3 @@ import Yatima.Typechecker.Printing
 import Yatima.Typechecker.TypecheckError
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Typechecker
-import Yatima.Typechecker.Value
