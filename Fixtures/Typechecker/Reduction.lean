@@ -29,14 +29,23 @@ def E' := true
 inductive MyNat
   | nope
   | next : MyNat → MyNat
-  deriving Repr
 
 def three : MyNat := .next $ .next $ .next .nope
-def six : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
 
-def add (x y : MyNat) : MyNat := match x with
-  | .nope => y
-  | .next x' => .next $ add x' y
+def add' (x y : MyNat) : MyNat := match x with
+  | .nope    => y
+  | .next x' => .next $ add' x' y
 
-def F  := add three three
-def F' := six
+-- force definition via primitive recursor
+@[implementedBy add'] def add (x y : MyNat) : MyNat := by
+  induction x with
+  | nope => exact y
+  | next _ sum => exact .next sum
+
+#print add
+
+def F  : MyNat := add three three
+def F' : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
+
+def G  : MyNat := add' three three
+def G' : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
