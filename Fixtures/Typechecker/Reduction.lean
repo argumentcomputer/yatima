@@ -43,9 +43,12 @@ def add' (x y : MyNat) : MyNat := match x with
   | next _ sum => exact .next sum
 
 #print add
+#print add'
+#print MyNat.brecOn
+#print MyNat.below
 
 def F  : MyNat := add three three
 def F' : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
 
-def G  : MyNat := add' three three
-def G' : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
+def G  : MyNat := add' .nope .nope
+def G' : MyNat := .nope
