@@ -3,8 +3,9 @@ import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
 import Yatima.Converter.Converter
+import Yatima.Typechecker.Typechecker
 
-open LSpec Yatima Compiler Converter
+open LSpec Yatima Compiler Converter Typechecker
 
 def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
@@ -130,3 +131,10 @@ def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
 end IpldRoundtrip
+
+section Typechecking
+
+def extractPositiveTypecheckTest (stt : CompileState) : TestSeq :=
+  withExceptOk "Typechecking succeeds" (typecheck stt.consts) fun _ => .done
+
+end Typechecking

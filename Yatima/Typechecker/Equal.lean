@@ -53,17 +53,17 @@ mutual
       -- If we did have to know the universe level, then we probably would have to cache it
       -- so that we wouldn't need to infer the type just to get the level.
       -- Here, it is assumed that `type` is some a `Sort`
-      let img ← withNewExtendedCtxByVar ctx name lvl dom $ eval img
+      let img  ← withNewExtendedCtxByVar ctx name lvl dom $ eval img
       let img' ← withNewExtendedCtxByVar ctx' name' lvl dom $ eval img'
-      let res ← equal lvl dom.get dom'.get type
+      let res  ← equal lvl dom.get dom'.get type
       let res' ← equal (lvl + 1) img img' type
       pure $ res && res'
     | .lam name _ bod ctx, .lam name' _ bod' ctx' =>
       match type with
       | .pi pi_name _ dom img piCtx => do
-        let bod ←  withNewExtendedCtxByVar ctx name lvl dom $ eval bod
+        let bod  ← withNewExtendedCtxByVar ctx name lvl dom $ eval bod
         let bod' ← withNewExtendedCtxByVar ctx' name' lvl dom $ eval bod'
-        let img ← withNewExtendedCtxByVar piCtx pi_name lvl dom $ eval img
+        let img  ← withNewExtendedCtxByVar piCtx pi_name lvl dom $ eval img
         equal (lvl + 1) bod bod' img
       | _ => throw .impossible
     | .lam name _ bod env, .app neu' args' =>
