@@ -8,7 +8,14 @@ namespace Yatima.Typechecker
 def typecheckM : TypecheckM Unit := do
   (← read).store.forM checkConst
 
-def typecheck (consts : Array Const) : Except TypecheckError Unit :=
-  TypecheckM.run (.init consts) typecheckM
+def typecheckConsts (consts : Array Const) : Except String Unit :=
+  match TypecheckM.run (.init consts) typecheckM with
+  | .ok u => .ok u
+  | .error err => throw $ toString err
+
+def typecheck (store : Ipld.Store) : Except String Unit :=
+  match Converter.extractConstArray store with
+  | .ok consts => typecheckConsts consts
+  | .error msg => throw msg
 
 end Yatima.Typechecker

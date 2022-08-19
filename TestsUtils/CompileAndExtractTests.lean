@@ -134,7 +134,17 @@ end IpldRoundtrip
 
 section Typechecking
 
+def typecheckConstM (name : Name) : TypecheckM Unit := do
+  ((← read).store.filter (·.name == name)).forM checkConst
+
+def typecheckConst (consts : Array Const) (name : Name) : Except String Unit :=
+  match TypecheckM.run (.init consts) (typecheckConstM name) with
+  | .ok u => .ok u
+  | .error err => throw $ toString err
+
 def extractPositiveTypecheckTest (stt : CompileState) : TestSeq :=
-  withExceptOk "Typechecking succeeds" (typecheck stt.consts) fun _ => .done
+  (stt.consts.map (·.name)).foldl (init := .done) fun tSeq name =>
+    tSeq ++ withExceptOk s!"{name} typechecks" (typecheckConst stt.consts name)
+      fun _ => .done
 
 end Typechecking
