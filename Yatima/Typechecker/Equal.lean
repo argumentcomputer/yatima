@@ -24,8 +24,8 @@ partial def isProp (lvl : Nat) : Value → TypecheckM Bool
     isProp (lvl + 1) res
   | .app neu args => do
     let type ← match neu with
-      | .const k_name k us => do
-        let const := ← derefConst k_name k
+      | .const constName k us => do
+        let const ← derefConst constName k
         let env := { (← read) with ctx := ⟨ [], us ⟩ }
         pure $ suspend const.type env
       | .fvar _ _ typ => pure typ
@@ -77,35 +77,34 @@ mutual
       | _ => throw .impossible
     | .app neu args, .lam name _ bod ctx =>
       match type with
-      | .pi pi_name _ dom img pi_env =>
+      | .pi piName _ dom img piCtx =>
         let var := mkVar name lvl dom
         let bod ← withNewExtendedCtx ctx var (eval bod)
         let app := Value.app neu (var :: args)
-        let img ← withNewExtendedCtxByVar pi_env pi_name lvl dom $ eval img
+        let img ← withNewExtendedCtxByVar piCtx piName lvl dom $ eval img
         equal (lvl + 1) app bod img
       | _ => throw .impossible
-    | .app (.fvar _ idx var_type) args, .app (.fvar _ idx' _) args' =>
+    | .app (.fvar _ idx varType) args, .app (.fvar _ idx' _) args' =>
       -- If our assumption is correct, i.e., that these values come from terms
       -- in the same environment then their types are equal when their indices
       -- are equal
-      let eq ← equalThunks lvl args args' var_type
+      let eq ← equalThunks lvl args args' varType
       pure $ idx == idx' &&
       List.length args == List.length args' && eq
-    | .app (.const _ k us) args, .app (.const _ k' us') args' =>
-      equalApp lvl k k' us us' args args'
-    | .proj idx (.const _ k us) args, .proj idx' (.const _ k' us') args' =>
-      let eq ← equalApp lvl k k' us us' args args'
+    | .app (.const kName k us) args, .app (.const _ k' us') args' =>
+      equalApp kName lvl k k' us us' args args'
+    | .proj idx (.const kName k us) args, .proj idx' (.const _ k' us') args' =>
+      let eq ← equalApp kName lvl k k' us us' args args'
       pure $ idx == idx' && eq
     | _, _ => pure false
 
-  partial def equalApp (lvl : Nat) (k k' : ConstIdx)
+  partial def equalApp (name : Name) (lvl : Nat) (k k' : ConstIdx)
       (us us' : List Univ) (args args' : Args) : TypecheckM Bool := do
     -- Analogous assumption on the types of the constants
-    let const := (← read).store.get! k
+    let const ← derefConst name k
     let env := { (← read) with ctx := ⟨ [], us ⟩ }
     pure $
       k == k' &&
-      List.length args == List.length args' &&
       Univ.equalUnivs us us' &&
       (← equalThunks lvl args args' (suspend const.type env))
 

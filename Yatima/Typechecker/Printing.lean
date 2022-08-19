@@ -67,7 +67,7 @@ partial def printLamBod (expr : Expr) (ctx : Context) : String :=
    | some val => val.repr
    | none => s!"!{nam}^{idx}!"
   | .sort u => s!"(Sort {printUniv u})"
-  | .const nam k univs => s!"{nam}&{k}.{univs.map printUniv}"
+  | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printLamBod fnc ctx} {printLamBod arg ctx})"
   | .lam nam binfo dom bod =>
     match binfo with
@@ -91,7 +91,7 @@ partial def printLamBod (expr : Expr) (ctx : Context) : String :=
 partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
-  | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}&{k}.{univs.map printUniv}" args
+  | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
 
 end
 

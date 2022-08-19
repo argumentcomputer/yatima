@@ -6,25 +6,25 @@ mutual
 
   partial def check (term : Expr) (type : Value) : TypecheckM Unit := do
     match term with
-    | .lam lam_name _ _lam_dom bod => do
+    | .lam lamName _ _lamDom bod =>
       match type with
       | .pi _ _ dom img ctx =>
-        -- TODO check that `lam_dom` == `dom`
+        -- TODO check that `lamDom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
-        let var := mkVar lam_name (← read).lvl dom
+        let var := mkVar lamName (← read).lvl dom
         let img ← withNewExtendedCtx ctx var $ eval img
         withExtendedEnv var dom $ check bod img
       | val => throw $ .notPi (printVal val)
-    | .letE _ exp_typ exp bod =>
-      discard $ isSort exp_typ
-      let exp_typ ← eval exp_typ
-      check exp exp_typ
+    | .letE _ expType exp bod =>
+      discard $ isSort expType
+      let expType ← eval expType
+      check exp expType
       let exp := suspend exp (← read)
-      withExtendedEnv exp exp_typ $ check bod type
+      withExtendedEnv exp expType $ check bod type
     | _ =>
       let inferType ← infer term
-      if (← equal (← read).lvl type inferType (.sort .zero))
+      if ← equal (← read).lvl type inferType (.sort .zero)
         then pure ()
         else throw $ .valueMismatch (printVal inferType) (printVal type)
 
@@ -38,8 +38,8 @@ mutual
       let lvl := Univ.instBulkReduce (← read).ctx.univs lvl.succ
       pure $ Value.sort lvl
     | .app fnc arg =>
-      let fnc_typ ← infer fnc
-      match fnc_typ with
+      let fncType ← infer fnc
+      match fncType with
       | .pi _ _ dom img ctx =>
         check arg dom.get
         let arg := suspend arg (← read)
@@ -51,19 +51,19 @@ mutual
     -- is supposed to be used on fully annotated terms.
     | .lam .. => throw .cannotInferLam
     | .pi name _ dom img  =>
-      let dom_lvl ← isSort dom
-      let ctx ← read
-      let dom := suspend dom ctx
-      withExtendedEnv (mkVar name ctx.lvl dom) dom $ do
-        let img_lvl ← isSort img
-        let lvl := Univ.reduceIMax dom_lvl img_lvl
+      let domLvl ← isSort dom
+      let env ← read
+      let dom := suspend dom env
+      withExtendedEnv (mkVar name env.lvl dom) dom $ do
+        let imgLvl ← isSort img
+        let lvl := Univ.reduceIMax domLvl imgLvl
         pure (Value.sort lvl)
-    | .letE _ exp_typ exp bod =>
-      discard $ isSort exp_typ
-      let exp_typ ← eval exp_typ
-      check exp exp_typ
+    | .letE _ expType exp bod =>
+      discard $ isSort expType
+      let expType ← eval expType
+      check exp expType
       let exp := suspend exp (← read)
-      withExtendedEnv exp exp_typ $ infer bod
+      withExtendedEnv exp expType $ infer bod
     | .lit (.num _) => pure $ Value.lty .num
     | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
@@ -72,14 +72,14 @@ mutual
       let const ← derefConst name k
       withCtx ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩ $ eval const.type
     | .proj idx expr =>
-      let exprTyp ← infer expr
-      match exprTyp with
+      let exprType ← infer expr
+      match exprType with
       | .app (.const name k univs) params =>
         match ← derefConst name k with
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
-            | none => throw $ .typNotStructure (printVal exprTyp)
+            | none => throw $ .typNotStructure (printVal exprType)
           if ind.params != params.length then throw .impossible else
           let mut ctorType ← applyType (← withCtx ⟨[], univs⟩ $ eval ctor.type) params
           for i in [:idx] do
@@ -92,12 +92,12 @@ mutual
           | .pi _ _ dom _ _  =>
             let lvl := (← read).lvl
             let typ := dom.get
-            if (← isProp lvl exprTyp) && !(← isProp lvl typ)
+            if (← isProp lvl exprType) && !(← isProp lvl typ)
             then throw $ .projEscapesProp (printExpr term)
             else pure typ
           | _ => throw .impossible
-        | _ => throw $ .typNotStructure (printVal exprTyp)
-      | _ => throw $ .typNotStructure (printVal exprTyp)
+        | _ => throw $ .typNotStructure (printVal exprType)
+      | _ => throw $ .typNotStructure (printVal exprType)
 
   partial def isSort (expr : Expr) : TypecheckM Univ := do
     match ← infer expr with
