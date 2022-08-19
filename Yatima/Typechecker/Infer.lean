@@ -24,10 +24,9 @@ mutual
       withExtendedEnv exp exp_typ $ check bod type
     | _ =>
       let inferType ← infer term
-      let sort := Value.sort Univ.zero
-      if (← equal (← read).lvl type inferType sort)
-      then pure ()
-      else throw $ .valueMismatch (printVal inferType) (printVal type)
+      if (← equal (← read).lvl type inferType (.sort .zero))
+        then pure ()
+        else throw $ .valueMismatch (printVal inferType) (printVal type)
 
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
@@ -102,32 +101,23 @@ mutual
 
   partial def isSort (expr : Expr) : TypecheckM Univ := do
     match ← infer expr with
-      | .sort u => pure u
-      | val => throw $ .notTyp (printVal val)
+    | .sort u => pure u
+    | val => throw $ .notTyp (printVal val)
 
 end
 
-def checkValueType (name : Name) (value type : Expr) : TypecheckM Unit := do
-  discard $ isSort type
-  let trace := fun e => dbg_trace s!"✗ {name} : {type}"; throw e
-  tryCatch (check value (← eval type)) trace
-  dbg_trace s!"✓ {name} : {type}"
-
 def checkConst : Const → TypecheckM Unit
-  | .axiom       struct => do
-    let trace := fun e => dbg_trace s!"✗ {struct.name} : {struct.type}"; throw e
-    tryCatch (discard $ isSort struct.type) trace
-    dbg_trace s!"✓ {struct.name} : {struct.type}"
-  | .theorem     struct => checkValueType struct.name struct.value struct.type
-  | .opaque      struct => checkValueType struct.name struct.value struct.type
-  | .definition  struct => checkValueType struct.name struct.value struct.type
+  -- TODO: isn't the following also necessary for all cases?
+  | .axiom      struct => discard $ isSort struct.type
+  | .theorem    struct
+  | .opaque     struct
+  | .definition struct => do
+    discard $ isSort struct.type
+    check struct.value (← eval struct.type)
   -- TODO: check that inductives, constructors and recursors are well-formed
-  | .inductive   struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
-  | .constructor struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
-  | .extRecursor struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
-  | .intRecursor struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
-  -- TODO: check that quotient is well-formed. I guess it is possible to do this while converting from Ipld
-  -- by checking the cids of the quotient constants with precomputed ones
-  | .quotient    struct => dbg_trace s!"✓ {struct.name} : {struct.type}"; pure ()
+  -- TODO: check that quotient is well-formed. I guess it is possible to do this
+  -- while converting from Ipld by checking the cids of the quotient constants
+  -- with precomputed ones
+  | _ => pure ()
 
 end Yatima.Typechecker
