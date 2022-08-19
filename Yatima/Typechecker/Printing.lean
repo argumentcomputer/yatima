@@ -13,7 +13,7 @@ def printUniv : Univ → String
 def printExpr : Expr → String
   | .var nam idx => s!"{nam}^{idx}"
   | .sort u => s!"(Sort {printUniv u})"
-  | .const nam k univs => s!"{nam}&{k}.{univs.map printUniv}"
+  | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
   | .lam nam binfo dom bod =>
     match binfo with

@@ -10,23 +10,14 @@ inductive TypecheckError where
   | typNotStructure : String → TypecheckError
   | projEscapesProp : String → TypecheckError
   | unsafeDefinition : TypecheckError
-  -- Unsafe definition found
   | hasNoRecursionRule : TypecheckError
-  -- Constructor has no associated recursion rule. Implementation is broken.
   | cannotApply : TypecheckError
-  -- Cannot apply argument list to type. Implementation broken.
   | impossibleEqualCase : TypecheckError
-  -- Impossible equal case
   | impossibleProjectionCase : TypecheckError
-  -- Impossible case on projections
   | impossibleEvalCase : TypecheckError
-  -- Cannot evaluate this quotient
   | cannotEvalQuotient : TypecheckError
-  -- Unknown constant name
   | unknownConst : TypecheckError
-  -- No way to extract a name
   | noName : TypecheckError
-  | evalError : TypecheckError
   | impossible : TypecheckError
   | outOfRangeError : Name → Nat → Nat → TypecheckError
   | outOfContextRange : Name → Nat → Nat → TypecheckError
@@ -34,7 +25,7 @@ inductive TypecheckError where
   | custom : String → TypecheckError
   deriving Inhabited
 
-instance : ToString TypecheckError where toString 
+instance : ToString TypecheckError where toString
   | .notPi val => s!"Expected a pi type, found '{val}'"
   | .notTyp val => s!"Expected a sort type, found '{val}'"
   | .valueMismatch val₁ val₂ => s!"Expected {val₁}, found {val₂}"
@@ -47,8 +38,13 @@ instance : ToString TypecheckError where toString
   | .outOfRangeError name idx len => s!"'{name}' (index {idx}) out of the thunk list range (size {len})"
   | .outOfConstsRange name idx len => s!"'{name}' (index {idx}) out of the range of definitions (size {len})"
   | .outOfContextRange name idx len => s!"'{name}' (index {idx}) out of context range (size {len})"
+  | .impossibleEqualCase => "Impossible equal case"
+  | .impossibleProjectionCase => "Impossible case on projections"
+  | .impossibleEvalCase => "Impossible eval case"
   | .impossible => "Impossible case. Implementation broken."
+  | .cannotEvalQuotient => "Cannot evaluate this quotient"
+  | .unknownConst => "Unknown constant name"
+  | .noName => "No way to extract a name"
   | .custom str => str
-  | _ => "TODO"
 
 end Yatima.Typechecker

@@ -154,8 +154,8 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
   --! Succ cases
   | Univ.succ a, _ => leq a b (diff - 1)
   | _, Univ.succ b => leq a b (diff + 1)
-  | Univ.var _ _, Univ.zero => false
-  | Univ.zero, Univ.var _ _ => diff >= 0
+  | Univ.var .., Univ.zero => false
+  | Univ.zero, Univ.var .. => diff >= 0
   | Univ.var _ x, Univ.var _ y => x == y && diff >= 0
   --! Max cases
   | Univ.max c d, _ => leq c b diff && leq d b diff
@@ -201,7 +201,10 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
 def equalUniv (a b : Univ) : Bool :=
   leq a b 0 && leq b a 0
 
-/--  -/
+/--
+Two lists of universes are considered equal iff they have the same length and
+`Yatima.Univ.equalUniv` returns `true` for all of their zip pairs
+-/
 def equalUnivs : List Univ → List Univ → Bool
   | [], [] => true
   | u::us, u'::us' => equalUniv u u' && equalUnivs us us'
@@ -210,7 +213,7 @@ def equalUnivs : List Univ → List Univ → Bool
 /-- Faster equality for zero, assumes that the input is already reduced -/
 def isZero : Univ → Bool
   | .zero => true
-  -- all other cases are false since they are either `Succ` or a reduced
+  -- all other cases are false since they are either `succ` or a reduced
   -- expression with free variables, which are never semantically equal to zero
   | _ => false
 
