@@ -46,12 +46,12 @@ partial def printVal : Value → String
     | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
     | _ => s!"(λ({nam}). {printLamBod bod ctx})"
   | .pi nam binfo dom cod ctx =>
-    let dom := dom.get
+    let dom := dom.repr
     match binfo with
-    | .implicit => s!"(\{{nam}: {printVal dom}} → {printLamBod cod ctx})"
-    | .strictImplicit => s!"(⦃{nam}: {printVal dom}⦄ → {printLamBod cod ctx})"
-    | .instImplicit => s!"([{nam}: {printVal dom}] → {printLamBod cod ctx})"
-    | _ => s!"(({nam}: {printVal dom}) → {printLamBod cod ctx})"
+    | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod ctx})"
+    | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
+    | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
+    | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
   | .lit (.num x) => s!"{x}"
   | .lit (.word x) => s!"\"{x}\""
   | .lty .num => "Number"
@@ -64,7 +64,7 @@ partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   | .var nam 0 => s!"{nam}^0"
   | .var nam idx =>
     match ctx.exprs.get? (idx-1) with
-   | some val => printVal val.get
+   | some val => val.repr
    | none => s!"!{nam}^{idx}!"
   | .sort u => s!"(Sort {printUniv u})"
   | .const nam k univs => s!"{nam}&{k}.{univs.map printUniv}"
@@ -90,8 +90,8 @@ partial def printLamBod (expr : Expr) (ctx : Context) : String :=
 
 partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
-  | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}#{idx}" args
-  | .const nam k univs => List.foldl (fun str arg => s!"({str} {printVal arg.get})") s!"{nam}&{k}.{univs.map printUniv}" args
+  | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
+  | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}&{k}.{univs.map printUniv}" args
 
 end
 

@@ -17,7 +17,7 @@ local instance : Coe (Except ε α) (Option α) where coe
 partial def shiftCtx (ctx : Context) : Context :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
   ctx.withExprs $ ctx.exprs.map fun val => match val.get with
-    | .app (.fvar name idx typ) args => ⟨fun _ => .app (.fvar name (idx + 1) typ) args⟩
+    | .app (.fvar name idx typ) args => Value.app (.fvar name (idx + 1) typ) args
     | other => other
 
 partial def readBack (consts : Array Const) : Value → Option Expr
@@ -32,14 +32,14 @@ partial def readBack (consts : Array Const) : Value → Option Expr
       -- binder types are irrelevant to reduction and so are lost on evaluation;
       -- arbitrarily fill these in with `Sort 0`
       -- TODO double-check ordering here
-      ⟨fun _ => .app (.fvar name 0 ⟨fun _ => .sort .zero⟩) []⟩
+      $ Value.app (.fvar name 0 $ Value.sort .zero) []
     let evalBod ← eval bod |>.run (.initCtx lamCtx consts)
     pure $ .lam name binfo (.sort .zero) $ ← readBack consts evalBod
   | .pi name binfo dom bod ctx => do
     let piCtx := shiftCtx ctx
     let piCtx := piCtx.extendWith
       -- TODO double-check ordering here
-      ⟨fun _ => .app (.fvar name 0 dom) []⟩
+      $ Value.app (.fvar name 0 dom) []
     let evalBod ← eval bod  |>.run (.initCtx piCtx consts)
     pure $ .lam name binfo (← readBack consts dom.get) $ ← readBack consts evalBod
   | .lit lit => pure $ .lit lit

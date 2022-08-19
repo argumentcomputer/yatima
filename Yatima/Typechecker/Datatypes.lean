@@ -3,6 +3,18 @@ import Yatima.Typechecker.TypecheckError
 
 namespace Yatima.Typechecker
 
+/--
+  Wrapper for `Thunk` with a representation string; useful for debugging.
+-/
+structure Thunk (α : Type u) extends Thunk α : Type u where
+  repr : String := "[THUNKED]"
+
+instance : Coe α $ Thunk α where
+  coe a := {fn := fun _ => a}
+
+instance [ToString α] : Coe α $ Thunk α where
+  coe a := {fn := fun _ => a, repr := toString a}
+
 /-!
 # Basic concepts
 
@@ -97,6 +109,6 @@ def mkVar (name : Name) (idx : Nat) (type : Thunk Value) : Value :=
 abbrev Args := List (Thunk Value)
 
 instance : Inhabited (Thunk Value) where
-  default := Thunk.mk default
+  default := {fn := default}
 
 end Yatima.Typechecker
