@@ -37,7 +37,7 @@ inductive TypecheckError where
 instance : ToString TypecheckError where toString 
   | .notPi val => s!"Expected a pi type, found '{val}'"
   | .notTyp val => s!"Expected a sort type, found '{val}'"
-  | .valueMismatch val₁ val₂ => s!"Expected a {val₁}, found {val₂}"
+  | .valueMismatch val₁ val₂ => s!"Expected {val₁}, found {val₂}"
   | .cannotInferLam => "Cannot infer the type of a lambda term"
   | .typNotStructure val => s!"Expected a structure type, found {val}"
   | .projEscapesProp term => s!"Projection {term} not allowed"

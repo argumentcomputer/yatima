@@ -91,7 +91,7 @@ mutual
     | .const name k const_univs => do
       dbg_trace s!"[Eval] .const: {name}.{k}"
       let ctx := (← read).ctx
-      evalConst name k (const_univs.map (instBulkReduce ctx.univs))
+      evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
       withExtendedCtx thunk (eval bod)
@@ -101,7 +101,7 @@ mutual
       pure $ Value.pi name info dom' img env.ctx
     | .sort univ => do
       let ctx := (← read).ctx
-      pure $ Value.sort (instBulkReduce ctx.univs univ)
+      pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
     | .proj idx expr => do

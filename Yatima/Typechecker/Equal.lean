@@ -30,7 +30,7 @@ partial def isProp (lvl : Nat) : Value → TypecheckM Bool
         pure $ suspend const.type env
       | .fvar _ _ typ => pure typ
     match ← applyType type.get args with
-    | .sort u => pure $ univIsZero u
+    | .sort u => pure u.isZero
     | _ => pure false
   | .lty _ => pure false
   | .sort _ => pure false
@@ -47,7 +47,7 @@ mutual
     match term, term' with
     | .lit lit, .lit lit' => pure $ lit == lit'
     | .lty lty, .lty lty' => pure $ lty == lty'
-    | .sort u, .sort u' => pure $ equalUniv u u'
+    | .sort u, .sort u' => return u.equalUniv u'
     | .pi name _ dom img ctx, .pi name' _ dom' img' ctx' => do
       -- For equality we don't need to know the universe levels, only the "shape" of the type.
       -- If we did have to know the universe level, then we probably would have to cache it
@@ -106,7 +106,7 @@ mutual
     pure $
       k == k' &&
       List.length args == List.length args' &&
-      equalUnivs us us' &&
+      Univ.equalUnivs us us' &&
       (← equalThunks lvl args args' (suspend const.type env))
 
   partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value))

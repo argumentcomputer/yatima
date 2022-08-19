@@ -17,7 +17,7 @@ mutual
         withExtendedEnv var dom $ check bod img
       | val => throw $ .notPi (printVal val)
     | .letE _ exp_typ exp bod =>
-      let _ := isSort exp_typ
+      discard $ isSort exp_typ
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
@@ -36,7 +36,7 @@ mutual
       let some type := types.get? idx | throw $ .outOfContextRange name idx types.length
       pure type.get
     | .sort lvl =>
-      let lvl := instBulkReduce (← read).ctx.univs lvl.succ
+      let lvl := Univ.instBulkReduce (← read).ctx.univs lvl.succ
       pure $ Value.sort lvl
     | .app fnc arg =>
       let fnc_typ ← infer fnc
@@ -57,10 +57,10 @@ mutual
       let dom := suspend dom ctx
       withExtendedEnv (mkVar name ctx.lvl dom) dom $ do
         let img_lvl ← isSort img
-        let lvl := reduceIMax dom_lvl img_lvl
+        let lvl := Univ.reduceIMax dom_lvl img_lvl
         pure (Value.sort lvl)
     | .letE _ exp_typ exp bod =>
-      let _ := isSort exp_typ
+      discard $ isSort exp_typ
       let exp_typ ← eval exp_typ
       check exp exp_typ
       let exp := suspend exp (← read)
@@ -71,7 +71,7 @@ mutual
     | .const name k constUnivs =>
       let univs := (← read).ctx.univs
       let const ← derefConst name k
-      withCtx ⟨[], constUnivs.map (instBulkReduce univs)⟩ $ eval const.type
+      withCtx ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩ $ eval const.type
     | .proj idx expr =>
       let exprTyp ← infer expr
       match exprTyp with
@@ -108,7 +108,7 @@ mutual
 end
 
 def checkValueType (name : Name) (value type : Expr) : TypecheckM Unit := do
-  let _ ← isSort type
+  discard $ isSort type
   let trace := fun e => dbg_trace s!"✗ {name} : {type}"; throw e
   tryCatch (check value (← eval type)) trace
   dbg_trace s!"✓ {name} : {type}"
