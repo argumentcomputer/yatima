@@ -35,7 +35,7 @@ mutual
       else
         --dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
         match arg.get with
-        | .app (Neutral.const k_name k _) args' => match ← derefConst k_name k with
+        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             --dbg_trace s!"ctor: {ctor.rhs}, {recur.indices}"
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
@@ -43,17 +43,17 @@ mutual
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
-      let major_idx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != major_idx then
+      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != majorIdx then
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         match arg.get with
-        | .app (Neutral.const k_name k _) args' => match ← derefConst k_name k with
+        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
             match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
             | some rule =>
-              let exprs := List.append (List.take rule.fields args') (List.drop recur.indices args)
+              let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
               withCtx ⟨exprs, univs⟩ $ eval rule.rhs
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
@@ -67,7 +67,7 @@ mutual
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
-    {fn := fun _ => match TypecheckM.run env (eval expr) with
+    {fn := fun _ => dbg_trace "evaluating suspended {expr}"; match TypecheckM.run env (eval expr) with
       | .ok a => a
       | .error e => .exception e,
      repr := toString expr}

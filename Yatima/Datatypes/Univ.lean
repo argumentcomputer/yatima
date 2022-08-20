@@ -117,26 +117,24 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
 Instantiate multiple variables at the same time and reduce. Assumes already
 reduced `substs`
 -/
-def instBulkReduce (substs : List Univ) (u : Univ) : Univ :=
-  match u with
-  | .succ u => Univ.succ (instBulkReduce substs u)
+def instBulkReduce (substs : List Univ) : Univ → Univ
+  | .succ u => .succ (instBulkReduce substs u)
   | .max a b => reduceMax (instBulkReduce substs a) (instBulkReduce substs b)
   | .imax a b =>
     let b' := instBulkReduce substs b
     match b' with
-    | .zero => Univ.zero
+    | .zero => .zero
     | .succ _ => reduceMax (instBulkReduce substs a) b'
-    | _ => Univ.imax (instBulkReduce substs a) b'
-  | .var nam idx =>
-    match substs.get? idx with
+    | _ => .imax (instBulkReduce substs a) b'
+  | .var nam idx => match substs.get? idx with
     | some u => u
     -- TODO: It is still unclear, at this point, whether we should shift or
     -- not the other variables. In fact, it is still unclear whether
     -- this case could happen at all. It would appear that the `substs`
     -- variable is a complete environment for the free variables
     -- inside `univ`
-    | none => Univ.var nam (idx - substs.length - 1) -- is this right?
-  | .zero => u
+    | none => .var nam (idx - substs.length - 1) -- is this right?
+  | u => u -- zero
 
 
 /--
