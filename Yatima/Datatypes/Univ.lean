@@ -122,11 +122,11 @@ def instBulkReduce (substs : List Univ) (u : Univ) : Univ :=
   | .succ u => Univ.succ (instBulkReduce substs u)
   | .max a b => reduceMax (instBulkReduce substs a) (instBulkReduce substs b)
   | .imax a b =>
-    let b_prime := instBulkReduce substs b
-    match b_prime with
+    let b' := instBulkReduce substs b
+    match b' with
     | .zero => Univ.zero
-    | .succ _ => reduceMax (instBulkReduce substs a) b_prime
-    | _ => Univ.imax (instBulkReduce substs a) b_prime
+    | .succ _ => reduceMax (instBulkReduce substs a) b'
+    | _ => Univ.imax (instBulkReduce substs a) b'
   | .var nam idx =>
     match substs.get? idx with
     | some u => u
@@ -135,7 +135,7 @@ def instBulkReduce (substs : List Univ) (u : Univ) : Univ :=
     -- this case could happen at all. It would appear that the `substs`
     -- variable is a complete environment for the free variables
     -- inside `univ`
-    | none => Univ.var nam (idx - substs.length)
+    | none => Univ.var nam (idx - substs.length - 1) -- is this right?
   | .zero => u
 
 

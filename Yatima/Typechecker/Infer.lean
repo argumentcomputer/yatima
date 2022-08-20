@@ -107,7 +107,6 @@ mutual
 end
 
 def checkConst : Const → TypecheckM Unit
-  -- TODO: isn't the following also necessary for all cases?
   | .axiom      struct => discard $ isSort struct.type
   | .theorem    struct
   | .opaque     struct
@@ -118,6 +117,7 @@ def checkConst : Const → TypecheckM Unit
   -- TODO: check that quotient is well-formed. I guess it is possible to do this
   -- while converting from Ipld by checking the cids of the quotient constants
   -- with precomputed ones
+  -- TODO: don't we have to do `discard $ isSort struct.type` on every case?
   | _ => pure ()
 
 end Yatima.Typechecker

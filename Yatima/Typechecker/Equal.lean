@@ -60,19 +60,19 @@ mutual
       pure $ res && res'
     | .lam name _ bod ctx, .lam name' _ bod' ctx' =>
       match type with
-      | .pi pi_name _ dom img piCtx => do
+      | .pi piName _ dom img piCtx => do
         let bod  ← withNewExtendedCtxByVar ctx name lvl dom $ eval bod
         let bod' ← withNewExtendedCtxByVar ctx' name' lvl dom $ eval bod'
-        let img  ← withNewExtendedCtxByVar piCtx pi_name lvl dom $ eval img
+        let img  ← withNewExtendedCtxByVar piCtx piName lvl dom $ eval img
         equal (lvl + 1) bod bod' img
       | _ => throw .impossible
     | .lam name _ bod env, .app neu' args' =>
       match type with
-      | .pi pi_name _ dom img piCtx =>
+      | .pi piName _ dom img piCtx =>
         let var := mkVar name lvl dom
         let bod ← withNewExtendedCtx env var (eval bod)
         let app := Value.app neu' (var :: args')
-        let img ← withNewExtendedCtxByVar piCtx pi_name lvl dom $ eval img
+        let img ← withNewExtendedCtxByVar piCtx piName lvl dom $ eval img
         equal (lvl + 1) bod app img
       | _ => throw .impossible
     | .app neu args, .lam name _ bod ctx =>

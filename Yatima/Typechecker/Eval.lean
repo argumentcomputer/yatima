@@ -10,6 +10,7 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   | none => throw $ .outOfConstsRange name constIdx store.size
 
 mutual
+
   partial def evalConst (name : Name) (idx : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
     match ← derefConst name idx with
@@ -80,9 +81,11 @@ mutual
       let fnc := (← eval fnc)
       dbg_trace s!"[Eval] .app: evaluated fnc: {origFnc} to {arg}: {fnc}"
       apply fnc arg_thunk
-    | .lam name info _ bod => do
+    | lam@(.lam name info _ bod) => do
       let ctx := (← read).ctx
-      dbg_trace s!"[Eval] .lam: λ {name}, {bod}, ctx length: {ctx.exprs.length}"
+      dbg_trace s!"[Eval] .lam: {lam}"
+      let ret := Value.lam name info bod ctx
+      dbg_trace s!"[Eval] .lam result: {ret}"
       pure $ Value.lam name info bod ctx
     | .var name idx => do
       dbg_trace s!"[Eval] .var: {name}.{idx}"
@@ -96,12 +99,18 @@ mutual
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
       withExtendedCtx thunk (eval bod)
-    | .pi name info dom img => do
+    | pi@(.pi name info dom img) => do
+      dbg_trace s!"[Eval] .pi: {pi}"
       let env ← read
       let dom' := suspend dom env
+      let ret := Value.pi name info dom' img env.ctx
+      dbg_trace s!"[Eval] .pi result: {ret}"
       pure $ Value.pi name info dom' img env.ctx
-    | .sort univ => do
+    | sort@(.sort univ) => do
+      dbg_trace s!"[Eval] .sort: {sort}"
       let ctx := (← read).ctx
+      let ret := Value.sort (Univ.instBulkReduce ctx.univs univ)
+      dbg_trace s!"[Eval] .sort result: {ret}"
       pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
@@ -144,8 +153,8 @@ mutual
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
 
-  partial def reduceQuot (major? : Thunk Value) (args : Args) (reduceSize : Nat) (argPos : Nat) (default : Value) :
-      TypecheckM Value :=
+  partial def reduceQuot (major? : Thunk Value) (args : Args)
+      (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
       match major?.get with
