@@ -151,7 +151,7 @@ mutual
     match value with
     -- bod : fun y => x^1 + y^0
     | .lam _ _ bod lamCtx => 
-      dbg_trace s!"[apply] .lam: {bod}"
+      dbg_trace s!"\n[apply] .lam: {bod}"
       withNewExtendedCtx lamCtx arg (eval bod)
     | .app (.const name k k_univs) args' =>
       applyConst name k k_univs arg args'

@@ -133,6 +133,7 @@ def tcExtractor := extractTcTests
       -- (`E, `E'),
       -- (`F, `F'),
       (`G, `G')
+      -- (`H, `H')
     ]
 
 def main := do

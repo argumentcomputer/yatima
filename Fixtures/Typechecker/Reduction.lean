@@ -30,6 +30,10 @@ inductive MyNat
   | nope
   | next : MyNat → MyNat
 
+def id' (x : MyNat) : MyNat := match x with
+  | .nope   => .nope
+  | .next x => .next $ id' x
+
 def three : MyNat := .next $ .next $ .next .nope
 
 def add' (x y : MyNat) : MyNat := match x with
@@ -54,5 +58,8 @@ def Y := fun x y => add x y
 def F  := Y three
 def F' := fun y => add (.next $ .next $ .next .nope) y
 
-def G  : MyNat := add' .nope .nope
+def G  : MyNat := id' .nope
 def G' : MyNat := .nope
+
+def H  : MyNat := add' .nope .nope
+def H' : MyNat := .nope
