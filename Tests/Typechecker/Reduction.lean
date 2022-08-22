@@ -80,15 +80,15 @@ mutual
 end
 
 def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
-    Except String (List ((Name × Expr) × (Name × Expr))) := do
-  let mut pairList := []
-  let mut notFound := []
+    Except String (Array ((Name × Expr) × (Name × Expr))) := do
+  let mut pairList := #[]
+  let mut notFound := #[]
   for (constName, rconstName) in consts do
     match state.cache.find? constName with
-    | none            => notFound := constName :: notFound
+    | none            => notFound := notFound.push constName
     | some (_, idx) =>
       match state.cache.find? rconstName with
-      | none            => notFound := rconstName :: notFound
+      | none            => notFound := notFound.push rconstName
       | some (_, ridx)  =>
         let some (.definition const) ← pure state.consts[idx]? | throw "invalid definition index"
         let some (.definition rconst) ← pure state.consts[ridx]? | throw "invalid definition index"
@@ -96,12 +96,12 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
         | .ok value =>
           dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
           let some expr ← pure $ readBack state.consts value | throw "failed to read back value"
-          pairList := ((constName, expr), (rconstName, rconst.value)) :: pairList
+          pairList := pairList.push ((constName, expr), (rconstName, rconst.value))
         | _ => .error "failed to evaluate value"
   if notFound.isEmpty then
-    return pairList.reverse
+    return pairList
   else
-    throw s!"Not found: {", ".intercalate (notFound.map toString)}"
+    throw s!"Not found: {", ".intercalate (notFound.data.map toString)}"
 
 /--
 Strip the binder types from lambdas in `e` (i.e., replace them with `Sort 0`) for the purpose of comparison.
@@ -114,24 +114,25 @@ def stripBinderTypes : Expr → Expr
   | .proj n e  => .proj n (stripBinderTypes e)
   | e => e
 
-def makeTcTests (pairList : List ((Name × Expr) × (Name × Expr))) :
-    TestSeq :=
-  pairList.foldl (init := .done) fun tSeq ((nameReduced, constReduced), (nameExpected, constExpected)) =>
+def makeTcTests (pairs : Array ((Name × Expr) × (Name × Expr))) : TestSeq :=
+  pairs.foldl (init := .done) fun tSeq ((nameReduced, constReduced), (nameExpected, constExpected)) =>
     let constExpected := stripBinderTypes constExpected
-    tSeq ++ test s!"Comparing {nameReduced} to {nameExpected}:\n  Reduced:\t{constReduced}\n  Expected:\t{constExpected}" (constReduced == constExpected)
+    tSeq ++ test s!"Comparing {nameReduced} to {nameExpected}:\n  Reduced:\t{constReduced}\n  Expected:\t{constExpected}"
+      (constReduced == constExpected)
 
-def extractTcTests := fun stt state =>
-  withExceptOk "All constants can be found" (getConstPairs state stt)
-  fun constPairs => makeTcTests constPairs
+def extractTcTests := fun pairs stt =>
+  withExceptOk "All constants can be found" (getConstPairs stt pairs)
+    makeTcTests
 
 def tcExtractor := extractTcTests
-    [--(`A, `A'),
-     --(`B, `B'),
-     --(`C, `C'),
-     --(`D, `D'),
-     --(`E, `E'),
-     (`F, `F')
-     --(`G, `G')
+    [
+      -- (`A, `A'),
+      -- (`B, `B'),
+      -- (`C, `C'),
+      -- (`D, `D'),
+      -- (`E, `E'),
+      -- (`F, `F'),
+      (`G, `G')
     ]
 
 def main := do

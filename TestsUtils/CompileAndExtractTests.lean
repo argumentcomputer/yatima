@@ -134,6 +134,13 @@ end IpldRoundtrip
 
 section Typechecking
 
+/-
+Here we define the following extractors:
+* `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
+false negatives by requiring that everything that typechecks in Lean 4 should
+also be accepted by our implementation
+-/
+
 def typecheckConstM (name : Name) : TypecheckM Unit := do
   ((← read).store.filter (·.name == name)).forM checkConst
 
@@ -142,7 +149,7 @@ def typecheckConst (consts : Array Const) (name : Name) : Except String Unit :=
   | .ok u => .ok u
   | .error err => throw $ toString err
 
-def extractPositiveTypecheckTest (stt : CompileState) : TestSeq :=
+def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   -- stt.consts.foldl (init := .done) fun tSeq const =>
   (stt.consts.filter (·.name == `Treew.recOn)).foldl (init := .done) fun tSeq const =>
     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
