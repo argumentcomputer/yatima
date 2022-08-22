@@ -67,50 +67,56 @@ mutual
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
   partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
-    {fn := fun _ => dbg_trace "evaluating suspended {expr}"; match TypecheckM.run env (eval expr) with
+    {fn := fun _ => dbg_trace "\n↟ {expr}"; match TypecheckM.run env (eval expr) with
       | .ok a => a
       | .error e => .exception e,
      repr := toString expr}
 
   partial def eval : Expr → TypecheckM Value
-    | .app fnc arg => do
+    | e@(.app fnc arg) => do
       let origFnc := fnc
-      dbg_trace s!"[Eval] .app: {fnc} to {arg}"
+      dbg_trace s!"\n[eval] .app: {e}"
       let env ← read
       let arg_thunk := suspend arg env
       let fnc := (← eval fnc)
-      dbg_trace s!"[Eval] .app: evaluated fnc: {origFnc} to {arg}: {fnc}"
-      apply fnc arg_thunk
-    | lam@(.lam name info _ bod) => do
+      dbg_trace s!"\n[eval] .app: {e}, {origFnc} ↠ {fnc}"
+      let ret ← apply fnc arg_thunk
+      dbg_trace s!"\n[eval] .app: {e}\n⟹\n{ret}"
+      pure ret
+    | e@(.lam name info _ bod) => do
       let ctx := (← read).ctx
-      dbg_trace s!"[Eval] .lam: {lam}"
+      dbg_trace s!"\n[eval] .lam: {e}"
       let ret := Value.lam name info bod ctx
-      dbg_trace s!"[Eval] .lam result: {ret}"
+      dbg_trace s!"\n[eval] .lam: {e}\n⟹\n{ret}"
       pure $ Value.lam name info bod ctx
-    | .var name idx => do
-      dbg_trace s!"[Eval] .var: {name}.{idx}"
+    | e@(.var name idx) => do
+      dbg_trace s!"\n[eval] .var: {e}"
       let exprs := (← read).ctx.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
-      pure thunk.get
-    | .const name k const_univs => do
-      dbg_trace s!"[Eval] .const: {name}.{k}"
+      let ret := thunk.get
+      dbg_trace s!"\n[eval] .var: {e}\n⟹\n{ret}"
+      pure ret
+    | e@(.const name k const_univs) => do
+      dbg_trace s!"\n[eval] .const: {e}"
       let ctx := (← read).ctx
-      evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
+      let ret ← evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
+      dbg_trace s!"\n[eval] .lam: {e}\n⟹\n{ret}"
+      pure ret
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
       withExtendedCtx thunk (eval bod)
-    | pi@(.pi name info dom img) => do
-      dbg_trace s!"[Eval] .pi: {pi}"
+    | e@(.pi name info dom img) => do
+      dbg_trace s!"\n[eval] .pi: {e}"
       let env ← read
       let dom' := suspend dom env
       let ret := Value.pi name info dom' img env.ctx
-      dbg_trace s!"[Eval] .pi result: {ret}"
+      dbg_trace s!"\n[eval] .pi: {e}\n⟹\n{ret}"
       pure $ Value.pi name info dom' img env.ctx
-    | sort@(.sort univ) => do
-      dbg_trace s!"[Eval] .sort: {sort}"
+    | e@(.sort univ) => do
+      dbg_trace s!"\n[eval] .sort: {e}"
       let ctx := (← read).ctx
       let ret := Value.sort (Univ.instBulkReduce ctx.univs univ)
-      dbg_trace s!"[Eval] .sort result: {ret}"
+      dbg_trace s!"\n[eval] .sort: {e}\n⟹\n{ret}"
       pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
@@ -135,7 +141,7 @@ mutual
     | .definition x =>
       match x.safety with
       | .safe => 
-        dbg_trace s!"[evalConst] .definition .safe: {x.value.ctorName}"
+        dbg_trace s!"\n[evalConst] .definition .safe: {x.value.ctorName}"
         eval x.value
       | .partial => pure $ mkConst name const univs
       | .unsafe => throw .unsafeDefinition
@@ -145,7 +151,7 @@ mutual
     match value with
     -- bod : fun y => x^1 + y^0
     | .lam _ _ bod lamCtx => 
-      dbg_trace s!"[Apply] .lam: {bod}"
+      dbg_trace s!"[apply] .lam: {bod}"
       withNewExtendedCtx lamCtx arg (eval bod)
     | .app (.const name k k_univs) args' =>
       applyConst name k k_univs arg args'
