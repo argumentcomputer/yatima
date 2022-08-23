@@ -11,17 +11,6 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
 
 mutual
 
-  partial def evalConst (name : Name) (idx : ConstIdx) (univs : List Univ) :
-      TypecheckM Value := do
-    match ← derefConst name idx with
-    | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
-    | .definition x =>
-      match x.safety with
-      | .safe => eval x.value
-      | .partial => pure $ mkConst name idx univs
-      | .unsafe => throw .unsafeDefinition
-    | _ => pure $ mkConst name idx univs
-
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : Thunk Value) (args : Args) : TypecheckM Value := do
     --dbg_trace s!"Applying: {name}"
