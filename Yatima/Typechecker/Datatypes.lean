@@ -77,6 +77,16 @@ mutual
 
 end
 
+def Value.ctorName : Value → String
+  | .sort _  => "sort"
+  | .app ..  => "app"
+  | .lam ..  => "lam"
+  | .pi  ..  => "pi"
+  | .lit  _  => "lit"
+  | .lty  _  => "lty"
+  | .proj .. => "proj"
+  | .exception _ => "exception"
+
 namespace Context
 
 /-- Gets the list of expressions from a context -/

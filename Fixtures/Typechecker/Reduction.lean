@@ -65,16 +65,26 @@ def G  : MyNat := id' .nope
 def G' : MyNat := .nope
 
 def H  : MyNat := add' three three
-def H' : MyNat := (.next $ .next $ .next $ .next $ .next $ .next .nope)
+def H' : MyNat := .next $ .next $ .next $ .next $ .next $ .next .nope
 
 set_option pp.all true in
 #print PProd.fst
 #print PProd.mk
 
-structure NProd where
-  /-- The first projection out of a pair. if `p : PProd α β` then `p.1 : α`. -/
+structure TProd where
   fst : Nat
-  /-- The second projection out of a pair. if `p : PProd α β` then `p.2 : β`. -/
-  snd : Nat
+  snd : MyNat
+  trd : MyNat
 
-#print NProd.mk
+def struc : TProd := ⟨1 + 1, G, H⟩
+
+def I := struc.1
+def I' := 2
+
+def J := struc.2
+def J' := MyNat.nope
+
+def K := struc.3
+def K' := MyNat.next $ .next $ .next $ .next $ .next $ .next .nope
+
+#print TProd.mk
