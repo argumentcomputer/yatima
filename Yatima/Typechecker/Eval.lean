@@ -77,10 +77,10 @@ mutual
       let origFnc := fnc
       dbg_trace s!"\n[eval] .app: {e}"
       let env ← read
-      let arg_thunk := suspend arg env
+      let argThunk := suspend arg env
       let fnc := (← eval fnc)
       dbg_trace s!"\n[eval] .app: {e}, {origFnc} ↠ {fnc}"
-      let ret ← apply fnc arg_thunk
+      let ret ← apply fnc argThunk
       dbg_trace s!"\n[eval] .app: {e}\n⟹\n{ret}"
       pure ret
     | e@(.lam name info _ bod) => do

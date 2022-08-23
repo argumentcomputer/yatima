@@ -89,8 +89,7 @@ mutual
       -- in the same environment then their types are equal when their indices
       -- are equal
       let eq ← equalThunks lvl args args' varType
-      pure $ idx == idx' &&
-      List.length args == List.length args' && eq
+      pure $ idx == idx' && args.length == args'.length && eq
     | .app (.const kName k us) args, .app (.const _ k' us') args' =>
       equalApp kName lvl k k' us us' args args'
     | .proj idx (.const kName k us) args, .proj idx' (.const _ k' us') args' =>
