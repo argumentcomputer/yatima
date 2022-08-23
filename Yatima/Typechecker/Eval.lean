@@ -31,7 +31,7 @@ mutual
     | .intRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
-        pure $ Value.app (Neutral.const name k univs) (arg :: args)
+       pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         --dbg_trace s!"Reached here: {arg.get} {args.map (·.get)}"
         match arg.get with
@@ -88,7 +88,7 @@ mutual
       dbg_trace s!"\n[eval] .lam: {e}"
       let ret := Value.lam name info bod ctx
       dbg_trace s!"\n[eval] .lam: {e}\n⟹\n{ret}"
-      pure $ Value.lam name info bod ctx
+      pure $ ret
     | e@(.var name idx) => do
       dbg_trace s!"\n[eval] .var: {e}"
       let exprs := (← read).ctx.exprs
@@ -100,7 +100,7 @@ mutual
       dbg_trace s!"\n[eval] .const: {e}"
       let ctx := (← read).ctx
       let ret ← evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
-      dbg_trace s!"\n[eval] .lam: {e}\n⟹\n{ret}"
+      dbg_trace s!"\n[eval] .const: {e}\n⟹\n{ret}"
       pure ret
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
@@ -117,18 +117,20 @@ mutual
       let ctx := (← read).ctx
       let ret := Value.sort (Univ.instBulkReduce ctx.univs univ)
       dbg_trace s!"\n[eval] .sort: {e}\n⟹\n{ret}"
-      pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
+      pure $ ret
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
     | .proj idx expr => do
+      dbg_trace s!"[eval] .proj: {idx} {expr}"
       match (← eval expr) with
       | .app neu@(.const name k _) args => 
         match ← derefConst name k with
         | .constructor ctor =>
+          dbg_trace s!"[eval] .constructor: {ctor.params}, {args.map (·.repr)}"
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx
-          let some arg := args.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
+          let some arg := args.reverse.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
@@ -151,7 +153,7 @@ mutual
     match value with
     -- bod : fun y => x^1 + y^0
     | .lam _ _ bod lamCtx => 
-      dbg_trace s!"\n[apply] .lam: {bod}"
+      dbg_trace s!"\n[apply] .lam: {bod}, {arg.repr}"
       withNewExtendedCtx lamCtx arg (eval bod)
     | .app (.const name k k_univs) args' =>
       applyConst name k k_univs arg args'

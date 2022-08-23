@@ -51,7 +51,10 @@ def add' (x y : MyNat) : MyNat := match x with
 #print MyNat.brecOn
 #print MyNat.below
 
-#print PUnit
+#print id'
+set_option pp.all true in
+#print id'
+#print id'.match_1
 
 def Y := fun x y => add x y
 
@@ -61,5 +64,17 @@ def F' := fun y => add (.next $ .next $ .next .nope) y
 def G  : MyNat := id' .nope
 def G' : MyNat := .nope
 
-def H  : MyNat := add' .nope .nope
-def H' : MyNat := .nope
+def H  : MyNat := add' three three
+def H' : MyNat := (.next $ .next $ .next $ .next $ .next $ .next .nope)
+
+set_option pp.all true in
+#print PProd.fst
+#print PProd.mk
+
+structure NProd where
+  /-- The first projection out of a pair. if `p : PProd α β` then `p.1 : α`. -/
+  fst : Nat
+  /-- The second projection out of a pair. if `p : PProd α β` then `p.2 : β`. -/
+  snd : Nat
+
+#print NProd.mk
