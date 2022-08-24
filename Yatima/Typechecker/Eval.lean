@@ -123,6 +123,11 @@ mutual
           let idx := ctor.params + idx
           let some arg := args.reverse.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
+        -- | .intRecursor rec =>
+        --   dbg_trace s!"[eval] .intRecursor: {rec.params}, {args.map (·.repr)}"
+        --   let idx := rec.params + idx
+        --   let some arg := args.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
+        --   pure $ arg.get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
       | _ => throw .impossible
@@ -146,10 +151,8 @@ mutual
     | .lam _ _ bod lamCtx => 
       -- dbg_trace s!"\n[apply] .lam: {bod}, {arg.repr}"
       withNewExtendedCtx lamCtx arg (eval bod)
-    | .app (.const name k k_univs) args =>
-      applyConst name k k_univs arg args
+    | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
-    | .proj i neu args => sorry
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
 

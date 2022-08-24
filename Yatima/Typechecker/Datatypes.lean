@@ -77,6 +77,10 @@ mutual
 
 end
 
+def Neutral.ctorName : Neutral → String
+  | .fvar ..  => "fvar"
+  | .const .. => "const"
+
 def Value.ctorName : Value → String
   | .sort _  => "sort"
   | .app ..  => "app"

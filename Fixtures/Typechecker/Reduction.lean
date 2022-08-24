@@ -76,15 +76,15 @@ structure TProd where
   snd : MyNat
   trd : MyNat
 
-def struc : TProd := ⟨1 + 1, G, H⟩
+#print TProd.mk
+
+def struc : TProd := ⟨Nat.zero, G, H⟩
 
 def I := struc.1
-def I' := 2
+def I' := Nat.zero
 
 def J := struc.2
 def J' := MyNat.nope
 
 def K := struc.3
 def K' := MyNat.next $ .next $ .next $ .next $ .next $ .next .nope
-
-#print TProd.mk
