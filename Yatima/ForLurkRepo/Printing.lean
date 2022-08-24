@@ -22,12 +22,12 @@ instance : ToFormat BinOp where format
 
 partial def pprintLit (l : Literal) (pretty := true) : Format :=
   match l with 
-  | .nil    => "nil"
-  | .t      => "t"
-  | .num n  => toString n
-  | .sym n  => fixName n pretty
-  | .str s  => s!"\"{s}\""
-  | .char c => s!"#\\{c}"
+  | .nil        => "nil"
+  | .t          => "t"
+  | .num ⟨n, _⟩  => if n < USize.size then toString n else List.asString (Nat.toDigits 16 n)
+  | .sym n      => fixName n pretty
+  | .str s      => s!"\"{s}\""
+  | .char c     => s!"#\\{c}"
 
 instance : ToFormat Literal where 
   format := pprintLit

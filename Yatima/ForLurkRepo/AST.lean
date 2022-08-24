@@ -1,6 +1,9 @@
 import Yatima.ForLurkRepo.SExpr
+import Yatima.ForLurkRepo.PreUtils
 
 namespace Lurk
+
+def N := 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
 
 /-- Unary operations on Lurk expressions -/
 inductive UnaryOp | car | cdr | atom | emit
@@ -15,7 +18,7 @@ inductive Literal
   -- `t` `nil`
   | t | nil
   -- Numerical values
-  | num     : Int → Literal
+  | num     : Fin N → Literal
   -- Strings
   | str     : String → Literal
   -- Characters
@@ -63,9 +66,12 @@ class ToExpr (α : Type u) where
   toExpr : α → Expr 
 
 instance : ToExpr Nat where 
-  toExpr n := .lit $ .num n
+  toExpr n := .lit $ .num (Fin.ofNat n)
   
 instance : ToExpr Int where 
+  toExpr n := .lit $ .num (Fin.ofInt n)
+
+instance : ToExpr (Fin N) where 
   toExpr n := .lit $ .num n
 
 instance : ToExpr Name where 

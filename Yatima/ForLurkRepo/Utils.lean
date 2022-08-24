@@ -1,34 +1,15 @@
 import Lean 
 import Yatima.ForLurkRepo.AST
 
-/- Taken from mathlib, TODO: Give credit -/
-namespace Nat 
-
-/-- Helper function for the extended GCD algorithm (`nat.xgcd`). -/
-partial def xgcd_aux : Nat → Int → Int → Nat → Int → Int → Nat × Int × Int
-| 0, _, _, r', s', t' => (r', s', t')
-| r, s, t, r', s', t' =>
-  -- have : r' % r < r := sorry
-  let q := r' / r 
-  xgcd_aux (r' % r) (s' - q * s) (t' - q * t) r s t
-
-/-- Use the extended GCD algorithm to generate the `a` and `b` values
-  satisfying `gcd x y = x * a + y * b`. -/
-def xgcd (x y : Nat) : Int × Int := (xgcd_aux x 1 0 y 0 1).2
-
-/-- The extended GCD `a` value in the equation `gcd x y = x * a + y * b`. -/
-def gcd_a (x y : Nat) : Int := (xgcd x y).1
-
-/-- The extended GCD `b` value in the equation `gcd x y = x * a + y * b`. -/
-def gcd_b (x y : Nat) : Int := (xgcd x y).2
-
-end Nat
-
 namespace Lurk
+
+def mkNumLit (n : Nat) : Literal := 
+  .num (Fin.ofNat n)
+
 namespace Expr
 
 def mkNum (n : Nat) : Expr := 
-  .lit $ .num n
+  .lit $ .num (Fin.ofNat n)
 
 def isNum (e : Expr) : Bool := 
   match e with | .lit $ .num _ => true | _ => false

@@ -10,7 +10,7 @@ def mkNameLit (name : String) :=
 declare_syntax_cat    lurk_literal
 syntax "t"          : lurk_literal
 syntax "nil"        : lurk_literal
-syntax "-" noWs num : lurk_literal
+-- syntax "-" noWs num : lurk_literal
 syntax num          : lurk_literal
 syntax str          : lurk_literal
 syntax char         : lurk_literal
@@ -19,13 +19,13 @@ syntax ident        : lurk_literal
 def elabLurkLiteral : Syntax → TermElabM Expr
   | `(lurk_literal| t)   => return mkConst ``Lurk.Literal.t
   | `(lurk_literal| nil) => return mkConst ``Lurk.Literal.nil
-  | `(lurk_literal| -$n) => match n.getNat with
-    | 0     => do
-      mkAppM ``Lurk.Literal.num #[← mkAppM ``Int.ofNat #[mkConst ``Nat.zero]]
-    | n + 1 => do
-      mkAppM ``Lurk.Literal.num #[← mkAppM ``Int.negSucc #[mkNatLit n]]
+  -- | `(lurk_literal| -$n) => match n.getNat with
+  --   | 0     => do
+  --     mkAppM ``Lurk.Literal.num #[← mkAppM ``Fin.ofNat #[mkConst ``Nat.zero]]
+  --   | n + 1 => do
+  --     mkAppM ``Lurk.Literal.num #[← mkAppM ``Fin.ofInt #[← mkAppM ``Int.negSucc #[mkNatLit n]]]
   | `(lurk_literal| $n:num) => do
-    mkAppM ``Lurk.Literal.num #[← mkAppM ``Int.ofNat #[mkNatLit n.getNat]]
+    mkAppM ``Lurk.mkNumLit #[mkNatLit n.getNat]
   | `(lurk_literal| $s:str) =>
     mkAppM ``Lurk.Literal.str #[mkStrLit s.getString]
   | `(lurk_literal| $c:char) => do
