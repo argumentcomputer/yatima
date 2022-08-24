@@ -13,8 +13,8 @@ inductive BinderInfo
 
 /-- The literal values: numbers or words -/
 inductive Literal
-  | nat : Nat → Literal
-  | str : String → Literal
+  | num  : Nat → Literal
+  | word : String → Literal
   deriving BEq, Inhabited
 
 namespace Ipld
@@ -64,6 +64,15 @@ end Ipld
 /-- Points to a constant in an array of constants -/
 abbrev ConstIdx := Nat
 
+/--
+The types for literal values. These only exist for us to be able to build
+expressions to represent them in the typechecker when infering types.
+-/
+inductive LitType
+  | num
+  | word
+  deriving BEq, Inhabited
+
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
   | var   : Name → Nat → Expr
@@ -74,6 +83,7 @@ inductive Expr
   | pi    : Name → BinderInfo → Expr → Expr → Expr
   | letE  : Name → Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
+  | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
   deriving Inhabited, BEq
 
@@ -146,6 +156,7 @@ def ctorName : Expr → String
   | pi    .. => "pi"
   | letE  .. => "let"
   | lit   .. => "lit"
+  | lty   .. => "lty"
   | proj  .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
@@ -222,6 +233,15 @@ expression `expr`.
 -/
 def substTop (expr term : Expr) : Expr :=
   expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
+
+/--
+Remove all binders from an expression, converting a lambda into
+an "implicit lambda". This is useful for constructing the `rhs` of
+recursor rules.
+-/
+def toImplicitLambda : Expr → Expr
+  | .lam _ _ _ body => toImplicitLambda body
+  | x => x
 
 end Expr
 

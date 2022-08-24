@@ -1,38 +1,43 @@
-import Yatima.Typechecker.Value
+import Yatima.Typechecker.Datatypes
 
 namespace Yatima.Typechecker
 
-structure Context where
+structure TypecheckEnv where
   lvl   : Nat
-  env   : Env Value
+  ctx   : Context
   types : List (Thunk Value)
   store : Array Const
   deriving Inhabited
 
-def Context.init (store : Array Const) : Context :=
-  { (default : Context) with store := store }
+def TypecheckEnv.init (store : Array Const) : TypecheckEnv :=
+  { (default : TypecheckEnv) with store }
 
-def Context.find? (ctx : Context) (constName : Name) : Option Const :=
-  ctx.store.find? (fun const => const.name == constName)
+def TypecheckEnv.initCtx (ctx : Context) (store : Array Const) : TypecheckEnv :=
+  { (default : TypecheckEnv) with store, ctx }
 
-abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
+abbrev TypecheckM := ReaderT TypecheckEnv $ ExceptT TypecheckError Id
 
-def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except CheckError α :=
-  ExceptT.run (ReaderT.run m ctx)
+def TypecheckM.run (env : TypecheckEnv) (m : TypecheckM α) : Except TypecheckError α :=
+  ExceptT.run (ReaderT.run m env)
 
-def extEnvHelper (env : Env Value) (thunk : Thunk Value) : Env Value :=
-  { env with exprs := thunk :: env.exprs }
+def withCtx (ctx : Context) : TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with ctx := ctx }
 
-def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : TypecheckM α) : TypecheckM α :=
-  withReader (fun ctx => { ctx with lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnvHelper ctx.env val }) m
+def withExtendedEnv (val typ : Thunk Value) : TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with
+    lvl := env.lvl + 1,
+    types := typ :: env.types,
+    ctx := env.ctx.extendWith val }
 
-def extEnv (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
-  withReader (fun ctx => { ctx with env := extEnvHelper ctx.env thunk })
+def withExtendedCtx (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with ctx := env.ctx.extendWith thunk }
 
-def withExtEnv (env : Env Value) (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
-  withReader (fun ctx => { ctx with env := extEnvHelper env thunk })
+def withNewExtendedCtx (ctx : Context) (thunk : Thunk Value) :
+    TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with ctx := ctx.extendWith thunk }
 
-def withEnv (env : Env Value) : TypecheckM α → TypecheckM α :=
-  withReader (fun ctx => { ctx with env := env })
+def withNewExtendedCtxByVar (ctx : Context) (name : Name) (i : Nat) (type : Thunk Value) :
+    TypecheckM α → TypecheckM α :=
+  withNewExtendedCtx ctx (mkVar name i type)
 
 end Yatima.Typechecker

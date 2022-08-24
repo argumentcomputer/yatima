@@ -16,8 +16,8 @@ instance : Coe Lean.BinderInfo BinderInfo where coe
   | .implicit       => .implicit
 
 instance : Coe Lean.Literal Literal where coe
-  | .natVal n => .nat n
-  | .strVal s => .str s
+  | .natVal n => .num n
+  | .strVal s => .word s
 
 instance : Coe Lean.DefinitionSafety DefinitionSafety where coe
   | .safe    => .safe
@@ -505,7 +505,9 @@ mutual
         idx     := ctor.cidx
         params  := ctor.numParams
         fields  := ctor.numFields
-        rhs     := rhs
+        -- the rhs of constructors are represented as implicit lambdas for an
+        -- optimization in the typechecker
+        rhs     := rhs.toImplicitLambda
         safe    := not ctor.isUnsafe
       }
       let (_, _, constIdx) ← getFromRecrCtx! ctor.name

@@ -195,7 +195,8 @@ mutual
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     IO.print ">> exprToLurkExpr: "
     match e with 
-    | .sort  .. => return ⟦nil⟧
+    | .sort  ..
+    | .lty   .. => return ⟦nil⟧
     | .var name _     => 
       IO.println s!"var {name}"
       return ⟦$name⟧
@@ -220,8 +221,8 @@ mutual
       return .letE [(name, val)] body
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
-      | .nat n => IO.println s!"lit {n}"; return ⟦$n⟧
-      | .str s => IO.println s!"lit {s}"; return ⟦$s⟧
+      | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
+      | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
     | .proj idx e => do
       IO.println s!"proj {idx}"; 
       -- this is very nifty; `e` contains its type information *at run time*

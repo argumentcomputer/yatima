@@ -36,7 +36,15 @@ inductive Univ where
   | var   : Name → Nat → Univ
   deriving BEq, Inhabited
 
--- TODO: namespace the content below in `Yatima.Univ`
+namespace Univ
+
+/-- Gets the constructor name as a `String` -/
+def ctorName : Univ → String
+  | .zero    => "zero"
+  | .succ  _ => "succ"
+  | .max  .. => "max"
+  | .imax .. => "imax"
+  | .var  .. => "var"
 
 /--
 Reduces as a `max` applied to two values: `max a 0 = max 0 a = a` and
@@ -49,6 +57,7 @@ def reduceMax (a b : Univ) : Univ :=
   | .zero, _ => b
   | _, .zero => a
   | .succ a, .succ b => .succ (reduceMax a b)
+  | .var _ idx, .var _ idx' => if idx == idx' then a else .max a b
   | _, _ => .max a b
 
 /--
@@ -62,6 +71,9 @@ def reduceIMax (a b : Univ) : Univ :=
   | .zero => .zero
   -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..)
   | .succ _ => reduceMax a b
+  | .var _ idx => match a with
+    | .var _ idx' => if idx == idx' then a else .imax a b
+    | _ => .imax a b
   -- Otherwise, IMax(a, b) is stuck, with a and b reduced
   | _ => .imax a b
 
@@ -105,26 +117,24 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
 Instantiate multiple variables at the same time and reduce. Assumes already
 reduced `substs`
 -/
-def instBulkReduce (substs : List Univ) (u : Univ) : Univ :=
-  match u with
-  | Univ.succ u => Univ.succ (instBulkReduce substs u)
-  | Univ.max a b => reduceMax (instBulkReduce substs a) (instBulkReduce substs b)
-  | Univ.imax a b =>
-    let b_prime := instBulkReduce substs b
-    match b_prime with
-    | Univ.zero => Univ.zero
-    | Univ.succ _ => reduceMax (instBulkReduce substs a) b_prime
-    | _ => Univ.imax (instBulkReduce substs a) b_prime
-  | Univ.var nam idx =>
-    match substs.get? idx with
+def instBulkReduce (substs : List Univ) : Univ → Univ
+  | .succ u => .succ (instBulkReduce substs u)
+  | .max a b => reduceMax (instBulkReduce substs a) (instBulkReduce substs b)
+  | .imax a b =>
+    let b' := instBulkReduce substs b
+    match b' with
+    | .zero => .zero
+    | .succ _ => reduceMax (instBulkReduce substs a) b'
+    | _ => .imax (instBulkReduce substs a) b'
+  | .var nam idx => match substs.get? idx with
     | some u => u
     -- TODO: It is still unclear, at this point, whether we should shift or
     -- not the other variables. In fact, it is still unclear whether
     -- this case could happen at all. It would appear that the `substs`
     -- variable is a complete environment for the free variables
     -- inside `univ`
-    | none => Univ.var nam (idx - substs.length)
-  | Univ.zero => u
+    | none => .var nam (idx - substs.length - 1) -- is this right?
+  | u => u -- zero
 
 
 /--
@@ -135,19 +145,19 @@ is possible to write one that is equivalent to such semantical equality.
 
 Comparison algorithm `a <= b + diff`. Assumes `a` and `b` are already reduced
 -/
-partial def leqUniv (a b : Univ) (diff : Int) : Bool :=
+partial def leq (a b : Univ) (diff : Int) : Bool :=
   if diff >= 0 && a == Univ.zero then true
   else match a, b with
   | Univ.zero, Univ.zero => diff >= 0
-  | Univ.var _ _, Univ.zero => false
-  | Univ.zero, Univ.var _ _ => diff >= 0
-  | Univ.var _ x, Univ.var _ y => x == y && diff >= 0
   --! Succ cases
-  | Univ.succ a, _ => leqUniv a b (diff - 1)
-  | _, Univ.succ b => leqUniv a b (diff + 1)
+  | Univ.succ a, _ => leq a b (diff - 1)
+  | _, Univ.succ b => leq a b (diff + 1)
+  | Univ.var .., Univ.zero => false
+  | Univ.zero, Univ.var .. => diff >= 0
+  | Univ.var _ x, Univ.var _ y => x == y && diff >= 0
   --! Max cases
-  | Univ.max c d, _ => leqUniv c b diff && leqUniv d b diff
-  | _, Univ.max c d => leqUniv a c diff || leqUniv a d diff
+  | Univ.max c d, _ => leq c b diff && leq d b diff
+  | _, Univ.max c d => leq a c diff || leq a d diff
   --! IMax cases
   -- The case `a = imax c d` has only three possibilities:
   -- 1) d = var ..
@@ -159,47 +169,52 @@ partial def leqUniv (a b : Univ) (diff : Int) : Bool :=
     -- 1) idx <- zero
     -- 2) idx <- succ (var idx)
     -- In the first substitution, we know `a` becomes `zero`
-    leqUniv Univ.zero (instReduce b idx Univ.zero) diff &&
+    leq Univ.zero (instReduce b idx Univ.zero) diff &&
     let succ := Univ.succ (Univ.var nam idx)
-    leqUniv (instReduce a idx succ) (instReduce b idx succ) diff
+    leq (instReduce a idx succ) (instReduce b idx succ) diff
   | Univ.imax c (Univ.max e f), _ =>
     -- Here we use the relationship
     -- imax c (max e f) = max (imax c e) (imax c f)
     let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
-    leqUniv new_max b diff
+    leq new_max b diff
   | Univ.imax c (Univ.imax e f), _ =>
     -- Here we use the relationship
     -- imax c (imax e f) = max (imax c e) (imax e f)
     let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
-    leqUniv new_max b diff
+    leq new_max b diff
   -- Analogous to previous case
   | _, Univ.imax _ (Univ.var nam idx) =>
-    leqUniv (instReduce a idx Univ.zero) Univ.zero diff &&
+    leq (instReduce a idx Univ.zero) Univ.zero diff &&
     let succ := Univ.succ (Univ.var nam idx)
-    leqUniv (instReduce a idx succ) (instReduce b idx succ) diff
+    leq (instReduce a idx succ) (instReduce b idx succ) diff
   | _, Univ.imax c (Univ.max e f) =>
     let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
-    leqUniv a new_max diff
+    leq a new_max diff
   | _, Univ.imax c (Univ.imax e f) =>
     let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
-    leqUniv a new_max diff
-  | _, _ => panic! "Impossible case"
+    leq a new_max diff
+  | _, _ => false -- Impossible cases
 
 /-- The equality algorithm. Assumes `a` and `b` are already reduced -/
 def equalUniv (a b : Univ) : Bool :=
-  leqUniv a b 0 && leqUniv b a 0
+  leq a b 0 && leq b a 0
 
-/--  -/
+/--
+Two lists of universes are considered equal iff they have the same length and
+`Yatima.Univ.equalUniv` returns `true` for all of their zip pairs
+-/
 def equalUnivs : List Univ → List Univ → Bool
   | [], [] => true
   | u::us, u'::us' => equalUniv u u' && equalUnivs us us'
   | _, _ => false
 
 /-- Faster equality for zero, assumes that the input is already reduced -/
-def univIsZero : Univ → Bool
+def isZero : Univ → Bool
   | .zero => true
-  -- all other cases are false since they are either `Succ` or a reduced
+  -- all other cases are false since they are either `succ` or a reduced
   -- expression with free variables, which are never semantically equal to zero
   | _ => false
+
+end Univ
 
 end Yatima

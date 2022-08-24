@@ -41,9 +41,9 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
       cronos ← cronos.clock "Compilation"
       if p.hasFlag "typecheck" then
         cronos ← cronos.clock "Typechecking"
-        match typecheck stt.store with
-        | (true, _) => cronos ← cronos.clock "Typechecking"
-        | (false, msg) => IO.eprintln msg; return 1
+        match typecheckConsts stt.consts with
+        | .ok _       => cronos ← cronos.clock "Typechecking"
+        | .error msg  => IO.eprintln msg; return 1
       cronos ← cronos.clock "Transpilation"
       match ← transpile stt with
       | .error msg => IO.eprintln msg

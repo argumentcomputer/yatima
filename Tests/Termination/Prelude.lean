@@ -4,6 +4,6 @@ open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Termination/Prelude.lean"
-    [extractIpldRoundtripTests]
+    [extractIpldRoundtripTests/-, extractPositiveTypecheckTests-/]
     false
   lspecIO tSeq
