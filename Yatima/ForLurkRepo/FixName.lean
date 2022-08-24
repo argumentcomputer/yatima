@@ -76,9 +76,10 @@ def fixName (name : Name) (pretty := true) : String :=
     validate ⟨charsArray.data⟩
   where 
     validate (n : String) := 
-      if invalidNames.contains n then 
+      if invalidNames.contains n.toLower then 
         if n == "_" then "_x" 
         else if n == "5banonymous5d" then "anonymous"
+        else if n == "Eq" then "LEq"
         else "_" ++ n
       else n
     fixClassNameCapture (n : Name) := 

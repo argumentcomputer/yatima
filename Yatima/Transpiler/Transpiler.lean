@@ -245,19 +245,16 @@ mutual
     | .axiom    _
     | .quotient _ => return ()
     | .theorem  x => 
-      if (← get).visited.contains x.name then return 
-      else appendBinding (x.name, .lit .t)
-    | .opaque   x => do 
+      if (← get).visited.contains x.name then 
+        return 
+      else 
+        let (_, ⟨binds⟩) := descendPi x.type #[]
+        appendBinding (x.name, ⟦(lambda ($binds) t)⟧)
+    | .opaque x | .definition x => do 
       if (← get).visited.contains x.name then 
         return 
       else 
         visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
-        appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
-    | .definition x => do
-      if (← get).visited.contains x.name then 
-        return 
-      else 
-        visit x.name -- ditto
         appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .inductive x => do 
       let u ← getMutualIndInfo x
