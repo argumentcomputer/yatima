@@ -495,8 +495,6 @@ mutual
   partial def toYatimaIpldConstructor (rule : Lean.RecursorRule) :
       CompileM $ Ipld.Both Ipld.Constructor := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
-    -- TODO: explain why
-    let rhs := rhs.toImplicitLambda
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
       let (typeCid, type) ← compileExpr ctor.type
@@ -507,7 +505,9 @@ mutual
         idx     := ctor.cidx
         params  := ctor.numParams
         fields  := ctor.numFields
-        rhs     := rhs
+        -- the rhs of constructors are represented as implicit lambdas for an
+        -- optimization in the typechecker
+        rhs     := rhs.toImplicitLambda
         safe    := not ctor.isUnsafe
       }
       let (_, _, constIdx) ← getFromRecrCtx! ctor.name
