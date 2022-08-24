@@ -25,10 +25,6 @@ def gcd_b (x y : Nat) : Int := (xgcd x y).2
 end Nat
 
 namespace Lurk
-
-protected def inverse (a : Int) (n : Nat) : Int := 
-  a
-
 namespace Expr
 
 def mkNum (n : Nat) : Expr := 
