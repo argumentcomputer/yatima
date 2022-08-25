@@ -11,7 +11,7 @@ def printUniv : Univ → String
   | .var  n i => s!"({n}@{i})"
 
 def printExpr : Expr → String
-  | .var nam idx => s!"{nam}^{idx}"
+  | .var nam idx => s!"{nam}@{idx}"
   | .sort u => s!"(Sort {printUniv u})"
   | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
@@ -61,11 +61,11 @@ partial def printVal : Value → String
 
 partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   match expr with
-  | .var nam 0 => s!"{nam}^0"
+  | .var nam 0 => s!"{nam}@0"
   | .var nam idx =>
     match ctx.exprs.get? (idx-1) with
    | some val => val.repr
-   | none => s!"!{nam}^{idx}!"
+   | none => s!"!{nam}@{idx}!"
   | .sort u => s!"(Sort {printUniv u})"
   | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printLamBod fnc ctx} {printLamBod arg ctx})"

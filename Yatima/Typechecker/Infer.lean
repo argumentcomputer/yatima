@@ -23,54 +23,74 @@ mutual
       let exp := suspend exp (← read)
       withExtendedEnv exp expType $ check bod type
     | _ =>
+      dbg_trace s!"\n[check] {term} : {type}"
       let inferType ← infer term
-      if ← equal (← read).lvl type inferType (.sort .zero)
-        then pure ()
-        else throw $ .valueMismatch (printVal inferType) (printVal type)
+      dbg_trace s!"\n[check] {term} : {type} ⟹   {inferType}"
+      if !(← equal (← read).lvl type inferType (.sort .zero))
+        then throw $ .valueMismatch (printVal inferType) (printVal type)
 
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
-    | .var name idx =>
+    | e@(.var name idx) =>
+      dbg_trace s!"\n[infer] .var: {e}"
       let types := (← read).types
       let some type := types.get? idx | throw $ .outOfContextRange name idx types.length
-      pure type.get
-    | .sort lvl =>
+      let ret := type.get
+      dbg_trace s!"\n[infer] .var: {e}\n⟹\n{ret}"
+      return ret
+    | e@(.sort lvl) =>
+      dbg_trace s!"\n[infer] .sort: {e}"
       let lvl := Univ.instBulkReduce (← read).ctx.univs lvl.succ
-      pure $ Value.sort lvl
-    | .app fnc arg =>
+      let ret := Value.sort lvl
+      dbg_trace s!"\n[infer] .sort: {e}\n⟹\n{ret}"
+      return ret
+    | e@(.app fnc arg) =>
+      dbg_trace s!"\n[infer] .app: {e}"
       let fncType ← infer fnc
+      dbg_trace s!"\n[infer] .app: {e}, {fnc} ↠ {fncType}"
       match fncType with
       | .pi _ _ dom img ctx =>
         check arg dom.get
         let arg := suspend arg (← read)
         let type ← withNewExtendedCtx ctx arg $ eval img
-        pure type
+        let ret := type
+        dbg_trace s!"\n[infer] .app: {e}\n⟹\n{ret}"
+        return ret
       | val => throw $ .notPi (printVal val)
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
     | .lam .. => throw .cannotInferLam
-    | .pi name _ dom img  =>
+    | e@(.pi name _ dom img) =>
+      dbg_trace s!"\n[infer] .pi: {e}"
       let domLvl ← isSort dom
       let env ← read
       let dom := suspend dom env
       withExtendedEnv (mkVar name env.lvl dom) dom $ do
         let imgLvl ← isSort img
         let lvl := Univ.reduceIMax domLvl imgLvl
-        pure (Value.sort lvl)
-    | .letE _ expType exp bod =>
+        let ret := (Value.sort lvl)
+        dbg_trace s!"\n[infer] .pi: {e}\n⟹\n{ret}"
+        return ret
+    | e@(.letE _ expType exp bod) =>
+      dbg_trace "\n[infer] .letE: {e}"
       discard $ isSort expType
       let expType ← eval expType
       check exp expType
       let exp := suspend exp (← read)
-      withExtendedEnv exp expType $ infer bod
+      let ret ← withExtendedEnv exp expType $ infer bod
+      dbg_trace s!"\n[infer] .letE: {e}\n⟹\n{ret}"
+      return ret
     | .lit (.num _) => pure $ Value.lty .num
     | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
-    | .const name k constUnivs =>
+    | e@(.const name k constUnivs) =>
+      dbg_trace "\n[infer] .const: {e}"
       let univs := (← read).ctx.univs
       let const ← derefConst name k
-      withCtx ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩ $ eval const.type
+      let ret ← withCtx ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩ $ eval const.type
+      dbg_trace s!"\n[infer] .const: {e}\n⟹\n{ret}"
+      return ret
     | .proj idx expr =>
       let exprType ← infer expr
       match exprType with
@@ -93,8 +113,8 @@ mutual
             let lvl := (← read).lvl
             let typ := dom.get
             if (← isProp lvl exprType) && !(← isProp lvl typ)
-            then throw $ .projEscapesProp (printExpr term)
-            else pure typ
+              then throw $ .projEscapesProp (printExpr term)
+              else pure typ
           | _ => throw .impossible
         | _ => throw $ .typNotStructure (printVal exprType)
       | _ => throw $ .typNotStructure (printVal exprType)
