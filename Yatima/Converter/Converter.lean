@@ -116,7 +116,7 @@ def inductiveIsUnit (ind : Ipld.Inductive .anon) : Bool :=
     | [ctor] => ctor.fields.projₗ == 0
     | _ => false
 
-def getDefnIdx (n : Name) : ConvertM Nat := do
+def getConstIdx (n : Name) : ConvertM Nat := do
   match (← get).constsIdx.find? n with
   | some idx => pure idx
   | none => throw $ .constIdxNotFound $ n.toString
@@ -125,18 +125,17 @@ def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
-
   let mut constList : List (Nat × Name) := []
   for ind in indBlockMeta do
-    let indIdx ← getDefnIdx ind.name.projᵣ
+    let indIdx ← getConstIdx ind.name.projᵣ
     let indTup := (indIdx, ind.name.projᵣ)
     let ctorTups : List (Nat × Name) ← ind.ctors.mapM fun ctor => do
       let name := ctor.name
-      let indIdx ← getDefnIdx name
+      let indIdx ← getConstIdx name
       return (indIdx, name)
     let recTups : List (Nat × Name) ← ind.recrs.mapM fun ⟨_, recr⟩ => do
       let name := recr.name
-      let indIdx ← getDefnIdx name
+      let indIdx ← getConstIdx name
       return (indIdx, name)
     let addList := (indTup :: ctorTups).append recTups
     constList := constList.append addList
@@ -265,7 +264,7 @@ mutual
             let mut recrCtx : RecrCtx := default
             for (i, ms) in metas.enum do
               for (j, m) in ms.enum do
-                recrCtx := recrCtx.insert (i, some j) (← getDefnIdx m.name, m.name)
+                recrCtx := recrCtx.insert (i, some j) (← getConstIdx m.name, m.name)
             let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
             withRecrs recrCtx do
               let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
@@ -274,8 +273,8 @@ mutual
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
-          let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx;
-          let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx;
+          let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
+          let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
           let name   := constructorMeta.name
           let lvls   := constructorMeta.lvls
           let idx    := constructorAnon.idx
@@ -293,8 +292,8 @@ mutual
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
-          let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx;
-          let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx;
+          let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
+          let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
           let recursorAnon := Sigma.snd pairAnon
           let recursorMeta := Sigma.snd pairMeta
           let name := recursorMeta.name
