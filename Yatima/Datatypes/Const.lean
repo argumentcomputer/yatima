@@ -313,6 +313,17 @@ def Const.type : Const → Expr
   | .extRecursor x
   | .quotient    x => x.type
 
+def Const.levels : Const → List Name
+  | .axiom       x
+  | .theorem     x
+  | .inductive   x
+  | .opaque      x
+  | .definition  x
+  | .constructor x
+  | .intRecursor x
+  | .extRecursor x
+  | .quotient    x => x.lvls
+
 def Const.ctorName : Const → String
   | .axiom       _ => "axiom"
   | .theorem     _ => "theorem"

@@ -236,9 +236,9 @@ def randLit (g : gen) : Yatima.Expr × gen :=
   let (isNat, g) := randBool g
   if isNat then 
     let (num, g) := randNat g 0 100
-    (.lit $ .nat num, g) else
+    (.lit $ .num num, g) else
     let (str, g) := randName g
-    (.lit $ .str str, g)
+    (.lit $ .word str, g)
 
 def randVar (depth : Option Nat) (g : gen) (isBdd : Bool := false): Yatima.Expr × gen :=
   let (name, g) := randName g
@@ -322,8 +322,8 @@ def toString : Yatima.Expr → String
     s!"(let v=({valueString}) : ({typeString}) in {bodyString})" 
   | lit literal =>
     match literal with
-      | .nat num => s!"ln:{num}"
-      | .str str => s!"ls:{str}"
+      | .num num => s!"ln:{num}"
+      | .word str => s!"ls:{str}"
   | lty _ => ""
   | _ => sorry
 

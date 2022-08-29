@@ -2,16 +2,23 @@ import Yatima.Typechecker.Datatypes
 
 namespace Yatima.Typechecker
 
-def printUniv : Univ → String
-  | .succ (.zero) => s!"1"
-  | .succ a   => s!"1+{printUniv a}"
-  | .zero     => "0"
-  | .imax a b => s!"(imax {printUniv a} {printUniv b})"
-  | .max  a b => s!"(max {printUniv a} {printUniv b})"
-  | .var  n i => s!"({n}@{i})"
+mutual
+  def printUniv (u : Univ) : String :=
+    match u with
+    | .succ a   => s!"{printSuccUniv 1 a}"
+    | .zero     => "0"
+    | .imax a b => s!"(imax {printUniv a} {printUniv b})"
+    | .max  a b => s!"(max {printUniv a} {printUniv b})"
+    | .var  n i => s!"({n}#{i})"
+
+  def printSuccUniv (acc : Nat) : Univ → String
+    | .zero => s!"{acc}"
+    | .succ u => printSuccUniv (acc + 1) u
+    | u => s!"{acc}+{printUniv u}"
+end
 
 def printExpr : Expr → String
-  | .var nam idx => s!"{nam}^{idx}"
+  | .var nam idx => s!"{nam}@{idx}"
   | .sort u => s!"(Sort {printUniv u})"
   | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
@@ -61,11 +68,11 @@ partial def printVal : Value → String
 
 partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   match expr with
-  | .var nam 0 => s!"{nam}^0"
+  | .var nam 0 => s!"{nam}@0"
   | .var nam idx =>
     match ctx.exprs.get? (idx-1) with
    | some val => val.repr
-   | none => s!"!{nam}^{idx}!"
+   | none => s!"!{nam}@{idx}!"
   | .sort u => s!"(Sort {printUniv u})"
   | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printLamBod fnc ctx} {printLamBod arg ctx})"
