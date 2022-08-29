@@ -128,8 +128,8 @@ def instBulkReduce (substs : List Univ) : Univ → Univ
     | _ => .imax (instBulkReduce substs a) b'
   | .var nam idx => match substs.get? idx with
     | some u => u
-    -- This should never happen. Should we wrap this function in a monad error to avoid the exception?
-    | none => unreachable!
+    -- This case should never happen if we're correctly enclosing every expression with a big enough universe environment
+    | none => .var nam (idx - substs.length)
   | u => u -- zero
 
 
