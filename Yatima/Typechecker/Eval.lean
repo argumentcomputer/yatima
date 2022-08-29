@@ -64,21 +64,17 @@ mutual
       let env ← read
       let argThunk := suspend arg env
       let fnc := (← eval fnc)
-      let ret ← apply fnc argThunk
-      pure ret
+      apply fnc argThunk
     | .lam name info _ bod => do
       let ctx := (← read).ctx
-      let ret := Value.lam name info bod ctx
-      pure $ ret
+      pure $ Value.lam name info bod ctx
     | .var name idx => do
       let exprs := (← read).ctx.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
-      let ret := thunk.get
-      pure ret
+      pure thunk.get
     | .const name k const_univs => do
       let ctx := (← read).ctx
-      let ret ← evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
-      pure ret
+      evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
     | .letE _ _ val bod => do
       let thunk := suspend val (← read)
       withExtendedCtx thunk (eval bod)
@@ -88,8 +84,7 @@ mutual
       pure $ Value.pi name info dom' img env.ctx
     | .sort univ => do
       let ctx := (← read).ctx
-      let ret := Value.sort (Univ.instBulkReduce ctx.univs univ)
-      pure $ ret
+      pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
     | .proj idx expr => do
@@ -102,10 +97,6 @@ mutual
           let idx := ctor.params + idx
           let some arg := args.reverse.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        -- | .intRecursor rec =>
-        --   let idx := rec.params + idx
-        --   let some arg := args.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
-        --   pure $ arg.get
         | _ => pure $ .proj idx neu args
       | .app neu args => pure $ .proj idx neu args
       | _ => throw .impossible
