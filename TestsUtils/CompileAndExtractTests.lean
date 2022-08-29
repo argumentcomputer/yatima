@@ -150,8 +150,7 @@ def typecheckConst (consts : Array Const) (name : Name) : Except String Unit :=
   | .error err => throw $ toString err
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  -- stt.consts.foldl (init := .done) fun tSeq const =>
-  (stt.consts.filter (·.name == `Treew.recOn)).foldl (init := .done) fun tSeq const =>
+  stt.consts.foldl (init := .done) fun tSeq const =>
     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
       (typecheckConst stt.consts const.name) fun _ => .done
 

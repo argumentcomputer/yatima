@@ -497,6 +497,7 @@ mutual
     let (rhsCid, rhs) ← compileExpr rule.rhs
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
+      withLevels ctor.levelParams do
       let (typeCid, type) ← compileExpr ctor.type
       let tcCtor : Const := .constructor {
         name    := ctor.name

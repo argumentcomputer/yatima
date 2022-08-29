@@ -2,13 +2,20 @@ import Yatima.Typechecker.Datatypes
 
 namespace Yatima.Typechecker
 
-def printUniv : Univ → String
-  | .succ (.zero) => s!"1"
-  | .succ a   => s!"1+{printUniv a}"
-  | .zero     => "0"
-  | .imax a b => s!"(imax {printUniv a} {printUniv b})"
-  | .max  a b => s!"(max {printUniv a} {printUniv b})"
-  | .var  n i => s!"({n}@{i})"
+mutual
+  def printUniv (u : Univ) : String :=
+    match u with
+    | .succ a   => s!"{printSuccUniv 1 a}"
+    | .zero     => "0"
+    | .imax a b => s!"(imax {printUniv a} {printUniv b})"
+    | .max  a b => s!"(max {printUniv a} {printUniv b})"
+    | .var  n i => s!"({n}#{i})"
+
+  def printSuccUniv (acc : Nat) : Univ → String
+    | .zero => s!"{acc}"
+    | .succ u => printSuccUniv (acc + 1) u
+    | u => s!"{acc}+{printUniv u}"
+end
 
 def printExpr : Expr → String
   | .var nam idx => s!"{nam}@{idx}"
