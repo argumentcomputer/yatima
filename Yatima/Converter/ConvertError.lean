@@ -1,3 +1,4 @@
+/-- The errors that can be thrown in the `Yatima.Converter.ConvertM` monad -/
 inductive ConvertError where
   | ipldError : ConvertError
   | cannotStoreValue : ConvertError

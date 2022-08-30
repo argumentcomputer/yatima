@@ -150,10 +150,9 @@ mutual
     | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
-      | .safe => 
-        withCtx ⟨[], univs⟩ $ eval x.value
+      | .safe    => withCtx ⟨[], univs⟩ $ eval x.value
       | .partial => pure $ mkConst name const univs
-      | .unsafe => throw .unsafeDefinition
+      | .unsafe  => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
   
   /--
