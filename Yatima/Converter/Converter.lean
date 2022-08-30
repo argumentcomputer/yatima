@@ -11,7 +11,6 @@ namespace Converter
 /-- Represents information used to retrieve data from the cache or from store -/
 inductive Key : Type → Type
   | univ_cache  : UnivCid  → Key Univ
-  | expr_cache  : ExprCid  → Key Expr
   | const_cache : ConstCid → Key ConstIdx
   | univ_store  : UnivCid  → Key (Ipld.Both Ipld.Univ)
   | expr_store  : ExprCid  → Key (Ipld.Both Ipld.Expr)
@@ -22,7 +21,6 @@ namespace Key
 /-- Tries to retrieve data from the cache or store given a `Key` -/
 def find? : (key : Key A) → ConvertM (Option A)
   | univ_cache  univ  => return (← get).univ_cache.find? univ
-  | expr_cache  expr  => return (← get).expr_cache.find? expr
   | const_cache const => return (← get).const_cache.find? const
   | univ_store  univ  => do
     let store := (← read).store
@@ -57,8 +55,6 @@ def find (key : Key A) : ConvertM A := do
 def cache : (Key A) → A → ConvertM Unit
   | univ_cache  univ,  a => modify fun stt =>
     { stt with univ_cache  := stt.univ_cache.insert  univ  a }
-  | expr_cache  expr,  a => modify fun stt =>
-    { stt with expr_cache  := stt.expr_cache.insert  expr  a }
   | const_cache const, a => modify fun stt =>
     { stt with const_cache := stt.const_cache.insert const a }
   | _, _ => throw .cannotStoreValue
@@ -173,59 +169,53 @@ mutual
   that the `.var` case may represent a recursive reference.
   -/
   partial def exprFromIpld (cid : Ipld.Both Ipld.ExprCid) : ConvertM Expr := do
-    match ← Key.find? (.expr_cache cid) with
-    | some expr => return expr
-    | none =>
-      let ⟨anon, meta⟩ ← Key.find $ .expr_store cid
-      let expr ← match anon, meta with
-        | .var idx () lvlsAnon, .var name idx' lvlsMeta =>
-          let depth := (← read).bindDepth
-          if depth > idx.projₗ then
-            -- this is a bound free variable
-            if !lvlsAnon.isEmpty then
-              -- bound free variables should never have universe levels
-              throw $ .invalidIndexDepth idx.projₗ depth
-            return .var name.projᵣ idx
-          else
-            -- this free variable came from recrCtx, and thus represents a mutual reference
-            let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
-              fun (anon, meta) => univFromIpld ⟨anon, meta⟩
-            match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
-            | some (constIdx, name) => return .const name constIdx lvls
-            | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
-        | .sort uAnonCid, .sort uMetaCid =>
-          pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
-        | .const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids =>
-          let const ← constFromIpld ⟨cAnonCid, cMetaCid⟩
-          let univs ← Ipld.zipWith univFromIpld ⟨uAnonCids, uMetaCids⟩
-          pure $ .const name const univs
-        | .app fncAnon argAnon, .app fncMeta argMeta =>
-          let fnc ← exprFromIpld ⟨fncAnon, fncMeta⟩
-          let arg ← exprFromIpld ⟨argAnon, argMeta⟩
-          pure $ .app fnc arg
-        | .lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta =>
-          let dom ← exprFromIpld ⟨domAnon, domMeta⟩
-          withNewBind do
-            let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-            pure $ .lam name binfo dom bod
-        | .pi () binfo domAnon codAnon, .pi name () domMeta codMeta =>
-          let dom ← exprFromIpld ⟨domAnon, domMeta⟩
-          withNewBind do
-            let cod ← exprFromIpld ⟨codAnon, codMeta⟩
-            pure $ .pi name binfo dom cod
-        | .letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta =>
-          let typ ← exprFromIpld ⟨typAnon, typMeta⟩
-          let val ← exprFromIpld ⟨valAnon, valMeta⟩
-          withNewBind do
-            let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-            pure $ .letE name typ val bod
-        | .lit lit, .lit () => pure $ .lit lit
-        | .proj idx bodAnon, .proj () bodMeta =>
-          let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-          pure $ .proj idx bod
-        | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
-      Key.cache (.expr_cache cid) expr
-      pure expr
+    match ← Key.find $ .expr_store cid with
+    | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
+      let depth := (← read).bindDepth
+      if depth > idx.projₗ then
+        -- this is a bound free variable
+        if !lvlsAnon.isEmpty then
+          -- bound free variables should never have universe levels
+          throw $ .invalidIndexDepth idx.projₗ depth
+        return .var name.projᵣ idx
+      else
+        -- this free variable came from recrCtx, and thus represents a mutual reference
+        let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
+          fun (anon, meta) => univFromIpld ⟨anon, meta⟩
+        match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
+        | some (constIdx, name) => return .const name constIdx lvls
+        | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
+    | ⟨.sort uAnonCid, .sort uMetaCid⟩ =>
+      pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
+    | ⟨.const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids⟩ =>
+      let const ← constFromIpld ⟨cAnonCid, cMetaCid⟩
+      let univs ← Ipld.zipWith univFromIpld ⟨uAnonCids, uMetaCids⟩
+      pure $ .const name const univs
+    | ⟨.app fncAnon argAnon, .app fncMeta argMeta⟩ =>
+      let fnc ← exprFromIpld ⟨fncAnon, fncMeta⟩
+      let arg ← exprFromIpld ⟨argAnon, argMeta⟩
+      pure $ .app fnc arg
+    | ⟨.lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta⟩ =>
+      let dom ← exprFromIpld ⟨domAnon, domMeta⟩
+      withNewBind do
+        let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+        pure $ .lam name binfo dom bod
+    | ⟨.pi () binfo domAnon codAnon, .pi name () domMeta codMeta⟩ =>
+      let dom ← exprFromIpld ⟨domAnon, domMeta⟩
+      withNewBind do
+        let cod ← exprFromIpld ⟨codAnon, codMeta⟩
+        pure $ .pi name binfo dom cod
+    | ⟨.letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta⟩ =>
+      let typ ← exprFromIpld ⟨typAnon, typMeta⟩
+      let val ← exprFromIpld ⟨valAnon, valMeta⟩
+      withNewBind do
+        let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+        pure $ .letE name typ val bod
+    | ⟨.lit lit, .lit ()⟩ => pure $ .lit lit
+    | ⟨.proj idx bodAnon, .proj () bodMeta⟩ =>
+      let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+      pure $ .proj idx bod
+    | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
   /-- Converts IPLD CIDs for a constant and return its constant index -/
   partial def constFromIpld (cid : Ipld.Both Ipld.ConstCid) :
