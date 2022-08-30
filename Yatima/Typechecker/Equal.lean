@@ -130,7 +130,7 @@ mutual
   Checks if two applications `fnc args` and `fnc' args'` are equal by checking the indices of `fnc`
   and `fnc'` are equal and that each of the list of arguments `args` and `args'` are equal.
 
-  It is assumed here that the values are typechecked, have both the same type `type`
+  It is assumed here that the values are typechecked, have both the same type
   and their original unevaluated terms both lived in the same environment.
   -/
   partial def equalApp (name : Name) (lvl : Nat) (k k' : ConstIdx)
