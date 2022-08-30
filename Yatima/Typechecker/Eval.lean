@@ -143,7 +143,7 @@ mutual
       | .app neu args => pure $ .proj idx neu args
       | _ => throw .impossible
 
-  /-- Evaluates a `Yatima.Const` -/
+  /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
     match ← derefConst name const with
