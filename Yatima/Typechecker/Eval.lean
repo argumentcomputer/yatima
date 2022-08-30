@@ -98,7 +98,7 @@ mutual
   Evaluates a `Yatima.Expr` into a `Typechecker.Value`. 
   
   Evaluation here means applying functions to arguments, resuming evaluation of suspended Thunks,
-  evaluating a constant, instantiating a universe variable, evaluating the body of a let binding,
+  evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
   and evaluating a projection.
   -/
   partial def eval : Expr → TypecheckM Value
