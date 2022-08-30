@@ -38,13 +38,12 @@ def ConvertEnv.init (store : Ipld.Store) : ConvertEnv :=
 /--
 Contains the progress of the conversion process.
 
-* `univ_cache`, `expr_cache` and `const_cache` are optimization means
+* `univ_cache` and `const_cache` are optimization means
 * `consts` is the actual output of the conversion, whose order is pre-encoded based on the store
 * `constsIdx` contains auxiliary data to recover a constant index by its name using the order in `consts`
 -/
 structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare
-  expr_cache  : RBMap ExprCid Expr compare
   const_cache : RBMap ConstCid ConstIdx compare
   consts      : Array Const
   constsIdx   : RBMap Name ConstIdx compare
