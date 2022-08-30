@@ -22,7 +22,7 @@ to evaluate further.
 namespace Yatima.Typechecker
 
 /-- 
-Function that looks for a constant by its index `constIdx` in the `TypecheckEnv` store and
+Looks for a constant by its index `constIdx` in the `TypecheckEnv` store and
 returns it if it is found. If the constant is not found it throws an error.
 
 Note: The `name : Name` is used only in the error messaging
