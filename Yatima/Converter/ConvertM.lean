@@ -23,7 +23,7 @@ The reader structure for the `ConvertM` monad contains:
 * `store`, which has the initial data of constants to be extracted
 * `recrCtx` of type `RecrCtx`
 * `bindDepth`, which says how many `lam`, `pi` or `letE` binders we've gone
-through recursively
+through recursively; used to implement constant replacement of free variables
 -/
 structure ConvertEnv where
   store     : Ipld.Store
@@ -39,8 +39,8 @@ def ConvertEnv.init (store : Ipld.Store) : ConvertEnv :=
 Contains the progress of the conversion process.
 
 * `univ_cache`, `expr_cache` and `const_cache` are optimization means
-* `consts` is the actual output of the conversion
-* `constsIdx` contains auxiliary data to recover a constant index by its name
+* `consts` is the actual output of the conversion, whose order is pre-encoded based on the store
+* `constsIdx` contains auxiliary data to recover a constant index by its name using the order in `consts`
 -/
 structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare

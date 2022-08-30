@@ -426,6 +426,7 @@ mutual
         , typeCid.anon
         , ind.numParams
         , ind.numIndices
+        -- NOTE: for the purpose of conversion, the order of `ctors` and `recs` MUST match the order used in `recrCtx`
         , ctors.map (·.anon)
         , recs.map (·.anon)
         , ind.isRec

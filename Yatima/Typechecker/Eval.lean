@@ -140,7 +140,7 @@ mutual
       match x.safety with
       | .safe => 
         -- dbg_trace s!"\n[evalConst] .definition .safe: {x.value.ctorName}"
-        eval x.value
+        withCtx ⟨[], univs⟩ $ eval x.value
       | .partial => pure $ mkConst name const univs
       | .unsafe => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs

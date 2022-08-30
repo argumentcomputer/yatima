@@ -150,6 +150,7 @@ def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
       let name := recr.name
       let indIdx ← getConstIdx name
       return (indIdx, name)
+    -- mirror the compiler order of inductive, then constuctors, then recursors
     let addList := (indTup :: ctorTups).append recTups
     constList := constList.append addList
   return constList.enum.foldl (init := default)
@@ -157,7 +158,8 @@ def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
 
 mutual
 
-  /-- Extracts the structure (constructor) from an inductive -/
+  /-- Extracts the structure (constructor) from an inductive if it is a structure-like
+  inductive, returns `none` otherwise. -/
   partial def getStructure (ind : Ipld.Both Ipld.Inductive) :
       ConvertM (Option Constructor) :=
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
@@ -264,6 +266,7 @@ mutual
           let recrCtx ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
+            -- if this is a structure, the `struct` field will reference the inductive, hence the need for `recrCtx`
             let struct ← getStructure induct
             pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
         | .opaque opaqueAnon, .opaque opaqueMeta =>
