@@ -1,5 +1,28 @@
 import Yatima.Typechecker.Eval
 
+/-!
+# Yatima typechecker: Equal
+
+## Basic Structure
+
+This is the second of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`, 
+and `Infer`.
+
+TODO: Add a high level overview of Equal in the contenxt of Eval-Equal-Infer.
+
+## Equal
+
+In this module the main function is `Yatima.Typechecker.equal` which checks whether two values are
+equal. This is done case-by-case on the exact `val val' : Value` that are inputted: 
+
+* Literal equality can be handled 
+* Sorts are handled by `Yatima.Univ.equalUniv`
+* `.lam` and `.pi`s are equal if their bodies are
+* `.app` are handled by `Yatima.Typechecker.equalApp`
+
+Note: Generally the values are assumed to already have the same type in the functions below. 
+-/
+
 namespace Yatima.Typechecker
 
 /-- Checks if a type is an unit inductive -/
@@ -10,6 +33,7 @@ def isUnit : Value → TypecheckM Bool
     | _ => pure false
   | _ => pure false
 
+/-- Reduces the application of a `pi` type to its arguments -/
 def applyType : Value → List (Thunk Value) → TypecheckM Value
   | .pi _ _ _ img imgEnv, arg :: args => do
     let res ← withCtx (imgEnv.extendWith arg) (eval img)
@@ -17,6 +41,7 @@ def applyType : Value → List (Thunk Value) → TypecheckM Value
   | type, [] => pure type
   | _, _ => throw .cannotApply
 
+/-- Determines if a value at level `lvl` is a `Prop` ( ↔ `Sort 0`) -/
 partial def isProp (lvl : Nat) : Value → TypecheckM Bool
   | .pi name _ dom img env => do
     let res ← withNewExtendedCtxByVar env name lvl dom $ eval img
@@ -38,12 +63,16 @@ partial def isProp (lvl : Nat) : Value → TypecheckM Bool
 
 mutual
 
-  -- It is assumed here that the values are typechecked, have both the same type
-  -- and their original unevaluated terms both lived in the same environment
+  /--
+  Checks if two values `term term' : Value` at level `lvl : Nat` are equal. 
+
+  It is assumed here that the values are typechecked, have both the same type `type`
+  and their original unevaluated terms both lived in the same environment.
+  -/
   partial def equal (lvl : Nat) (term term' type : Value) : TypecheckM Bool := do
-    let isU ← isUnit type
+    let isU ← isUnit type 
     let isP ← isProp lvl type
-    if isU || isP then pure true else
+    if isU || isP then pure true else 
     match term, term' with
     | .lit lit, .lit lit' => pure $ lit == lit'
     | .lty lty, .lty lty' => pure $ lty == lty'
@@ -97,6 +126,13 @@ mutual
       pure $ idx == idx' && eq
     | _, _ => pure false
 
+  /-- 
+  Checks if two applications `fnc args` and `fnc' args'` are equal by checking the indices of `fnc`
+  and `fnc'` are equal and that each of the list of arguments `args` and `args'` are equal.
+
+  It is assumed here that the values are typechecked, have both the same type `type`
+  and their original unevaluated terms both lived in the same environment.
+  -/
   partial def equalApp (name : Name) (lvl : Nat) (k k' : ConstIdx)
       (us us' : List Univ) (args args' : Args) : TypecheckM Bool := do
     -- Analogous assumption on the types of the constants
@@ -107,6 +143,10 @@ mutual
       Univ.equalUnivs us us' &&
       (← equalThunks lvl args args' (suspend const.type env))
 
+/--
+Checks if two list of thunks `vals vals' : List (Thunk Value)` are equal by evaluating the thunks
+and checking the evaluated images are equal.
+-/
   partial def equalThunks (lvl : Nat) (vals vals' : List (Thunk Value))
       (type : Thunk Value) : TypecheckM Bool :=
     match vals, vals' with
