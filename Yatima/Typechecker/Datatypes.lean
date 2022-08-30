@@ -115,7 +115,7 @@ end Context
 def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   Value.app (Neutral.const name k univs) []
 
-/-- Creates a new variable with a name, a de-Brujin index and a type -/
+/-- Creates a new variable with a name, a de-Bruijn index and a type -/
 def mkVar (name : Name) (idx : Nat) (type : Thunk Value) : Value :=
   .app (Neutral.fvar name idx type) []
 

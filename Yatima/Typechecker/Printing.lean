@@ -1,8 +1,17 @@
 import Yatima.Typechecker.Datatypes
 
+/-!
+# Typechecker printing
+
+This module provides rudimentary printing for universes, expressions, and values used for debugging
+the typechecker. 
+-/
+
 namespace Yatima.Typechecker
 
 mutual
+
+  /-- Printer of universe levels -/
   def printUniv (u : Univ) : String :=
     match u with
     | .succ a   => s!"{printSuccUniv 1 a}"
@@ -15,8 +24,10 @@ mutual
     | .zero => s!"{acc}"
     | .succ u => printSuccUniv (acc + 1) u
     | u => s!"{acc}+{printUniv u}"
+
 end
 
+/-- Printer of expressions -/
 def printExpr : Expr → String
   | .var nam idx => s!"{nam}@{idx}"
   | .sort u => s!"(Sort {printUniv u})"
@@ -41,32 +52,14 @@ def printExpr : Expr → String
   | .lty .word => "Word"
   | .proj idx val => s!"{printExpr val}.{idx}"
 
-mutual
+/-- Auxiliary function to print a chain of unevaluated applications as a single application -/
+private partial def printSpine (neu : Neutral) (args : Args) : String :=
+  match neu with
+  | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
+  | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
 
-partial def printVal : Value → String
-  | .sort u => s!"(Sort {printUniv u})"
-  | .app neu args => printSpine neu args
-  | .lam nam binfo bod ctx =>
-    match binfo with
-    | .implicit => s!"(λ\{{nam}}}. {printLamBod bod ctx})"
-    | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod ctx})"
-    | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
-    | _ => s!"(λ({nam}). {printLamBod bod ctx})"
-  | .pi nam binfo dom cod ctx =>
-    let dom := dom.repr
-    match binfo with
-    | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod ctx})"
-    | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
-    | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
-    | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
-  | .lty .num => "Number"
-  | .lty .word => "Word"
-  | .proj idx neu args => s!"{printSpine neu args}.{idx}"
-  | .exception e => s!"exception {e}"
-
-partial def printLamBod (expr : Expr) (ctx : Context) : String :=
+/-- Auxiliary function to print the body of a lambda expression given `ctx : Context` -/
+private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   match expr with
   | .var nam 0 => s!"{nam}@0"
   | .var nam idx =>
@@ -95,12 +88,29 @@ partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   | .lty .word => "Word"
   | .proj idx val => s!"{printLamBod val ctx}.{idx}"
 
-partial def printSpine (neu : Neutral) (args : Args) : String :=
-  match neu with
-  | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
-  | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
-
-end
+/-- Printer of typechecker values -/
+partial def printVal : Value → String
+  | .sort u => s!"(Sort {printUniv u})"
+  | .app neu args => printSpine neu args
+  | .lam nam binfo bod ctx =>
+    match binfo with
+    | .implicit => s!"(λ\{{nam}}}. {printLamBod bod ctx})"
+    | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod ctx})"
+    | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
+    | _ => s!"(λ({nam}). {printLamBod bod ctx})"
+  | .pi nam binfo dom cod ctx =>
+    let dom := dom.repr
+    match binfo with
+    | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod ctx})"
+    | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
+    | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
+    | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
+  | .lit (.num x) => s!"{x}"
+  | .lit (.word x) => s!"\"{x}\""
+  | .lty .num => "Number"
+  | .lty .word => "Word"
+  | .proj idx neu args => s!"{printSpine neu args}.{idx}"
+  | .exception e => s!"exception {e}"
 
 instance : ToString Expr  where toString := printExpr
 instance : ToString Univ  where toString := printUniv

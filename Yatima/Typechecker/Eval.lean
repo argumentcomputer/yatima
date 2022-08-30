@@ -1,8 +1,32 @@
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Printing
 
+/-!
+# Yatima typechecker: Eval
+
+## Basic Structure
+
+This is the first of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`, 
+and `Infer`.
+
+TODO: Add a high level overview of Eval in the contenxt of Eval-Equal-Infer.
+
+## Evaluate
+
+In this module the evaluation (↔ reduction) of Yatima expressions is defined. Expressions that can
+be reduced take a few forms, for example `.app fnc args`, constants, and suspdended evaluations. 
+Functions that can not be reduced further evaluate to unreduced Values or suspended thunks waiting 
+to evaluate further. 
+-/
+
 namespace Yatima.Typechecker
 
+/-- 
+Looks for a constant by its index `constIdx` in the `TypecheckEnv` store and
+returns it if it is found. If the constant is not found it throws an error.
+
+Note: The `name : Name` is used only in the error messaging
+-/
 def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   let store := (← read).store
   match store.get? constIdx with
@@ -10,7 +34,13 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   | none => throw $ .outOfConstsRange name constIdx store.size
 
 mutual
+  /-- 
+  Applies a named constant, referred by its constant index `k : ConstIdx` to the list of arguments
+  `arg :: args`.
 
+  The application of the constant is split into cases on whether it is an inductive recursor,
+  a quotient, or any other constant (which returns an unreduced application)
+   -/
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : Thunk Value) (args : Args) : TypecheckM Value := do
     -- Assumes a partial application of k to args, which means in particular,
@@ -52,6 +82,11 @@ mutual
       | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
 
+  /-- 
+  Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `env : TypecheckEnv`
+  
+  Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
+  -/
   partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
     {fn := fun _ =>
       match TypecheckM.run env (eval expr) with
@@ -59,6 +94,13 @@ mutual
       | .error e => .exception e,
      repr := toString expr}
 
+  /--
+  Evaluates a `Yatima.Expr` into a `Typechecker.Value`. 
+  
+  Evaluation here means applying functions to arguments, resuming evaluation of suspended Thunks,
+  evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
+  and evaluating a projection.
+  -/
   partial def eval : Expr → TypecheckM Value
     | .app fnc arg => do
       let env ← read
@@ -101,6 +143,7 @@ mutual
       | .app neu args => pure $ .proj idx neu args
       | _ => throw .impossible
 
+  /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
     match ← derefConst name const with
@@ -112,7 +155,17 @@ mutual
       | .partial => pure $ mkConst name const univs
       | .unsafe => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
+  
+  /--
+  Evaluates an application of a reduced `value : Value` on the argument `arg : Thunk Value`.
 
+  Applications are split into cases on whether `value` is a `Value.lam`, the application of a constant
+  or the application of a free variable. 
+  
+  * `Value.lam` : Descends into and evaluates the body of the lambda expression
+  * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
+  * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
+  -/
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
     -- bod : fun y => x^1 + y^0
@@ -122,7 +175,12 @@ mutual
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
+  
+  /--
+  Reduces a Yatima quotient
 
+  TODO: Get more clarification on this
+  -/
   partial def reduceQuot (major? : Thunk Value) (args : Args)
       (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1

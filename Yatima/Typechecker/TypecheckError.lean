@@ -1,7 +1,15 @@
 import Yatima.Datatypes.Name
 
+/-!
+# Typechecker errors
+
+This module defines the errors that can be thrown by the `TypecheckM` monad in the course of 
+typechecking a Yatima expression. 
+-/
+
 namespace Yatima.Typechecker
 
+/-- The errors used by the `TypecheckM` monad. -/
 inductive TypecheckError where
   | notPi : String →  TypecheckError
   | notTyp : String → TypecheckError
@@ -25,6 +33,7 @@ inductive TypecheckError where
   | custom : String → TypecheckError
   deriving Inhabited
 
+/-- Rudimentary printing of `TypecheckError` -/
 instance : ToString TypecheckError where toString
   | .notPi val => s!"Expected a pi type, found '{val}'"
   | .notTyp val => s!"Expected a sort type, found '{val}'"

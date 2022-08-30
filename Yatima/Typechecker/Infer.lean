@@ -1,9 +1,29 @@
 import Yatima.Typechecker.Equal
 
+/-!
+# Yatima typechecker: Infer
+
+## Basic Structure
+
+This is the third of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`, 
+and `Infer`.
+
+TODO: Add a high level overview of Infer in the context of Eval-Equal-Infer.
+
+## Infer
+
+In this module the two major functions `check` and `infer` are defined.
+* `check` : Checks that a Yatima expression has a prescribed type.
+* `infer` : Determines the type of a given Yatima expression.
+-/
+
 namespace Yatima.Typechecker
 
 mutual
-
+  /-- 
+  Checks that `term : Expr` has type `type : Value`, and throws `TypecheckError.valueMismatch`
+  if it is not.
+  -/
   partial def check (term : Expr) (type : Value) : TypecheckM Unit := do
     match term with
     | .lam lamName _ _lamDom bod =>
@@ -27,6 +47,7 @@ mutual
       if !(← equal (← read).lvl type inferType (.sort .zero)) then
         throw $ .valueMismatch (printVal inferType) (printVal type)
 
+  /-- Infers the type of `term : Expr` -/
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
     | .var name idx =>
@@ -97,6 +118,10 @@ mutual
         | _ => throw $ .typNotStructure (printVal exprType)
       | _ => throw $ .typNotStructure (printVal exprType)
 
+  /-- 
+  Checks if `expr : Expr` is `Sort lvl` for some level `lvl`, and throws `TypecheckerError.notTyp`
+  if it is not.
+  -/
   partial def isSort (expr : Expr) : TypecheckM Univ := do
     match ← infer expr with
     | .sort u => pure u
@@ -104,6 +129,12 @@ mutual
 
 end
 
+/-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
+otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.
+
+Note that inductives, constructors, and recursors are constructed to typecheck, so this function
+only has to check the other `Const` constructors. 
+-/
 def checkConst (c : Const) : TypecheckM Unit :=
   let univs := c.levels.foldr
     (fun name cont i => Univ.var name i :: (cont (i + 1)))
