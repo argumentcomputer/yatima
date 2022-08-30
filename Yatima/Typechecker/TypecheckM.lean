@@ -1,38 +1,84 @@
-import Yatima.Typechecker.Value
+import Yatima.Typechecker.Datatypes
+
+/-!
+# The Typechecker monad
+
+This module defines the typechecker monad `TypecheckM`, together with various utilities to run and
+initialize its environment.
+-/
 
 namespace Yatima.Typechecker
 
-structure Context where
+/--
+The environment available to the typechecker monad. The available fields are
+* `lvl : Nat` : TODO: Get clarification on this.
+* `ctx : Context` : A context of known values, and universe levels. See `Context` 
+* `types : List (Tunk Value)` : The types of the values in `Context`. 
+* `store : Array Const` : An array of known constants in the environment that can be referred to by their index.
+-/
+structure TypecheckEnv where
   lvl   : Nat
-  env   : Env Value
+  ctx   : Context
   types : List (Thunk Value)
   store : Array Const
   deriving Inhabited
 
-def Context.init (store : Array Const) : Context :=
-  { (default : Context) with store := store }
+/-- An initialization of the typchecker environment with a particular `store : Array Const` -/
+def TypecheckEnv.init (store : Array Const) : TypecheckEnv :=
+  { (default : TypecheckEnv) with store }
 
-def Context.find? (ctx : Context) (constName : Name) : Option Const :=
-  ctx.store.find? (fun const => const.name == constName)
+/-- An initialization of the typechecker environment with a particular `ctx : Context` and `store : Array Const` -/
+def TypecheckEnv.initCtx (ctx : Context) (store : Array Const) : TypecheckEnv :=
+  { (default : TypecheckEnv) with store, ctx }
 
-abbrev TypecheckM := ReaderT Context $ ExceptT CheckError Id
+/-- 
+The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckEnv`,
+and can throw exceptions of the form `TypecheckError`
+-/
+abbrev TypecheckM := ReaderT TypecheckEnv $ ExceptT TypecheckError Id
 
-def TypecheckM.run (ctx : Context) (m : TypecheckM α) : Except CheckError α :=
-  ExceptT.run (ReaderT.run m ctx)
+/-- Basic runner for the typchecker monad -/
+def TypecheckM.run (env : TypecheckEnv) (m : TypecheckM α) : Except TypecheckError α :=
+  ExceptT.run (ReaderT.run m env)
 
-def extEnvHelper (env : Env Value) (thunk : Thunk Value) : Env Value :=
-  { env with exprs := thunk :: env.exprs }
+/-- Evaluates a `TypecheckM` computation with an `TypecheckEnv` whose context is fixed by `ctx` -/
+def withCtx (ctx : Context) : TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with ctx := ctx }
 
-def extCtx (val : Thunk Value) (typ : Thunk Value)  (m : TypecheckM α) : TypecheckM α :=
-  withReader (fun ctx => { ctx with lvl := ctx.lvl + 1, types := typ :: ctx.types, env := extEnvHelper ctx.env val }) m
+/-- 
+Evaluates a `TypecheckM` computation with a `TypecheckEnv` which has been extended with an additional
+`val : Thunk Value`, `typ : Thunk Type` pair. 
 
-def extEnv (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
-  withReader (fun ctx => { ctx with env := extEnvHelper ctx.env thunk })
+The `lvl` of the `TypecheckEnv` is also incremented. 
+TODO: Get clarification on this.
+-/
+def withExtendedEnv (val typ : Thunk Value) : TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with
+    lvl := env.lvl + 1,
+    types := typ :: env.types,
+    ctx := env.ctx.extendWith val }
 
-def withExtEnv (env : Env Value) (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
-  withReader (fun ctx => { ctx with env := extEnvHelper env thunk })
+/-- 
+Evaluates a `TypecheckM` computation with a `TypecheckEnv` with a the context extended by a 
+`thunk : Thunk Value` (whose type is not known, unlike `withExtendedEnv`)
+-/
+def withExtendedCtx (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with ctx := env.ctx.extendWith thunk }
 
-def withEnv (env : Env Value) : TypecheckM α → TypecheckM α :=
-  withReader (fun ctx => { ctx with env := env })
+/-- 
+Evaluates a `TypecheckM` computation with a `TypecheckEnv` whose context is an extension of `ctx`
+by a `thunk : Thunk Value` (whose type is not known)
+-/
+def withNewExtendedCtx (ctx : Context) (thunk : Thunk Value) :
+    TypecheckM α → TypecheckM α :=
+  withReader fun env => { env with ctx := ctx.extendWith thunk }
+
+/-- 
+Evaluates a `TypecheckM` computation with a `TypecheckEnv` whose context is an extension of `ctx`
+by a free variable with name `name : Name`, de-Bruijn index `i : Nat`, and type `type : ThunK Value`
+-/
+def withNewExtendedCtxByVar (ctx : Context) (name : Name) (i : Nat) (type : Thunk Value) :
+    TypecheckM α → TypecheckM α :=
+  withNewExtendedCtx ctx (mkVar name i type)
 
 end Yatima.Typechecker

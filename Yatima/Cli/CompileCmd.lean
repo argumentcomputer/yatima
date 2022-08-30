@@ -12,31 +12,22 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
       IO.eprintln
         s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
       return 1
-  let log := p.hasFlag "log"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
       if !(p.hasFlag "prelude") then setLibsPaths
       let mut stt : CompileState := default
-      let mut errMsg : Option String := none
+      let log := p.hasFlag "log"
       let mut cronos := Cronos.new
       for arg in args do
         for filePath in ← getLeanFilePathsList ⟨arg⟩ do
           let filePathStr := filePath.toString
           cronos ← cronos.clock filePathStr
           match ← compile filePath log stt with
-          | .ok stt' => match stt.union stt' with
-            | .ok stt' =>
-              stt := stt'
-              cronos ← cronos.clock filePathStr
-            | .error msg => errMsg := some msg; break
-          | .error msg => errMsg := some (toString msg); break
-        if errMsg.isSome then break
-      match errMsg with
-      | some msg =>
-        IO.eprintln msg
-        return 1
-      | none => pure ()
+          | .ok stt' =>
+            stt := stt'
+            cronos ← cronos.clock filePathStr
+          | .error msg => IO.eprintln msg; return 1
       if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"

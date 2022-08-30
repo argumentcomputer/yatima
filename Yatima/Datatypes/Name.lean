@@ -1,6 +1,5 @@
 namespace Yatima
 
-/-- Just `Lean.Name` under the hood. -/
-abbrev Name := Lean.Name
+scoped notation "Name" => Lean.Name
 
 end Yatima

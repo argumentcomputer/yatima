@@ -3,8 +3,9 @@ import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
 import Yatima.Converter.Converter
+import Yatima.Typechecker.Typechecker
 
-open LSpec Yatima Compiler Converter
+open LSpec Yatima Compiler Converter Typechecker
 
 def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
@@ -87,8 +88,8 @@ def pairConstants (x y : Array Const) :
 def reindexExpr (map : NatNatMap) : Expr → Expr
   | e@(.var ..)
   | e@(.sort _)
-  | e@(.lit ..)
-  | e@(.lty ..) => e
+  | e@(.lty ..)
+  | e@(.lit ..) => e
   | .const n i ls => .const n (map.find! i) ls
   | .app e₁ e₂ => .app (reindexExpr map e₁) (reindexExpr map e₂)
   | .lam n bi e₁ e₂ => .lam n bi (reindexExpr map e₁) (reindexExpr map e₂)
@@ -124,9 +125,33 @@ def reindexConst (map : NatNatMap) : Const → Const
 
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractConstArray` succeeds"
-    (extractConstArray stt.store) fun defns =>
-      withExceptOk "Pairing succeeds" (pairConstants stt.defns defns) $
+    (extractConstArray stt.store) fun consts =>
+      withExceptOk "Pairing succeeds" (pairConstants stt.consts consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
 end IpldRoundtrip
+
+section Typechecking
+
+/-
+Here we define the following extractors:
+* `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
+false negatives by requiring that everything that typechecks in Lean 4 should
+also be accepted by our implementation
+-/
+
+def typecheckConstM (name : Name) : TypecheckM Unit := do
+  ((← read).store.filter (·.name == name)).forM checkConst
+
+def typecheckConst (consts : Array Const) (name : Name) : Except String Unit :=
+  match TypecheckM.run (.init consts) (typecheckConstM name) with
+  | .ok u => .ok u
+  | .error err => throw $ toString err
+
+def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
+  stt.consts.foldl (init := .done) fun tSeq const =>
+    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+      (typecheckConst stt.consts const.name) fun _ => .done
+
+end Typechecking

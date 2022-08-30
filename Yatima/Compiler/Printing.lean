@@ -115,11 +115,10 @@ mutual
     | .letE name type value body =>
       return s!"let {name} : {← printExpr type} := {← printExpr value} in {← printExpr body}"
     | .lit lit => return match lit with
-      | .nat num => s!"{num}"
-      | .str str => s!"\"{str}\""
-    | .lty lty => return match lty with
-      | .nat => "Nat"
-      | .str => "String"
+      | .num num => s!"{num}"
+      | .word str => s!"\"{str}\""
+    | .lty .num => return "Number"
+    | .lty .word => return "Word"
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 

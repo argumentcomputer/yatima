@@ -38,8 +38,8 @@ lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
 lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
 lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
--- TODO FIXME (TDD):
 lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
+lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
 
 end Testing
 

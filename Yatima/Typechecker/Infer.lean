@@ -1,117 +1,161 @@
-import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Equal
+
+/-!
+# Yatima typechecker: Infer
+
+## Basic Structure
+
+This is the third of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`, 
+and `Infer`.
+
+TODO: Add a high level overview of Infer in the context of Eval-Equal-Infer.
+
+## Infer
+
+In this module the two major functions `check` and `infer` are defined.
+* `check` : Checks that a Yatima expression has a prescribed type.
+* `infer` : Determines the type of a given Yatima expression.
+-/
 
 namespace Yatima.Typechecker
 
-def checkStructure (ind : Inductive) : TypecheckM Constructor :=
-  match ind.struct with
-  | some ctor => pure ctor
-  | none => throw .typNotStructure
-
 mutual
-
+  /-- 
+  Checks that `term : Expr` has type `type : Value`, and throws `TypecheckError.valueMismatch`
+  if it is not.
+  -/
   partial def check (term : Expr) (type : Value) : TypecheckM Unit := do
     match term with
-    | .lam lam_name _ _lam_dom bod => do
+    | .lam lamName _ _lamDom bod =>
       match type with
-      | .pi _ _ dom img env =>
-        -- TODO check that `lam_dom` == `dom`
+      | .pi _ _ dom img ctx =>
+        -- TODO check that `lamDom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
-        let var := mkVar lam_name (← read).lvl dom
-        let img ← withExtEnv env var $ eval img
-        extCtx var dom $ check bod img
-      | _ => throw .notPi
-    | .letE _ exp_typ exp bod =>
-      match ← infer exp_typ with
-      | Value.sort _ =>
-        let exp_typ ← eval exp_typ
-        check exp exp_typ
-        let exp := suspend exp (← read)
-        extCtx exp exp_typ $ check bod type
-      | _ => throw CheckError.notTyp
+        let var := mkVar lamName (← read).lvl dom
+        let img ← withNewExtendedCtx ctx var $ eval img
+        withExtendedEnv var dom $ check bod img
+      | val => throw $ .notPi (printVal val)
+    | .letE _ expType exp bod =>
+      discard $ isSort expType
+      let expType ← eval expType
+      check exp expType
+      let exp := suspend exp (← read)
+      withExtendedEnv exp expType $ check bod type
     | _ =>
-      let infer_type ← infer term
-      let sort := Value.sort Univ.zero
-      if (← equal (← read).lvl type infer_type sort)
-      then pure ()
-      else throw .valueMismatch
+      let inferType ← infer term
+      if !(← equal (← read).lvl type inferType (.sort .zero)) then
+        throw $ .valueMismatch (printVal inferType) (printVal type)
 
+  /-- Infers the type of `term : Expr` -/
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
-    | .var _ idx =>
-      let type := List.get! (← read).types idx
+    | .var name idx =>
+      let types := (← read).types
+      let some type := types.get? idx | throw $ .outOfContextRange name idx types.length
       pure type.get
     | .sort lvl =>
-      let lvl := instBulkReduce (← read).env.univs (Univ.succ lvl)
-      pure $ Value.sort lvl
+      let lvl := Univ.instBulkReduce (← read).ctx.univs lvl.succ
+      return Value.sort lvl
     | .app fnc arg =>
-      let fnc_typ ← infer fnc
-      match fnc_typ with
-      | .pi _ _ dom img env =>
+      let fncType ← infer fnc
+      match fncType with
+      | .pi _ _ dom img ctx =>
         check arg dom.get
         let arg := suspend arg (← read)
-        let type ← withExtEnv env arg $ eval img
-        pure type
-      | _ => throw .notPi
+        withNewExtendedCtx ctx arg $ eval img
+      | val => throw $ .notPi (printVal val)
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
     | .lam .. => throw .cannotInferLam
-    | .pi name _ dom img  =>
-      let dom_lvl ← match (← infer dom) with
-        | .sort u => pure u
-        | _ => throw .notTyp
-      let ctx ← read
-      let dom := suspend dom ctx
-      extCtx (mkVar name ctx.lvl dom) dom $ do
-        let img_lvl ← match ← infer img with
-          | .sort u => pure u
-          | _ => throw CheckError.notTyp
-        let lvl := reduceIMax dom_lvl img_lvl
-        pure (Value.sort lvl)
-    | .letE _ exp_typ exp bod =>
-      match (← infer exp_typ) with
-      | Value.sort _ =>
-        let exp_typ ← eval exp_typ
-        check exp exp_typ
-        let exp := suspend exp (← read)
-        extCtx exp exp_typ $ infer bod
-      | _ => throw CheckError.notTyp
-    | .lit (Literal.nat _) => pure $ Value.lty LitType.nat
-    | .lit (Literal.str _) => pure $ Value.lty LitType.str
+    | .pi name _ dom img =>
+      let domLvl ← isSort dom
+      let env ← read
+      let dom := suspend dom env
+      withExtendedEnv (mkVar name env.lvl dom) dom $ do
+        let imgLvl ← isSort img
+        let lvl := Univ.reduceIMax domLvl imgLvl
+        return Value.sort lvl
+    | .letE _ expType exp bod =>
+      discard $ isSort expType
+      let expType ← eval expType
+      check exp expType
+      let exp := suspend exp (← read)
+      withExtendedEnv exp expType $ infer bod
+    | .lit (.num _) => pure $ Value.lty .num
+    | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
-    | .const _ k const_univs =>
-      let univs := (← read).env.univs
-      let const := (← read).store.get! k
-      withEnv ⟨[], (List.map (instBulkReduce univs) const_univs)⟩ $ eval const.type
+    | .const name k constUnivs =>
+      let univs := (← read).ctx.univs
+      let const ← derefConst name k
+      withCtx ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩ $ eval const.type
     | .proj idx expr =>
-      let exprTyp ← infer expr
-      match exprTyp with
-      | .app (.const _ const univs) params => match (← read).store.get! const with
+      let exprType ← infer expr
+      match exprType with
+      | .app (.const name k univs) params =>
+        match ← derefConst name k with
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
-            | none => throw .typNotStructure
-          if ind.params != params.length then throw .valueMismatch else
-          let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
+            | none => throw $ .typNotStructure (printVal exprType)
+          if ind.params != params.length then throw .impossible else
+          let mut ctorType ← applyType (← withCtx ⟨[], univs⟩ $ eval ctor.type) params
           for i in [:idx] do
             match ctorType with
-            | .pi _ _ _ img pi_env =>
+            | .pi _ _ _ img piCtx =>
               let proj := suspend (Expr.proj i expr) (← read)
-              ctorType ← withExtEnv pi_env proj $ eval img
+              ctorType ← withNewExtendedCtx piCtx proj $ eval img
             | _ => pure ()
           match ctorType with
           | .pi _ _ dom _ _  =>
             let lvl := (← read).lvl
             let typ := dom.get
-            if (← isProp lvl exprTyp) && !(← isProp lvl typ)
-            then throw .projEscapesProp
-            else pure typ
+            if (← isProp lvl exprType) && !(← isProp lvl typ)
+              then throw $ .projEscapesProp (printExpr term)
+              else pure typ
           | _ => throw .impossible
-        | _ => throw .typNotStructure
-      | _ => throw .typNotStructure
+        | _ => throw $ .typNotStructure (printVal exprType)
+      | _ => throw $ .typNotStructure (printVal exprType)
+
+  /-- 
+  Checks if `expr : Expr` is `Sort lvl` for some level `lvl`, and throws `TypecheckerError.notTyp`
+  if it is not.
+  -/
+  partial def isSort (expr : Expr) : TypecheckM Univ := do
+    match ← infer expr with
+    | .sort u => pure u
+    | val => throw $ .notTyp (printVal val)
 
 end
+
+/-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
+otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.
+
+Note that inductives, constructors, and recursors are constructed to typecheck, so this function
+only has to check the other `Const` constructors. 
+-/
+def checkConst (c : Const) : TypecheckM Unit :=
+  let univs := c.levels.foldr
+    (fun name cont i => Univ.var name i :: (cont (i + 1)))
+    (fun _ => []) 0
+  withCtx ⟨ [], univs ⟩ $ do
+    match c with
+    | .theorem    struct
+    | .opaque     struct
+    | .definition struct => do
+      discard $ isSort struct.type
+      let type ← eval struct.type
+      check struct.value type
+    -- TODO: check that inductives, constructors and recursors are well-formed
+    -- TODO: check that quotient is well-formed. I guess it is possible to do this
+    -- while converting from Ipld by checking the cids of the quotient constants
+    -- with precomputed ones
+    | .axiom       struct
+    | .inductive   struct
+    | .constructor struct
+    | .extRecursor struct
+    | .intRecursor struct
+    | .quotient    struct => discard $ isSort struct.type
 
 end Yatima.Typechecker
