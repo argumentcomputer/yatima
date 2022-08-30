@@ -24,9 +24,8 @@ mutual
       withExtendedEnv exp expType $ check bod type
     | _ =>
       let inferType ← infer term
-      if ← equal (← read).lvl type inferType (.sort .zero)
-        then pure ()
-        else throw $ .valueMismatch (printVal inferType) (printVal type)
+      if !(← equal (← read).lvl type inferType (.sort .zero)) then
+        throw $ .valueMismatch (printVal inferType) (printVal type)
 
   partial def infer (term : Expr) : TypecheckM Value := do
     match term with
@@ -36,28 +35,27 @@ mutual
       pure type.get
     | .sort lvl =>
       let lvl := Univ.instBulkReduce (← read).ctx.univs lvl.succ
-      pure $ Value.sort lvl
+      return Value.sort lvl
     | .app fnc arg =>
       let fncType ← infer fnc
       match fncType with
       | .pi _ _ dom img ctx =>
         check arg dom.get
         let arg := suspend arg (← read)
-        let type ← withNewExtendedCtx ctx arg $ eval img
-        pure type
+        withNewExtendedCtx ctx arg $ eval img
       | val => throw $ .notPi (printVal val)
     -- Should we add inference of lambda terms? Perhaps not on this checker,
     -- but on another that is capable of general unification, since this checker
     -- is supposed to be used on fully annotated terms.
     | .lam .. => throw .cannotInferLam
-    | .pi name _ dom img  =>
+    | .pi name _ dom img =>
       let domLvl ← isSort dom
       let env ← read
       let dom := suspend dom env
       withExtendedEnv (mkVar name env.lvl dom) dom $ do
         let imgLvl ← isSort img
         let lvl := Univ.reduceIMax domLvl imgLvl
-        pure (Value.sort lvl)
+        return Value.sort lvl
     | .letE _ expType exp bod =>
       discard $ isSort expType
       let expType ← eval expType
@@ -93,8 +91,8 @@ mutual
             let lvl := (← read).lvl
             let typ := dom.get
             if (← isProp lvl exprType) && !(← isProp lvl typ)
-            then throw $ .projEscapesProp (printExpr term)
-            else pure typ
+              then throw $ .projEscapesProp (printExpr term)
+              else pure typ
           | _ => throw .impossible
         | _ => throw $ .typNotStructure (printVal exprType)
       | _ => throw $ .typNotStructure (printVal exprType)
@@ -106,18 +104,27 @@ mutual
 
 end
 
-def checkConst : Const → TypecheckM Unit
-  | .axiom      struct => discard $ isSort struct.type
-  | .theorem    struct
-  | .opaque     struct
-  | .definition struct => do
-    discard $ isSort struct.type
-    check struct.value (← eval struct.type)
-  -- TODO: check that inductives, constructors and recursors are well-formed
-  -- TODO: check that quotient is well-formed. I guess it is possible to do this
-  -- while converting from Ipld by checking the cids of the quotient constants
-  -- with precomputed ones
-  -- TODO: don't we have to do `discard $ isSort struct.type` on every case?
-  | _ => pure ()
+def checkConst (c : Const) : TypecheckM Unit :=
+  let univs := c.levels.foldr
+    (fun name cont i => Univ.var name i :: (cont (i + 1)))
+    (fun _ => []) 0
+  withCtx ⟨ [], univs ⟩ $ do
+    match c with
+    | .theorem    struct
+    | .opaque     struct
+    | .definition struct => do
+      discard $ isSort struct.type
+      let type ← eval struct.type
+      check struct.value type
+    -- TODO: check that inductives, constructors and recursors are well-formed
+    -- TODO: check that quotient is well-formed. I guess it is possible to do this
+    -- while converting from Ipld by checking the cids of the quotient constants
+    -- with precomputed ones
+    | .axiom       struct
+    | .inductive   struct
+    | .constructor struct
+    | .extRecursor struct
+    | .intRecursor struct
+    | .quotient    struct => discard $ isSort struct.type
 
 end Yatima.Typechecker

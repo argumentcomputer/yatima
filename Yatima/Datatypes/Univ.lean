@@ -128,12 +128,8 @@ def instBulkReduce (substs : List Univ) : Univ → Univ
     | _ => .imax (instBulkReduce substs a) b'
   | .var nam idx => match substs.get? idx with
     | some u => u
-    -- TODO: It is still unclear, at this point, whether we should shift or
-    -- not the other variables. In fact, it is still unclear whether
-    -- this case could happen at all. It would appear that the `substs`
-    -- variable is a complete environment for the free variables
-    -- inside `univ`
-    | none => .var nam (idx - substs.length - 1) -- is this right?
+    -- This case should never happen if we're correctly enclosing every expression with a big enough universe environment
+    | none => .var nam (idx - substs.length)
   | u => u -- zero
 
 
