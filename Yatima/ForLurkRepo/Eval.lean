@@ -8,8 +8,8 @@ inductive Value where
   | lit : Literal → Value
   | lam : List Name → Expr → Value
   | raw : SExpr → Value
-  | env : Std.RBMap Name Expr compare → Value
-  deriving Repr, Inhabited
+  | env : List (Name × Value) → Value
+  deriving Repr, BEq, Inhabited
 
 abbrev Env := Std.RBMap Name Value compare
 
@@ -17,9 +17,10 @@ open Std.Format Std.ToFormat in
 partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
   match v with
     | .lit l => format l 
-    | .lam ns e => 
-      paren <| group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ e.pprint pretty
+    | .lam ns e => paren $
+      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ e.pprint pretty
     | .raw s => s.pprint pretty
+    | .env e => sorry
   where 
     fmtNames (xs : List Name) := match xs with 
       | [] => Format.nil
@@ -71,37 +72,38 @@ def evalBinaryOp (op : BinaryOp) (v₁ v₂ : Value) : EvalM Value :=
     | _, _ => throw "error: not a number"
   | .nEq => return if v₁ != v₂ then .lit .t else .lit .nil
 
-def toBool : Value → EvalM Bool
-  | .lit .t => return true
-  | .lit .nil => return false
-  | _ => throw "not a boolean"
-
-mutual
-
-partial def bind (env₀ : Env) (ns : List Name) (as : List Expr) :
-    EvalM (Env × List Name) :=
-  let rec aux : Env → List Name → List Expr → EvalM (Env × List Name)
-    | env, n::ns, a::as => do bind (env.insert n (← evaluate env₀ a)) ns as
-    | _, [], _::_ => throw ""
-    | env, ns, [] => return (env, ns)
-  aux env₀ ns as
+def bind (body : Expr) (ns : List Name) (as : List Expr) :
+    EvalM (Expr × List Name) := do
+  let rec aux (acc : List (Name × Expr)) :
+      List Name → List Expr → EvalM ((List (Name × Expr)) × List Name)
+    | n::ns, a::as => aux ((n, a) :: acc) ns as
+    | [], _::_ => throw "too many arguments"
+    | ns, [] => return (acc, ns)
+  let (binds, ns') ← aux [] ns as
+  return (.letE binds body, ns')
 
 partial def evaluate (env : Env) : Expr → EvalM Value
-  | .lit lit => return .lit lit --FIX
+  | .lit lit => return .lit lit
+  | .sym n => match env.find? n with
+    | some v => return v
+    | none => throw s!"{n} not found"
   | .ifE tst con alt => do
-    if ← toBool (← evaluate env tst)
-      then evaluate env con
-      else evaluate env alt
+    match ← evaluate env tst with
+    | .lit .t => evaluate env con
+    | .lit .nil => evaluate env alt
+    | _ => throw "not a boolean"
   | .lam formals body => return .lam formals body
-  | .letE bindings body => default
+  | .letE bindings body => do
+    let env' ← bindings.foldlM (init := env)
+      fun acc (n, e) => return acc.insert n (← evaluate env e)
+    evaluate env' body
   | .letRecE bindings body => default
   | .app fn args => do
     match ← evaluate env fn with
     | .lam ns body =>
-      match ← bind env ns args with
-      | (env', []) => evaluate env' body
-      | (env', ns) => return .lam ns sorry
-    | _ => throw "not a lambda"
+      let (body', ns') ← bind body ns args
+      if ns'.isEmpty then evaluate env body' else return .lam ns body'
+    | _ => throw "app function is not a lambda"
   | .quote datum => default 
   | .unaryOp op e => do evalUnaryOp op (← evaluate env e)
   | .binaryOp op e₁ e₂ => do
@@ -110,8 +112,6 @@ partial def evaluate (env : Env) : Expr → EvalM Value
   | .begin es => default
   | .currEnv => default
   | .eval e env? => default
-
-end
 
 end Interpreter
 

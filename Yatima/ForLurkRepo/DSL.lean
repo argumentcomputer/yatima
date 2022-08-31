@@ -14,7 +14,6 @@ syntax "nil"        : lurk_literal
 syntax num          : lurk_literal
 syntax str          : lurk_literal
 syntax char         : lurk_literal
-syntax ident        : lurk_literal
 
 def elabLurkLiteral : Syntax → TermElabM Expr
   | `(lurk_literal| t)   => return mkConst ``Lurk.Literal.t
@@ -31,8 +30,6 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | `(lurk_literal| $c:char) => do
     let c ← mkAppM ``Char.ofNat #[mkNatLit c.getChar.val.toNat]
     mkAppM ``Lurk.Literal.char #[c]
-  | `(lurk_literal| $i:ident) => do 
-    mkAppM ``Lurk.Literal.sym #[← mkNameLit i.getId.toString]
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
@@ -76,6 +73,7 @@ syntax "(" ident lurk_expr ")" : lurk_binding
 syntax  "(" lurk_binding* ")"  : lurk_bindings
 
 syntax lurk_literal                               : lurk_expr
+syntax ident                                      : lurk_expr
 syntax "(" "if" lurk_expr lurk_expr lurk_expr ")" : lurk_expr
 syntax "(" "lambda" "(" ident* ")" lurk_expr ")"  : lurk_expr
 syntax "(" "let" lurk_bindings lurk_expr ")"      : lurk_expr
@@ -125,6 +123,8 @@ partial def elabLurkBindings : Syntax → TermElabM Expr
 partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
   | `(lurk_expr| $l:lurk_literal) => do
     mkAppM ``Lurk.Expr.lit #[← elabLurkLiteral l]
+  | `(lurk_expr| $i:ident) => do
+    mkAppM ``Lurk.Expr.sym #[← mkNameLit i.getId.toString]
   | `(lurk_expr| (if $test $con $alt)) => do
     mkAppM ``Lurk.Expr.ifE
       #[← elabLurkExpr test, ← elabLurkExpr con, ← elabLurkExpr alt]
@@ -158,7 +158,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     let e := (← e.mapM elabLurkExpr).toList
     match e with 
     | []   => 
-      let s ← mkAppM ``Lurk.Literal.sym #[← mkNameLit "()"]
+      let s ← mkAppM ``Lurk.Expr.sym #[← mkNameLit "()"]
       mkAppM ``Lurk.Expr.lit #[s]
     | e::es => 
       let type := Lean.mkConst ``Lurk.Expr

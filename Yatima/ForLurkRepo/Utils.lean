@@ -38,6 +38,7 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
     replacement 
   else match e with 
     | .lit _ => e
+    | .sym _ => e
     | .ifE test con alt => 
       let test := replace test target replacement
       let con := replace con target replacement
@@ -78,6 +79,7 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
   | some (_, rpl) => rpl 
   | none => match e with 
     | .lit _ => e
+    | .sym _ => e
     | .ifE test con alt => 
       let test := replaceN test targets
       let con := replaceN con targets

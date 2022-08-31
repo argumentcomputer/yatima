@@ -23,38 +23,38 @@ inductive Literal
   | str     : String → Literal
   -- Characters
   | char    : Char → Literal
-  -- Symbols
-  | sym     : Name → Literal
   deriving Repr, BEq, Inhabited
 
 /-- Basic Lurk expression AST -/
 inductive Expr where
   -- `t`, `nil`, numeric, string and char literals
-  | lit   : Literal → Expr
+  | lit      : Literal → Expr
+  -- Symbols
+  | sym      : Name → Expr
   -- `if <test> <consequent> <alternate>`
-  | ifE     : Expr → Expr → Expr → Expr
+  | ifE      : Expr → Expr → Expr → Expr
   -- `lambda <formals> <body>`
-  | lam     : List Name → Expr → Expr
+  | lam      : List Name → Expr → Expr
   -- `let <bindings> <body>`
-  | letE    : List (Name × Expr) → Expr → Expr
+  | letE     : List (Name × Expr) → Expr → Expr
   -- `letrec <bindings> <body>`
-  | letRecE : List (Name × Expr) → Expr → Expr
+  | letRecE  : List (Name × Expr) → Expr → Expr
   -- `<fun> <args>`
-  | app     : Expr → List Expr → Expr 
+  | app      : Expr → List Expr → Expr 
   -- `quote <datum>`
-  | quote   : SExpr → Expr
+  | quote    : SExpr → Expr
   -- `<unaryop> <e>`
-  | unaryOp : UnaryOp → Expr → Expr
+  | unaryOp  : UnaryOp → Expr → Expr
   -- `<binop> <e1> <e2>`
-  | binaryOp   : BinaryOp → Expr → Expr → Expr    
+  | binaryOp : BinaryOp → Expr → Expr → Expr    
   -- `emit <e>`
-  | emit    : Expr → Expr
+  | emit     : Expr → Expr
   -- `begin <e1> <e2> ...`
-  | begin   : List Expr → Expr
+  | begin    : List Expr → Expr
   -- `current-env`
-  | currEnv : Expr
+  | currEnv  : Expr
   -- `eval <expr> <env>`
-  | eval    : Expr → Option Expr → Expr
+  | eval     : Expr → Option Expr → Expr
   deriving Repr, BEq, Inhabited
 
 namespace Expr
@@ -72,11 +72,11 @@ instance : ToExpr (Fin N) where
   toExpr n := .lit $ .num n
 
 instance : ToExpr Name where 
-  toExpr s := .lit $ .sym s
+  toExpr := .sym
 
 /-- Non-instance version when we want lurk-friendly names -/
 def toExprFix (n : Name) : Expr := 
-  .lit $ .sym (fixName n false)
+  .sym (fixName n false)
 
 instance : ToExpr String where 
   toExpr s := .lit $ .str s

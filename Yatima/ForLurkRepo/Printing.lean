@@ -25,7 +25,6 @@ partial def pprintLit (l : Literal) (pretty := true) : Format :=
   | .nil        => "nil"
   | .t          => "t"
   | .num ⟨n, _⟩  => if n < USize.size then toString n else List.asString (Nat.toDigits 16 n)
-  | .sym n      => fixName n pretty
   | .str s      => s!"\"{s}\""
   | .char c     => s!"#\\{c}"
 
@@ -36,6 +35,7 @@ open Std.Format Std.ToFormat in
 partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   match e with 
     | .lit l => pprintLit l pretty
+    | .sym n      => fixName n pretty
     | .ifE test con alt => 
       paren <| group ("if" ++ line ++ pprint test pretty) ++ line ++ pprint con pretty ++ line ++ pprint alt pretty
     | .lam formals body => 
