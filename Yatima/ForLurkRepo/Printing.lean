@@ -24,7 +24,7 @@ partial def pprintLit (l : Literal) (pretty := true) : Format :=
   match l with 
   | .nil        => "nil"
   | .t          => "t"
-  | .num ⟨n, _⟩  => if n < USize.size then toString n else List.asString (Nat.toDigits 16 n)
+  | .num ⟨n, _⟩ => if n < USize.size then toString n else List.asString (Nat.toDigits 16 n)
   | .str s      => s!"\"{s}\""
   | .char c     => s!"#\\{c}"
 
@@ -57,9 +57,6 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
     | .begin exprs =>
       paren <| "begin" ++ line ++ fmtList exprs
     | .currEnv => "current-env"
-    | .eval expr₁ expr₂? => match expr₂? with
-      | some expr₂ => paren <| "eval" ++ line ++ pprint expr₁ pretty ++ line ++ pprint expr₂ pretty
-      | none => paren <| "eval" ++ line ++ pprint expr₁ pretty ++ line
   where 
     fmtNames (xs : List Name) := match xs with 
       | [] => nil

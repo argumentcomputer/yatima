@@ -102,9 +102,6 @@ partial def evalM (env : Env) : Expr → EvalM Value
     pure v
   | .begin es => default
   | .currEnv => return .env env.toList
-  | .eval e env? => do match ← evalM default (env?.getD default) with
-    | .env bs => evalM (.ofList bs) e
-    | _ => throw "env expression did not evaluate to a proper environment"
 
 def evalPP (e : Expr) (env : Env := default) : IO Format :=
   return match ← evalM env e with

@@ -65,10 +65,6 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
     | .emit e => .emit <| replace e target replacement 
     | .begin es => .begin <| es.map fun e => replace e target replacement
     | .currEnv => e
-    | .eval e env? => 
-      let e := replace e target replacement
-      let env? := env?.map fun env => replace env target replacement
-      .eval e env?
 
 /-- Given pairs `(tgtᵢ, rplᵢ)`, replaces all occurences of `tgtᵢ` with `rplᵢ`.
   This is more efficient than `replace` since one does not have to traverse
@@ -106,10 +102,6 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
     | .emit e => .emit <| replaceN e targets 
     | .begin es => .begin <| es.map fun e => replaceN e targets
     | .currEnv => e
-    | .eval e env? => 
-      let e := replaceN e targets
-      let env? := env?.map fun env => replaceN env targets
-      .eval e env?
 
 end Expr 
 end Lurk

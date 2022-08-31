@@ -53,8 +53,6 @@ inductive Expr where
   | begin    : List Expr → Expr
   -- `current-env`
   | currEnv  : Expr
-  -- `eval <expr> <env>`
-  | eval     : Expr → Option Expr → Expr
   deriving Repr, BEq, Inhabited
 
 namespace Expr

@@ -85,7 +85,6 @@ syntax "(" lurk_bin_op lurk_expr lurk_expr ")"    : lurk_expr
 syntax "(" "emit" lurk_expr ")"                   : lurk_expr
 syntax "(" "begin" lurk_expr*  ")"                : lurk_expr
 syntax "current-env"                              : lurk_expr
-syntax "(" "eval" lurk_expr  ")"                  : lurk_expr
 syntax "(" lurk_expr* ")"                         : lurk_expr
 
 /-- 
@@ -153,7 +152,6 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     let type := Lean.mkConst ``Lurk.Expr
     mkAppM ``Lurk.Expr.begin #[← mkListLit type es]
   | `(lurk_expr| current-env) => return mkConst ``Lurk.Expr.currEnv
-  | `(lurk_expr| (eval $e)) => elabLurkExpr e
   | `(lurk_expr| ($e*)) => do
     let e := (← e.mapM elabLurkExpr).toList
     match e with 
