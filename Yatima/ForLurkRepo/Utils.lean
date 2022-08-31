@@ -60,7 +60,7 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
       .app fn args
     | .quote _ => e
     | .unaryOp _ _ => e
-    | .binOp _ _ _ => e 
+    | .binaryOp _ _ _ => e 
     | .emit e => .emit <| replace e target replacement 
     | .begin es => .begin <| es.map fun e => replace e target replacement
     | .currEnv => e
@@ -100,7 +100,7 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
       .app fn args
     | .quote _ => e
     | .unaryOp _ _ => e
-    | .binOp _ _ _ => e 
+    | .binaryOp _ _ _ => e 
     | .emit e => .emit <| replaceN e targets 
     | .begin es => .begin <| es.map fun e => replaceN e targets
     | .currEnv => e

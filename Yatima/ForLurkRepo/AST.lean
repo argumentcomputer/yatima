@@ -10,7 +10,7 @@ inductive UnaryOp | car | cdr | atom | emit
 deriving Repr, BEq
 
 /-- Binary operations on Lurk numerals -/
-inductive BinOp | cons | strcons | sum | diff | prod | quot | eq | nEq
+inductive BinaryOp | cons | strcons | sum | diff | prod | quot | eq | nEq
 deriving Repr, BEq
 
 /-- Basic Lurk primitives -/
@@ -25,7 +25,7 @@ inductive Literal
   | char    : Char → Literal
   -- Symbols
   | sym     : Name → Literal
-  deriving Repr, BEq
+  deriving Repr, BEq, Inhabited
 
 /-- Basic Lurk expression AST -/
 inductive Expr where
@@ -46,21 +46,18 @@ inductive Expr where
   -- `<unaryop> <e>`
   | unaryOp : UnaryOp → Expr → Expr
   -- `<binop> <e1> <e2>`
-  | binOp   : BinOp → Expr → Expr → Expr    
+  | binaryOp   : BinaryOp → Expr → Expr → Expr    
   -- `emit <e>`
   | emit    : Expr → Expr
-  -- `begin <e1> <e2> ... `
+  -- `begin <e1> <e2> ...`
   | begin   : List Expr → Expr
   -- `current-env`
   | currEnv : Expr
   -- `eval <expr> <env>`
   | eval    : Expr → Option Expr → Expr
-  deriving Repr, BEq
+  deriving Repr, BEq, Inhabited
 
-namespace Expr 
-
-instance : Inhabited Expr where 
-  default := .lit .nil
+namespace Expr
 
 class ToExpr (α : Type u) where 
   toExpr : α → Expr 

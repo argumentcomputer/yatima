@@ -10,7 +10,7 @@ instance : ToFormat UnaryOp where format
   | .atom => "atom"
   | .emit => "emit"
 
-instance : ToFormat BinOp where format
+instance : ToFormat BinaryOp where format
   | .cons    => "cons"
   | .strcons => "strcons"
   | .sum     => "+"
@@ -50,7 +50,7 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
       paren <| "quote" ++ line ++ datum.pprint pretty
     | .unaryOp op expr => 
       paren <| format op ++ line ++ pprint expr pretty
-    | .binOp op expr₁ expr₂ => 
+    | .binaryOp op expr₁ expr₂ => 
       paren <| format op ++ line ++ pprint expr₁ pretty ++ line ++ pprint expr₂ pretty
     | .emit expr => 
       paren <| "emit" ++ line ++ pprint expr pretty

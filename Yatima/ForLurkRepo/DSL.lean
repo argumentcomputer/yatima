@@ -46,13 +46,13 @@ syntax "= "       : lurk_bin_op
 syntax "eq "      : lurk_bin_op
 
 def elabLurkBinOp : Syntax → TermElabM Expr
-  | `(lurk_bin_op| cons) => return mkConst ``Lurk.BinOp.cons
-  | `(lurk_bin_op| +)    => return mkConst ``Lurk.BinOp.sum
-  | `(lurk_bin_op| -)    => return mkConst ``Lurk.BinOp.diff
-  | `(lurk_bin_op| *)    => return mkConst ``Lurk.BinOp.prod
-  | `(lurk_bin_op| /)    => return mkConst ``Lurk.BinOp.quot
-  | `(lurk_bin_op| =)    => return mkConst ``Lurk.BinOp.eq
-  | `(lurk_bin_op| eq)   => return mkConst ``Lurk.BinOp.nEq -- unfortunate clash again
+  | `(lurk_bin_op| cons) => return mkConst ``Lurk.BinaryOp.cons
+  | `(lurk_bin_op| +)    => return mkConst ``Lurk.BinaryOp.sum
+  | `(lurk_bin_op| -)    => return mkConst ``Lurk.BinaryOp.diff
+  | `(lurk_bin_op| *)    => return mkConst ``Lurk.BinaryOp.prod
+  | `(lurk_bin_op| /)    => return mkConst ``Lurk.BinaryOp.quot
+  | `(lurk_bin_op| =)    => return mkConst ``Lurk.BinaryOp.eq
+  | `(lurk_bin_op| eq)   => return mkConst ``Lurk.BinaryOp.nEq -- unfortunate clash again
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat lurk_unary_op 
@@ -144,7 +144,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
   | `(lurk_expr| ($op:lurk_unary_op $e)) => do
     mkAppM ``Lurk.Expr.unaryOp #[← elabLurkUnaryOp op, ← elabLurkExpr e]
   | `(lurk_expr| ($op:lurk_bin_op $e1 $e2)) => do
-    mkAppM ``Lurk.Expr.binOp
+    mkAppM ``Lurk.Expr.binaryOp
       #[← elabLurkBinOp op, ← elabLurkExpr e1, ← elabLurkExpr e2]
   | `(lurk_expr| (emit $e)) => do
     mkAppM ``Lurk.Expr.emit #[← elabLurkExpr e]
