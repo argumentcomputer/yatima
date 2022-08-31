@@ -70,7 +70,7 @@ def evalBinaryOp (op : BinaryOp) (v₁ v₂ : Value) : EvalM Value :=
     | .lit (.num x), .lit (.num y) =>
       return if x == y then .lit .t else .lit .nil
     | _, _ => throw "error: not a number"
-  | .nEq => return if v₁ != v₂ then .lit .t else .lit .nil
+  | .nEq => return if v₁ == v₂ then .lit .t else .lit .nil
 
 def bind (body : Expr) (ns : List Name) (as : List Expr) :
     EvalM (Expr × List Name) := do
