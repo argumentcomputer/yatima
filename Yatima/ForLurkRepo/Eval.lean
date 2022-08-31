@@ -16,7 +16,7 @@ abbrev Env := Std.RBMap Name Value compare
 open Std.Format Std.ToFormat in
 partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
   match v with
-    | .lit l => format l 
+    | .lit l => format l
     | .lam ns e => paren $
       group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ e.pprint pretty
     | .raw s => s.pprint pretty
@@ -30,21 +30,10 @@ partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
 instance : ToFormat Value where 
   format := Value.pprint
 
-namespace Interpreter
+abbrev EvalM := ExceptT String IO
 
-structure State where 
-  (env : Env)
-  deriving Inhabited
-
-abbrev Context := Unit 
-
-abbrev EvalM := ReaderT Context $ EStateM String State
-
-def EvalM.run (ctx : Context) (stt : State) (m : EvalM α) : 
-    EStateM.Result String State α := 
-  EStateM.run (ReaderT.run m ctx) stt 
-
-def evalUnaryOp (op : UnaryOp) (v : Value) : EvalM Value := match op with
+def evalUnaryOp (op : UnaryOp) (v : Value) : EvalM Value :=
+  match op with
   | .car => default  
   | .cdr => default
   | .atom => default
@@ -82,46 +71,43 @@ def bind (body : Expr) (ns : List Name) (as : List Expr) :
   let (binds, ns') ← aux [] ns as
   return (.letE binds body, ns')
 
-partial def evaluate (env : Env) : Expr → EvalM Value
+partial def evalM (env : Env) : Expr → EvalM Value
   | .lit lit => return .lit lit
   | .sym n => match env.find? n with
     | some v => return v
     | none => throw s!"{n} not found"
   | .ifE tst con alt => do
-    match ← evaluate env tst with
-    | .lit .t => evaluate env con
-    | .lit .nil => evaluate env alt
+    match ← evalM env tst with
+    | .lit .t => evalM env con
+    | .lit .nil => evalM env alt
     | _ => throw "not a boolean"
   | .lam formals body => return .lam formals body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
-      fun acc (n, e) => return acc.insert n (← evaluate env e)
-    evaluate env' body
+      fun acc (n, e) => return acc.insert n (← evalM acc e)
+    evalM env' body
   | .letRecE bindings body => default
   | .app fn args => do
-    match ← evaluate env fn with
+    match ← evalM env fn with
     | .lam ns body =>
       let (body', ns') ← bind body ns args
-      if ns'.isEmpty then evaluate env body' else return .lam ns body'
+      if ns'.isEmpty then evalM env body' else return .lam ns body'
     | _ => throw "app function is not a lambda"
   | .quote datum => default 
-  | .unaryOp op e => do evalUnaryOp op (← evaluate env e)
-  | .binaryOp op e₁ e₂ => do
-    evalBinaryOp op (← evaluate env e₁) (← evaluate env e₂)
-  | .emit e => default
+  | .unaryOp op e => do evalUnaryOp op (← evalM env e)
+  | .binaryOp op e₁ e₂ => do evalBinaryOp op (← evalM env e₁) (← evalM env e₂)
+  | .emit e => do
+    let v ← evalM env e
+    IO.println v.pprint
+    pure v
   | .begin es => default
-  | .currEnv => default
-  | .eval e env? => default
+  | .currEnv => return .env env.toList
+  | .eval e env? => do match ← evalM default (env?.getD default) with
+    | .env bs => evalM (.ofList bs) e
+    | _ => throw "env expression did not evaluate to a proper environment"
 
-end Interpreter
-
-def evaluate (e : Expr) (env : Env := default) : Except String Value := 
-  match Interpreter.EvalM.run () ⟨env⟩ (Interpreter.evaluate env e) with 
-  | .ok res _ => .ok res 
-  | .error e _ => .error e
-
-def ppEval (e : Expr) (env : Env := default) : Format := 
-  match evaluate e env with 
+def evalPP (e : Expr) (env : Env := default) : IO Format :=
+  return match ← evalM env e with
   | .ok res => res.pprint 
   | .error e => e
 
