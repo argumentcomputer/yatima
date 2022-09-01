@@ -113,15 +113,19 @@ partial def eval (env : Env) : Expr → EvalM Value
   | .cons e₁ e₂ => return .cons (← eval env e₁) (← eval env e₂)
   | .strcons e₁ e₂ => do match (← eval env e₁), (← eval env e₂) with
     | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
-    | .lit (.char _), x => throw s!"expected string value, got\n {x.pprint}" 
-    | x, _ => throw s!"expected char value, got\n {x.pprint}" 
-  -- TODO: add String support; `car "abc" ==> 'a'` 
+    | .lit (.char _), x => throw s!"expected string value, got\n {x.pprint}"
+    | x, _ => throw s!"expected char value, got\n {x.pprint}"
   | .car e => do match ← eval env e with
-    | .cons e₁ _ => return e₁ 
+    | .cons v _ => return v
+    | .lit (.str s) => match s.data with
+      | c::_ => return .lit $ .char c
+      | [] => return .lit .nil
     | _ => throw "not a cons"
-  -- TODO: add String support; `cdr "abc" ==> "bc"`
   | .cdr e => do match ← eval env e with
-    | .cons e₁ _ => return e₁ 
+    | .cons _ v => return v
+    | .lit (.str s) => match s.data with
+      | _::cs => return .lit $ .str ⟨cs⟩
+      | [] => return .lit $ .str ""
     | _ => throw "not a cons"
   | .emit e => do
     let v ← eval env e
