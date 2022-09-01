@@ -17,6 +17,28 @@ inductive Literal
   | word : String → Literal
   deriving BEq, Inhabited
 
+/--
+The types for literal values. These only exist for us to be able to build
+expressions to represent them in the typechecker when infering types.
+-/
+inductive LitType
+  | num
+  | word
+  deriving BEq, Inhabited
+
+/-- The type of primitive operations on literals -/
+inductive LitOp
+  | suc : LitOp
+  | add : LitOp
+  | sub : LitOp
+  | mul : LitOp
+  | div : LitOp
+  | mod : LitOp
+  | beq : LitOp
+  | ble : LitOp
+  | str : LitOp
+  deriving BEq, Inhabited
+
 namespace Ipld
 
 -- Carries a `Lean.Name` for meta
@@ -45,6 +67,8 @@ inductive Expr (k : Kind)
   | pi    : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
   | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
+  | lop   : Split LitOp Unit k → Expr k
+  | lty   : Split LitType Unit k → Expr k
   | proj  : Natₐ k → ExprCid k → Expr k
   deriving BEq, Inhabited
 
@@ -57,21 +81,14 @@ def Expr.ctorName : Expr k → String
   | .pi    .. => "pi"
   | .letE  .. => "let"
   | .lit   .. => "lit"
+  | .lop   .. => "lop"
+  | .lty   .. => "lty"
   | .proj  .. => "proj"
 
 end Ipld
 
 /-- Points to a constant in an array of constants -/
 abbrev ConstIdx := Nat
-
-/--
-The types for literal values. These only exist for us to be able to build
-expressions to represent them in the typechecker when infering types.
--/
-inductive LitType
-  | num
-  | word
-  deriving BEq, Inhabited
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
@@ -83,6 +100,7 @@ inductive Expr
   | pi    : Name → BinderInfo → Expr → Expr → Expr
   | letE  : Name → Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
+  | lop   : LitOp → Expr
   | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
   deriving Inhabited, BEq
@@ -156,6 +174,7 @@ def ctorName : Expr → String
   | pi    .. => "pi"
   | letE  .. => "let"
   | lit   .. => "lit"
+  | lop   .. => "lop"
   | lty   .. => "lty"
   | proj  .. => "proj"
 

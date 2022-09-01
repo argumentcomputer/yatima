@@ -223,6 +223,7 @@ mutual
       -- TODO: need to include `Int` somehow
       | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
       | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
+    | .lop _  => panic! "TODO"
     | .proj idx e => do
       IO.println s!"proj {idx}"; 
       -- this is very nifty; `e` contains its type information *at run time*

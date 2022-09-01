@@ -129,6 +129,7 @@ mutual
       pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
     | .lit lit => pure $ Value.lit lit
     | .lty lty => pure $ Value.lty lty
+    | .lop lop => pure $ Value.lop lop
     | .proj idx expr => do
       match (← eval expr) with
       | .app neu@(.const name k _) args => 

@@ -70,6 +70,7 @@ mutual
     -- analogous to lambda bodies for their codomains
     | pi : Name → BinderInfo → Thunk Value → Expr → Context → Value
     | lit : Literal → Value
+    | lop : LitOp → Value
     | lty : LitType → Value
     | proj : Nat → Neutral → List (Thunk Value) → Value
     | exception : TypecheckError → Value
@@ -87,6 +88,7 @@ def Value.ctorName : Value → String
   | .lam ..  => "lam"
   | .pi  ..  => "pi"
   | .lit  _  => "lit"
+  | .lop  _  => "lop"
   | .lty  _  => "lty"
   | .proj .. => "proj"
   | .exception _ => "exception"

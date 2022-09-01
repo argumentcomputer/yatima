@@ -117,8 +117,18 @@ mutual
     | .lit lit => return match lit with
       | .num num => s!"{num}"
       | .word str => s!"\"{str}\""
-    | .lty .num => return "Number"
-    | .lty .word => return "Word"
+    | .lty .num => return "#Number"
+    | .lty .word => return "#Word"
+    | .lop lop => return match lop with
+      | .suc => "#suc"
+      | .add => "#add"
+      | .sub => "#sub"
+      | .mul => "#mul"
+      | .div => "#div"
+      | .mod => "#mod"
+      | .beq => "#beq"
+      | .ble => "#ble"
+      | .str => "#str"
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 

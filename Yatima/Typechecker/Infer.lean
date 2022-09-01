@@ -86,6 +86,7 @@ mutual
     | .lit (.num _) => pure $ Value.lty .num
     | .lit (.word _) => pure $ Value.lty .word
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
+    | .lop .. => throw $ .custom "TODO"
     | .const name k constUnivs =>
       let univs := (← read).ctx.univs
       let const ← derefConst name k

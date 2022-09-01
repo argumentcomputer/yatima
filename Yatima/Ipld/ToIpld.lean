@@ -138,6 +138,21 @@ instance : Coe Literal Ipld where coe
   | .num n => n
   | .word s => .string s
 
+instance : Coe LitOp Ipld where coe
+  | .suc => .number 0
+  | .add => .number 1
+  | .sub => .number 2
+  | .mul => .number 3
+  | .div => .number 4
+  | .mod => .number 5
+  | .beq => .number 6
+  | .ble => .number 7
+  | .str => .number 8
+
+instance : Coe LitType Ipld where coe
+  | .num  => .number 0
+  | .word => .number 1
+
 instance : Coe DefinitionSafety Ipld where coe
   | .safe    => .number 0
   | .unsafe  => .number 1
@@ -200,7 +215,9 @@ def exprToIpld : (Ipld.Expr k) → Ipld
   | .pi n i d c   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
   | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
   | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
-  | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 8, n, e]
+  | .lop l        => .array #[.number $ Ipld.EXPR k, .number 8, l]
+  | .lty l        => .array #[.number $ Ipld.EXPR k, .number 9, l]
+  | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 10, n, e]
 
 def constToIpld : (Ipld.Const k) → Ipld
   | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0, n, l, t, s]
