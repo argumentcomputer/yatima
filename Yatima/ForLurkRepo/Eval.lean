@@ -100,7 +100,7 @@ partial def evalM (env : Env) : Expr → EvalM Value
     let v ← evalM env e
     IO.println v.pprint
     pure v
-  | .begin es => default
+  | .begin es => evalM env $ es.reverse.headD $ .lit .nil
   | .currEnv => return .env env.toList
 
 def evalPP (e : Expr) (env : Env := default) : IO Format :=
@@ -110,4 +110,4 @@ def evalPP (e : Expr) (env : Env := default) : IO Format :=
 
 #eval ⟦,1⟧
 
-end Lurk 
+end Lurk
