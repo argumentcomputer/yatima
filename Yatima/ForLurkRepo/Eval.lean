@@ -2,22 +2,23 @@ import Yatima.ForLurkRepo.DSL
 import Yatima.Compiler.Utils
 
 namespace Lurk
-open Std 
+
+open Std
 
 inductive Value where
   | lit  : Literal → Value
-  | lam  : List Name → Expr → Value
+  | lam  : List Name → List (Name × Expr) → Expr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
 
-abbrev Env := Std.RBMap Name Value compare
+abbrev Env := RBMap Name Value compare
 
-open Std.Format Std.ToFormat in
-partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
+open Format ToFormat in
+partial def Value.pprint (v : Value) (pretty := true) : Format :=
   match v with
     | .lit l => format l
-    | .lam ns e => paren $
+    | .lam ns _ e => paren $
       group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ e.pprint pretty
     | e@(.cons ..) => 
       let (es, tail) := telescopeCons [] e
@@ -40,7 +41,7 @@ partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
       | [n]   => format (pprint n pretty)
       | n::ns => format (pprint n pretty) ++ line ++ fmtList ns
     fmtEnv (xs : List (Name × Value)) := match xs with 
-      | [ ]        => Format.nil
+      | []         => Format.nil
       | [(n, v)]   => 
         format (fixName n pretty) ++ line ++ "." ++ line ++ format (pprint v pretty)
       | (n, v)::ns => 
@@ -71,15 +72,14 @@ def evalBinaryOp (op : BinaryOp) (v₁ v₂ : Value) : EvalM Value :=
     | _, _ => throw "error: not a number"
   | .nEq => return if v₁ == v₂ then .lit .t else .lit .nil
 
-def bind (body : Expr) (ns : List Name) (as : List Expr) :
-    EvalM (Expr × List Name) := do
+def bind (ns : List Name) (as : List Expr) :
+    EvalM ((List (Name × Expr)) × List Name) := do
   let rec aux (acc : List (Name × Expr)) :
       List Name → List Expr → EvalM ((List (Name × Expr)) × List Name)
     | n::ns, a::as => aux ((n, a) :: acc) ns as
     | [], _::_ => throw "too many arguments"
     | ns, [] => return (acc, ns)
-  let (binds, ns') ← aux [] ns as
-  return (.letE binds body, ns')
+  aux [] ns as
 
 partial def eval (env : Env) : Expr → EvalM Value
   | .lit lit => return .lit lit
@@ -91,7 +91,7 @@ partial def eval (env : Env) : Expr → EvalM Value
     | .lit .t => eval env con
     | .lit .nil => eval env alt
     | _ => throw "not a boolean"
-  | .lam formals body => return .lam formals body
+  | .lam formals body => return .lam formals [] body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => return acc.insert n (← eval acc e)
@@ -99,9 +99,14 @@ partial def eval (env : Env) : Expr → EvalM Value
   | .letRecE bindings body => default
   | .app fn args => do
     match ← eval env fn with
-    | .lam ns body =>
-      let (body', ns') ← bind body ns args
-      if ns'.isEmpty then eval env body' else return .lam ns' body'
+    | .lam ns patch body =>
+      let (patch', ns') ← bind ns args
+      let patch := patch' ++ patch
+      if ns'.isEmpty then
+        let env ← patch.reverse.foldlM (init := env)
+          fun acc (n, e) => return acc.insert n (← eval acc e)
+        eval env body
+      else return .lam ns' patch body
     | .env env => 
       if args.isEmpty then return .env env else throw "too many arguments"
     | _ => throw "app function is not a lambda"
