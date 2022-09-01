@@ -36,7 +36,7 @@ def mkIfElses (ifThens : List (Expr × Expr)) (finalElse : Expr) : Expr :=
 partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
   if e == target then 
     replacement 
-  else match e with 
+  else match e with
     | .lit _ => e
     | .sym _ => e
     | .ifE test con alt => 
@@ -60,10 +60,23 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
       let args := args.map fun arg => replace arg target replacement
       .app fn args
     | .quote _ => e
-    | .unaryOp _ _ => e
-    | .binaryOp _ _ _ => e 
-    | .emit e => .emit <| replace e target replacement 
-    | .begin es => .begin <| es.map fun e => replace e target replacement
+    | .binaryOp op e₁ e₂ =>
+      let e₁ := replace e₁ target replacement
+      let e₂ := replace e₂ target replacement
+      .binaryOp op e₁ e₂
+    | .cdr e => .cdr $ replace e target replacement
+    | .car e => .car $ replace e target replacement
+    | .atom e => .atom $ replace e target replacement
+    | .emit e => .emit $ replace e target replacement
+    | .cons e₁ e₂ =>
+      let e₁ := replace e₁ target replacement
+      let e₂ := replace e₂ target replacement
+      .cons e₁ e₂
+    | .strcons e₁ e₂ =>
+      let e₁ := replace e₁ target replacement
+      let e₂ := replace e₂ target replacement
+      .strcons e₁ e₂
+    | .begin es => .begin $ es.map fun e => replace e target replacement
     | .currEnv => e
 
 /-- Given pairs `(tgtᵢ, rplᵢ)`, replaces all occurences of `tgtᵢ` with `rplᵢ`.
@@ -97,10 +110,23 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
       let args := args.map fun arg => replaceN arg targets
       .app fn args
     | .quote _ => e
-    | .unaryOp _ _ => e
-    | .binaryOp _ _ _ => e 
-    | .emit e => .emit <| replaceN e targets 
-    | .begin es => .begin <| es.map fun e => replaceN e targets
+    | .binaryOp op e₁ e₂ =>
+      let e₁ := replaceN e₁ targets
+      let e₂ := replaceN e₂ targets
+      .binaryOp op e₁ e₂
+    | .cdr e => .cdr $ replaceN e targets
+    | .car e => .car $ replaceN e targets
+    | .atom e => .atom $ replaceN e targets
+    | .emit e => .emit $ replaceN e targets
+    | .cons e₁ e₂ =>
+      let e₁ := replaceN e₁ targets
+      let e₂ := replaceN e₂ targets
+      .cons e₁ e₂
+    | .strcons e₁ e₂ =>
+      let e₁ := replaceN e₁ targets
+      let e₂ := replaceN e₂ targets
+      .strcons e₁ e₂
+    | .begin es => .begin $ es.map fun e => replaceN e targets
     | .currEnv => e
 
 end Expr 

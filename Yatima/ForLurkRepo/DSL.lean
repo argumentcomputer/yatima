@@ -33,8 +33,6 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
-syntax "cons "    : lurk_bin_op 
-syntax "strcons " : lurk_bin_op
 syntax "+ "       : lurk_bin_op
 syntax "- "       : lurk_bin_op
 syntax "* "       : lurk_bin_op
@@ -43,26 +41,12 @@ syntax "= "       : lurk_bin_op
 syntax "eq "      : lurk_bin_op
 
 def elabLurkBinOp : Syntax → TermElabM Expr
-  | `(lurk_bin_op| cons) => return mkConst ``Lurk.BinaryOp.cons
   | `(lurk_bin_op| +)    => return mkConst ``Lurk.BinaryOp.sum
   | `(lurk_bin_op| -)    => return mkConst ``Lurk.BinaryOp.diff
   | `(lurk_bin_op| *)    => return mkConst ``Lurk.BinaryOp.prod
   | `(lurk_bin_op| /)    => return mkConst ``Lurk.BinaryOp.quot
   | `(lurk_bin_op| =)    => return mkConst ``Lurk.BinaryOp.eq
   | `(lurk_bin_op| eq)   => return mkConst ``Lurk.BinaryOp.nEq -- unfortunate clash again
-  | _ => throwUnsupportedSyntax
-
-declare_syntax_cat lurk_unary_op 
-syntax "car "  : lurk_unary_op
-syntax "cdr "  : lurk_unary_op
-syntax "atom " : lurk_unary_op
-syntax "emit " : lurk_unary_op
-
-def elabLurkUnaryOp : Syntax → TermElabM Expr
-  | `(lurk_unary_op| car) => return mkConst ``Lurk.UnaryOp.car
-  | `(lurk_unary_op| cdr) => return mkConst ``Lurk.UnaryOp.cdr
-  | `(lurk_unary_op| atom) => return mkConst ``Lurk.UnaryOp.atom
-  | `(lurk_unary_op| emit) => return mkConst ``Lurk.UnaryOp.emit
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat lurk_expr
@@ -80,9 +64,13 @@ syntax "(" "let" lurk_bindings lurk_expr ")"      : lurk_expr
 syntax "(" "letrec" lurk_bindings lurk_expr ")"   : lurk_expr
 syntax "(" "quote " sexpr ")"                     : lurk_expr
 syntax "," sexpr                                  : lurk_expr
-syntax "(" lurk_unary_op lurk_expr ")"            : lurk_expr
 syntax "(" lurk_bin_op lurk_expr lurk_expr ")"    : lurk_expr
+syntax "(" "car" lurk_expr ")"                    : lurk_expr
+syntax "(" "cdr" lurk_expr ")"                    : lurk_expr
+syntax "(" "atom" lurk_expr ")"                   : lurk_expr
 syntax "(" "emit" lurk_expr ")"                   : lurk_expr
+syntax "(" "cons" lurk_expr lurk_expr ")"         : lurk_expr
+syntax "(" "strcons" lurk_expr lurk_expr ")"      : lurk_expr
 syntax "(" "begin" lurk_expr*  ")"                : lurk_expr
 syntax "current-env"                              : lurk_expr
 syntax "(" lurk_expr* ")"                         : lurk_expr
@@ -140,13 +128,17 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     mkAppM ``Lurk.Expr.quote #[← elabSExpr datum]
   | `(lurk_expr| ,$datum) => do
     mkAppM ``Lurk.Expr.quote #[← elabSExpr datum]
-  | `(lurk_expr| ($op:lurk_unary_op $e)) => do
-    mkAppM ``Lurk.Expr.unaryOp #[← elabLurkUnaryOp op, ← elabLurkExpr e]
   | `(lurk_expr| ($op:lurk_bin_op $e1 $e2)) => do
     mkAppM ``Lurk.Expr.binaryOp
       #[← elabLurkBinOp op, ← elabLurkExpr e1, ← elabLurkExpr e2]
-  | `(lurk_expr| (emit $e)) => do
-    mkAppM ``Lurk.Expr.emit #[← elabLurkExpr e]
+  | `(lurk_expr| (car $e)) => do mkAppM ``Lurk.Expr.car #[← elabLurkExpr e]
+  | `(lurk_expr| (cdr $e)) => do mkAppM ``Lurk.Expr.cdr #[← elabLurkExpr e]
+  | `(lurk_expr| (atom $e)) => do mkAppM ``Lurk.Expr.atom #[← elabLurkExpr e]
+  | `(lurk_expr| (emit $e)) => do mkAppM ``Lurk.Expr.emit #[← elabLurkExpr e]
+  | `(lurk_expr| (cons $e₁ $e₂)) => do
+    mkAppM ``Lurk.Expr.cons #[← elabLurkExpr e₁, ← elabLurkExpr e₂]
+  | `(lurk_expr| (strcons $e₁ $e₂)) => do
+    mkAppM ``Lurk.Expr.strcons #[← elabLurkExpr e₁, ← elabLurkExpr e₂]
   | `(lurk_expr| (begin $es*)) => do
     let es := (← es.mapM elabLurkExpr).toList
     let type := Lean.mkConst ``Lurk.Expr

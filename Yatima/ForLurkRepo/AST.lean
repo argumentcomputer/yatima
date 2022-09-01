@@ -5,12 +5,8 @@ namespace Lurk
 
 def N := 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
 
-/-- Unary operations on Lurk expressions -/
-inductive UnaryOp | car | cdr | atom | emit
-deriving Repr, BEq
-
 /-- Binary operations on Lurk numerals -/
-inductive BinaryOp | cons | strcons | sum | diff | prod | quot | eq | nEq
+inductive BinaryOp | sum | diff | prod | quot | eq | nEq
 deriving Repr, BEq
 
 /-- Basic Lurk primitives -/
@@ -29,7 +25,7 @@ inductive Literal
 inductive Expr where
   -- `t`, `nil`, numeric, string and char literals
   | lit      : Literal → Expr
-  -- Symbols
+  -- Symbols to reference content in the environment
   | sym      : Name → Expr
   -- `if <test> <consequent> <alternate>`
   | ifE      : Expr → Expr → Expr → Expr
@@ -43,10 +39,18 @@ inductive Expr where
   | app      : Expr → List Expr → Expr 
   -- `quote <datum>`
   | quote    : SExpr → Expr
-  -- `<unaryop> <e>`
-  | unaryOp  : UnaryOp → Expr → Expr
   -- `<binop> <e1> <e2>`
-  | binaryOp : BinaryOp → Expr → Expr → Expr    
+  | binaryOp : BinaryOp → Expr → Expr → Expr
+  -- `<cons> <e1> <e2>`
+  | cons : Expr → Expr → Expr
+  -- `<strcons> <e1> <e2>`
+  | strcons  : Expr → Expr → Expr
+  -- `atom <e>`
+  | atom     : Expr → Expr
+  -- `car <e>`
+  | car      : Expr → Expr
+  -- `cdr <e>`
+  | cdr      : Expr → Expr
   -- `emit <e>`
   | emit     : Expr → Expr
   -- `begin <e1> <e2> ...`

@@ -4,15 +4,7 @@ import YatimaStdLib.String
 namespace Lurk.Expr
 open Std 
 
-instance : ToFormat UnaryOp where format
-  | .car  => "car"
-  | .cdr  => "cdr"
-  | .atom => "atom"
-  | .emit => "emit"
-
 instance : ToFormat BinaryOp where format
-  | .cons    => "cons"
-  | .strcons => "strcons"
   | .sum     => "+"
   | .diff    => "-"
   | .prod    => "*"
@@ -33,9 +25,9 @@ instance : ToFormat Literal where
 
 open Std.Format Std.ToFormat in
 partial def pprint (e : Expr) (pretty := true) : Std.Format :=
-  match e with 
+  match e with
     | .lit l => pprintLit l pretty
-    | .sym n      => fixName n pretty
+    | .sym n => fixName n pretty
     | .ifE test con alt => 
       paren <| group ("if" ++ line ++ pprint test pretty) ++ line ++ pprint con pretty ++ line ++ pprint alt pretty
     | .lam formals body => 
@@ -48,14 +40,17 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
       paren <| pprint fn pretty ++ if args.length != 0 then line ++ fmtList args else nil
     | .quote datum => 
       paren <| "quote" ++ line ++ datum.pprint pretty
-    | .unaryOp op expr => 
-      paren <| format op ++ line ++ pprint expr pretty
     | .binaryOp op expr₁ expr₂ => 
       paren <| format op ++ line ++ pprint expr₁ pretty ++ line ++ pprint expr₂ pretty
-    | .emit expr => 
-      paren <| "emit" ++ line ++ pprint expr pretty
-    | .begin exprs =>
-      paren <| "begin" ++ line ++ fmtList exprs
+    | .atom expr => paren <| "atom" ++ line ++ pprint expr pretty
+    | .cdr expr => paren <| "cdr" ++ line ++ pprint expr pretty
+    | .car expr => paren <| "car" ++ line ++ pprint expr pretty
+    | .emit expr => paren <| "emit" ++ line ++ pprint expr pretty
+    | .cons e₁ e₂ =>
+      paren <| group ("cons" ++ line ++ pprint e₁ pretty) ++ line ++ pprint e₂ pretty
+    | .strcons e₁ e₂ =>
+      paren <| group ("strcons" ++ line ++ pprint e₁ pretty) ++ line ++ pprint e₂ pretty
+    | .begin exprs => paren <| "begin" ++ line ++ fmtList exprs
     | .currEnv => "current-env"
   where 
     fmtNames (xs : List Name) := match xs with 

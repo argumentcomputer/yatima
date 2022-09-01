@@ -23,8 +23,8 @@ partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
     | .env e => sorry
   where 
     fmtNames (xs : List Name) := match xs with 
-      | [] => Format.nil
-      | [n]  => format $ fixName n pretty
+      | [ ]   => Format.nil
+      | [n]   => format (fixName n pretty)
       | n::ns => format (fixName n pretty) ++ line ++ fmtNames ns
 
 instance : ToFormat Value where 
@@ -32,17 +32,8 @@ instance : ToFormat Value where
 
 abbrev EvalM := ExceptT String IO
 
-def evalUnaryOp (op : UnaryOp) (v : Value) : EvalM Value :=
-  match op with
-  | .car => default  
-  | .cdr => default
-  | .atom => default
-  | .emit => default
-
 def evalBinaryOp (op : BinaryOp) (v₁ v₂ : Value) : EvalM Value :=
   match op with
-  | .cons => default
-  | .strcons => default
   | .sum => match v₁, v₂ with
     | .lit (.num x), .lit (.num y) => return .lit $ .num (x + y)
     | _, _ => throw "error: not a number"
@@ -93,9 +84,13 @@ partial def evalM (env : Env) : Expr → EvalM Value
       let (body', ns') ← bind body ns args
       if ns'.isEmpty then evalM env body' else return .lam ns body'
     | _ => throw "app function is not a lambda"
-  | .quote datum => default 
-  | .unaryOp op e => do evalUnaryOp op (← evalM env e)
+  | .quote _ => unreachable! -- not used for debugging/testing
   | .binaryOp op e₁ e₂ => do evalBinaryOp op (← evalM env e₁) (← evalM env e₂)
+  | .atom e => default
+  | .cons e₁ e₂ => default
+  | .strcons e₁ e₂ => default
+  | .car e => default
+  | .cdr e => default
   | .emit e => do
     let v ← evalM env e
     IO.println v.pprint
@@ -108,6 +103,6 @@ def evalPP (e : Expr) (env : Env := default) : IO Format :=
   | .ok res => res.pprint 
   | .error e => e
 
-#eval ⟦,1⟧
+-- #eval ⟦,1⟧
 
 end Lurk
