@@ -115,9 +115,11 @@ partial def evalM (env : Env) : Expr → EvalM Value
     | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
     | .lit (.char _), x => throw s!"expected string value, got\n {x.pprint}" 
     | x, _ => throw s!"expected char value, got\n {x.pprint}" 
+  -- TODO: add String support; `car "abc" ==> 'a'` 
   | .car e => do match (← evalM env e) with 
     | .cons e₁ _ => return e₁ 
     | _ => throw "not a cons"
+  -- TODO: add String support; `cdr "abc" ==> "bc"`
   | .cdr e => do match (← evalM env e) with 
     | .cons e₁ _ => return e₁ 
     | _ => throw "not a cons"
