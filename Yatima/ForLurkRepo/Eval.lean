@@ -81,57 +81,55 @@ def bind (body : Expr) (ns : List Name) (as : List Expr) :
   let (binds, ns') ← aux [] ns as
   return (.letE binds body, ns')
 
-def isAtom (e : Expr) : Bool := match e with 
-  | .cons .. => false 
-  | _ => true
-
-partial def evalM (env : Env) : Expr → EvalM Value
+partial def eval (env : Env) : Expr → EvalM Value
   | .lit lit => return .lit lit
   | .sym n => match env.find? n with
     | some v => return v
     | none => throw s!"{n} not found"
   | .ifE tst con alt => do
-    match ← evalM env tst with
-    | .lit .t => evalM env con
-    | .lit .nil => evalM env alt
+    match ← eval env tst with
+    | .lit .t => eval env con
+    | .lit .nil => eval env alt
     | _ => throw "not a boolean"
   | .lam formals body => return .lam formals body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
-      fun acc (n, e) => return acc.insert n (← evalM acc e)
-    evalM env' body
+      fun acc (n, e) => return acc.insert n (← eval acc e)
+    eval env' body
   | .letRecE bindings body => default
   | .app fn args => do
-    match ← evalM env fn with
+    match ← eval env fn with
     | .lam ns body =>
       let (body', ns') ← bind body ns args
-      if ns'.isEmpty then evalM env body' else return .lam ns body'
+      if ns'.isEmpty then eval env body' else return .lam ns body'
     | _ => throw "app function is not a lambda"
   | .quote _ => unreachable! -- not used for debugging/testing
-  | .binaryOp op e₁ e₂ => do evalBinaryOp op (← evalM env e₁) (← evalM env e₂)
-  | .atom e => if isAtom e then return .lit .t else return .lit .nil
-  | .cons e₁ e₂ => return .cons (← evalM env e₁) (← evalM env e₂)
-  | .strcons e₁ e₂ => do match (← evalM env e₁), (← evalM env e₂) with 
+  | .binaryOp op e₁ e₂ => do evalBinaryOp op (← eval env e₁) (← eval env e₂)
+  | .atom e => return match ← eval env e with
+    | .cons .. => .lit .t
+    | _ => .lit .nil
+  | .cons e₁ e₂ => return .cons (← eval env e₁) (← eval env e₂)
+  | .strcons e₁ e₂ => do match (← eval env e₁), (← eval env e₂) with
     | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
     | .lit (.char _), x => throw s!"expected string value, got\n {x.pprint}" 
     | x, _ => throw s!"expected char value, got\n {x.pprint}" 
   -- TODO: add String support; `car "abc" ==> 'a'` 
-  | .car e => do match (← evalM env e) with 
+  | .car e => do match ← eval env e with
     | .cons e₁ _ => return e₁ 
     | _ => throw "not a cons"
   -- TODO: add String support; `cdr "abc" ==> "bc"`
-  | .cdr e => do match (← evalM env e) with 
+  | .cdr e => do match ← eval env e with
     | .cons e₁ _ => return e₁ 
     | _ => throw "not a cons"
   | .emit e => do
-    let v ← evalM env e
+    let v ← eval env e
     IO.println v.pprint
     pure v
-  | .begin es => evalM env $ es.reverse.headD $ .lit .nil
+  | .begin es => eval env $ es.reverse.headD $ .lit .nil
   | .currEnv => return .env env.toList
 
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
-  return match ← evalM env e with
+  return match ← eval env e with
   | .ok res => res.pprint 
   | .error e => e
 
