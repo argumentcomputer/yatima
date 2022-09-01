@@ -5,10 +5,10 @@ namespace Lurk
 open Std 
 
 inductive Value where
-  | lit : Literal → Value
-  | lam : List Name → Expr → Value
-  | raw : SExpr → Value
-  | env : List (Name × Value) → Value
+  | lit  : Literal → Value
+  | lam  : List Name → Expr → Value
+  | cons : Value → Value → Value
+  | env  : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
 
 abbrev Env := Std.RBMap Name Value compare
@@ -19,13 +19,32 @@ partial def Value.pprint (v : Value) (pretty := true) : Std.Format :=
     | .lit l => format l
     | .lam ns e => paren $
       group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ e.pprint pretty
-    | .raw s => s.pprint pretty
-    | .env e => sorry
+    | e@(.cons ..) => 
+      let (es, tail) := telescopeCons [] e
+      let tail := if tail == .lit .nil then 
+        Format.nil 
+      else 
+        line ++ "." ++ line ++ pprint tail pretty
+      paren <| fmtList es ++ tail
+    | .env e => paren <| fmtEnv e
   where 
+    telescopeCons (acc : List Value) (e : Value) : List Value × Value := match e with 
+      | .cons e₁ e₂ => telescopeCons (e₁ :: acc) e₂
+      | _ => (acc.reverse, e)
     fmtNames (xs : List Name) := match xs with 
       | [ ]   => Format.nil
       | [n]   => format (fixName n pretty)
       | n::ns => format (fixName n pretty) ++ line ++ fmtNames ns
+    fmtList (xs : List Value) := match xs with 
+      | [ ]   => Format.nil
+      | [n]   => format (pprint n pretty)
+      | n::ns => format (pprint n pretty) ++ line ++ fmtList ns
+    fmtEnv (xs : List (Name × Value)) := match xs with 
+      | [ ]        => Format.nil
+      | [(n, v)]   => 
+        format (fixName n pretty) ++ line ++ "." ++ line ++ format (pprint v pretty)
+      | (n, v)::ns => 
+        format (fixName n pretty) ++ line ++ "." ++ line ++ format (pprint v pretty) ++ line ++ fmtEnv ns
 
 instance : ToFormat Value where 
   format := Value.pprint
@@ -62,6 +81,10 @@ def bind (body : Expr) (ns : List Name) (as : List Expr) :
   let (binds, ns') ← aux [] ns as
   return (.letE binds body, ns')
 
+def isAtom (e : Expr) : Bool := match e with 
+  | .cons .. => false 
+  | _ => true
+
 partial def evalM (env : Env) : Expr → EvalM Value
   | .lit lit => return .lit lit
   | .sym n => match env.find? n with
@@ -86,11 +109,18 @@ partial def evalM (env : Env) : Expr → EvalM Value
     | _ => throw "app function is not a lambda"
   | .quote _ => unreachable! -- not used for debugging/testing
   | .binaryOp op e₁ e₂ => do evalBinaryOp op (← evalM env e₁) (← evalM env e₂)
-  | .atom e => default
-  | .cons e₁ e₂ => default
-  | .strcons e₁ e₂ => default
-  | .car e => default
-  | .cdr e => default
+  | .atom e => if isAtom e then return .lit .t else return .lit .nil
+  | .cons e₁ e₂ => return .cons (← evalM env e₁) (← evalM env e₂)
+  | .strcons e₁ e₂ => do match (← evalM env e₁), (← evalM env e₂) with 
+    | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
+    | .lit (.char _), x => throw s!"expected string value, got\n {x.pprint}" 
+    | x, _ => throw s!"expected char value, got\n {x.pprint}" 
+  | .car e => do match (← evalM env e) with 
+    | .cons e₁ _ => return e₁ 
+    | _ => throw "not a cons"
+  | .cdr e => do match (← evalM env e) with 
+    | .cons e₁ _ => return e₁ 
+    | _ => throw "not a cons"
   | .emit e => do
     let v ← evalM env e
     IO.println v.pprint
@@ -98,11 +128,9 @@ partial def evalM (env : Env) : Expr → EvalM Value
   | .begin es => evalM env $ es.reverse.headD $ .lit .nil
   | .currEnv => return .env env.toList
 
-def evalPP (e : Expr) (env : Env := default) : IO Format :=
+def ppEval (e : Expr) (env : Env := default) : IO Format :=
   return match ← evalM env e with
   | .ok res => res.pprint 
   | .error e => e
-
--- #eval ⟦,1⟧
 
 end Lurk
