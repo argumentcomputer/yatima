@@ -101,11 +101,13 @@ partial def evalM (env : Env) : Expr → EvalM Value
       fun acc (n, e) => return acc.insert n (← evalM acc e)
     evalM env' body
   | .letRecE bindings body => default
-  | .app fn args => do
+  | .app fn args => do 
     match ← evalM env fn with
     | .lam ns body =>
       let (body', ns') ← bind body ns args
       if ns'.isEmpty then evalM env body' else return .lam ns body'
+    | .env env => 
+      if args.isEmpty then return .env env else throw "too many arguments"
     | _ => throw "app function is not a lambda"
   | .quote _ => unreachable! -- not used for debugging/testing
   | .binaryOp op e₁ e₂ => do evalBinaryOp op (← evalM env e₁) (← evalM env e₂)
