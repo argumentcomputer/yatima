@@ -55,10 +55,10 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
       let binds := binds.map fun (n, e) => (n, replace e target replacement)
       let body := replace body target replacement
       .letRecE binds body
-    | .app fn args => 
+    | .app fn arg => 
       let fn := replace fn target replacement
-      let args := args.map fun arg => replace arg target replacement
-      .app fn args
+      let arg := replace arg target replacement
+      .app fn arg
     | .quote _ => e
     | .binaryOp op e₁ e₂ =>
       let e₁ := replace e₁ target replacement
@@ -105,10 +105,10 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
       let binds := binds.map fun (n, e) => (n, replaceN e targets)
       let body := replaceN body targets
       .letRecE binds body
-    | .app fn args => 
+    | .app fn arg =>
       let fn := replaceN fn targets
-      let args := args.map fun arg => replaceN arg targets
-      .app fn args
+      let arg := replaceN arg targets
+      .app fn arg
     | .quote _ => e
     | .binaryOp op e₁ e₂ =>
       let e₁ := replaceN e₁ targets

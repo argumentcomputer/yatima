@@ -150,9 +150,8 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     | []   => 
       let s ← mkAppM ``Lurk.Expr.sym #[← mkNameLit "()"]
       mkAppM ``Lurk.Expr.lit #[s]
-    | e::es => 
-      let type := Lean.mkConst ``Lurk.Expr
-      mkAppM ``Lurk.Expr.app #[e, ← mkListLit type es]
+    | e::[] => pure e
+    | e::es => es.foldlM (init := e) fun acc e => mkAppM ``Lurk.Expr.app #[acc, e]
   | `(lurk_expr| $i) => do 
     if i.raw.isAntiquot then 
       let stx := i.raw.getAntiquotTerm
@@ -173,13 +172,11 @@ namespace Lurk.Expr
 def mkMutualBlock (mutuals : List (Name × Expr)) : List (Name × Expr) :=
   let names := mutuals.map Prod.fst
   let mutualName := names.head! ++ `mutual
-  let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ [⟦$i⟧])
+  let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
   let targets := fnProjs.map fun (n, e) => (⟦$n⟧, e)
   let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
     (⟦(= mutidx $i)⟧, e.replaceN targets)  
   ) ⟦nil⟧
   (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
-
-
 
 end Lurk.Expr 

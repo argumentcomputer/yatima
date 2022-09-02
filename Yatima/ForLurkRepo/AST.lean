@@ -35,8 +35,8 @@ inductive Expr where
   | letE     : List (Name × Expr) → Expr → Expr
   -- `letrec <bindings> <body>`
   | letRecE  : List (Name × Expr) → Expr → Expr
-  -- `<fun> <args>`
-  | app      : Expr → List Expr → Expr 
+  -- `<fun> <arg>`
+  | app      : Expr → Expr → Expr 
   -- `quote <datum>`
   | quote    : SExpr → Expr
   -- `<binop> <e1> <e2>`
