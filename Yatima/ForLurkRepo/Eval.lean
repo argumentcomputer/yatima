@@ -5,21 +5,29 @@ namespace Lurk
 
 open Std
 
-inductive Value where
-  | lit  : Literal → Value
-  | lam  : List Name → List (Name × Expr) → Expr → Value
-  | cons : Value → Value → Value
-  | env  : List (Name × Value) → Value
-  deriving Repr, BEq, Inhabited
+inductive EnvExpr where 
+  | mk : (List $ Name × EnvExpr) → Expr → EnvExpr
+  deriving Repr, BEq
 
-abbrev Env := RBMap Name Value compare
+def EnvExpr.env (lb : EnvExpr) : (List $ Name × EnvExpr) := match lb with
+  | .mk env _ => env
+
+def EnvExpr.expr (lb : EnvExpr) : Expr := match lb with
+  | .mk _ expr => expr
+
+inductive Value where
+  | lit   : Literal → Value
+  | lam   : List Name → List (Name × Expr) → EnvExpr → Value
+  | cons  : Value → Value → Value
+  | env   : List (Name × Value) → Value
+  deriving Repr, BEq, Inhabited
 
 open Format ToFormat in
 partial def Value.pprint (v : Value) (pretty := true) : Format :=
   match v with
     | .lit l => format l
-    | .lam ns _ e => paren $
-      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ e.pprint pretty
+    | .lam ns _ lb => paren $
+      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ lb.expr.pprint pretty
     | e@(.cons ..) => 
       let (es, tail) := telescopeCons [] e
       let tail := if tail == .lit .nil then 
@@ -52,6 +60,10 @@ instance : ToFormat Value where
 
 abbrev EvalM := ExceptT String IO
 
+abbrev Env := RBMap Name (EnvExpr × EvalM Value) compare
+
+def Env.getEnvExpr (env : Env) (e : Expr) : EnvExpr := ⟨env.toList.map fun (n, (lb, _)) => (n, lb), e⟩
+
 def evalBinaryOp (op : BinaryOp) (v₁ v₂ : Value) : EvalM Value :=
   match op with
   | .sum => match v₁, v₂ with
@@ -81,32 +93,59 @@ def bind (ns : List Name) (as : List Expr) :
     | ns, [] => return (acc, ns)
   aux [] ns as
 
+mutual
+-- Reproduce the environment needed to evaluate an `EnvExpr`.
+partial def envExprToEnv (envExpr : EnvExpr) : Env :=
+  envExpr.env.foldl (init := default) fun acc (n, envExpr') => acc.insert n $ (envExpr', eval (envExprToEnv envExpr') envExpr'.expr)
+
 partial def eval (env : Env) : Expr → EvalM Value
   | .lit lit => return .lit lit
   | .sym n => match env.find? n with
-    | some v => return v
+    | some (_, v) => v
     | none => throw s!"{n} not found"
   | .ifE tst con alt => do
     match ← eval env tst with
     | .lit .t => eval env con
     | .lit .nil => eval env alt
     | _ => throw "not a boolean"
-  | .lam formals body => return .lam formals [] body
+  | .lam formals body => return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
-      fun acc (n, e) => return acc.insert n (← eval acc e)
+      fun acc (n, e) => do
+        return acc.insert n $ (acc.getEnvExpr e, pure $ ← eval acc e)
     eval env' body
-  | .letRecE bindings body => default
+  | .letRecE bindings body => do
+    let env' ← bindings.foldlM (init := env)
+      fun acc (n, e) => do
+        let e' := (.letRecE [(n, e)] e)
+        -- "thunk" the result (that is, no "pure $ ←" in front)
+        let acc' : Env := acc.insert n $ (acc.getEnvExpr e', eval acc e')
+        return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
+    eval env' body
   | .app fn args => do
     match ← eval env fn with
-    | .lam ns patch body =>
+    | .lam ns patch lb =>
       let (patch', ns') ← bind ns args
       let patch := patch' ++ patch
       if ns'.isEmpty then
-        let env ← patch.reverse.foldlM (init := env)
-          fun acc (n, e) => return acc.insert n (← eval acc e)
-        eval env body
-      else return .lam ns' patch body
+        -- NOTE: `lb.env` is guaranteed not to have duplicates
+        -- since it is extracted directly from an RBMap
+        -- FIXME "some ee"
+        let (env, _) ← (patch.map (·, none) ++ (lb.env.map (fun (n, ee) => ((n, ee.expr), some ee))) : List ((Name × Expr) × Option EnvExpr)).reverse.foldlM (init := (default, env))
+          fun (acc, acc') ((n, e), env?) => do
+            let env := 
+              match env? with
+              -- arguments are free to use the current context
+              | none => acc'
+              -- symbols coming from the original context in which this lambda appeared must use that context
+              | some envExpr => envExprToEnv envExpr
+            let value ← eval env e
+            let envExpr := env.getEnvExpr e
+            return (acc.insert n (envExpr, pure value), acc'.insert n (envExpr, pure value))
+
+        -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
+        eval env lb.expr
+      else return .lam ns' patch lb
     | .env env => 
       if args.isEmpty then return .env env else throw "too many arguments"
     | _ => throw "app function is not a lambda"
@@ -137,11 +176,22 @@ partial def eval (env : Env) : Expr → EvalM Value
     IO.println v.pprint
     pure v
   | .begin es => eval env $ es.reverse.headD $ .lit .nil
-  | .currEnv => return .env env.toList
+  | .currEnv => do
+    let mut ret := default
+    for (n, (_, e)) in env do
+      ret := (n, ←e) :: ret
+    return .env ret
+end
 
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
   return match ← eval env e with
   | .ok res => res.pprint 
   | .error e => e
+
+#eval ppEval ⟦(letrec ((exp (lambda (base exponent)
+                 (if (= 0 exponent)
+                     1
+                     (* base (exp base (- exponent 1)))))))
+         (exp 2 4))⟧
 
 end Lurk
