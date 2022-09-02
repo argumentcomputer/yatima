@@ -61,6 +61,10 @@ inductive Expr where
 
 namespace Expr
 
+def mkAppOrNoaryLam (f : Expr) : List Expr → Expr
+  | a :: as => as.foldl (init := .app f a) fun acc a => .app acc a
+  | [] => .lam [] f
+
 class ToExpr (α : Type u) where 
   toExpr : α → Expr 
 

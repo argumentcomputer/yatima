@@ -162,8 +162,6 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
       throwUnsupportedSyntax 
 end
 
---#eval Name.mkSimple ""
-
 elab "⟦ " e:lurk_expr " ⟧" : term =>
   elabLurkExpr e
 

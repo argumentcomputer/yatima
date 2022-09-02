@@ -115,7 +115,13 @@ partial def eval (env : Env) : Expr → EvalM Value
     | TRUE  => eval env con
     | FALSE => eval env alt
     | v => throw s!"expected boolean value, got\n {v}"
-  | .lam formals body => return .lam formals [] $ env.getEnvExpr body
+  | .lam formals body => 
+    if formals.isEmpty then do
+      match ← eval env body with
+      | env@(.env _) => return env
+      | v => throw s!"expected env value, got\n {v}"
+    else
+      return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
@@ -152,10 +158,9 @@ partial def eval (env : Env) : Expr → EvalM Value
         -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
         -- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
         eval env lb.expr
-      else 
+      else
         -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         return .lam ns' patch lb
-    | .env env => panic! "TODO"
     | v => throw s!"expected lambda value, got\n {v}"
   | .quote _ => throw "`quote` is currently not supported"
   | .binaryOp op e₁ e₂ => do evalBinaryOp (← eval env e₁) (← eval env e₂) op
