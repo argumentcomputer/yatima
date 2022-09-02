@@ -19,7 +19,7 @@ notation "RefExpr" => Name × Expr
 
 inductive Value where
   | lit   : Literal → Value
-  | lam   : List Name → List RefExpr → EnvExpr → Value
+  | lam   : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
   | cons  : Value → Value → Value
   | env   : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
@@ -90,16 +90,21 @@ def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
     | _, _ => return FALSE
   | .nEq => return v₁ == v₂
 
-def bind (ns : List Name) (as : List Expr) :
-    EvalM ((List RefExpr) × List Name) :=
-  let rec aux (acc : List RefExpr) :
-      List Name → List Expr → EvalM ((List RefExpr) × List Name)
-    | n::ns, a::as => aux ((n, a) :: acc) ns as
+mutual
+
+partial def bind (ns : List Name) (as : List Expr) (env : Env) :
+    EvalM ((List (Name × (EnvExpr × Value))) × List Name) :=
+  let rec aux (acc : List (Name × (EnvExpr × Value))) (env : Env) :
+      List Name → List Expr → EvalM ((List (Name × (EnvExpr × Value))) × List Name)
+    --FIXME augment `env` for each argument
+    | n::ns, a::as => do
+      let value ← eval env a
+      let envExpr := env.getEnvExpr a
+      let newEnv := env.insert n (envExpr, pure value)
+      aux ((n, (envExpr, value)) :: acc) newEnv ns as
     | [], _::_ => throw "too many arguments"
     | ns, [] => return (acc, ns)
-  aux [] ns as
-
-mutual
+  aux [] env ns as
 
 -- Reproduce the environment needed to evaluate an `EnvExpr`.
 partial def envExprToEnv (envExpr : EnvExpr) : Env :=
@@ -131,31 +136,31 @@ partial def eval (env : Env) : Expr → EvalM Value
         return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
     eval env' body
   | .app fn args => do
+    dbg_trace s!"[.app] before {fn.pprint}: to {args.map (·.pprint)}"
     match ← eval env fn with
     | .lam ns patch lb =>
-      let (patch', ns') ← bind ns args
+      dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
+      let (patch', ns') ← bind ns args env
       let patch := patch' ++ patch
       if ns'.isEmpty then
         -- NOTE: `lb.env` is guaranteed not to have duplicates
         -- since it is extracted directly from an RBMap
-        -- FIXME "some ee"
-        let expBinds : List (RefExpr × Option EnvExpr) := lb.env.map
-          fun (n, ee) => ((n, ee.expr), some ee)
-        let expBinds := patch.map (·, none) ++ expBinds
-        let (env, _) ← expBinds.reverse.foldlM (init := (default, env))
-          fun (acc, acc') ((n, e), env?) => do
-            let env := match env? with
-              -- arguments are free to use the current context
-              | none => acc'
+        let ctxBinds : List (Name × (EnvExpr × Value)) ← lb.env.mapM
+          fun (n, ee) => do
               -- symbols coming from the original context in which this lambda appeared must use that context
-              | some envExpr => envExprToEnv envExpr
-            let value ← eval env e
-            let envExpr := env.getEnvExpr e
-            return (acc.insert n (envExpr, pure value), acc'.insert n (envExpr, pure value))
+              let env := envExprToEnv ee
+              return (n, (env.getEnvExpr ee.expr,  ←eval env ee.expr))
+
+        let env ← (ctxBinds ++ patch).reverse.foldlM (init := default)
+          fun acc (n, (envExpr, value)) => do
+            return (acc.insert n (envExpr, pure value))
 
         -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
+        dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
         eval env lb.expr
-      else return .lam ns' patch lb
+      else 
+        dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        return .lam ns' patch lb
     | .env env =>
       if args.isEmpty then return .env env else throw "too many arguments"
     | v => throw s!"expected lambda value, got\n {v}"
@@ -203,5 +208,12 @@ def ppEval (e : Expr) (env : Env := default) : IO Format :=
                      1
                      (* base (exp base (- exponent 1)))))))
          (exp 2 4))⟧
+
+#eval ppEval ⟦(
+      let ((f (lambda (x y z) (+ x y)))
+              (g (lambda (x) (f x))))
+            ((g 1) 2 3)
+    )⟧
+-- x not found
 
 end Lurk
