@@ -15,9 +15,11 @@ def EnvExpr.env : EnvExpr → (List $ Name × EnvExpr)
 def EnvExpr.expr : EnvExpr → Expr
   | .mk _ expr => expr
 
+notation "RefExpr" => Name × Expr
+
 inductive Value where
   | lit   : Literal → Value
-  | lam   : List Name → List (Name × Expr) → EnvExpr → Value
+  | lam   : List Name → List RefExpr → EnvExpr → Value
   | cons  : Value → Value → Value
   | env   : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
@@ -89,9 +91,9 @@ def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
   | .nEq => return v₁ == v₂
 
 def bind (ns : List Name) (as : List Expr) :
-    EvalM ((List (Name × Expr)) × List Name) :=
-  let rec aux (acc : List (Name × Expr)) :
-      List Name → List Expr → EvalM ((List (Name × Expr)) × List Name)
+    EvalM ((List RefExpr) × List Name) :=
+  let rec aux (acc : List RefExpr) :
+      List Name → List Expr → EvalM ((List RefExpr) × List Name)
     | n::ns, a::as => aux ((n, a) :: acc) ns as
     | [], _::_ => throw "too many arguments"
     | ns, [] => return (acc, ns)
@@ -137,10 +139,12 @@ partial def eval (env : Env) : Expr → EvalM Value
         -- NOTE: `lb.env` is guaranteed not to have duplicates
         -- since it is extracted directly from an RBMap
         -- FIXME "some ee"
-        let (env, _) ← (patch.map (·, none) ++ (lb.env.map (fun (n, ee) => ((n, ee.expr), some ee))) : List ((Name × Expr) × Option EnvExpr)).reverse.foldlM (init := (default, env))
+        let expBinds : List (RefExpr × Option EnvExpr) := lb.env.map
+          fun (n, ee) => ((n, ee.expr), some ee)
+        let expBinds := patch.map (·, none) ++ expBinds
+        let (env, _) ← expBinds.reverse.foldlM (init := (default, env))
           fun (acc, acc') ((n, e), env?) => do
-            let env :=
-              match env? with
+            let env := match env? with
               -- arguments are free to use the current context
               | none => acc'
               -- symbols coming from the original context in which this lambda appeared must use that context
@@ -181,12 +185,12 @@ partial def eval (env : Env) : Expr → EvalM Value
     let v ← eval env e
     IO.println v
     pure v
-  | .begin es => eval env $ es.reverse.headD $ .lit .nil
-  | .currEnv => do
-    let mut ret := default
-    for (n, (_, e)) in env do
-      ret := (n, ← e) :: ret
-    return .env ret
+  | .begin es => match es.reverse.head? with
+    | some e => eval env e
+    | none => return FALSE
+  | .currEnv =>
+    return .env $ ← env.foldM (init := default)
+      fun acc n (_, e) => return (n, ← e) :: acc
 end
 
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
