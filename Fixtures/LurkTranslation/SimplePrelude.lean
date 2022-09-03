@@ -1,16 +1,9 @@
-def two := Nat.succ $ Nat.succ $ Nat.zero
-
-def isZ (n : Nat) : Bool :=
-match n with
-  | 0 => true
-  | n + 1 => false
-
-def four := two + two
-
+def two : Fin 3 := ⟨2, of_decide_eq_true (Eq.refl true)⟩
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
 --   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
 
+#print Nat.ble_succ_eq_true.match_1
 /- 
 # Example: Three
 inductive Three where 

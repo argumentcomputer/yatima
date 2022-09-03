@@ -1,10 +1,15 @@
 import Lean 
 import Yatima.ForLurkRepo.AST
 
-namespace Lurk.Expr
+namespace Lurk
+
+def mkNumLit (n : Nat) : Literal := 
+  .num (Fin.ofNat n)
+
+namespace Expr
 
 def mkNum (n : Nat) : Expr := 
-  .lit $ .num n
+  .lit $ .num (Fin.ofNat n)
 
 def isNum (e : Expr) : Bool := 
   match e with | .lit $ .num _ => true | _ => false
@@ -31,8 +36,9 @@ def mkIfElses (ifThens : List (Expr × Expr)) (finalElse : Expr) : Expr :=
 partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
   if e == target then 
     replacement 
-  else match e with 
+  else match e with
     | .lit _ => e
+    | .sym _ => e
     | .ifE test con alt => 
       let test := replace test target replacement
       let con := replace con target replacement
@@ -49,20 +55,29 @@ partial def replace (e : Expr) (target : Expr) (replacement : Expr) : Expr :=
       let binds := binds.map fun (n, e) => (n, replace e target replacement)
       let body := replace body target replacement
       .letRecE binds body
-    | .app fn args => 
+    | .app fn arg => 
       let fn := replace fn target replacement
-      let args := args.map fun arg => replace arg target replacement
-      .app fn args
+      let arg := replace arg target replacement
+      .app fn arg
     | .quote _ => e
-    | .unaryOp _ _ => e
-    | .binOp _ _ _ => e 
-    | .emit e => .emit <| replace e target replacement 
-    | .begin es => .begin <| es.map fun e => replace e target replacement
+    | .binaryOp op e₁ e₂ =>
+      let e₁ := replace e₁ target replacement
+      let e₂ := replace e₂ target replacement
+      .binaryOp op e₁ e₂
+    | .cdr e => .cdr $ replace e target replacement
+    | .car e => .car $ replace e target replacement
+    | .atom e => .atom $ replace e target replacement
+    | .emit e => .emit $ replace e target replacement
+    | .cons e₁ e₂ =>
+      let e₁ := replace e₁ target replacement
+      let e₂ := replace e₂ target replacement
+      .cons e₁ e₂
+    | .strcons e₁ e₂ =>
+      let e₁ := replace e₁ target replacement
+      let e₂ := replace e₂ target replacement
+      .strcons e₁ e₂
+    | .begin es => .begin $ es.map fun e => replace e target replacement
     | .currEnv => e
-    | .eval e env? => 
-      let e := replace e target replacement
-      let env? := env?.map fun env => replace env target replacement
-      .eval e env?
 
 /-- Given pairs `(tgtᵢ, rplᵢ)`, replaces all occurences of `tgtᵢ` with `rplᵢ`.
   This is more efficient than `replace` since one does not have to traverse
@@ -73,6 +88,7 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
   | some (_, rpl) => rpl 
   | none => match e with 
     | .lit _ => e
+    | .sym _ => e
     | .ifE test con alt => 
       let test := replaceN test targets
       let con := replaceN con targets
@@ -89,22 +105,32 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
       let binds := binds.map fun (n, e) => (n, replaceN e targets)
       let body := replaceN body targets
       .letRecE binds body
-    | .app fn args => 
+    | .app fn arg =>
       let fn := replaceN fn targets
-      let args := args.map fun arg => replaceN arg targets
-      .app fn args
+      let arg := replaceN arg targets
+      .app fn arg
     | .quote _ => e
-    | .unaryOp _ _ => e
-    | .binOp _ _ _ => e 
-    | .emit e => .emit <| replaceN e targets 
-    | .begin es => .begin <| es.map fun e => replaceN e targets
+    | .binaryOp op e₁ e₂ =>
+      let e₁ := replaceN e₁ targets
+      let e₂ := replaceN e₂ targets
+      .binaryOp op e₁ e₂
+    | .cdr e => .cdr $ replaceN e targets
+    | .car e => .car $ replaceN e targets
+    | .atom e => .atom $ replaceN e targets
+    | .emit e => .emit $ replaceN e targets
+    | .cons e₁ e₂ =>
+      let e₁ := replaceN e₁ targets
+      let e₂ := replaceN e₂ targets
+      .cons e₁ e₂
+    | .strcons e₁ e₂ =>
+      let e₁ := replaceN e₁ targets
+      let e₂ := replaceN e₂ targets
+      .strcons e₁ e₂
+    | .begin es => .begin $ es.map fun e => replaceN e targets
     | .currEnv => e
-    | .eval e env? => 
-      let e := replaceN e targets
-      let env? := env?.map fun env => replaceN env targets
-      .eval e env?
 
-end Lurk.Expr
+end Expr 
+end Lurk
 
 namespace Lean.Expr
 
