@@ -261,7 +261,7 @@ def outer_evaluate_let_scope : Test :=
 -- (.error "",  (/ 21 nil))
 
 -- def outer_prove_evaluate_current_env_rest_is_nil_error : Test :=
--- (.error "", ⟦(current_env a)⟧)
+-- (.error "", ⟦(current-env a)⟧)
 
 -- def outer_prove_evaluate_let_end_is_nil_error : Test :=
 -- (.error "", ⟦(let ((a 1 2)) a)⟧)
@@ -454,24 +454,24 @@ def binop_restore_saved_env : Test :=
 
 -- should be `'((a . 1))`
 def env_let : Test :=
-(.ok FALSE, ⟦(let ((a 1)) (current_env))⟧)
+(.ok FALSE, ⟦(let ((a 1)) (current-env))⟧)
 
 -- sbould be `'((b . 2) (a . 1))`
 def env_let_nested : Test :=
-(.ok FALSE, ⟦(let ((a 1)) (let ((b 2)) (current_env)))⟧)
+(.ok FALSE, ⟦(let ((a 1)) (let ((b 2)) (current-env)))⟧)
 
 -- should be `'(((a . 1)))`
 def env_letrec : Test :=
-(.ok FALSE, ⟦(letrec ((a 1)) (current_env))⟧)
+(.ok FALSE, ⟦(letrec ((a 1)) (current-env))⟧)
 
 -- should be `'(((b . 2)  (a . 1)))`
 def env_letrec_nested : Test :=
-(.ok FALSE, ⟦(letrec ((a 1)) (letrec ((b 2)) (current_env)))⟧)
+(.ok FALSE, ⟦(letrec ((a 1)) (letrec ((b 2)) (current-env)))⟧)
 
 -- should be `'((e . 5) ((d . 4) (c . 3)) (b . 2) (a . 1))`
 def env_let_letrec_let : Test :=
 (.ok FALSE,
-  ⟦(let ((a 1) (b 2)) (letrec ((c 3) (d 4)) (let ((e 5)) (current_env))))⟧)
+  ⟦(let ((a 1) (b 2)) (letrec ((c 3) (d 4)) (let ((e 5)) (current-env))))⟧)
 
 def begin_emit : Test :=
 (.ok 3, ⟦(begin (emit 1) (emit 2) (emit 3))⟧)
@@ -485,7 +485,7 @@ def env_let_begin_emit : Test :=
                           (begin
                            (let ((b 2))
                              (emit b))
-                           (current_env)))⟧)
+                           (current-env)))⟧)
 
 -- def begin_emitted : Test := 
 -- !(:assert_emitted '(1 2 3) (begin (emit 1) (emit 2) (emit 3)))
@@ -644,4 +644,3 @@ def main := do
       fun _ => tSeq
   lspecIO tSeq
 
-#eval main
