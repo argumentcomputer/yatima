@@ -3,7 +3,7 @@ import Yatima.ForLurkRepo.AST
 
 open Lean Parsec
 
-namespace Lurk
+namespace Lurk.Parser
 
 def parseAtom : Parsec SExpr := do
   let name ← pSym
@@ -51,3 +51,17 @@ partial def parseSExpr : Parsec SExpr :=
 end
 
 def parseLisp : String → Except String SExpr := parseSExpr.run
+
+end Lurk.Parser
+
+namespace SExpr
+
+def toLurk : Lurk.SExpr → Lurk.Expr
+  | .num n => sorry
+  | .str s => sorry
+  | .char c => sorry
+  | .list es => sorry
+  | .cons car cdr => sorry
+  | .atom name => sorry
+
+end SExpr
