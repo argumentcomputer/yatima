@@ -5,12 +5,16 @@ namespace Lurk.Expr
 open Std 
 
 instance : ToFormat BinaryOp where format
-  | .sum     => "+"
-  | .diff    => "-"
-  | .prod    => "*"
-  | .quot    => "/"  
-  | .eq      => "="
-  | .nEq     => "eq" -- NOTE: This was an unfortunate choice, maybe swap definitions in the AST?
+  | .sum   => "+"
+  | .diff  => "-"
+  | .prod  => "*"
+  | .quot  => "/"  
+  | .numEq => "="
+  | .lt    => "<"
+  | .gt    => ">"
+  | .le    => "<="
+  | .ge    => ">="
+  | .eq    => "eq"
 
 partial def pprintLit (l : Literal) (pretty := true) : Format :=
   match l with 

@@ -15,13 +15,11 @@ def EnvExpr.env : EnvExpr → (List $ Name × EnvExpr)
 def EnvExpr.expr : EnvExpr → Expr
   | .mk _ expr => expr
 
-notation "RefExpr" => Name × Expr
-
 inductive Value where
-  | lit   : Literal → Value
-  | lam   : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
-  | cons  : Value → Value → Value
-  | env   : List (Name × Value) → Value
+  | lit  : Literal → Value
+  | lam  : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
+  | cons : Value → Value → Value
+  | env  : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
 
 notation "TRUE"  => Value.lit Literal.t
@@ -76,19 +74,17 @@ def num! : Value → EvalM (Fin N)
   | .lit (.num x) => pure x
   | v => throw s!"expected numerical value, got\n {v}"
 
-instance : Coe Bool Value where coe
-  | true  => TRUE
-  | false => FALSE
-
 def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
-  | .sum  => return .lit $ .num $ (← num! v₁) + (← num! v₂)
-  | .diff => return .lit $ .num $ (← num! v₁) - (← num! v₂)
-  | .prod => return .lit $ .num $ (← num! v₁) * (← num! v₂)
-  | .quot => return .lit $ .num $ (← num! v₁) * (← num! v₂)⁻¹
-  | .eq => match v₁, v₂ with
-    | .lit l₁, .lit l₂ => return l₁ == l₂
-    | _, _ => return FALSE
-  | .nEq => return v₁ == v₂
+  | .sum   => return .lit $ .num $ (← num! v₁) + (← num! v₂)
+  | .diff  => return .lit $ .num $ (← num! v₁) - (← num! v₂)
+  | .prod  => return .lit $ .num $ (← num! v₁) * (← num! v₂)
+  | .quot  => return .lit $ .num $ (← num! v₁) * (← num! v₂)⁻¹
+  | .numEq => return if (← num! v₁) == (← num! v₂) then TRUE else FALSE
+  | .lt    => return if (← num! v₁) <  (← num! v₂) then TRUE else FALSE
+  | .gt    => return if (← num! v₁) >  (← num! v₂) then TRUE else FALSE
+  | .le    => return if (← num! v₁) <= (← num! v₂) then TRUE else FALSE
+  | .ge    => return if (← num! v₁) >= (← num! v₂) then TRUE else FALSE
+  | .eq    => return if v₁ == v₂ then TRUE else FALSE
 
 mutual
 
@@ -115,13 +111,10 @@ partial def eval (env : Env) : Expr → EvalM Value
     | TRUE  => eval env con
     | FALSE => eval env alt
     | v => throw s!"expected boolean value, got\n {v}"
-  | .lam formals body => 
-    if formals.isEmpty then do
-      match ← eval env body with
-      | env@(.env _) => return env
-      | v => throw s!"expected env value, got\n {v}"
-    else
-      return .lam formals [] $ env.getEnvExpr body
+  | .lam formals body =>
+    if formals.isEmpty
+      then eval env body
+      else return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
@@ -149,7 +142,7 @@ partial def eval (env : Env) : Expr → EvalM Value
           fun (n, ee) => do
               -- symbols coming from the original context in which this lambda appeared must use that context
               let env := envExprToEnv ee
-              return (n, (env.getEnvExpr ee.expr,  ←eval env ee.expr))
+              return (n, (env.getEnvExpr ee.expr,  ← eval env ee.expr))
 
         let env ← (ctxBinds ++ patch).reverse.foldlM (init := default)
           fun acc (n, (envExpr, value)) => do
@@ -196,36 +189,14 @@ partial def eval (env : Env) : Expr → EvalM Value
       fun acc n (_, e) => return (n, ← e) :: acc
 end
 
+def eval' (e : Expr) (env : Env := default) : IO $ Except String Value :=
+  return match ← eval env e with
+  | .ok res => return res
+  | .error err => throw err
+
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
   return match ← eval env e with
   | .ok res => res.pprint
   | .error e => e
-
-#eval ppEval ⟦(letrec ((exp (lambda (base exponent)
-                 (if (= 0 exponent)
-                     1
-                     (* base (exp base (- exponent 1)))))))
-         (exp 2 4))⟧
--- 16
-
-#eval ppEval ⟦(
-      let ((f (lambda (x y z) (+ x y)))
-              (g (lambda (x) (f x))))
-            ((g 1) 2 3)
-    )⟧
--- 3
-
-#eval ppEval ⟦(
-      let ((f (lambda (x y z) (+ x y)))
-              (g (lambda (x) (f x))))
-            (g 1 2 3)
-    )⟧
--- 3
-
-#eval ppEval ⟦((lambda (f) (f 2)) ((lambda (x x) x) 1))⟧
--- 2
-
-#eval ppEval ⟦(((lambda (x x) (+ x x)) 1) 2)⟧
--- 4
 
 end Lurk

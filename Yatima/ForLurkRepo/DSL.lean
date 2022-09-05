@@ -33,20 +33,28 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
-syntax "+ "       : lurk_bin_op
-syntax "- "       : lurk_bin_op
-syntax "* "       : lurk_bin_op
-syntax "/ "       : lurk_bin_op
-syntax "= "       : lurk_bin_op
-syntax "eq "      : lurk_bin_op
+syntax " + "      : lurk_bin_op
+syntax " - "      : lurk_bin_op
+syntax " * "      : lurk_bin_op
+syntax " / "      : lurk_bin_op
+syntax " = "      : lurk_bin_op
+syntax " < "      : lurk_bin_op
+syntax " > "      : lurk_bin_op
+syntax " <= "     : lurk_bin_op
+syntax " >= "     : lurk_bin_op
+syntax " eq "     : lurk_bin_op
 
 def elabLurkBinOp : Syntax → TermElabM Expr
   | `(lurk_bin_op| +)    => return mkConst ``Lurk.BinaryOp.sum
   | `(lurk_bin_op| -)    => return mkConst ``Lurk.BinaryOp.diff
   | `(lurk_bin_op| *)    => return mkConst ``Lurk.BinaryOp.prod
   | `(lurk_bin_op| /)    => return mkConst ``Lurk.BinaryOp.quot
-  | `(lurk_bin_op| =)    => return mkConst ``Lurk.BinaryOp.eq
-  | `(lurk_bin_op| eq)   => return mkConst ``Lurk.BinaryOp.nEq -- unfortunate clash again
+  | `(lurk_bin_op| =)    => return mkConst ``Lurk.BinaryOp.numEq
+  | `(lurk_bin_op| <)    => return mkConst ``Lurk.BinaryOp.lt
+  | `(lurk_bin_op| >)    => return mkConst ``Lurk.BinaryOp.gt
+  | `(lurk_bin_op| <=)   => return mkConst ``Lurk.BinaryOp.le
+  | `(lurk_bin_op| >=)   => return mkConst ``Lurk.BinaryOp.ge
+  | `(lurk_bin_op| eq)   => return mkConst ``Lurk.BinaryOp.eq
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat lurk_expr
