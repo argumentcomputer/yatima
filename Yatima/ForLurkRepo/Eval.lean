@@ -192,6 +192,11 @@ partial def eval (env : Env) : Expr → EvalM Value
       fun acc n (_, e) => return (n, ← e) :: acc
 end
 
+def eval' (e : Expr) (env : Env := default) : IO $ Except String Value :=
+  return match ← eval env e with
+  | .ok res => return res
+  | .error err => throw err
+
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
   return match ← eval env e with
   | .ok res => res.pprint

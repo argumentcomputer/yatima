@@ -1,4 +1,6 @@
+import LSpec
 import Yatima.ForLurkRepo.Eval
+
 open Lurk 
 
 instance {n : Nat} : OfNat Value n where 
@@ -509,3 +511,18 @@ def outer_evaluate_multiple_letrecstar_bindings : Test :=
 
 -- --; A char is any 32_bit unicode character, but we currently only have reader support for whatever can be entered directly.
 -- (.ok #\Ŵ (car "ŴTF?"))
+
+def pairs : List Test :=
+  []
+
+open LSpec in
+def main := do
+  let tSeq : TestSeq ← pairs.foldlM (init := .done) fun tSeq pair => do
+    let res ← eval' (Prod.snd pair) default
+    return match Prod.fst pair with
+    | Except.ok v => withExceptOk "Evaluation succeeds" res
+      fun v' => tSeq ++ test "" (v == v')
+    | .error err => withExceptError "Evaluation Fails" res fun err' =>
+      tSeq ++ test "" (err == err')
+  lspecIO tSeq
+    
