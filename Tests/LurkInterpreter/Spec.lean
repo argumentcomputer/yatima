@@ -242,9 +242,6 @@ def outer_evaluate_let_scope : Test :=
 -- def outer_evaluate_let_no_body : Test :=
 -- (.error "", ⟦(let ((a 9)))⟧)
 
--- def outer_prove_quote_end_is_nil_error : Test :=
--- (.error "",  (quote (1) (2)))
-
 -- def outer_prove_if_end_is_nil_error : Test :=
 -- (.error "", ⟦(if nil 5 6 7)⟧)
 
@@ -324,9 +321,6 @@ def outer_evaluate_cons_in_function_2 : Test :=
                      (cdr (cons a b))))
                  2)
                 3)⟧)
-
-def multiarg_eval_bug : Test :=
-(.ok 2, ⟦(car (cdr ,(1 2 3 4)))⟧)
 
 def outer_evaluate_zero_arg_lambda_1 : Test :=
 (.ok 123, ⟦((lambda () 123))⟧)
@@ -487,6 +481,22 @@ def env_let_begin_emit : Test :=
                              (emit b))
                            (current-env)))⟧)
 
+def multiple_apps : Test :=
+(.ok 3, ⟦(let ((f (lambda (x y z) (+ x y)))
+              (g (lambda (x) (f x))))
+            ((g 1) 2 3))⟧)
+
+def multiple_apps2 : Test :=
+(.ok 3, ⟦(let ((f (lambda (x y z) (+ x y)))
+              (g (lambda (x) (f x))))
+            (g 1 2 3))⟧)
+
+def shadow : Test := 
+(.ok 2, ⟦((lambda (f) (f 2)) ((lambda (x x) x) 1))⟧)
+
+def shadow2 : Test := 
+(.ok 4, ⟦(((lambda (x x) (+ x x)) 1) 2)⟧)
+
 -- def begin_emitted : Test := 
 -- !(:assert_emitted '(1 2 3) (begin (emit 1) (emit 2) (emit 3)))
 
@@ -591,11 +601,12 @@ def pairs : List Test := [
   outer_evaluate_cons_2,
   outer_evaluate_cons_in_function_1,
   outer_evaluate_cons_in_function_2,
-  multiarg_eval_bug,
   outer_evaluate_zero_arg_lambda_1,
   outer_evaluate_zero_arg_lambda_2,
   minimal_tail_call,
+
   -- multiple_letrec_bindings,
+
   tail_call2,
   outer_evaluate_multiple_letrecstar_bindings,
   outer_evaluate_multiple_letrecstar_bindings_referencing,
@@ -605,7 +616,9 @@ def pairs : List Test := [
   let_restore_saved_env2,
   letrec_restore_saved_env,
   lookup_restore_saved_env,
+
   -- tail_call_restore_saved_env,
+
   binop_restore_saved_env,
   env_let,
   env_let_nested,
@@ -615,6 +628,10 @@ def pairs : List Test := [
   begin_emit,
   begin_is_nil,
   env_let_begin_emit,
+  multiple_apps,
+  multiple_apps2,
+  shadow,
+  shadow2,
   car_str,
   cdr_str,
   strcons_char_str,
@@ -640,7 +657,7 @@ def main := do
     return match Prod.fst pair with
     | Except.ok v => withExceptOk s!"Evaluation of {e.pprint} succeeds" res
       fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v'}" (v == v')
-    | .error (_ : String) => withExceptError "Evaluation Fails" res
+    | .error (_ : String) => withExceptError s!"Evaluation of {e.pprint} Fails" res
       fun _ => tSeq
   lspecIO tSeq
 

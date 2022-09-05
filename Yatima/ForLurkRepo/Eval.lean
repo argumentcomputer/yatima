@@ -111,13 +111,10 @@ partial def eval (env : Env) : Expr → EvalM Value
     | TRUE  => eval env con
     | FALSE => eval env alt
     | v => throw s!"expected boolean value, got\n {v}"
-  | .lam formals body => 
-    if formals.isEmpty then do
-      match ← eval env body with
-      | env@(.env _) => return env
-      | v => throw s!"expected env value, got\n {v}"
-    else
-      return .lam formals [] $ env.getEnvExpr body
+  | .lam formals body =>
+    if formals.isEmpty
+      then eval env body
+      else return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
@@ -201,32 +198,5 @@ def ppEval (e : Expr) (env : Env := default) : IO Format :=
   return match ← eval env e with
   | .ok res => res.pprint
   | .error e => e
-
-#eval ppEval ⟦(letrec ((exp (lambda (base exponent)
-                 (if (= 0 exponent)
-                     1
-                     (* base (exp base (- exponent 1)))))))
-         (exp 2 4))⟧
--- 16
-
-#eval ppEval ⟦(
-      let ((f (lambda (x y z) (+ x y)))
-              (g (lambda (x) (f x))))
-            ((g 1) 2 3)
-    )⟧
--- 3
-
-#eval ppEval ⟦(
-      let ((f (lambda (x y z) (+ x y)))
-              (g (lambda (x) (f x))))
-            (g 1 2 3)
-    )⟧
--- 3
-
-#eval ppEval ⟦((lambda (f) (f 2)) ((lambda (x x) x) 1))⟧
--- 2
-
-#eval ppEval ⟦(((lambda (x x) (+ x x)) 1) 2)⟧
--- 4
 
 end Lurk
