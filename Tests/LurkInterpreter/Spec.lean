@@ -550,9 +550,8 @@ def strcons_char_char : Test :=
 def strcons_not_char_str : Test := 
 (.error "", ⟦(strcons 1 ,foo)⟧)
 
---; A char is any 32_bit unicode character, but we currently only have reader support for whatever can be entered directly.
-
--- (.ok #\Ŵ (car "ŴTF?"))
+-- A char is any 32_bit unicode character, but we currently only have reader
+-- support for whatever can be entered directly.
 def car_unicode_char : Test := 
 (.ok 'Ŵ', ⟦(car "ŴTF?")⟧)
 
@@ -567,7 +566,70 @@ def pairs : List Test := [
   outer_evaluate_product,
   outer_evaluate_quotient,
   outer_evaluate_num_equal_1,
-  outer_evaluate_num_equal_2
+  outer_evaluate_num_equal_2,
+  outer_evaluate_adder,
+  outer_evaluate_let_simple,
+  outer_evaluate_let_bug,
+  outer_evaluate_let,
+  outer_evaluate_arithmetic,
+  outer_evaluate_arithmetic_simplest,
+  outer_evaluate_arithmetic_let,
+  outer_evaluate_arithmetic_comparison,
+  outer_evaluate_if,
+  outer_evaluate_fully_evaluates,
+  outer_evaluate_recursion,
+  outer_evaluate_recursion_multiarg,
+  outer_evaluate_recursion_optimized,
+  outer_evaluate_tail_recursion,
+  outer_evaluate_tail_recursion_somewhat_optimized,
+  outer_evaluate_no_mutual_recursion,
+  outer_evaluate_no_mutual_recursion_err,
+  outer_evaluate_let_scope,
+  outer_prove_error_zero_arg_lambda4,
+  outer_prove_error_zero_arg_lambda5,
+  outer_evaluate_cons_1,
+  outer_evaluate_cons_2,
+  outer_evaluate_cons_in_function_1,
+  outer_evaluate_cons_in_function_2,
+  multiarg_eval_bug,
+  outer_evaluate_zero_arg_lambda_1,
+  outer_evaluate_zero_arg_lambda_2,
+  minimal_tail_call,
+  -- multiple_letrec_bindings,
+  tail_call2,
+  outer_evaluate_multiple_letrecstar_bindings,
+  outer_evaluate_multiple_letrecstar_bindings_referencing,
+  outer_evaluate_multiple_letrecstar_bindings_recursive,
+  dont_discard_rest_env,
+  let_restore_saved_env,
+  let_restore_saved_env2,
+  letrec_restore_saved_env,
+  lookup_restore_saved_env,
+  -- tail_call_restore_saved_env,
+  binop_restore_saved_env,
+  env_let,
+  env_let_nested,
+  env_letrec,
+  env_letrec_nested,
+  env_let_letrec_let,
+  begin_emit,
+  begin_is_nil,
+  env_let_begin_emit,
+  car_str,
+  cdr_str,
+  strcons_char_str,
+  strcons_char_empty,
+  cons_char_str,
+  cons_char_empty,
+  cdr_str_is_empty,
+  cdr_empty,
+  car_empty,
+  cons_str_str,
+  cons_char_char,
+  strcons_str_str,
+  strcons_char_char,
+  strcons_not_char_str,
+  car_unicode_char
 ]
 
 open LSpec in
@@ -581,3 +643,5 @@ def main := do
     | .error (_ : String) => withExceptError "Evaluation Fails" res
       fun _ => tSeq
   lspecIO tSeq
+
+#eval main
