@@ -4,8 +4,7 @@ namespace Lurk
 
 abbrev Name := Lean.Name 
 
-open Std (RBTree)
-
+open Std (RBTree) in
 /--
 List of valid characters for Lurk identifiers. The order is shuffled to
 avoid an unbalanced `RBTree`.

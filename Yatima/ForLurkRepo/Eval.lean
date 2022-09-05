@@ -15,13 +15,11 @@ def EnvExpr.env : EnvExpr → (List $ Name × EnvExpr)
 def EnvExpr.expr : EnvExpr → Expr
   | .mk _ expr => expr
 
-notation "RefExpr" => Name × Expr
-
 inductive Value where
-  | lit   : Literal → Value
-  | lam   : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
-  | cons  : Value → Value → Value
-  | env   : List (Name × Value) → Value
+  | lit  : Literal → Value
+  | lam  : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
+  | cons : Value → Value → Value
+  | env  : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
 
 notation "TRUE"  => Value.lit Literal.t
@@ -76,19 +74,17 @@ def num! : Value → EvalM (Fin N)
   | .lit (.num x) => pure x
   | v => throw s!"expected numerical value, got\n {v}"
 
-instance : Coe Bool Value where coe
-  | true  => TRUE
-  | false => FALSE
-
 def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
-  | .sum  => return .lit $ .num $ (← num! v₁) + (← num! v₂)
-  | .diff => return .lit $ .num $ (← num! v₁) - (← num! v₂)
-  | .prod => return .lit $ .num $ (← num! v₁) * (← num! v₂)
-  | .quot => return .lit $ .num $ (← num! v₁) * (← num! v₂)⁻¹
-  | .eq => match v₁, v₂ with
-    | .lit l₁, .lit l₂ => return l₁ == l₂
-    | _, _ => return FALSE
-  | .nEq => return v₁ == v₂
+  | .sum   => return .lit $ .num $ (← num! v₁) + (← num! v₂)
+  | .diff  => return .lit $ .num $ (← num! v₁) - (← num! v₂)
+  | .prod  => return .lit $ .num $ (← num! v₁) * (← num! v₂)
+  | .quot  => return .lit $ .num $ (← num! v₁) * (← num! v₂)⁻¹
+  | .numEq => return if (← num! v₁) == (← num! v₂) then TRUE else FALSE
+  | .lt    => return if (← num! v₁) <  (← num! v₂) then TRUE else FALSE
+  | .gt    => return if (← num! v₁) >  (← num! v₂) then TRUE else FALSE
+  | .le    => return if (← num! v₁) <= (← num! v₂) then TRUE else FALSE
+  | .ge    => return if (← num! v₁) >= (← num! v₂) then TRUE else FALSE
+  | .eq    => return if v₁ == v₂ then TRUE else FALSE
 
 mutual
 
@@ -149,7 +145,7 @@ partial def eval (env : Env) : Expr → EvalM Value
           fun (n, ee) => do
               -- symbols coming from the original context in which this lambda appeared must use that context
               let env := envExprToEnv ee
-              return (n, (env.getEnvExpr ee.expr,  ←eval env ee.expr))
+              return (n, (env.getEnvExpr ee.expr,  ← eval env ee.expr))
 
         let env ← (ctxBinds ++ patch).reverse.foldlM (init := default)
           fun acc (n, (envExpr, value)) => do

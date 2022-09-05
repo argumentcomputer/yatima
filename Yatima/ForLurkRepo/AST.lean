@@ -1,12 +1,13 @@
 import Yatima.ForLurkRepo.SExpr
 import Yatima.ForLurkRepo.PreUtils
+import Std.Data.RBTree
 
 namespace Lurk
 
 def N := 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
 
 /-- Binary operations on Lurk numerals -/
-inductive BinaryOp | sum | diff | prod | quot | eq | nEq
+inductive BinaryOp | sum | diff | prod | quot | numEq | lt | gt | le | ge | eq
 deriving Repr, BEq
 
 /-- Basic Lurk primitives -/
@@ -14,11 +15,11 @@ inductive Literal
   -- `t` `nil`
   | t | nil
   -- Numerical values
-  | num     : Fin N → Literal
+  | num  : Fin N → Literal
   -- Strings
-  | str     : String → Literal
+  | str  : String → Literal
   -- Characters
-  | char    : Char → Literal
+  | char : Char → Literal
   deriving Repr, BEq, Inhabited
 
 /-- Basic Lurk expression AST -/
