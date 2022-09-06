@@ -3,7 +3,6 @@ import Yatima.ForLurkRepo.Eval
 
 open Lurk 
 
--- TODO FIXME: the should be `...` comments
 -- TODO FIXME: bettter error handling, `.error ""` needs to be replaced
 
 instance : OfNat Value n where 
