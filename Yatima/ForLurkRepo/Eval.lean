@@ -128,6 +128,7 @@ partial def eval (env : Env) : Expr → EvalM Value
         let acc' : Env := acc.insert n $ (acc.getEnvExpr e', eval acc e')
         return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
     eval env' body
+  | .app₀ fn => eval env fn
   | .app fn arg => do
     -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← eval env fn with

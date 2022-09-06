@@ -40,6 +40,7 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
       paren <| "let" ++ line ++ paren (fmtBinds bindings) ++ line ++ pprint body pretty
     | .letRecE bindings body =>
       paren <| "letrec" ++ line ++ paren (fmtBinds bindings) ++ line ++ pprint body pretty
+    | .app₀ fn => paren <| pprint fn pretty
     | .app fn arg => paren <| pprint fn pretty ++ line ++ pprint arg pretty
     | .quote datum => 
       paren <| "quote" ++ line ++ datum.pprint pretty

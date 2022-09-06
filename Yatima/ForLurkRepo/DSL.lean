@@ -158,7 +158,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     | []   => 
       let s ← mkAppM ``Lurk.Expr.sym #[← mkNameLit "()"]
       mkAppM ``Lurk.Expr.lit #[s]
-    | e::[] => pure e
+    | e::[] => mkAppM ``Lurk.Expr.app₀ #[e]
     | e::es => es.foldlM (init := e) fun acc e => mkAppM ``Lurk.Expr.app #[acc, e]
   | `(lurk_expr| $i) => do 
     if i.raw.isAntiquot then 
