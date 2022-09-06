@@ -1,6 +1,8 @@
 import Yatima.ForLurkRepo.ParserUtil
 import Yatima.ForLurkRepo.AST
 
+section Parser 
+
 open Lean Parsec
 
 namespace Lurk.Parser
@@ -54,14 +56,30 @@ def parseLisp : String → Except String SExpr := parseSExpr.run
 
 end Lurk.Parser
 
+end Parser
+
+section Translation
+
 namespace SExpr
 
-def toLurk : Lurk.SExpr → Lurk.Expr
-  | .num n => sorry
-  | .str s => sorry
-  | .char c => sorry
+open Lurk
+
+inductive translationError 
+  | numOutOfBound
+
+def toLurk : SExpr → Except translationError Expr
+  | .num n => 
+    let nat := n.toNat % N -- Work mod `Lurk.N`
+    have h : nat < N := by {apply Nat.mod_lt; simp}
+    .ok $ .lit $ .num ⟨nat, h⟩
+  | .str s => .ok $ .lit $ .str s
+  | .char c => .ok $ .lit $ .char c
   | .list es => sorry
   | .cons car cdr => sorry
   | .atom name => sorry
 
+#check Int.ofNat
+
 end SExpr
+
+end Translation
