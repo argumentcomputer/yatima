@@ -4,6 +4,7 @@ import Yatima.Cli.Cronos
 import Yatima.Compiler.Compiler
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
+import Yatima.ForLurkRepo.Eval
 import Lean.Util.Path
 
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler Cli.Parsed in
@@ -45,16 +46,18 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
         | .ok _       => cronos ← cronos.clock "Typechecking"
         | .error msg  => IO.eprintln msg; return 1
       cronos ← cronos.clock "Transpilation"
-      match ← transpile stt with
+      match ← transpile ⟨stt, []⟩ with
       | .error msg => IO.eprintln msg
-      | .ok out =>
+      | .ok exp =>
         cronos ← cronos.clock "Transpilation"
         IO.println s!"\n{cronos.summary}"
         let path ← IO.currentDir
         let output := p.flag? "output" |>.map (Flag.as! · String) |>.getD "output"
         IO.FS.createDirAll $ path/"lurk_output"
         let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
-        IO.FS.writeFile fname s!"{out}"
+        IO.FS.writeFile fname s!"{(exp.pprint false).pretty 50}"
+        if p.hasFlag "run" then
+          IO.println $ ← Lurk.ppEval exp default
       return 0
     else
       IO.eprintln "No store argument was found."
@@ -76,7 +79,8 @@ def pipeCmd : Cli.Cmd := `[Cli|
     l, "log";             "Logs transpilation progress"
     s, "summary";         "Prints a transpilation summary at the end of the process"
     ty, "typecheck";      "Typechecks the Yatima IR code"
-    o, "output" : String; "Write resulting lurk to given output file"
+    o, "output" : String; "Specifies the target file name for the Lurk code"
+    r, "run";             "Runs the evaluation of the resulting Lurk expression"
     "no-erase-types";     "Do not erase types from the Yatima source"
 
   ARGS:

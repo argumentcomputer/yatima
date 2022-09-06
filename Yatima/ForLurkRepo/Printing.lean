@@ -4,38 +4,34 @@ import YatimaStdLib.String
 namespace Lurk.Expr
 open Std 
 
-instance : ToFormat UnaryOp where format
-  | .car  => "car"
-  | .cdr  => "cdr"
-  | .atom => "atom"
-  | .emit => "emit"
-
-instance : ToFormat BinOp where format
-  | .cons    => "cons"
-  | .strcons => "strcons"
-  | .sum     => "+"
-  | .diff    => "-"
-  | .prod    => "*"
-  | .quot    => "/"  
-  | .eq      => "="
-  | .nEq     => "eq" -- NOTE: This was an unfortunate choice, maybe swap definitions in the AST?
+instance : ToFormat BinaryOp where format
+  | .sum   => "+"
+  | .diff  => "-"
+  | .prod  => "*"
+  | .quot  => "/"  
+  | .numEq => "="
+  | .lt    => "<"
+  | .gt    => ">"
+  | .le    => "<="
+  | .ge    => ">="
+  | .eq    => "eq"
 
 partial def pprintLit (l : Literal) (pretty := true) : Format :=
   match l with 
-  | .nil    => "nil"
-  | .t      => "t"
-  | .num n  => toString n
-  | .sym n  => fixName n pretty
-  | .str s  => s!"\"{s}\""
-  | .char c => s!"#\\{c}"
+  | .nil        => "nil"
+  | .t          => "t"
+  | .num ⟨n, _⟩ => if n < USize.size then toString n else List.asString (Nat.toDigits 16 n)
+  | .str s      => s!"\"{s}\""
+  | .char c     => s!"#\\{c}"
 
 instance : ToFormat Literal where 
   format := pprintLit
 
 open Std.Format Std.ToFormat in
 partial def pprint (e : Expr) (pretty := true) : Std.Format :=
-  match e with 
+  match e with
     | .lit l => pprintLit l pretty
+    | .sym n => fixName n pretty
     | .ifE test con alt => 
       paren <| group ("if" ++ line ++ pprint test pretty) ++ line ++ pprint con pretty ++ line ++ pprint alt pretty
     | .lam formals body => 
@@ -44,22 +40,22 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
       paren <| "let" ++ line ++ paren (fmtBinds bindings) ++ line ++ pprint body pretty
     | .letRecE bindings body =>
       paren <| "letrec" ++ line ++ paren (fmtBinds bindings) ++ line ++ pprint body pretty
-    | .app fn args => 
-      paren <| pprint fn pretty ++ if args.length != 0 then line ++ fmtList args else nil
+    | .app₀ fn => paren <| pprint fn pretty
+    | .app fn arg => paren <| pprint fn pretty ++ line ++ pprint arg pretty
     | .quote datum => 
       paren <| "quote" ++ line ++ datum.pprint pretty
-    | .unaryOp op expr => 
-      paren <| format op ++ line ++ pprint expr pretty
-    | .binOp op expr₁ expr₂ => 
+    | .binaryOp op expr₁ expr₂ => 
       paren <| format op ++ line ++ pprint expr₁ pretty ++ line ++ pprint expr₂ pretty
-    | .emit expr => 
-      paren <| "emit" ++ line ++ pprint expr pretty
-    | .begin exprs =>
-      paren <| "begin" ++ line ++ fmtList exprs
+    | .atom expr => paren <| "atom" ++ line ++ pprint expr pretty
+    | .cdr expr => paren <| "cdr" ++ line ++ pprint expr pretty
+    | .car expr => paren <| "car" ++ line ++ pprint expr pretty
+    | .emit expr => paren <| "emit" ++ line ++ pprint expr pretty
+    | .cons e₁ e₂ =>
+      paren <| group ("cons" ++ line ++ pprint e₁ pretty) ++ line ++ pprint e₂ pretty
+    | .strcons e₁ e₂ =>
+      paren <| group ("strcons" ++ line ++ pprint e₁ pretty) ++ line ++ pprint e₂ pretty
+    | .begin exprs => paren <| "begin" ++ line ++ fmtList exprs
     | .currEnv => "current-env"
-    | .eval expr₁ expr₂? => match expr₂? with
-      | some expr₂ => paren <| "eval" ++ line ++ pprint expr₁ pretty ++ line ++ pprint expr₂ pretty
-      | none => paren <| "eval" ++ line ++ pprint expr₁ pretty ++ line
   where 
     fmtNames (xs : List Name) := match xs with 
       | [] => nil
