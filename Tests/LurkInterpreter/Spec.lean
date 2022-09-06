@@ -3,10 +3,9 @@ import Yatima.ForLurkRepo.Eval
 
 open Lurk 
 
--- TODO FIXME: the should be `...` comments
 -- TODO FIXME: bettter error handling, `.error ""` needs to be replaced
 
-instance {n : Nat} : OfNat Value n where 
+instance : OfNat Value n where 
   ofNat := .lit $ .num $ Fin.ofNat n
 
 instance : Coe Char Value where 
@@ -14,6 +13,9 @@ instance : Coe Char Value where
 
 instance : Coe String Value where 
   coe s := .lit (.str s)
+
+instance : Coe (List (Name × Nat)) Value where
+  coe l := .env $ l.map fun (name, n) => (name, .lit $ .num $ Fin.ofNat n)
 
 def Value.mkList (vs : List Value) : Value := 
   vs.foldr (fun acc v => .cons acc v) FALSE
@@ -345,6 +347,15 @@ def multiple_letrec_bindings : Test :=
                             (f (+ x 1))))))
                   (f 0))⟧)
 
+def multiple_let_bindings : Test :=
+(.ok 1, ⟦(let
+                  ((x 888)
+                   (f (lambda (x)
+                        (if (= x 5)
+                            123
+                            (+ x 1)))))
+                  (f 0))⟧)
+
 def tail_call2 : Test :=
 (.ok 123, ⟦(letrec
                   ((f (lambda (x)
@@ -446,25 +457,20 @@ def binop_restore_saved_env : Test :=
                   -- This should be an error. X should not be bound here.
                   (+ (outer 1) x))⟧)
 
--- should be `'((a . 1))`
 def env_let : Test :=
-(.ok FALSE, ⟦(let ((a 1)) (current-env))⟧)
+(.ok [(`a, 1)], ⟦(let ((a 1)) (current-env))⟧)
 
--- sbould be `'((b . 2) (a . 1))`
 def env_let_nested : Test :=
-(.ok FALSE, ⟦(let ((a 1)) (let ((b 2)) (current-env)))⟧)
+(.ok [(`b, 2), (`a, 1)], ⟦(let ((a 1)) (let ((b 2)) (current-env)))⟧)
 
--- should be `'(((a . 1)))`
 def env_letrec : Test :=
-(.ok FALSE, ⟦(letrec ((a 1)) (current-env))⟧)
+(.ok [(`a, 1)], ⟦(letrec ((a 1)) (current-env))⟧)
 
--- should be `'(((b . 2)  (a . 1)))`
 def env_letrec_nested : Test :=
-(.ok FALSE, ⟦(letrec ((a 1)) (letrec ((b 2)) (current-env)))⟧)
+(.ok [(`b, 2), (`a, 1)], ⟦(letrec ((a 1)) (letrec ((b 2)) (current-env)))⟧)
 
--- should be `'((e . 5) ((d . 4) (c . 3)) (b . 2) (a . 1))`
 def env_let_letrec_let : Test :=
-(.ok FALSE,
+(.ok [(`e, 5), (`d, 4), (`c, 3), (`b, 2), (`a, 1)],
   ⟦(let ((a 1) (b 2)) (letrec ((c 3) (d 4)) (let ((e 5)) (current-env))))⟧)
 
 def begin_emit : Test :=
@@ -473,9 +479,8 @@ def begin_emit : Test :=
 def begin_is_nil : Test := 
 (.ok FALSE, ⟦(begin)⟧)
 
--- should be `'((a . 1))`
 def env_let_begin_emit : Test := 
-(.ok FALSE, ⟦(let ((a 1))
+(.ok [(`a, 1)], ⟦(let ((a 1))
                           (begin
                            (let ((b 2))
                              (emit b))
@@ -604,9 +609,8 @@ def pairs : List Test := [
   outer_evaluate_zero_arg_lambda_1,
   outer_evaluate_zero_arg_lambda_2,
   minimal_tail_call,
-
-  -- multiple_letrec_bindings,
-
+  multiple_letrec_bindings,
+  multiple_let_bindings,
   tail_call2,
   outer_evaluate_multiple_letrecstar_bindings,
   outer_evaluate_multiple_letrecstar_bindings_referencing,
@@ -616,9 +620,7 @@ def pairs : List Test := [
   let_restore_saved_env2,
   letrec_restore_saved_env,
   lookup_restore_saved_env,
-
-  -- tail_call_restore_saved_env,
-
+  tail_call_restore_saved_env,
   binop_restore_saved_env,
   env_let,
   env_let_nested,
@@ -656,8 +658,7 @@ def main := do
     let res ← eval' e default
     return match Prod.fst pair with
     | Except.ok v => withExceptOk s!"Evaluation of {e.pprint} succeeds" res
-      fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v'}" (v == v')
+      fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v}" (v == v')
     | .error (_ : String) => withExceptError s!"Evaluation of {e.pprint} Fails" res
       fun _ => tSeq
   lspecIO tSeq
-

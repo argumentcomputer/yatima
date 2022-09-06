@@ -8,7 +8,7 @@ def N := 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001
 
 /-- Binary operations on Lurk numerals -/
 inductive BinaryOp | sum | diff | prod | quot | numEq | lt | gt | le | ge | eq
-deriving Repr, BEq, Inhabited
+deriving Repr, BEq
 
 /-- Basic Lurk primitives -/
 inductive Literal
@@ -36,15 +36,17 @@ inductive Expr where
   | letE     : List (Name × Expr) → Expr → Expr
   -- `letrec <bindings> <body>`
   | letRecE  : List (Name × Expr) → Expr → Expr
+  -- `<fun>`
+  | app₀     : Expr → Expr
   -- `<fun> <arg>`
-  | app      : Expr → Expr → Expr 
+  | app      : Expr → Expr → Expr
   -- `quote <datum>`
   | quote    : SExpr → Expr
   -- `<binop> <e1> <e2>`
   | binaryOp : BinaryOp → Expr → Expr → Expr
-  -- `cons <e1> <e2>`
+  -- `<cons> <e1> <e2>`
   | cons : Expr → Expr → Expr
-  -- `strcons <e1> <e2>`
+  -- `<strcons> <e1> <e2>`
   | strcons  : Expr → Expr → Expr
   -- `atom <e>`
   | atom     : Expr → Expr

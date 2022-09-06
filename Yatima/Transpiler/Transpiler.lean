@@ -157,10 +157,12 @@ mutual
   -- TODO: Implement
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
-  /-- Construct a Lurk function representing a Yatima recursor. 
-    Yatima recursors provide computational content through recursion rules.
-    These rules are emulated in Lurk by `if-else` statements checking the 
-    constructor index of the arguments given.  -/
+  /--
+  Construct a Lurk function representing a Yatima recursor. 
+  Yatima recursors provide computational content through recursion rules.
+  These rules are emulated in Lurk by `if-else` statements checking the 
+  constructor index of the arguments given.
+  -/
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
     let (_, ⟨binds⟩) := descendPi recr.type #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
@@ -279,9 +281,7 @@ mutual
 
 end
 
-/-- 
-Initialize builtin lurk constants defined in `LurkFunctions.lean`
--/
+/-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
 def builtinInitialize : TranspileM Unit := do 
   let decls := [
     Lurk.getelem, 
@@ -295,22 +295,16 @@ def builtinInitialize : TranspileM Unit := do
   withBuiltin (decls.map fun x => x.fst) $ 
     decls.forM fun (n, e) => appendBinding (n, e)
 
-/--
-Main translation function.
--/
+/-- Main translation function -/
 def transpileM : TranspileM Unit := do
   let store := (← read).compileState
   builtinInitialize
   store.consts.forM constToLurkExpr
 
-open Yatima.Compiler in 
-/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/
-def transpile (ctx : Context) : IO $ Except String String := do  do 
-  match ← TranspileM.run ctx default transpileM with
-  | .ok    s => 
-    let env := Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧ -- the parens matter, represents evaluation
-    return .ok $ (env.pprint false).pretty 50
-  | .error e => 
-    return .error e
+/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
+def transpile (ctx : Context) : IO $ Except String Lurk.Expr := do
+  return match ← TranspileM.run ctx default transpileM with
+  | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧
+  | .error e => .error e
 
 end Yatima.Transpiler

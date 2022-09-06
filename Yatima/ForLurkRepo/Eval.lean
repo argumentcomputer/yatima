@@ -18,6 +18,7 @@ def EnvExpr.expr : EnvExpr → Expr
 inductive Value where
   | lit  : Literal → Value
   | lam  : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
+  | sexpr : SExpr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
@@ -38,6 +39,7 @@ partial def Value.pprint (v : Value) (pretty := true) : Format :=
       else
         line ++ "." ++ line ++ pprint tail pretty
       paren <| fmtList es ++ tail
+    | .sexpr s => s.pprint
     | .env e => paren <| fmtEnv e
   where
     telescopeCons (acc : List Value) (e : Value) : List Value × Value := match e with
@@ -112,9 +114,7 @@ partial def eval (env : Env) : Expr → EvalM Value
     | FALSE => eval env alt
     | v => throw s!"expected boolean value, got\n {v}"
   | .lam formals body =>
-    if formals.isEmpty
-      then eval env body
-      else return .lam formals [] $ env.getEnvExpr body
+    return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
@@ -128,11 +128,22 @@ partial def eval (env : Env) : Expr → EvalM Value
         let acc' : Env := acc.insert n $ (acc.getEnvExpr e', eval acc e')
         return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
     eval env' body
+  | .app₀ fn => do
+    match fn with 
+    | .currEnv => 
+      return .env $ ← env.foldM (init := default)
+        fun acc n (_, e) => return (n, ← e) :: acc
+    | _ => 
+      --dbg_trace s!"[.app₀] evaluating {← eval env fn}"
+      match ← eval env fn with 
+      | .lam [] [] body => eval env body.expr
+      | _ => throw "application not a procedure"
+    
   | .app fn arg => do
-    -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
+    --dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← eval env fn with
     | .lam ns patch lb =>
-      -- dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
+      --dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
       let (patch', ns') ← bind arg env ns
       let patch := patch' :: patch
       if ns'.isEmpty then
@@ -144,18 +155,21 @@ partial def eval (env : Env) : Expr → EvalM Value
               let env := envExprToEnv ee
               return (n, (env.getEnvExpr ee.expr,  ← eval env ee.expr))
 
-        let env ← (ctxBinds ++ patch).reverse.foldlM (init := default)
+        --dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        --dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
+        let env ← (ctxBinds.reverse ++ patch.reverse).foldlM (init := default)
           fun acc (n, (envExpr, value)) => do
+            --dbg_trace s!"[.app] inserting: {n}, {value}"
             return (acc.insert n (envExpr, pure value))
 
         -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
-        -- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
+        --dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
         eval env lb.expr
       else
         -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         return .lam ns' patch lb
     | v => throw s!"expected lambda value, got\n {v}"
-  | .quote _ => throw "`quote` is currently not supported"
+  | .quote s => return .sexpr s
   | .binaryOp op e₁ e₂ => do evalBinaryOp (← eval env e₁) (← eval env e₂) op
   | .atom e => return match ← eval env e with
     | .cons .. => TRUE
@@ -184,9 +198,7 @@ partial def eval (env : Env) : Expr → EvalM Value
   | .begin es => match es.reverse.head? with
     | some e => eval env e
     | none => return FALSE
-  | .currEnv =>
-    return .env $ ← env.foldM (init := default)
-      fun acc n (_, e) => return (n, ← e) :: acc
+  | .currEnv => throw "floating `current-env`, try `(current-env)` instead"
 end
 
 def eval' (e : Expr) (env : Env := default) : IO $ Except String Value :=
