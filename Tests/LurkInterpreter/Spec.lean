@@ -6,7 +6,7 @@ open Lurk
 -- TODO FIXME: the should be `...` comments
 -- TODO FIXME: bettter error handling, `.error ""` needs to be replaced
 
-instance {n : Nat} : OfNat Value n where 
+instance : OfNat Value n where 
   ofNat := .lit $ .num $ Fin.ofNat n
 
 instance : Coe Char Value where 
@@ -14,6 +14,9 @@ instance : Coe Char Value where
 
 instance : Coe String Value where 
   coe s := .lit (.str s)
+
+instance : Coe (List (Name × Nat)) Value where
+  coe l := .env $ l.map fun (name, n) => (name, .lit $ .num $ Fin.ofNat n)
 
 def Value.mkList (vs : List Value) : Value := 
   vs.foldr (fun acc v => .cons acc v) FALSE
@@ -448,23 +451,23 @@ def binop_restore_saved_env : Test :=
 
 -- should be `'((a . 1))`
 def env_let : Test :=
-(.ok FALSE, ⟦(let ((a 1)) (current-env))⟧)
+(.ok [(`a, 1)], ⟦(let ((a 1)) (current-env))⟧)
 
 -- sbould be `'((b . 2) (a . 1))`
 def env_let_nested : Test :=
-(.ok FALSE, ⟦(let ((a 1)) (let ((b 2)) (current-env)))⟧)
+(.ok [(`b, 2), (`a, 1)], ⟦(let ((a 1)) (let ((b 2)) (current-env)))⟧)
 
 -- should be `'(((a . 1)))`
 def env_letrec : Test :=
-(.ok FALSE, ⟦(letrec ((a 1)) (current-env))⟧)
+(.ok [(`a, 1)], ⟦(letrec ((a 1)) (current-env))⟧)
 
 -- should be `'(((b . 2)  (a . 1)))`
 def env_letrec_nested : Test :=
-(.ok FALSE, ⟦(letrec ((a 1)) (letrec ((b 2)) (current-env)))⟧)
+(.ok [(`b, 2), (`a, 1)], ⟦(letrec ((a 1)) (letrec ((b 2)) (current-env)))⟧)
 
 -- should be `'((e . 5) ((d . 4) (c . 3)) (b . 2) (a . 1))`
 def env_let_letrec_let : Test :=
-(.ok FALSE,
+(.ok [(`e, 5), (`d, 4), (`c, 3), (`b, 2), (`a, 1)],
   ⟦(let ((a 1) (b 2)) (letrec ((c 3) (d 4)) (let ((e 5)) (current-env))))⟧)
 
 def begin_emit : Test :=
@@ -475,7 +478,7 @@ def begin_is_nil : Test :=
 
 -- should be `'((a . 1))`
 def env_let_begin_emit : Test := 
-(.ok FALSE, ⟦(let ((a 1))
+(.ok [(`a, 1)], ⟦(let ((a 1))
                           (begin
                            (let ((b 2))
                              (emit b))
