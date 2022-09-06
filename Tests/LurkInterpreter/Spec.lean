@@ -347,6 +347,15 @@ def multiple_letrec_bindings : Test :=
                             (f (+ x 1))))))
                   (f 0))⟧)
 
+def multiple_let_bindings : Test :=
+(.ok 1, ⟦(let
+                  ((x 888)
+                   (f (lambda (x)
+                        (if (= x 5)
+                            123
+                            (+ x 1)))))
+                  (f 0))⟧)
+
 def tail_call2 : Test :=
 (.ok 123, ⟦(letrec
                   ((f (lambda (x)
@@ -600,9 +609,8 @@ def pairs : List Test := [
   outer_evaluate_zero_arg_lambda_1,
   outer_evaluate_zero_arg_lambda_2,
   minimal_tail_call,
-
-  -- multiple_letrec_bindings,
-
+  multiple_letrec_bindings,
+  multiple_let_bindings,
   tail_call2,
   outer_evaluate_multiple_letrecstar_bindings,
   outer_evaluate_multiple_letrecstar_bindings_referencing,
@@ -612,9 +620,7 @@ def pairs : List Test := [
   let_restore_saved_env2,
   letrec_restore_saved_env,
   lookup_restore_saved_env,
-
-  -- tail_call_restore_saved_env,
-
+  tail_call_restore_saved_env,
   binop_restore_saved_env,
   env_let,
   env_let_nested,
@@ -652,7 +658,7 @@ def main := do
     let res ← eval' e default
     return match Prod.fst pair with
     | Except.ok v => withExceptOk s!"Evaluation of {e.pprint} succeeds" res
-      fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v'}" (v == v')
+      fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v}" (v == v')
     | .error (_ : String) => withExceptError s!"Evaluation of {e.pprint} Fails" res
       fun _ => tSeq
   lspecIO tSeq

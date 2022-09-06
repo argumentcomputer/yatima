@@ -132,16 +132,16 @@ partial def eval (env : Env) : Expr → EvalM Value
       return .env $ ← env.foldM (init := default)
         fun acc n (_, e) => return (n, ← e) :: acc
     | _ => 
-      dbg_trace s!"[.app₀] evaluating {← eval env fn}"
+      --dbg_trace s!"[.app₀] evaluating {← eval env fn}"
       match ← eval env fn with 
       | .lam [] [] body => eval env body.expr
       | _ => throw "application not a procedure"
     
   | .app fn arg => do
-    -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
+    --dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← eval env fn with
     | .lam ns patch lb =>
-      -- dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
+      --dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
       let (patch', ns') ← bind arg env ns
       let patch := patch' :: patch
       if ns'.isEmpty then
@@ -153,12 +153,15 @@ partial def eval (env : Env) : Expr → EvalM Value
               let env := envExprToEnv ee
               return (n, (env.getEnvExpr ee.expr,  ← eval env ee.expr))
 
-        let env ← (ctxBinds ++ patch).reverse.foldlM (init := default)
+        --dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        --dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
+        let env ← (ctxBinds.reverse ++ patch.reverse).foldlM (init := default)
           fun acc (n, (envExpr, value)) => do
+            --dbg_trace s!"[.app] inserting: {n}, {value}"
             return (acc.insert n (envExpr, pure value))
 
         -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
-        -- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
+        --dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
         eval env lb.expr
       else
         -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
