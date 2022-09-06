@@ -18,6 +18,7 @@ def EnvExpr.expr : EnvExpr → Expr
 inductive Value where
   | lit  : Literal → Value
   | lam  : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
+  | sexpr : SExpr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
   deriving Repr, BEq, Inhabited
@@ -38,6 +39,7 @@ partial def Value.pprint (v : Value) (pretty := true) : Format :=
       else
         line ++ "." ++ line ++ pprint tail pretty
       paren <| fmtList es ++ tail
+    | .sexpr s => s.pprint
     | .env e => paren <| fmtEnv e
   where
     telescopeCons (acc : List Value) (e : Value) : List Value × Value := match e with
@@ -167,7 +169,7 @@ partial def eval (env : Env) : Expr → EvalM Value
         -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         return .lam ns' patch lb
     | v => throw s!"expected lambda value, got\n {v}"
-  | .quote _ => throw "`quote` is currently not supported"
+  | .quote s => return .sexpr s
   | .binaryOp op e₁ e₂ => do evalBinaryOp (← eval env e₁) (← eval env e₂) op
   | .atom e => return match ← eval env e with
     | .cons .. => TRUE
