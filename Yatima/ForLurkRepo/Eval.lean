@@ -112,9 +112,7 @@ partial def eval (env : Env) : Expr → EvalM Value
     | FALSE => eval env alt
     | v => throw s!"expected boolean value, got\n {v}"
   | .lam formals body =>
-    if formals.isEmpty
-      then eval env body
-      else return .lam formals [] $ env.getEnvExpr body
+    return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
@@ -128,7 +126,17 @@ partial def eval (env : Env) : Expr → EvalM Value
         let acc' : Env := acc.insert n $ (acc.getEnvExpr e', eval acc e')
         return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
     eval env' body
-  | .app₀ fn => eval env fn
+  | .app₀ fn => do
+    match fn with 
+    | .currEnv => 
+      return .env $ ← env.foldM (init := default)
+        fun acc n (_, e) => return (n, ← e) :: acc
+    | _ => 
+      dbg_trace s!"[.app₀] evaluating {← eval env fn}"
+      match ← eval env fn with 
+      | .lam [] [] body => eval env body.expr
+      | _ => throw "application not a procedure"
+    
   | .app fn arg => do
     -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← eval env fn with
@@ -185,9 +193,7 @@ partial def eval (env : Env) : Expr → EvalM Value
   | .begin es => match es.reverse.head? with
     | some e => eval env e
     | none => return FALSE
-  | .currEnv =>
-    return .env $ ← env.foldM (init := default)
-      fun acc n (_, e) => return (n, ← e) :: acc
+  | .currEnv => throw "floating `current-env`, try `(current-env)` instead"
 end
 
 def eval' (e : Expr) (env : Env := default) : IO $ Except String Value :=
