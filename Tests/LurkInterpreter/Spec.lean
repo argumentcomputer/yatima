@@ -449,23 +449,18 @@ def binop_restore_saved_env : Test :=
                   -- This should be an error. X should not be bound here.
                   (+ (outer 1) x))⟧)
 
--- should be `'((a . 1))`
 def env_let : Test :=
 (.ok [(`a, 1)], ⟦(let ((a 1)) (current-env))⟧)
 
--- sbould be `'((b . 2) (a . 1))`
 def env_let_nested : Test :=
 (.ok [(`b, 2), (`a, 1)], ⟦(let ((a 1)) (let ((b 2)) (current-env)))⟧)
 
--- should be `'(((a . 1)))`
 def env_letrec : Test :=
 (.ok [(`a, 1)], ⟦(letrec ((a 1)) (current-env))⟧)
 
--- should be `'(((b . 2)  (a . 1)))`
 def env_letrec_nested : Test :=
 (.ok [(`b, 2), (`a, 1)], ⟦(letrec ((a 1)) (letrec ((b 2)) (current-env)))⟧)
 
--- should be `'((e . 5) ((d . 4) (c . 3)) (b . 2) (a . 1))`
 def env_let_letrec_let : Test :=
 (.ok [(`e, 5), (`d, 4), (`c, 3), (`b, 2), (`a, 1)],
   ⟦(let ((a 1) (b 2)) (letrec ((c 3) (d 4)) (let ((e 5)) (current-env))))⟧)
@@ -476,7 +471,6 @@ def begin_emit : Test :=
 def begin_is_nil : Test := 
 (.ok FALSE, ⟦(begin)⟧)
 
--- should be `'((a . 1))`
 def env_let_begin_emit : Test := 
 (.ok [(`a, 1)], ⟦(let ((a 1))
                           (begin
@@ -663,4 +657,3 @@ def main := do
     | .error (_ : String) => withExceptError s!"Evaluation of {e.pprint} Fails" res
       fun _ => tSeq
   lspecIO tSeq
-
