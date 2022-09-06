@@ -42,9 +42,9 @@ inductive Expr where
   | quote    : SExpr → Expr
   -- `<binop> <e1> <e2>`
   | binaryOp : BinaryOp → Expr → Expr → Expr
-  -- `<cons> <e1> <e2>`
+  -- `cons <e1> <e2>`
   | cons : Expr → Expr → Expr
-  -- `<strcons> <e1> <e2>`
+  -- `strcons <e1> <e2>`
   | strcons  : Expr → Expr → Expr
   -- `atom <e>`
   | atom     : Expr → Expr

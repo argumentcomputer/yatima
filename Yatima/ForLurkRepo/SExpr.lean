@@ -10,7 +10,7 @@ inductive SExpr where
   | char : Char → SExpr
   | list : List SExpr → SExpr
   | cons : SExpr → SExpr → SExpr
-  deriving Repr, BEq
+  deriving Repr, BEq, Inhabited
 
 namespace SExpr
 open Std 
