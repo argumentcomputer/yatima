@@ -194,6 +194,11 @@ mutual
       intRecrToLurkExpr irecr ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
 
+  partial def mutDefBlockToLurkExpr (defs : List Definition) : TranspileM Lurk.Expr := do
+    defs.forM fun d => visit d.name
+    sorry
+
+
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     IO.print ">> exprToLurkExpr: "
     match e with 
@@ -204,8 +209,7 @@ mutual
       return ⟦$name⟧
     | .const name idx .. => do
       IO.println s!"const {name} {idx}"
-      let visited? := (← get).visited.contains name
-      if !visited? then 
+      if !(← get).visited.contains name then 
         let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
@@ -246,20 +250,20 @@ mutual
     IO.println s!">> constToLurkExpr {c.name}"
     match c with 
     | .axiom    _
-    | .quotient _ => return ()
+    | .quotient _ => return
     | .theorem  x => 
-      if (← get).visited.contains x.name then 
-        return 
-      else 
+      if !(← get).visited.contains x.name then 
         let (_, ⟨binds⟩) := descendPi x.type #[]
         appendBinding (x.name, ⟦(lambda ($binds) t)⟧)
-    | .opaque x | .definition x => do 
-      if (← get).visited.contains x.name then 
-        return 
-      else 
+    | .opaque x =>
+      if !(← get).visited.contains x.name then
         visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
         appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
-    | .inductive x => do 
+    | .definition x =>
+      if !(← get).visited.contains x.name then
+        let e ← mutDefBlockToLurkExpr (← getMutualDefInfo x)
+        appendBindingNoVisit (x.name, e)
+    | .inductive x =>
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
     | .constructor x

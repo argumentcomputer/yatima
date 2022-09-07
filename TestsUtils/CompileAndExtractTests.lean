@@ -111,7 +111,9 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
-    type := reindexExpr map x.type, value := reindexExpr map x.value }
+    type := reindexExpr map x.type,
+    value := reindexExpr map x.value,
+    all := x.all.map map.find! }
   | .constructor x => .constructor { x with
     type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
   | .extRecursor x =>

@@ -216,6 +216,7 @@ structure Definition where
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
+  all    : List ConstIdx
   deriving BEq
 
 structure Constructor where

@@ -279,9 +279,10 @@ mutual
               for (j, m) in ms.enum do
                 recrCtx := recrCtx.insert (i, some j) (← getConstIdx m.name, m.name)
             let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+            let all := recrCtx.toList.map fun (_, x, _) => x
             withRecrs recrCtx do
               let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
-              pure $ .definition { name, lvls, type, value, safety }
+              pure $ .definition { name, lvls, type, value, safety, all }
           | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩

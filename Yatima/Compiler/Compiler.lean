@@ -624,7 +624,8 @@ mutual
         recrCtx := recrCtx.insert d.name (i, some j, firstIdx + mutIdx)
         mutIdx := mutIdx + 1
 
-    let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM toYatimaIpldDefinition)
+    let all := recrCtx.toList.map fun (_, _, _, x) => x
+    let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM (toYatimaIpldDefinition all))
 
     -- Building and storing the block
     let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join
@@ -655,7 +656,7 @@ mutual
     | none => throw $ .constantNotCompiled struct.name
 
   /-- Encodes a definition to IPLD -/
-  partial def toYatimaIpldDefinition (defn : Lean.DefinitionVal) :
+  partial def toYatimaIpldDefinition (all : List ConstIdx) (defn : Lean.DefinitionVal):
       CompileM (Ipld.Both Ipld.Definition × Definition) := do
     let (typeCid, type) ← compileExpr defn.type
     let (valueCid, value) ← compileExpr defn.value
@@ -664,7 +665,8 @@ mutual
       lvls   := defn.levelParams
       type
       value
-      safety := defn.safety }
+      safety := defn.safety
+      all    := all}
     return (⟨defn.toIpld typeCid valueCid, defn.toIpld typeCid valueCid⟩, defn)
 
   /--
