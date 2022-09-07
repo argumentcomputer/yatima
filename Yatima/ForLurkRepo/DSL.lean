@@ -70,6 +70,7 @@ syntax "(" "if" lurk_expr lurk_expr lurk_expr ")" : lurk_expr
 syntax "(" "lambda" "(" ident* ")" lurk_expr ")"  : lurk_expr
 syntax "(" "let" lurk_bindings lurk_expr ")"      : lurk_expr
 syntax "(" "letrec" lurk_bindings lurk_expr ")"   : lurk_expr
+syntax "(" "mutrec" lurk_bindings lurk_expr ")"   : lurk_expr
 syntax "(" "quote " sexpr ")"                     : lurk_expr
 syntax "," sexpr                                  : lurk_expr
 syntax "(" lurk_bin_op lurk_expr lurk_expr ")"    : lurk_expr
@@ -132,6 +133,8 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
     mkAppM ``Lurk.Expr.letE #[← elabLurkBindings bind, ← elabLurkExpr body]
   | `(lurk_expr| (letrec $bind $body)) => do
     mkAppM ``Lurk.Expr.letRecE #[← elabLurkBindings bind, ← elabLurkExpr body]
+  | `(lurk_expr| (mutrec $bind $body)) => do
+    mkAppM ``Lurk.Expr.mutRecE #[← elabLurkBindings bind, ← elabLurkExpr body]
   | `(lurk_expr| (quote $datum)) => do
     mkAppM ``Lurk.Expr.quote #[← elabSExpr datum]
   | `(lurk_expr| ,$datum) => do

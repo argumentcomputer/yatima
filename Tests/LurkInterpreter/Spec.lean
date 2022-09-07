@@ -567,8 +567,22 @@ def strcons_not_char_str : Test :=
 
 -- A char is any 32_bit unicode character, but we currently only have reader
 -- support for whatever can be entered directly.
-def car_unicode_char : Test := 
+def car_unicode_char : Test :=
 (.ok 'Ŵ', ⟦(car "ŴTF?")⟧)
+
+def mutrec1 : Test :=
+(.ok 0, ⟦
+  (mutrec
+    ((f (lambda (x) (g x)))
+     (g (lambda (x) x)))
+    (f 0))⟧)
+
+def mutrec2 : Test :=
+(.ok 0, ⟦
+  (mutrec
+    ((f (lambda (x) x))
+     (g (lambda (x) (f x))))
+    (g 0))⟧)
 
 def pairs : List Test := [
   outer_evaluate,
@@ -648,7 +662,9 @@ def pairs : List Test := [
   strcons_str_str,
   strcons_char_char,
   strcons_not_char_str,
-  car_unicode_char
+  car_unicode_char,
+  mutrec1,
+  mutrec2
 ]
 
 open LSpec in

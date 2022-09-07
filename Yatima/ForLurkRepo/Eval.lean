@@ -123,17 +123,27 @@ partial def eval (env : Env) : Expr → EvalM Value
   | .letRecE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
-        let e' := (.letRecE [(n, e)] e)
+        let e' := .letRecE [(n, e)] e
         -- "thunk" the result (that is, no "pure $ ←" in front)
         let acc' : Env := acc.insert n $ (acc.getEnvExpr e', eval acc e')
         return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
     eval env' body
+  | .mutRecE bindings body => do
+    let env' ← bindings.foldlM (init := env)
+      -- making the evaluation of every binder have access to all bindings
+      fun acc (n, e) => do
+        let acc' := bindings.foldl (init := acc) fun acc' (n', e') =>
+          let e' := .mutRecE bindings e'
+          -- "thunk" the result (that is, no "pure $ ←" in front)
+          acc'.insert n' $ (acc.getEnvExpr e', eval acc e')
+        return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
+    eval env' body
   | .app₀ fn => do
-    match fn with 
-    | .currEnv => 
+    match fn with
+    | .currEnv =>
       return .env $ ← env.foldM (init := default)
         fun acc n (_, e) => return (n, ← e) :: acc
-    | _ => 
+    | _ =>
       --dbg_trace s!"[.app₀] evaluating {← eval env fn}"
       match ← eval env fn with 
       | .lam [] [] body => eval env body.expr
