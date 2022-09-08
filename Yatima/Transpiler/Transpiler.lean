@@ -255,10 +255,11 @@ mutual
         appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .definition x =>
       if !(← get).visited.contains x.name then
-        let defs ← getMutualDefInfo x
-        defs.forM fun d => visit d.name
-        defs.forM fun d => do
-          appendBinding (d.name, ← exprToLurkExpr d.value)
+        match ← getMutualDefInfo x with
+        | [d] =>
+          visit d.name
+          appendBindingNoVisit (d.name, ← exprToLurkExpr d.value)
+        | _ => throw $ .custom "mutually recursive definitions aren't currently supported"
     | .inductive x =>
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
@@ -301,10 +302,10 @@ def transpileM : TranspileM Unit := do
   builtinInitialize
   store.consts.forM constToLurkExpr
 
-/-- Constructs the array of bindings and builds a `Lurk.Expr.mutRecE` from it -/
+/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
 def transpile (ctx : Context) : IO $ Except String Lurk.Expr := do
   return match ← TranspileM.run ctx default transpileM with
-  | .ok    s => .ok $ Lurk.Expr.mutRecE s.appendedBindings.data ⟦(current-env)⟧
+  | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧
   | .error e => .error e
 
 end Yatima.Transpiler
