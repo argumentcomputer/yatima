@@ -666,7 +666,7 @@ mutual
       type
       value
       safety := defn.safety
-      all    := all}
+      all    := all.sort }
     return (⟨defn.toIpld typeCid valueCid, defn.toIpld typeCid valueCid⟩, defn)
 
   /--
