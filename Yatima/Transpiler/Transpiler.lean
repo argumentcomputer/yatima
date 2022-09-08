@@ -4,7 +4,6 @@ import Yatima.Transpiler.Utils
 import Yatima.Transpiler.LurkFunctions 
 
 /-!
-
 # The Transpiler
 
 This file provides all core functions needed to build Lurk expressions from raw Yatima IR. 
@@ -186,18 +185,13 @@ mutual
       -- when the inductive type is a function, i.e.
       -- we have params or indices, then `lurkInd` is 
       -- encoded as a lambda
-      let lurkInd := if binds.length == 0 then 
+      let lurkInd := if binds.isEmpty then
         ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
       else 
         ⟦(lambda ($binds) ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
       appendBinding (ind.name, lurkInd)
       intRecrToLurkExpr irecr ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
-
-  partial def mutDefBlockToLurkExpr (defs : List Definition) : TranspileM Lurk.Expr := do
-    defs.forM fun d => visit d.name
-    sorry
-
 
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     IO.print ">> exprToLurkExpr: "
@@ -261,8 +255,10 @@ mutual
         appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .definition x =>
       if !(← get).visited.contains x.name then
-        let e ← mutDefBlockToLurkExpr (← getMutualDefInfo x)
-        appendBindingNoVisit (x.name, e)
+        let defs ← getMutualDefInfo x
+        defs.forM fun d => visit d.name
+        defs.forM fun d => do
+          appendBinding (d.name, ← exprToLurkExpr d.value)
     | .inductive x =>
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
@@ -305,10 +301,10 @@ def transpileM : TranspileM Unit := do
   builtinInitialize
   store.consts.forM constToLurkExpr
 
-/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
+/-- Constructs the array of bindings and builds a `Lurk.Expr.mutRecE` from it -/
 def transpile (ctx : Context) : IO $ Except String Lurk.Expr := do
   return match ← TranspileM.run ctx default transpileM with
-  | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧
+  | .ok    s => .ok $ Lurk.Expr.mutRecE s.appendedBindings.data ⟦(current-env)⟧
   | .error e => .error e
 
 end Yatima.Transpiler
