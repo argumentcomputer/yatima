@@ -54,6 +54,7 @@ mutual
     -- Here variables also carry their types purely for an optimization
     | fvar  : Name → Nat → Thunk Value → Neutral
     | const : Name → ConstIdx → List Univ → Neutral
+    | lop   : LitOp → Neutral
     deriving Inhabited
 
   /-- Values are the final result of reduced well-typed expressions -/
@@ -70,7 +71,6 @@ mutual
     -- analogous to lambda bodies for their codomains
     | pi : Name → BinderInfo → Thunk Value → Expr → Context → Value
     | lit : Literal → Value
-    | lop : LitOp → Value
     | lty : LitType → Value
     | proj : Nat → Neutral → List (Thunk Value) → Value
     | exception : TypecheckError → Value
@@ -81,6 +81,7 @@ end
 def Neutral.ctorName : Neutral → String
   | .fvar ..  => "fvar"
   | .const .. => "const"
+  | .lop  _  => "lop"
 
 def Value.ctorName : Value → String
   | .sort _  => "sort"
@@ -88,7 +89,6 @@ def Value.ctorName : Value → String
   | .lam ..  => "lam"
   | .pi  ..  => "pi"
   | .lit  _  => "lit"
-  | .lop  _  => "lop"
   | .lty  _  => "lty"
   | .proj .. => "proj"
   | .exception _ => "exception"

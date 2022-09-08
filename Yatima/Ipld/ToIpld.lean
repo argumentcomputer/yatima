@@ -147,7 +147,6 @@ instance : Coe LitOp Ipld where coe
   | .mod => .number 5
   | .beq => .number 6
   | .ble => .number 7
-  | .str => .number 8
 
 instance : Coe LitType Ipld where coe
   | .num  => .number 0

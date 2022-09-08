@@ -57,7 +57,6 @@ def printExpr : Expr → String
     | .mod => "#mod"
     | .beq => "#beq"
     | .ble => "#ble"
-    | .str => "#str"
   | .lty .num => "#Nat"
   | .lty .word => "#String"
   | .proj idx val => s!"{printExpr val}.{idx}"
@@ -67,6 +66,15 @@ private partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
   | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
+  | .lop lop => match lop with
+    | .suc => "#suc"
+    | .add => "#add"
+    | .sub => "#sub"
+    | .mul => "#mul"
+    | .div => "#div"
+    | .mod => "#mod"
+    | .beq => "#beq"
+    | .ble => "#ble"
 
 /-- Auxiliary function to print the body of a lambda expression given `ctx : Context` -/
 private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
@@ -103,7 +111,6 @@ private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
     | .mod => "#mod"
     | .beq => "#beq"
     | .ble => "#ble"
-    | .str => "#str"
   | .lty .num => "#Nat"
   | .lty .word => "#String"
   | .proj idx val => s!"{printLamBod val ctx}.{idx}"
@@ -127,16 +134,6 @@ partial def printVal : Value → String
     | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
   | .lit (.num x) => s!"{x}"
   | .lit (.word x) => s!"\"{x}\""
-  | .lop lop => match lop with
-    | .suc => "#suc"
-    | .add => "#add"
-    | .sub => "#sub"
-    | .mul => "#mul"
-    | .div => "#div"
-    | .mod => "#mod"
-    | .beq => "#beq"
-    | .ble => "#ble"
-    | .str => "#str"
   | .lty .num => "#Nat"
   | .lty .word => "#String"
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"

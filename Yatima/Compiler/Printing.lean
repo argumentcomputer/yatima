@@ -128,7 +128,6 @@ mutual
       | .mod => "#mod"
       | .beq => "#beq"
       | .ble => "#ble"
-      | .str => "#str"
     | .proj idx expr => return s!"{← paren expr}.{idx})"
 end
 

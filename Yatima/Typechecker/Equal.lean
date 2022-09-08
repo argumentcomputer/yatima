@@ -54,6 +54,8 @@ partial def isProp (lvl : Nat) : Value → TypecheckM Bool
         let env := { (← read) with ctx := ⟨ [], us ⟩ }
         pure $ suspend const.type env
       | .fvar _ _ typ => pure typ
+      -- No primitive operations ever return a type
+      | .lop _ => throw .impossible
     match ← applyType type.get args with
     | .sort u => pure u.isZero
     | _ => pure false
@@ -117,13 +119,21 @@ mutual
       -- If our assumption is correct, i.e., that these values come from terms
       -- in the same environment then their types are equal when their indices
       -- are equal
-      let eq ← equalThunks lvl args args' varType
-      pure $ idx == idx' && args.length == args'.length && eq
+      if idx == idx'
+      then equalThunks lvl args args' varType
+      else pure false
     | .app (.const kName k us) args, .app (.const _ k' us') args' =>
       equalApp kName lvl k k' us us' args args'
     | .proj idx (.const kName k us) args, .proj idx' (.const _ k' us') args' =>
-      let eq ← equalApp kName lvl k k' us us' args args'
-      pure $ idx == idx' && eq
+      if idx == idx'
+      then equalApp kName lvl k k' us us' args args'
+      else pure false
+    | .app (.lop lop) args, .app (.lop lop') args' =>
+      if lop == lop'
+      then
+        let varType ← eval (opType lop)
+        equalThunks lvl args args' varType
+      else pure false
     | _, _ => pure false
 
   /-- 
@@ -138,10 +148,9 @@ mutual
     -- Analogous assumption on the types of the constants
     let const ← derefConst name k
     let env := { (← read) with ctx := ⟨ [], us ⟩ }
-    pure $
-      k == k' &&
-      Univ.equalUnivs us us' &&
-      (← equalThunks lvl args args' (suspend const.type env))
+    if k == k' && Univ.equalUnivs us us'
+    then equalThunks lvl args args' (suspend const.type env)
+    else pure false
 
 /--
 Checks if two list of thunks `vals vals' : List (Thunk Value)` are equal by evaluating the thunks

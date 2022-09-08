@@ -36,7 +36,6 @@ inductive LitOp
   | mod : LitOp
   | beq : LitOp
   | ble : LitOp
-  | str : LitOp
   deriving BEq, Inhabited
 
 namespace Ipld
@@ -104,6 +103,16 @@ inductive Expr
   | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
   deriving Inhabited, BEq
+
+def opType : LitOp → Expr
+| LitOp.suc => .pi .anonymous .default (.lty .word) (.lty .word)
+| LitOp.add
+| LitOp.sub
+| LitOp.mul
+| LitOp.div
+| LitOp.mod => .pi .anonymous .default (.lty .word) (.pi .anonymous .default (.lty .word) (.lty .word))
+| LitOp.beq
+| LitOp.ble => .pi .anonymous .default (.lty .word) (.pi .anonymous .default (.lty .word) (panic! "TODO"))
 
 namespace Expr
 
