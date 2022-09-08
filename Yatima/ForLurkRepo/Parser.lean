@@ -85,6 +85,7 @@ inductive translationError
   | noNames 
   | noName
   | illFormedBinder
+  | badFuncApp
 
 partial def extractName : SExpr → Except translationError Name
   | .atom name => .ok name
@@ -106,6 +107,17 @@ partial def extractBinder : SExpr → Except translationError (Name × SExpr)
 partial def extractBinders : SExpr → Except translationError (List $ Name × SExpr)
   | .list exprs => exprs.mapM extractBinder
   | _ => throw .illFormedBinder
+
+mutual
+
+partial def mkSpine (head : Name ⊕ Expr) (args : List SExpr) : Except translationError Expr :=
+  let rec go (args : List SExpr) (term : Expr) : Except translationError Expr :=
+    match args with
+      | [] => .ok term
+      | arg :: args => return ← go args $ .app term (← toLurk arg)
+  match head with
+    | .inl name => go args $ .sym name
+    | .inr expr => go args expr
 
 partial def toLurk : SExpr → Except translationError Expr
   | .num n => 
@@ -141,16 +153,20 @@ partial def toLurk : SExpr → Except translationError Expr
           return .quote es[1]! else
           throw .badShape
       | .atom "cons" => do
-        if es.length ==3 then
+        if es.length == 3 then
           let car ← toLurk es[1]!
           let cdr ← toLurk es[2]!
           return .cons car cdr else
           throw .badShape
       | .atom "strcons" => do
-        if es.length ==3 then
+        if es.length == 3 then
           let car ← toLurk es[1]!
           let cdr ← toLurk es[2]!
           return .strcons car cdr else
+          throw .badShape
+      | .atom "atom" => do
+        if es.length == 2 then
+          return .atom (← toLurk es[1]!) else
           throw .badShape
       | .atom "car" => do
         if es.length == 2 then
@@ -168,24 +184,30 @@ partial def toLurk : SExpr → Except translationError Expr
           throw .badShape
       | .atom "begin" => do
         return .begin (← es.tail!.mapM toLurk)
-      -- TODO: binaryOp
       | .atom "current-env" => do
         if es.length == 1 then return .currEnv else throw .badShape
       | .atom head => do
         let idx? := binaryOps.map (fun (a,b) => a) |>.indexOf? head
         match idx? with
           | .some idx => 
-            if es.length ==3 then 
+            if es.length == 3 then 
             return .binaryOp binaryOps[idx]!.2 (← toLurk es[1]!) (← toLurk es[2]!) else
             throw .badShape
-          | .none => sorry
-  | .cons car cdr => sorry
-  | .atom name => sorry
+          | .none => if es.length == 1 then 
+            return .app₀ $ .sym head else
+            return ← mkSpine (.inl head) es.tail!
+      | head@(.list _) => do
+        let func ← toLurk head
+        return ← mkSpine (.inr func) es.tail!
+      | .num _
+      | .str _
+      | .char _ 
+      | .cons .. => throw .badFuncApp
+  | .cons car cdr => return .cons (← toLurk car) (← toLurk cdr)
+  | .atom name => if name == "current-env" then .ok .currEnv else .ok $ .sym name
 
-#check List.find?
+end
 
 end SExpr
 
 end Translation
-
-#check Nat.le_of_lt
