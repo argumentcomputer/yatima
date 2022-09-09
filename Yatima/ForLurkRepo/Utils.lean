@@ -1,5 +1,12 @@
 import Lean
 import Yatima.ForLurkRepo.AST
+import Yatima.Compiler.Utils
+
+def Std.RBMap.filterOut [BEq α] [Ord α]
+  (map : Std.RBMap α β compare) (t : Std.RBTree α compare) :
+    Std.RBMap α β compare :=
+  map.fold (init := default) fun acc n e' =>
+    if t.contains n then acc else acc.insert n e'
 
 namespace Lurk
 
@@ -139,8 +146,46 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
     | .begin es => .begin $ es.map fun e => replaceN e targets
     | .currEnv => e
 
-end Expr
-end Lurk
+mutual
+
+partial def replaceBindersFreeVars (map : Std.RBMap Name Lurk.Expr compare)
+    (bindings : List (Name × Lurk.Expr)) : List (Name × Lurk.Expr) :=
+  sorry
+
+partial def replaceFreeVars (map : Std.RBMap Name Lurk.Expr compare) :
+    Lurk.Expr → Lurk.Expr
+  | x@(.lit _)   => x
+  | x@(.quote _) => x
+  | x@(.currEnv) => x
+  | .sym n => match map.find? n with
+    | some e => e
+    | none => .sym n
+  | .ifE e₁ e₂ e₃ => .ifE (replaceFreeVars map e₁)
+    (replaceFreeVars map e₂) (replaceFreeVars map e₃)
+  | .lam ns e => .lam ns $ replaceFreeVars (map.filterOut (.ofList ns)) e
+  | .letE bindings body =>
+    let map' := (map.filterOut (.ofList (bindings.map (·.1))))
+    .letE (replaceBindersFreeVars map bindings) $ replaceFreeVars map' body
+  | .letRecE bindings body =>
+    let map' := (map.filterOut (.ofList (bindings.map (·.1))))
+    .letRecE (replaceBindersFreeVars map bindings) $ replaceFreeVars map' body
+  | .mutRecE bindings body =>
+    let map' := (map.filterOut (.ofList (bindings.map (·.1))))
+    .mutRecE (replaceBindersFreeVars map bindings) $ replaceFreeVars map' body
+  | .app₀ e => .app₀ (replaceFreeVars map e)
+  | .app e₁ e₂ => .app (replaceFreeVars map e₁) (replaceFreeVars map e₂)
+  | .binaryOp op e₁ e₂ => .binaryOp op (replaceFreeVars map e₁) (replaceFreeVars map e₂)
+  | .cons e₁ e₂ => .cons (replaceFreeVars map e₁) (replaceFreeVars map e₂)
+  | .strcons e₁ e₂ => .strcons (replaceFreeVars map e₁) (replaceFreeVars map e₂)
+  | .atom e => .atom (replaceFreeVars map e)
+  | .car e => .car (replaceFreeVars map e)
+  | .cdr e => .cdr (replaceFreeVars map e)
+  | .emit e => .emit (replaceFreeVars map e)
+  | .begin es => .begin $ es.map (replaceFreeVars map ·)
+
+end
+
+end Lurk.Expr
 
 namespace Lean.Expr
 
