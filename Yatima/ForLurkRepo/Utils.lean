@@ -149,8 +149,26 @@ partial def replaceN (e : Expr) (targets : List (Expr × Expr)) : Expr :=
 mutual
 
 partial def replaceBindersFreeVars (map : Std.RBMap Name Lurk.Expr compare)
-    (bindings : List (Name × Lurk.Expr)) : List (Name × Lurk.Expr) :=
-  sorry
+  (bindings : List (Name × Lurk.Expr))
+    (rec : Bool) : List (Name × Lurk.Expr) := Id.run do
+  let mut ret := []
+  -- `map'` will keep track of the free vars that will be replaced if found.
+  let mut map' := map
+  -- as we iterate on binders, occurrences of what looked like a free variable
+  -- gradually turn into bound variables with local semantics. we erase them
+  -- from `map'` because we don't want to replace them
+  for (n, e) in bindings do
+    if rec then
+      -- an occurrence of `n` in `e` can be a recursion, so we can't replace it
+      -- right away
+      map' := map'.erase n
+      ret := (n, replaceFreeVars map' e) :: ret
+    else
+      -- any occurrence of `n` in `e` is definitely a free variable, so we first
+      -- try to replace it
+      ret := (n, replaceFreeVars map' e) :: ret
+      map' := map'.erase n
+  return ret.reverse
 
 partial def replaceFreeVars (map : Std.RBMap Name Lurk.Expr compare) :
     Lurk.Expr → Lurk.Expr
@@ -164,14 +182,14 @@ partial def replaceFreeVars (map : Std.RBMap Name Lurk.Expr compare) :
     (replaceFreeVars map e₂) (replaceFreeVars map e₃)
   | .lam ns e => .lam ns $ replaceFreeVars (map.filterOut (.ofList ns)) e
   | .letE bindings body =>
-    let map' := (map.filterOut (.ofList (bindings.map (·.1))))
-    .letE (replaceBindersFreeVars map bindings) $ replaceFreeVars map' body
+    let map' := map.filterOut (.ofList (bindings.map (·.1)))
+    .letE (replaceBindersFreeVars map bindings false) $ replaceFreeVars map' body
   | .letRecE bindings body =>
-    let map' := (map.filterOut (.ofList (bindings.map (·.1))))
-    .letRecE (replaceBindersFreeVars map bindings) $ replaceFreeVars map' body
+    let map' := map.filterOut (.ofList (bindings.map (·.1)))
+    .letRecE (replaceBindersFreeVars map bindings true) $ replaceFreeVars map' body
   | .mutRecE bindings body =>
-    let map' := (map.filterOut (.ofList (bindings.map (·.1))))
-    .mutRecE (replaceBindersFreeVars map bindings) $ replaceFreeVars map' body
+    let map' := map.filterOut (.ofList (bindings.map (·.1)))
+    .mutRecE (replaceBindersFreeVars map bindings true) $ replaceFreeVars map' body
   | .app₀ e => .app₀ (replaceFreeVars map e)
   | .app e₁ e₂ => .app (replaceFreeVars map e₁) (replaceFreeVars map e₂)
   | .binaryOp op e₁ e₂ => .binaryOp op (replaceFreeVars map e₁) (replaceFreeVars map e₂)
@@ -181,7 +199,7 @@ partial def replaceFreeVars (map : Std.RBMap Name Lurk.Expr compare) :
   | .car e => .car (replaceFreeVars map e)
   | .cdr e => .cdr (replaceFreeVars map e)
   | .emit e => .emit (replaceFreeVars map e)
-  | .begin es => .begin $ es.map (replaceFreeVars map ·)
+  | .begin es => .begin $ es.map (replaceFreeVars map)
 
 end
 
