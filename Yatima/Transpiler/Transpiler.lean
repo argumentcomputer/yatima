@@ -97,6 +97,38 @@ namespace Yatima.Transpiler
 
 open Yatima.Converter
 
+#exit
+
+/--
+Transforms a list of mutually recursive expressions into a list of expressions
+that can be defined in sequence. This is achieved by parametrizing later
+functions as input of the former ones.
+
+For example, if we have `f`, `g` and `h` such that each of them calls the other
+two, then we redefine `f` and `g` such that:
+
+* `f` takes a `g` and a `h` as inputs
+* `g` takes a `h` as input
+
+But then every call to `f` and `g` needs to be adjusted accordingly. If, for
+instance, we had a call to `f` in the body of `h`, it would have to be replaced
+by `(f g h)`.
+
+In the wild, however, it is dangerous to have naive parameters like that because
+they can get overwritten by bindings. In the example above, `g` may have been
+shadowed by something else and this is likely to ruin the call of `(f g h)`.
+Thus, a smart naming is required for those parameters.
+-/
+def demutualize (l : List (Name × Lurk.Expr)) : List (Name × Lurk.Expr) :=
+  let rec aux (acc : List (Name × Lurk.Expr)) : List (Name × Lurk.Expr) → List (Name × Lurk.Expr)
+    | [] => acc.reverse
+    | b :: bs =>
+      -- TODO: get unused names for the parametrized functions
+      let body := b.2 -- TODO
+      let lam : Lurk.Expr := .lam (bs.map (·.1)) body
+      aux ((b.1, lam) :: acc) bs
+  aux [] l
+
 mutual
   /-- Converts Yatima function applications `f a₁ a₂ ..` into `Lurk.Expr.app f [a₁, a₂, ..]` -/
   partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
@@ -256,10 +288,14 @@ mutual
     | .definition x =>
       if !(← get).visited.contains x.name then
         match ← getMutualDefInfo x with
+        | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
         | [d] =>
           visit d.name
           appendBindingNoVisit (d.name, ← exprToLurkExpr d.value)
-        | _ => throw $ .custom "mutually recursive definitions aren't currently supported"
+        | defs =>
+          defs.forM fun d => visit d.name
+          let pairs ← defs.mapM fun d => return (d.name, ← exprToLurkExpr d.value)
+          demutualize pairs |>.forM fun (n, e) => appendBindingNoVisit (n, e)
     | .inductive x =>
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
