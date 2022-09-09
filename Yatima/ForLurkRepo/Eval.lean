@@ -138,7 +138,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       -- "thunk" the result (that is, no "pure $ ←" in front)
       acc.insert n' $ thunkedEntry env e'
     for (n, e) in bindings do
-        env' := env'.insert n $ ← evaledEntry env' e
+      env' := env'.insert n $ ← evaledEntry env' e
     evalM env' body
   | .app₀ fn => do
     match fn with

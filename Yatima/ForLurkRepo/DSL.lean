@@ -182,6 +182,8 @@ namespace Lurk.Expr
 Transforms a list of named expressions that were mutually defined into a
 "switch" function `S` and a set of projections (named after the original names)
 that call `S` with their respective indices.
+
+Important: the resulting expressions must to be bound in a `letrec`.
 -/
 def mkMutualBlock (mutuals : List (Name × Expr)) : List (Name × Expr) :=
   let names := mutuals.map Prod.fst
