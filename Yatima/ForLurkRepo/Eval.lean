@@ -103,7 +103,12 @@ partial def envExprToEnv (envExpr : EnvExpr) : Env :=
   envExpr.env.foldl (init := default) fun acc (n, envExpr') =>
     acc.insert n $ (envExpr', evalM (envExprToEnv envExpr') envExpr'.expr)
 
-partial def evalM (env : Env) : Expr → EvalM Value
+partial def evalM (env : Env) (e : Expr) : EvalM Value :=
+  let evaledEntry (env : Env) (e : Expr) : EvalM (EnvExpr × EvalM Value) := do
+    return (env.getEnvExpr e, pure $ ← evalM env e)
+  -- "thunk" the result (that is, no "pure $ ←" in front)
+  let thunkedEntry (env : Env) (e : Expr) : EnvExpr × EvalM Value := (env.getEnvExpr e, evalM env e)
+  match e with
   | .lit lit => return .lit lit
   | .sym n => match env.find? n with
     | some (_, v) => v
@@ -118,25 +123,22 @@ partial def evalM (env : Env) : Expr → EvalM Value
   | .letE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
-        return acc.insert n $ (acc.getEnvExpr e, pure $ ← evalM acc e)
+        return acc.insert n $ ← evaledEntry acc e
     evalM env' body
   | .letRecE bindings body => do
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
         let e' := .letRecE [(n, e)] e
-        -- "thunk" the result (that is, no "pure $ ←" in front)
-        let acc' : Env := acc.insert n $ (acc.getEnvExpr e', evalM acc e')
-        return acc.insert n $ (acc'.getEnvExpr e, pure $ ← evalM acc' e)
+        let acc' : Env := acc.insert n $ thunkedEntry acc e'
+        return acc.insert n $ ← evaledEntry acc' e
     evalM env' body
   | .mutRecE bindings body => do
-    let env' ← bindings.foldlM (init := env)
-      -- making the evaluation of every binder have access to all bindings
-      fun acc (n, e) => do
-        let acc' := bindings.foldl (init := acc) fun acc' (n', e') =>
-          let e' := .mutRecE bindings e'
-          -- "thunk" the result (that is, no "pure $ ←" in front)
-          acc'.insert n' $ (acc.getEnvExpr e', evalM acc e')
-        return acc.insert n $ (acc'.getEnvExpr e, pure $ ← evalM acc' e)
+    let mut env' := bindings.foldl (init := env) fun acc (n', e') =>
+      let e' := .mutRecE bindings e'
+      -- "thunk" the result (that is, no "pure $ ←" in front)
+      acc.insert n' $ thunkedEntry env e'
+    for (n, e) in bindings do
+        env' := env'.insert n $ ← evaledEntry env' e
     evalM env' body
   | .app₀ fn => do
     match fn with
