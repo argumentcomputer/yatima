@@ -1,9 +1,16 @@
-def two : Fin 3 := ⟨2, of_decide_eq_true (Eq.refl true)⟩
+prelude
+inductive Wrapper : Type where
+  | mk : Wrapper
+
+def test (w : Wrapper) : Wrapper := w
+
+def evalTest := test .mk
+
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
 --   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ
 
-#print Nat.ble_succ_eq_true.match_1
+--#print Nat.ble_succ_eq_true.match_1
 /- 
 # Example: Three
 inductive Three where 
