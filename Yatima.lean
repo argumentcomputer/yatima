@@ -33,7 +33,6 @@ import Yatima.ForLurkRepo.SExpr
 import Yatima.ForLurkRepo.Tests
 import Yatima.ForLurkRepo.Utils
 import Yatima.Ipld.ToIpld
-import Yatima.Talk
 import Yatima.Transpiler.LurkFunctions
 import Yatima.Transpiler.TranspileError
 import Yatima.Transpiler.TranspileM
