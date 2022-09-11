@@ -1,6 +1,6 @@
 import Yatima.ForLurkRepo.SExpr
 import Yatima.ForLurkRepo.PreUtils
-import Std.Data.RBTree
+import Lean
 
 namespace Lurk
 
