@@ -187,7 +187,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
           fun (n, ee) => do
               -- symbols coming from the original context in which this lambda appeared must use that context
               IO.println s!">> RESURRECT {n}"
-              IO.println ee.toString
+              --IO.println ee.toString
               IO.println ">>"
               let env := envExprToEnv ee
               return (n, (env.getEnvExpr ee.expr, ← evalM env ee.expr))
@@ -286,38 +286,38 @@ infix:75 " .ᵥ " => Value.cons
 
 abbrev Test := Except String Value × Expr 
 
--- #eval ppEval ⟦
--- (letrec
---  ((getelem
---    (lambda (xs n)
---     (if (= n 0)
---      (car xs)
---      ((getelem (cdr xs)) (- n 1))))))
---   (getelem (cons 1 nil) 1))⟧
+--#eval ppEval ⟦
+--(letrec
+-- ((getelem
+--   (lambda (xs n)
+--    (if (= n 0)
+--     (car xs)
+--     ((getelem (cdr xs)) (- n 1))))))
+--  (getelem (cons 1 nil) 1))⟧
 
 -- this one is very strange
--- #eval ppEval ⟦
--- (letrec
---  (
---   (Nat (cons "Nat" (cons 0 (cons 0 nil))))
---   (Nat_zero 0)
---   (Nat_succ (lambda (n) (+ n 1)))
---   (Nat_rec
---    (lambda (motive zero succ _t)
---     (if (= _t 0)
---      zero
---      ((succ (- _t 1))
---       ((((Nat_rec motive) zero) succ)
---        (- _t 1))))))
---   (Nat_casesOn
---    (lambda (motive _t zero succ)
---     ((((Nat_rec motive) zero)
---       (lambda (n n_ih) (succ n)))
---      _t)))
---   (Bool (cons "Bool" (cons 0 (cons 0 nil))))
---   (Bool_false (cons Bool (cons 0 nil)))
---   (Bool_true (cons Bool (cons 1 nil)))
---      )
---  (Nat_rec (lambda (x) Bool) Bool_true (lambda (x) Bool_false) 3))⟧
+#eval ppEval ⟦
+(letrec
+ (
+  (Nat (cons "Nat" (cons 0 (cons 0 nil))))
+  (Nat_zero 0)
+  (Nat_succ (lambda (n) (+ n 1)))
+  (Nat_rec
+   (lambda (motive zero succ _t)
+    (if (= _t 0)
+     zero
+     ((succ (- _t 1))
+      ((((Nat_rec motive) zero) succ)
+       (- _t 1))))))
+  (Nat_casesOn
+   (lambda (motive _t zero succ)
+    ((((Nat_rec motive) zero)
+      (lambda (n n_ih) (succ n)))
+     _t)))
+  (Bool (cons "Bool" (cons 0 (cons 0 nil))))
+  (Bool_false (cons Bool (cons 0 nil)))
+  (Bool_true (cons Bool (cons 1 nil)))
+     )
+ (Nat_rec (lambda (x) Bool) Bool_true (lambda (x ih) Bool_false) 1))⟧
 
 end Lurk
