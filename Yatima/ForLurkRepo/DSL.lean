@@ -178,14 +178,21 @@ elab "⟦ " e:lurk_expr " ⟧" : term =>
 
 namespace Lurk.Expr 
 
+/--
+Transforms a list of named expressions that were mutually defined into a
+"switch" function `S` and a set of projections (named after the original names)
+that call `S` with their respective indices.
+
+Important: the resulting expressions must to be bound in a `letrec`.
+-/
 def mkMutualBlock (mutuals : List (Name × Expr)) : List (Name × Expr) :=
   let names := mutuals.map Prod.fst
-  let mutualName := names.head! ++ `mutual
+  let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
   let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
-  let targets := fnProjs.map fun (n, e) => (⟦$n⟧, e)
+  let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
   let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
-    (⟦(= mutidx $i)⟧, e.replaceN targets)  
-  ) ⟦nil⟧
+      (⟦(= mutidx $i)⟧, replaceFreeVars map e)
+    ) ⟦nil⟧
   (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
 
-end Lurk.Expr 
+end Lurk.Expr

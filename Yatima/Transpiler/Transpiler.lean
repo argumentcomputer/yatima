@@ -153,32 +153,24 @@ mutual
     ⟧
     appendBinding (name, body)
 
-  -- TODO: Implement
-  -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
-
-  /--
-  Construct a Lurk function representing a Yatima recursor. 
-  Yatima recursors provide computational content through recursion rules.
-  These rules are emulated in Lurk by `if-else` statements checking the 
-  constructor index of the arguments given.
-  -/
-  partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
-    let (_, ⟨binds⟩) := descendPi recr.type #[]
+  partial def recrToLurkExpr (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) : TranspileM Unit := do
+    let (_, ⟨binds⟩) := descendPi recrType #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
     let ifThens ← rhs.mapM fun ctor => do 
+      -- FIXME rhs lacks binders here
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       let rhs ← exprToLurkExpr rhs 
       let args := ⟦(cdr (cdr $argName))⟧
       let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem $args $n)⟧
-      let recrArgs := binds.reverse.drop (recr.indices + 1) |>.map fun (n : Name) => ⟦$n⟧
+      let recrArgs := binds.reverse.drop (recrIndices + 1) |>.map fun (n : Name) => ⟦$n⟧
       let newArgs := recrArgs.reverse ++ ctorArgs
       return (⟦(= (car (cdr $argName)) $idx)⟧, .mkAppOrNoaryLam rhs newArgs) -- extract snd element
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧)
+    appendBinding (recrName, ⟦(lambda ($binds) $cases)⟧)
 
   partial def mutIndBlockToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) : 
       TranspileM Unit := do
-    for (ind, ctors, irecr, _) in inds do
+    for (ind, ctors, irecr, erecrs) in inds do
       if (← get).visited.contains ind.name then 
         break
       let (_, ⟨binds⟩) := descendPi ind.type #[]
@@ -192,7 +184,9 @@ mutual
         ⟦(lambda ($binds) 
             (cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil))))⟧
       appendBinding (ind.name, lurkInd)
-      intRecrToLurkExpr irecr ctors
+      for erecr in erecrs do
+        recrToLurkExpr erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
+      recrToLurkExpr irecr.type irecr.name irecr.indices ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
 
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
@@ -258,10 +252,15 @@ mutual
     | .definition x =>
       if !(← get).visited.contains x.name then
         match ← getMutualDefInfo x with
+        | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
         | [d] =>
           visit d.name
           appendBindingNoVisit (d.name, ← exprToLurkExpr d.value)
-        | _ => throw $ .custom "mutually recursive definitions aren't currently supported"
+        | defs =>
+          defs.forM fun d => visit d.name
+          let pairs ← defs.mapM fun d => return (d.name, ← exprToLurkExpr d.value)
+          Lurk.Expr.mkMutualBlock pairs |>.forM
+            fun (n, e) => appendBindingNoVisit (n, e)
     | .inductive x =>
       let u ← getMutualIndInfo x
       mutIndBlockToLurkExpr u
