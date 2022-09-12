@@ -15,10 +15,14 @@ def EnvExpr.env : EnvExpr → List (Name × EnvExpr)
 def EnvExpr.expr : EnvExpr → Expr
   | .mk _ expr => expr
 
-partial def EnvExpr.toString : EnvExpr → String 
+partial def EnvExpr.toString (depth := 0) : EnvExpr → String 
   | .mk env expr => 
-    dbg_trace s!">> toString {env.map Prod.fst}, {expr.pprint}"
-    let env : List (Name × String) := env.map fun (n, ee) => (n, ee.toString)
+    let _ := if depth <= 20 then 
+      dbg_trace s!">> toString {env.map Prod.fst}, {expr.pprint}"
+      0
+    else 
+      0
+    let env : List (Name × String) := env.map fun (n, ee) => (n, ee.toString (depth + 1))
     s!"env: {env}\nexpr: {expr.pprint}"
 
 inductive Value where
@@ -281,5 +285,39 @@ def Value.mkList (vs : List Value) : Value :=
 infix:75 " .ᵥ " => Value.cons
 
 abbrev Test := Except String Value × Expr 
+
+-- #eval ppEval ⟦
+-- (letrec
+--  ((getelem
+--    (lambda (xs n)
+--     (if (= n 0)
+--      (car xs)
+--      ((getelem (cdr xs)) (- n 1))))))
+--   (getelem (cons 1 nil) 1))⟧
+
+-- this one is very strange
+-- #eval ppEval ⟦
+-- (letrec
+--  (
+--   (Nat (cons "Nat" (cons 0 (cons 0 nil))))
+--   (Nat_zero 0)
+--   (Nat_succ (lambda (n) (+ n 1)))
+--   (Nat_rec
+--    (lambda (motive zero succ _t)
+--     (if (= _t 0)
+--      zero
+--      ((succ (- _t 1))
+--       ((((Nat_rec motive) zero) succ)
+--        (- _t 1))))))
+--   (Nat_casesOn
+--    (lambda (motive _t zero succ)
+--     ((((Nat_rec motive) zero)
+--       (lambda (n n_ih) (succ n)))
+--      _t)))
+--   (Bool (cons "Bool" (cons 0 (cons 0 nil))))
+--   (Bool_false (cons Bool (cons 0 nil)))
+--   (Bool_true (cons Bool (cons 1 nil)))
+--      )
+--  (Nat_rec (lambda (x) Bool) Bool_true (lambda (x) Bool_false) 3))⟧
 
 end Lurk
