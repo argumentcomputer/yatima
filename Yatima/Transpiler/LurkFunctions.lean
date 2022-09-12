@@ -67,7 +67,7 @@ def getelem : Name × Expr := (`getelem, ⟦
 ⟧)
 
 def Nat : Name × Expr := (``Nat, ⟦
-  ,("Nat" 0 0)
+  (cons "Nat" (cons 0 (cons 0 nil)))
 ⟧)
 
 def Nat_zero : Name × Expr := (``Nat.zero, ⟦

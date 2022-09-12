@@ -5,25 +5,6 @@ open Lurk
 
 -- TODO FIXME: bettter error handling, `.error ""` needs to be replaced
 
-instance : OfNat Value n where 
-  ofNat := .lit $ .num $ Fin.ofNat n
-
-instance : Coe Char Value where 
-  coe c := .lit (.char c)
-
-instance : Coe String Value where 
-  coe s := .lit (.str s)
-
-instance : Coe (List (Name × Nat)) Value where
-  coe l := .env $ l.map fun (name, n) => (name, .lit $ .num $ Fin.ofNat n)
-
-def Value.mkList (vs : List Value) : Value := 
-  vs.foldr (fun acc v => .cons acc v) FALSE
-
-local infix:75 " .ᵥ " => Value.cons
-
-abbrev Lurk.Test := Except String Value × Expr 
-
 def outer_evaluate : Test := (.ok 99, ⟦((lambda (x) x) 99)⟧)
 
 def outer_evaluate2 : Test := (.ok 99, ⟦

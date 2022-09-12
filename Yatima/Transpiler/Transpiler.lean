@@ -186,9 +186,11 @@ mutual
       -- we have params or indices, then `lurkInd` is 
       -- encoded as a lambda
       let lurkInd := if binds.isEmpty then
-        ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
+        -- TODO: fix back to use `quote`
+        ⟦(cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil)))⟧
       else 
-        ⟦(lambda ($binds) ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
+        ⟦(lambda ($binds) 
+            (cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil))))⟧
       appendBinding (ind.name, lurkInd)
       intRecrToLurkExpr irecr ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
@@ -303,9 +305,16 @@ def transpileM : TranspileM Unit := do
   store.consts.forM constToLurkExpr
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
-def transpile (ctx : Context) : IO $ Except String Lurk.Expr := do
+def transpile (filePath : System.FilePath) (body : Lurk.Expr) : IO $ Except String Lurk.Expr := do
+  match ← Compiler.compile filePath with
+  | .ok ctx => return match ← TranspileM.run ⟨ctx, []⟩ default transpileM with
+    | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦$body⟧
+    | .error e => .error e
+  | .error err => .error (toString err)
+
+def transpile' (ctx : Context) (body : Lurk.Expr := ⟦(current-env)⟧): IO $ Except String Lurk.Expr := do
   return match ← TranspileM.run ctx default transpileM with
-  | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧
+  | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data body
   | .error e => .error e
 
 end Yatima.Transpiler
