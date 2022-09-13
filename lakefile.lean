@@ -1,5 +1,5 @@
 import Lake
-import Std.Data.RBTree
+import Lean
 
 open Lake DSL
 
@@ -14,23 +14,23 @@ lean_exe yatima {
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "66957120705d384ea2445fa080a8155eb3104ea7"
+  "https://github.com/yatima-inc/Ipld.lean" @ "1b10756bdfe3059b5eecaa79b40c89bad8e986ba"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "28c24d851c614b88f3c7f1874f29f393ee35ba8e"
+  "https://github.com/yatima-inc/LSpec.git" @ "a8dc2f38fc38f16efcc877ca8a4c7b37d3965db0"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "40568b0c3e58646dc525bee32ba7a42a80b993a1"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "dd565ffec739f9ee0a79a3bf47ab5e1e0db0d8e2"
 
 require Cli from git
-  "https://github.com/mhuisi/lean4-cli" @ "b0efab6f62d171b76d8fbed03e0abd3e38854589"
+  "https://github.com/mhuisi/lean4-cli" @ "1f844d9d3c31908588f507dfa3f3b4c764bdcdf6"
 
 section Testing
 
 lean_lib TestsUtils
 
 lean_lib Fixtures {
-  roots := #[`Fixtures.AnonCidGroups.ToBeImported]
+  roots := #[`Fixtures.AnonCidGroups.ToBeImported, `Fixtures.AnonCidGroups.ToImport]
 }
 
 lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
@@ -40,6 +40,8 @@ lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
+
+lean_exe Tests.LurkInterpreter.Spec
 
 end Testing
 

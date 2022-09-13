@@ -3,15 +3,19 @@ import Yatima.Transpiler.TranspileError
 
 namespace Yatima.Transpiler
 
+open Yatima.Compiler Yatima.Converter
+
+structure Context where 
+  compileState : CompileState 
+  builtinBindings : List Name
+
 structure State where
   appendedBindings  : Array (Name × Lurk.Expr)
   /-- Contains constants that have already been processed -/
   visited : Std.RBTree Name compare
   deriving Inhabited
 
-open Yatima.Compiler Yatima.Converter
-
-abbrev TranspileM := ReaderT CompileState $
+abbrev TranspileM := ReaderT Context $
   ExceptT TranspileError $ StateT State IO
 
 /-- Set `name` as a visited node -/
@@ -39,9 +43,12 @@ def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
 
-def TranspileM.run (store : CompileState) (ste : State) (m : TranspileM α) :
+def withBuiltin (names : List Name) : TranspileM α → TranspileM α :=
+  withReader $ fun e => ⟨e.compileState, names⟩
+
+def TranspileM.run (ctx : Context) (ste : State) (m : TranspileM α) :
     IO $ Except String State := do
-  match ← StateT.run (ReaderT.run m store) ste with
+  match ← StateT.run (ReaderT.run m ctx) ste with
   | (.ok _, ste)  => return .ok ste
   | (.error e, _) => return .error (toString e)
 

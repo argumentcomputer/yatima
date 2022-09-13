@@ -109,7 +109,7 @@ mutual
       let (expr, args) := descend expr []
       let fn ← exprToLurkExpr expr
       let args ← args.mapM exprToLurkExpr
-      return .app fn args
+      return .mkAppOrNoaryLam fn args
     
   /-- Converts Yatima lambda `fun x₁ x₂ .. => body` into `Lurk.Expr.lam [x₁, x₂, ..] body` -/    
   partial def telescopeLam (expr : Expr) : TranspileM Lurk.Expr := 
@@ -144,7 +144,7 @@ mutual
     -- if the inductive has arguments, then apply them from `ctor`'s bindings
     let ind : Lurk.Expr := match (indices + params) with 
       | 0 => ⟦$(name.getPrefix)⟧
-      | _ => .app ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
+      | _ => .mkAppOrNoaryLam ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
     let body := if binds.length == 0 then 
       ⟦(cons $ind (cons $idx nil))⟧
     else ⟦
@@ -157,10 +157,12 @@ mutual
   -- TODO: Implement
   -- partial def extRecrToLurkExpr (recr : ExtRecursor) (ind : Inductive) : TranspileM Unit := sorry
 
-  /-- Construct a Lurk function representing a Yatima recursor. 
-    Yatima recursors provide computational content through recursion rules.
-    These rules are emulated in Lurk by `if-else` statements checking the 
-    constructor index of the arguments given.  -/
+  /--
+  Construct a Lurk function representing a Yatima recursor. 
+  Yatima recursors provide computational content through recursion rules.
+  These rules are emulated in Lurk by `if-else` statements checking the 
+  constructor index of the arguments given.
+  -/
   partial def intRecrToLurkExpr (recr : IntRecursor) (rhs : List Constructor) : TranspileM Unit := do 
     let (_, ⟨binds⟩) := descendPi recr.type #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
@@ -171,7 +173,7 @@ mutual
       let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem $args $n)⟧
       let recrArgs := binds.reverse.drop (recr.indices + 1) |>.map fun (n : Name) => ⟦$n⟧
       let newArgs := recrArgs.reverse ++ ctorArgs
-      return (⟦(= (car (cdr $argName)) $idx)⟧, .app rhs newArgs) -- extract snd element
+      return (⟦(= (car (cdr $argName)) $idx)⟧, .mkAppOrNoaryLam rhs newArgs) -- extract snd element
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
     appendBinding (recr.name, ⟦(lambda ($binds) $cases)⟧)
 
@@ -204,7 +206,7 @@ mutual
       IO.println s!"const {name} {idx}"
       let visited? := (← get).visited.contains name
       if !visited? then 
-        let const := (← read).consts[idx]! -- TODO: Add proof later
+        let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
     | e@(.app ..) => 
@@ -247,19 +249,16 @@ mutual
     | .axiom    _
     | .quotient _ => return ()
     | .theorem  x => 
-      if (← get).visited.contains x.name then return 
-      else appendBinding (x.name, .lit .t)
-    | .opaque   x => do 
+      if (← get).visited.contains x.name then 
+        return 
+      else 
+        let (_, ⟨binds⟩) := descendPi x.type #[]
+        appendBinding (x.name, ⟦(lambda ($binds) t)⟧)
+    | .opaque x | .definition x => do 
       if (← get).visited.contains x.name then 
         return 
       else 
         visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
-        appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
-    | .definition x => do
-      if (← get).visited.contains x.name then 
-        return 
-      else 
-        visit x.name -- ditto
         appendBindingNoVisit (x.name, ← exprToLurkExpr x.value)
     | .inductive x => do 
       let u ← getMutualIndInfo x
@@ -270,7 +269,7 @@ mutual
   where 
     getInductive (name : Name) : TranspileM Inductive := do 
       let indName := name.getPrefix
-      let store ← read
+      let store := (← read).compileState
       match store.cache.find? indName with 
       | some (_, idx) => match store.consts[idx]! with 
         | .inductive i => return i 
@@ -283,28 +282,30 @@ mutual
 
 end
 
-/-- 
-Initialize builtin lurk constants defined in `LurkFunctions.lean`
--/
-def builtinInitialize : TranspileM Unit := do
-  appendBinding Lurk.getelem
+/-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
+def builtinInitialize : TranspileM Unit := do 
+  let decls := [
+    Lurk.getelem, 
+    Lurk.Nat, 
+    Lurk.Nat_zero, 
+    Lurk.Nat_succ, 
+    Lurk.Nat_rec,
+    Lurk.Nat_add,
+    Lurk.Nat_mul
+  ] 
+  withBuiltin (decls.map fun x => x.fst) $ 
+    decls.forM fun (n, e) => appendBinding (n, e)
 
-/--
-Main translation function.
--/
+/-- Main translation function -/
 def transpileM : TranspileM Unit := do
-  let store ← read
+  let store := (← read).compileState
   builtinInitialize
   store.consts.forM constToLurkExpr
 
-open Yatima.Compiler in 
-/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it. -/
-def transpile (store : CompileState) : IO $ Except String String := do  do 
-  match ← TranspileM.run store default transpileM with
-  | .ok    s => 
-    let env := Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧ -- the parens matter, represents evaluation
-    return .ok $ (env.pprint false).pretty 50
-  | .error e => 
-    return .error e
+/-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
+def transpile (ctx : Context) : IO $ Except String Lurk.Expr := do
+  return match ← TranspileM.run ctx default transpileM with
+  | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦(current-env)⟧
+  | .error e => .error e
 
 end Yatima.Transpiler

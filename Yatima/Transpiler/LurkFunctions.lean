@@ -66,6 +66,42 @@ def getelem : Name × Expr := (`getelem, ⟦
   ))
 ⟧)
 
+def Nat : Name × Expr := (``Nat, ⟦
+  ,("Nat" 0 0)
+⟧)
+
+def Nat_zero : Name × Expr := (``Nat.zero, ⟦
+  0
+⟧)
+
+def Nat_succ : Name × Expr := (``Nat.succ, ⟦
+  (lambda (n) (+ n 1))
+⟧)
+
+def Nat_rec : Name × Expr := (``Nat.rec, ⟦
+  (lambda (motive zero succ _t)
+    (if (= _t 0)
+     zero
+     (succ (- _t 1) (Nat_rec motive zero succ (- _t 1)))))
+⟧)
+
+def Nat_add : Name × Expr := ( ``Nat.add, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
+⟧)
+
+def Nat_mul : Name × Expr := ( ``Nat.mul, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
+⟧)
+
+-- doesn't quite work yet because depends on `Bool`
+def Nat_beq : Name × Expr := ( ``Nat.beq, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) (
+    if (= _x_lurk_1 _x_lurk_2) 
+      Bool_true
+      Bool_false
+  ))
+⟧)
+
 /-! 
 ## `Nat` Example
 -/
