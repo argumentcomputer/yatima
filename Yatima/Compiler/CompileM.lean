@@ -141,6 +141,12 @@ def addToStore : StoreEntry A → CompileM A
                          const_meta := stt.store.const_meta.insert cid.meta obj.meta,
                          consts     := stt.store.consts.insert cid } })
 
+def eraseConstFromStore (cid : Ipld.Both Ipld.ConstCid) : CompileM Unit :=
+  modifyGet fun stt => ((), { stt with store :=
+        { stt.store with const_anon := stt.store.const_anon.erase cid.anon,
+                         const_meta := stt.store.const_meta.erase cid.meta,
+                         consts     := stt.store.consts.erase cid } })
+
 /-- Adds data associated with a name to the cache -/
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
   modify fun stt => { stt with cache := stt.cache.insert name c }

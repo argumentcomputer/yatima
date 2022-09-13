@@ -12,7 +12,6 @@ instance : Coe RecType Bool where coe
   | .intr => true
   | .extr => false
 
-
 namespace Ipld
 
 -- The number of universes for anon or their names for meta

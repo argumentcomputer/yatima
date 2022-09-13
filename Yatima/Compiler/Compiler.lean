@@ -6,7 +6,19 @@ namespace Yatima.Compiler
 
 open Std (RBMap)
 
-open ToIpld
+opaque NatHash     : String := "bagcyb6egbqlcbvcn3yk3eojuobxafm2yn42oyux6im7vkcwrx7zykci56kwbt6pm"
+opaque NatSuccHash : String := "bagcyb6egbqlcbop4tscfzg2s3eb7cfprycbn2r2oufqqmcg4uf5vcsqcp75fkeuh"
+opaque NatAddHash  : String := "bagcyb6egbqlcbzfrbhy3it4b4uwk4cs5t3exu3toc7ku2asb5zwwhfbw43cf2rbb"
+opaque NatBEqHash  : String := "bagcyb6egbqlcbyf4muoxoxo3l5t6gdy5ceuq4lxg6urx2y4bz2ovsiafxatqcn7i"
+opaque NatBLeHash  : String := "bagcyb6egbqlcbfbhsruhszwv3mes6j3bpfgk6uvwka3abuxowhgme6ndp6o7vftg"
+opaque NatSubHash  : String := "bagcyb6egbqlcazg4kka7vznpnpq36ank2z3w6zluomlnyjttccd37tb5ofvj6ni7"
+opaque NatDivHash  : String := "bagcyb6egbqlcblsr5wjhbpbwa4cliik2qfh6brh76ddjczhtfch3vyelkbfisynr"
+opaque NatModHash  : String := "bagcyb6egbqlcbmsy5qeqz5ojctrn2qflcqpx6bvjhspn52mjn2kegsvgll5hleef"
+opaque NatMulHash  : String := "bagcyb6egbqlcbrwzmfpjtm7kqnxhq7q65fcukopureotdduj4ouiuatr4lbo2bc2"
+opaque StringHash  : String := "bagcyb6egbqlcb4zsubwj2w2ygvvertlfc32ntomotqqcx5db25ewy7s73oo3n4ig"
+
+def primOpMap : RBMap ConstCid (Ipld.Both Ipld.Const × Const) compare :=
+  sorry
 
 /-- Gets a constant from the array of constants -/
 def derefConst (idx : ConstIdx) : CompileM Const := do
@@ -105,10 +117,17 @@ mutual
     | none   =>
       if log then
         IO.println s!"↡ Stacking {name}{const.formatAll}"
-      let c ← compileConstant const
+      let (cid, constIdx) ← compileConstant const
       if log then
         IO.println s!"↟ Popping  {name}"
-      return c
+      match primOpMap.find? cid with
+      | some both =>
+        -- eraseConstFromStore cid
+        let cid ← addToStore $ .const both.fst
+        addToConsts constIdx both.snd
+        addToCache const.name (cid, constIdx)
+        return (cid, constIdx)
+      | none => return (cid, constIdx)
 
   /--
   Performs the compilation of Lean constants.
