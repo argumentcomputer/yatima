@@ -83,8 +83,8 @@ mutual
       check exp expType
       let exp := suspend exp (← read)
       withExtendedEnv exp expType $ infer bod
-    | .lit (.num _) => pure $ Value.lty .num
-    | .lit (.word _) => pure $ Value.lty .word
+    | .lit (.natVal _) => pure $ Value.lty .nat
+    | .lit (.strVal _) => pure $ Value.lty .str
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
     | .lop .. => throw $ .custom "TODO"
     | .const name k constUnivs =>

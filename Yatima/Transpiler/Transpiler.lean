@@ -223,8 +223,8 @@ mutual
       return .letE [(name, val)] body
     | .lit lit  => match lit with 
       -- TODO: need to include `Int` somehow
-      | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
-      | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
+      | .natVal n => IO.println s!"lit {n}"; return ⟦$n⟧
+      | .strVal s => IO.println s!"lit {s}"; return ⟦$s⟧
     | .lop _  => panic! "TODO"
     | .proj idx e => do
       IO.println s!"proj {idx}"; 

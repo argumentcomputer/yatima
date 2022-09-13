@@ -46,8 +46,8 @@ def printExpr : Expr → String
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
   | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
+  | .lit (.natVal x) => s!"{x}"
+  | .lit (.strVal x) => s!"\"{x}\""
   | .lop lop => match lop with
     | .suc => "#suc"
     | .add => "#add"
@@ -57,8 +57,8 @@ def printExpr : Expr → String
     | .mod => "#mod"
     | .beq => "#beq"
     | .ble => "#ble"
-  | .lty .num => "#Nat"
-  | .lty .word => "#String"
+  | .lty .nat => "#Nat"
+  | .lty .str => "#String"
   | .proj idx val => s!"{printExpr val}.{idx}"
 
 /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
@@ -100,8 +100,8 @@ private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
     | .instImplicit => s!"([{nam}: {printLamBod dom ctx}] → {printLamBod cod ctx})"
     | _ => s!"(({nam}: {printLamBod dom ctx}) → {printLamBod cod ctx})"
   | .letE nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
+  | .lit (.natVal x) => s!"{x}"
+  | .lit (.strVal x) => s!"\"{x}\""
   | .lop lop => match lop with
     | .suc => "#suc"
     | .add => "#add"
@@ -111,8 +111,8 @@ private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
     | .mod => "#mod"
     | .beq => "#beq"
     | .ble => "#ble"
-  | .lty .num => "#Nat"
-  | .lty .word => "#String"
+  | .lty .nat => "#Nat"
+  | .lty .str => "#String"
   | .proj idx val => s!"{printLamBod val ctx}.{idx}"
 
 /-- Printer of typechecker values -/
@@ -132,10 +132,10 @@ partial def printVal : Value → String
     | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
     | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
     | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
-  | .lty .num => "#Nat"
-  | .lty .word => "#String"
+  | .lit (.natVal x) => s!"{x}"
+  | .lit (.strVal x) => s!"\"{x}\""
+  | .lty .nat => "#Nat"
+  | .lty .str => "#String"
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"
   | .exception e => s!"exception {e}"
 

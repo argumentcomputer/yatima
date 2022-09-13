@@ -2,28 +2,13 @@ import Yatima.Datatypes.Univ
 
 namespace Yatima
 
-/-- The type of binder for λ and Π expressions -/
-inductive BinderInfo
-  | default
-  | implicit
-  | strictImplicit
-  | instImplicit
-  | auxDecl
-  deriving BEq, Inhabited
-
-/-- The literal values: numbers or words -/
-inductive Literal
-  | num  : Nat → Literal
-  | word : String → Literal
-  deriving BEq, Inhabited
-
 /--
 The types for literal values. These only exist for us to be able to build
 expressions to represent them in the typechecker when infering types.
 -/
 inductive LitType
-  | num
-  | word
+  | nat
+  | str
   deriving BEq, Inhabited
 
 /-- The type of primitive operations on literals -/
@@ -105,14 +90,14 @@ inductive Expr
   deriving Inhabited, BEq
 
 def opType : LitOp → Expr
-| LitOp.suc => .pi .anonymous .default (.lty .word) (.lty .word)
-| LitOp.add
-| LitOp.sub
-| LitOp.mul
-| LitOp.div
-| LitOp.mod => .pi .anonymous .default (.lty .word) (.pi .anonymous .default (.lty .word) (.lty .word))
-| LitOp.beq
-| LitOp.ble => .pi .anonymous .default (.lty .word) (.pi .anonymous .default (.lty .word) (panic! "TODO"))
+  | LitOp.suc => .pi .anonymous .default (.lty .str) (.lty .str)
+  | LitOp.add
+  | LitOp.sub
+  | LitOp.mul
+  | LitOp.div
+  | LitOp.mod => .pi .anonymous .default (.lty .str) (.pi .anonymous .default (.lty .str) (.lty .str))
+  | LitOp.beq
+  | LitOp.ble => .pi .anonymous .default (.lty .str) (.pi .anonymous .default (.lty .str) (panic! "TODO"))
 
 namespace Expr
 

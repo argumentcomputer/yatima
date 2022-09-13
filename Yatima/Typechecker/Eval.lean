@@ -189,7 +189,7 @@ mutual
       match major?.get with
       | .app (.const name majorFn _) majorArgs => do
         match ← derefConst name majorFn with
-        | Const.quotient {kind := QuotKind.ctor, ..} =>
+        | Const.quotient {kind := .ctor, ..} =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
           if majorArgs.length != 3 then throw .impossible
           let some majorArg := majorArgs.head? | throw .impossible

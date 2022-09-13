@@ -1,4 +1,4 @@
-import Yatima.Datatypes.Name
+import Yatima.Datatypes.Lean
 
 /-!
 # Typechecker errors
