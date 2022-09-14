@@ -54,7 +54,8 @@ mutual
     -- Here variables also carry their types purely for an optimization
     | fvar  : Name → Nat → Thunk Value → Neutral
     | const : Name → ConstIdx → List Univ → Neutral
-    | lop   : LitOp → Neutral
+    | op1   : LitOp1 → Neutral
+    | op2   : LitOp2 → Neutral
     deriving Inhabited
 
   /-- Values are the final result of reduced well-typed expressions -/
@@ -81,7 +82,8 @@ end
 def Neutral.ctorName : Neutral → String
   | .fvar ..  => "fvar"
   | .const .. => "const"
-  | .lop  _  => "lop"
+  | .op1  _  => "op1"
+  | .op2  _  => "op2"
 
 def Value.ctorName : Value → String
   | .sort _  => "sort"

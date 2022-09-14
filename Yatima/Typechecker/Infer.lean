@@ -86,7 +86,8 @@ mutual
     | .lit (.natVal _) => pure $ Value.lty .nat
     | .lit (.strVal _) => pure $ Value.lty .str
     | .lty .. => pure $ Value.sort (Univ.succ Univ.zero)
-    | .lop .. => throw $ .custom "TODO"
+    | .op1 op => eval $ op1Type op
+    | .op2 op => eval $ op2Type op
     | .const name k constUnivs =>
       let univs := (← read).ctx.univs
       let const ← derefConst name k

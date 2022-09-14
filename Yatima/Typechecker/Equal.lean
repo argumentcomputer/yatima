@@ -55,7 +55,8 @@ partial def isProp (lvl : Nat) : Value → TypecheckM Bool
         pure $ suspend const.type env
       | .fvar _ _ typ => pure typ
       -- No primitive operations ever return a type
-      | .lop _ => throw .impossible
+      | .op1 _
+      | .op2 _ => throw .impossible
     match ← applyType type.get args with
     | .sort u => pure u.isZero
     | _ => pure false
@@ -128,10 +129,16 @@ mutual
       if idx == idx'
       then equalApp kName lvl k k' us us' args args'
       else pure false
-    | .app (.lop lop) args, .app (.lop lop') args' =>
-      if lop == lop'
+    | .app (.op2 op) args, .app (.op2 op') args' =>
+      if op == op'
       then
-        let varType ← eval (opType lop)
+        let varType ← eval (op2Type op)
+        equalThunks lvl args args' varType
+      else pure false
+    | .app (.op1 op) args, .app (.op1 op') args' =>
+      if op == op'
+      then
+        let varType ← eval (op1Type op)
         equalThunks lvl args args' varType
       else pure false
     | _, _ => pure false

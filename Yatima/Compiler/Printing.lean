@@ -119,8 +119,9 @@ mutual
       | .strVal str => s!"\"{str}\""
     | .lty .nat => return "#Nat"
     | .lty .str => return "#String"
-    | .lop lop => return match lop with
+    | .op1 op => return match op with
       | .suc => "#suc"
+    | .op2 op => return match op with
       | .add => "#add"
       | .sub => "#sub"
       | .mul => "#mul"

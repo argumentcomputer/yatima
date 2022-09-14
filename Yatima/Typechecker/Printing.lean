@@ -48,8 +48,9 @@ def printExpr : Expr → String
   | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
   | .lit (.natVal x) => s!"{x}"
   | .lit (.strVal x) => s!"\"{x}\""
-  | .lop lop => match lop with
+  | .op1 op => match op with
     | .suc => "#suc"
+  | .op2 op => match op with
     | .add => "#add"
     | .sub => "#sub"
     | .mul => "#mul"
@@ -66,8 +67,9 @@ private partial def printSpine (neu : Neutral) (args : Args) : String :=
   match neu with
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
   | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
-  | .lop lop => match lop with
+  | .op1 op => match op with
     | .suc => "#suc"
+  | .op2 op => match op with
     | .add => "#add"
     | .sub => "#sub"
     | .mul => "#mul"
@@ -102,8 +104,9 @@ private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   | .letE nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
   | .lit (.natVal x) => s!"{x}"
   | .lit (.strVal x) => s!"\"{x}\""
-  | .lop lop => match lop with
+  | .op1 op => match op with
     | .suc => "#suc"
+  | .op2 op => match op with
     | .add => "#add"
     | .sub => "#sub"
     | .mul => "#mul"

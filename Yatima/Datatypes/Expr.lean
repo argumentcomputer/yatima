@@ -12,15 +12,19 @@ inductive LitType
   deriving BEq, Inhabited
 
 /-- The type of primitive operations on literals -/
-inductive LitOp
-  | suc : LitOp
-  | add : LitOp
-  | sub : LitOp
-  | mul : LitOp
-  | div : LitOp
-  | mod : LitOp
-  | beq : LitOp
-  | ble : LitOp
+-- Arity 1
+inductive LitOp1
+  | suc : LitOp1
+  deriving BEq, Inhabited
+-- Arity 2
+inductive LitOp2
+  | add : LitOp2
+  | sub : LitOp2
+  | mul : LitOp2
+  | div : LitOp2
+  | mod : LitOp2
+  | beq : LitOp2
+  | ble : LitOp2
   deriving BEq, Inhabited
 
 namespace Ipld
@@ -51,7 +55,8 @@ inductive Expr (k : Kind)
   | pi    : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
   | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
-  | lop   : Split LitOp Unit k → Expr k
+  | op1   : Split LitOp1 Unit k → Expr k
+  | op2   : Split LitOp2 Unit k → Expr k
   | lty   : Split LitType Unit k → Expr k
   | proj  : Natₐ k → ExprCid k → Expr k
   deriving BEq, Inhabited
@@ -65,7 +70,8 @@ def Expr.ctorName : Expr k → String
   | .pi    .. => "pi"
   | .letE  .. => "let"
   | .lit   .. => "lit"
-  | .lop   .. => "lop"
+  | .op1   .. => "op1"
+  | .op2   .. => "op2"
   | .lty   .. => "lty"
   | .proj  .. => "proj"
 
@@ -84,20 +90,24 @@ inductive Expr
   | pi    : Name → BinderInfo → Expr → Expr → Expr
   | letE  : Name → Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
-  | lop   : LitOp → Expr
+  | op1   : LitOp1 → Expr
+  | op2   : LitOp2 → Expr
   | lty   : LitType → Expr
   | proj  : Nat → Expr → Expr
   deriving Inhabited, BEq
 
-def opType : LitOp → Expr
-  | LitOp.suc => .pi .anonymous .default (.lty .str) (.lty .str)
-  | LitOp.add
-  | LitOp.sub
-  | LitOp.mul
-  | LitOp.div
-  | LitOp.mod => .pi .anonymous .default (.lty .str) (.pi .anonymous .default (.lty .str) (.lty .str))
-  | LitOp.beq
-  | LitOp.ble => .pi .anonymous .default (.lty .str) (.pi .anonymous .default (.lty .str) (panic! "TODO"))
+def op1Type : LitOp1 → Expr
+  | LitOp1.suc => .pi .anonymous .default (.lty .str) (.lty .str)
+
+def op2Type : LitOp2 → Expr
+  | LitOp2.add
+  | LitOp2.sub
+  | LitOp2.mul
+  | LitOp2.div
+  | LitOp2.mod => .pi .anonymous .default (.lty .str) (.pi .anonymous .default (.lty .str) (.lty .str))
+  | LitOp2.beq
+  -- TODO: Do we need primitive Bool as well?
+  | LitOp2.ble => .pi .anonymous .default (.lty .str) (.pi .anonymous .default (.lty .str) (panic! "TODO"))
 
 namespace Expr
 
@@ -168,7 +178,8 @@ def ctorName : Expr → String
   | pi    .. => "pi"
   | letE  .. => "let"
   | lit   .. => "lit"
-  | lop   .. => "lop"
+  | op1   .. => "op1"
+  | op2   .. => "op2"
   | lty   .. => "lty"
   | proj  .. => "proj"
 

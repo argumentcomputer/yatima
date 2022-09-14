@@ -69,7 +69,8 @@ mutual
       pure $ .sort (Univ.instBulkReduce ctx.univs univ)
     | .lit lit => pure $ .lit lit
     | .lty lty => pure $ .lty lty
-    | .lop lop => pure $ .app (.lop lop) []
+    | .op1 op => pure $ .app (.op1 op) []
+    | .op2 op => pure $ .app (.op2 op) []
     | .proj idx expr => do
       match (← eval expr) with
       | .app neu@(.const name k _) args =>
@@ -125,7 +126,14 @@ mutual
       withNewExtendedCtx lamCtx arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ .app var (arg :: args)
-    | .app (.lop lop) _ => throw .impossible --TODO
+    | .app (.op1 op) args =>
+      -- Sanity check: args cannot be non-empty
+      if !args.isEmpty then throw .impossible else pure $ applyOp1 op arg
+    | .app (.op2 op) args => match args with
+        | [] => pure $ .app (.op2 op) [arg]
+        | arg' :: args'  =>
+        -- Sanity check: args' cannot be non-empty
+        if !args'.isEmpty then throw .impossible else pure $ applyOp2 op arg arg'
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
 
@@ -172,8 +180,8 @@ mutual
           | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
     | .quotient quotVal => match quotVal.kind with
-      | .lift => reduceQuot arg args 6 1 $ .app (Neutral.const name k univs) (arg :: args)
-      | .ind  => reduceQuot arg args 5 0 $ .app (Neutral.const name k univs) (arg :: args)
+      | .lift => applyQuot arg args 6 1 $ .app (Neutral.const name k univs) (arg :: args)
+      | .ind  => applyQuot arg args 5 0 $ .app (Neutral.const name k univs) (arg :: args)
       | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
     | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
 
@@ -182,7 +190,7 @@ mutual
 
   TODO: Get more clarification on this
   -/
-  partial def reduceQuot (major? : Thunk Value) (args : Args)
+  partial def applyQuot (major? : Thunk Value) (args : Args)
       (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
@@ -202,6 +210,14 @@ mutual
     else
       throw .impossible
 
+  partial def applyOp1 : (op : LitOp1) → (arg : Thunk Value) → Value
+  | .suc => fun arg => match arg.get with
+    | .lit (.natVal x) => .lit $ .natVal (x + 1)
+    | e => .app (.op1 .suc) [arg]
+
+  partial def applyOp2 (op : LitOp2) (arg : Thunk Value) (arg' : Thunk Value) : Value := sorry
+
 end
+
 
 end Yatima.Typechecker
