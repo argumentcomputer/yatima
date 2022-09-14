@@ -87,16 +87,16 @@ def pairConstants (x y : Array Const) :
 
 def reindexExpr (map : NatNatMap) : Expr → Expr
   | e@(.var ..)
-  | e@(.sort _)
+  | e@(.sort _ _)
   | e@(.lty ..)
   | e@(.lit ..) => e
-  | .const n i ls => .const n (map.find! i) ls
-  | .app e₁ e₂ => .app (reindexExpr map e₁) (reindexExpr map e₂)
-  | .lam n bi e₁ e₂ => .lam n bi (reindexExpr map e₁) (reindexExpr map e₂)
-  | .pi n bi e₁ e₂ => .pi n bi (reindexExpr map e₁) (reindexExpr map e₂)
-  | .letE n e₁ e₂ e₃ =>
-    .letE n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
-  | .proj n e => .proj n (reindexExpr map e)
+  | .const h n i ls => .const h n (map.find! i) ls
+  | .app h e₁ e₂ => .app h (reindexExpr map e₁) (reindexExpr map e₂)
+  | .lam h n bi e₁ e₂ => .lam h n bi (reindexExpr map e₁) (reindexExpr map e₂)
+  | .pi h n bi e₁ e₂ => .pi h n bi (reindexExpr map e₁) (reindexExpr map e₂)
+  | .letE h n e₁ e₂ e₃ =>
+    .letE h n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
+  | .proj h n e => .proj h n (reindexExpr map e)
 
 def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
   { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs }

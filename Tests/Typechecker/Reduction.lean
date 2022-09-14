@@ -7,8 +7,8 @@ open Yatima LSpec
 open Typechecker
 
 def readBackNeutral : Neutral → Expr
-  | .fvar name idx _ => .var name idx
-  | .const name idx univs => .const name idx univs
+  | .fvar name idx _ => .var default name idx
+  | .const name idx univs => .const default name idx univs
 
 local instance : Coe (Except ε α) (Option α) where coe
   | .ok a => some a
@@ -27,16 +27,16 @@ mutual
   partial def replaceFvars (consts : Array Const) (ctx : Context) (e : Expr) : Option Expr :=
     let replace expr := replaceFvars consts ctx expr
     match e with
-      | .var _ idx => readBack consts (ctx.exprs.get! idx).get
-      | .app fn e  => do pure $ .app (← replace fn) (← replace e)
-      | .lam n bin t b => do
+      | .var _ _ idx => readBack consts (ctx.exprs.get! idx).get
+      | .app h fn e  => do pure $ .app h (← replace fn) (← replace e)
+      | .lam h n bin t b => do
         let lamCtx := shiftCtx ctx
         let lamCtx := lamCtx.extendWith
           -- TODO double-check ordering here
           $ Value.app (.fvar n 0 $ Value.sort .zero) []
-        pure $ .lam n bin (← replace t) (← replaceFvars consts lamCtx b)
-      | .letE n e t b  => do pure $ .letE n (← replace e) (← replace t) (← replace b)
-      | .proj n e  => do pure $ .proj n (← replace e)
+        pure $ .lam h n bin (← replace t) (← replaceFvars consts lamCtx b)
+      | .letE h n e t b  => do pure $ .letE h n (← replace e) (← replace t) (← replace b)
+      | .proj h n e  => do pure $ .proj h n (← replace e)
       | e => pure e
 
   /--
@@ -52,9 +52,9 @@ mutual
       all expressions to reduce to the same thing would make everything pass.
   -/
   partial def readBack (consts : Array Const) : Value → Option Expr
-    | .sort univ => pure $ .sort univ
+    | .sort univ => pure $ .sort default univ
     | .app neu args => args.foldlM (init := readBackNeutral neu) fun acc arg => do
-      pure $ Expr.app acc $ ← readBack consts arg.get
+      pure $ Expr.app default acc $ ← readBack consts arg.get
     | .lam name binfo bod env => do
       -- any neutral fvars in the environment are now additionally nested,
       -- and so must have their de bruijn indices incremented
@@ -64,18 +64,18 @@ mutual
         -- arbitrarily fill these in with `Sort 0`
         -- TODO double-check ordering here
         $ Value.app (.fvar name 0 $ Value.sort .zero) []
-      pure $ .lam name binfo (.sort .zero) $ ← replaceFvars consts lamCtx bod
+      pure $ .lam default name binfo (.sort default .zero) $ ← replaceFvars consts lamCtx bod
     | .pi name binfo dom bod ctx => do
       let piCtx := shiftCtx ctx
       let piCtx := piCtx.extendWith
         -- TODO double-check ordering here
         $ Value.app (.fvar name 0 dom) []
-      pure $ .lam name binfo (← readBack consts dom.get) $ ← replaceFvars consts piCtx bod
-    | .lit lit => pure $ .lit lit
+      pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piCtx bod
+    | .lit lit => pure $ .lit default lit
     -- TODO need to look into this case in the typechecker to make sure this is correct
     | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val =>
-      return .app expr (← readBack consts val.get)
-    | .lty l => pure $ .lty l
+      return .app default expr (← readBack consts val.get)
+    | .lty l => pure $ .lty default l
     | .exception _ => none
 end
 
@@ -107,11 +107,11 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
 Strip the binder types from lambdas in `e` (i.e., replace them with `Sort 0`) for the purpose of comparison.
 -/
 def stripBinderTypes : Expr → Expr
-  | .lam n bin _ b => .lam n bin (.sort .zero) (stripBinderTypes b)
-  | .pi n bin _ b => .pi n bin (.sort .zero) (stripBinderTypes b)
-  | .app fn e  => .app (stripBinderTypes fn) (stripBinderTypes e)
-  | .letE n e t b  => .letE n (stripBinderTypes e) (stripBinderTypes t) (stripBinderTypes b)
-  | .proj n e  => .proj n (stripBinderTypes e)
+  | .lam h n bin _ b => .lam h n bin (.sort default .zero) (stripBinderTypes b)
+  | .pi h n bin _ b => .pi h n bin (.sort default .zero) (stripBinderTypes b)
+  | .app h fn e  => .app h (stripBinderTypes fn) (stripBinderTypes e)
+  | .letE h n e t b  => .letE h n (stripBinderTypes e) (stripBinderTypes t) (stripBinderTypes b)
+  | .proj h n e  => .proj h n (stripBinderTypes e)
   | e => e
 
 def makeTcTests (pairs : Array ((Name × Expr) × (Name × Expr))) : TestSeq :=
