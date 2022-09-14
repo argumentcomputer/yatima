@@ -12,6 +12,7 @@ inductive ConvertError where
   | unexpectedConst : String → String → ConvertError
   | constIdxNotFound : String → ConvertError
   | mutRefFVNotFound : Nat → ConvertError
+  | custom : String → ConvertError
   deriving Inhabited
 
 instance : ToString ConvertError where toString
@@ -27,3 +28,4 @@ instance : ToString ConvertError where toString
   | .constIdxNotFound name => s!"Could not find {name} in index of definitions."
   | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
   | .unexpectedConst got exp => s!"Unexpected constant. Got {got} but expected {exp}"
+  | .custom s => s

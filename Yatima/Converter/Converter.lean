@@ -240,123 +240,126 @@ mutual
         let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
         let some constIdx := (← get).constsIdx.find? meta.name
           | throw $ .cannotFindNameIdx $ toString meta.name
-        match primOpMap.find? cid.anon with
-        | some const =>
-          cacheAndSetConst cid constIdx const
-          return constIdx
-        | none =>
-          let const ← match anon, meta with
-          | .axiom axiomAnon, .axiom axiomMeta =>
-            let name := axiomMeta.name
-            let lvls := axiomMeta.lvls
-            let type ← exprFromIpld ⟨axiomAnon.type, axiomMeta.type⟩
-            let safe := axiomAnon.safe
-            pure $ .axiom { name, lvls, type, safe }
-          | .theorem theoremAnon, .theorem theoremMeta =>
-            let name := theoremMeta.name
-            let lvls := theoremMeta.lvls
-            let type ← exprFromIpld ⟨theoremAnon.type, theoremMeta.type⟩
-            let value ← exprFromIpld ⟨theoremAnon.value, theoremMeta.value⟩
-            pure $ .theorem { name, lvls, type, value }
-          | .inductiveProj anon, .inductiveProj meta =>
-            let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
-            let induct ← getInductive indBlock anon.idx
-            let name := induct.meta.name
-            let lvls := induct.meta.lvls
-            let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
-            let params := induct.anon.params
-            let indices := induct.anon.indices
-            let recr := induct.anon.recr
-            let safe := induct.anon.safe
-            let refl := induct.anon.refl
-            let unit := inductiveIsUnit induct.anon
+        match buildPrimOpMap with
+        | .error s => throw $ .custom s
+        | .ok primOpMap =>
+          match primOpMap.find? cid.anon with
+          | some const =>
+            cacheAndSetConst cid constIdx const
+            return constIdx
+          | none =>
+            let const ← match anon, meta with
+            | .axiom axiomAnon, .axiom axiomMeta =>
+              let name := axiomMeta.name
+              let lvls := axiomMeta.lvls
+              let type ← exprFromIpld ⟨axiomAnon.type, axiomMeta.type⟩
+              let safe := axiomAnon.safe
+              pure $ .axiom { name, lvls, type, safe }
+            | .theorem theoremAnon, .theorem theoremMeta =>
+              let name := theoremMeta.name
+              let lvls := theoremMeta.lvls
+              let type ← exprFromIpld ⟨theoremAnon.type, theoremMeta.type⟩
+              let value ← exprFromIpld ⟨theoremAnon.value, theoremMeta.value⟩
+              pure $ .theorem { name, lvls, type, value }
+            | .inductiveProj anon, .inductiveProj meta =>
+              let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+              let induct ← getInductive indBlock anon.idx
+              let name := induct.meta.name
+              let lvls := induct.meta.lvls
+              let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
+              let params := induct.anon.params
+              let indices := induct.anon.indices
+              let recr := induct.anon.recr
+              let safe := induct.anon.safe
+              let refl := induct.anon.refl
+              let unit := inductiveIsUnit induct.anon
 
-            let recrCtx ← getIndRecrCtx indBlock
-            -- TODO optimize
-            withRecrs recrCtx do
-              -- if this is a structure, the `struct` field will reference the inductive, hence the need for `recrCtx`
-              let struct ← getStructure induct
-              pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
-          | .opaque opaqueAnon, .opaque opaqueMeta =>
-            let name := opaqueMeta.name
-            let lvls := opaqueMeta.lvls
-            let type ← exprFromIpld ⟨opaqueAnon.type, opaqueMeta.type⟩
-            let value ← exprFromIpld ⟨opaqueAnon.value, opaqueMeta.value⟩
-            let safe := opaqueAnon.safe
-            pure $ .opaque { name, lvls, type, value, safe }
-          | .definitionProj definitionAnon, .definitionProj definitionMeta =>
-            let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionMeta.idx
-            match ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩ with
-            | ⟨.mutDefBlock _, .mutDefBlock metas⟩ =>
-              let metas := metas.map (·.projᵣ)
-              let name := defn.meta.name
-              let lvls := defn.meta.lvls
-              let safety := defn.anon.safety
-              let mut recrCtx : RecrCtx := default
-              for (i, ms) in metas.enum do
-                for (j, m) in ms.enum do
-                  recrCtx := recrCtx.insert (i, some j) (← getConstIdx m.name, m.name)
-              let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+              let recrCtx ← getIndRecrCtx indBlock
+              -- TODO optimize
               withRecrs recrCtx do
-                let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
-                pure $ .definition { name, lvls, type, value, safety }
-            | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
-          | .constructorProj anon, .constructorProj meta =>
-            let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
-            let induct ← getInductive indBlock anon.idx
-            let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
-            let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
-            let name   := constructorMeta.name
-            let lvls   := constructorMeta.lvls
-            let idx    := constructorAnon.idx
-            let params := constructorAnon.params
-            let fields := constructorAnon.fields
-            let safe   := constructorAnon.safe
+                -- if this is a structure, the `struct` field will reference the inductive, hence the need for `recrCtx`
+                let struct ← getStructure induct
+                pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
+            | .opaque opaqueAnon, .opaque opaqueMeta =>
+              let name := opaqueMeta.name
+              let lvls := opaqueMeta.lvls
+              let type ← exprFromIpld ⟨opaqueAnon.type, opaqueMeta.type⟩
+              let value ← exprFromIpld ⟨opaqueAnon.value, opaqueMeta.value⟩
+              let safe := opaqueAnon.safe
+              pure $ .opaque { name, lvls, type, value, safe }
+            | .definitionProj definitionAnon, .definitionProj definitionMeta =>
+              let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionMeta.idx
+              match ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩ with
+              | ⟨.mutDefBlock _, .mutDefBlock metas⟩ =>
+                let metas := metas.map (·.projᵣ)
+                let name := defn.meta.name
+                let lvls := defn.meta.lvls
+                let safety := defn.anon.safety
+                let mut recrCtx : RecrCtx := default
+                for (i, ms) in metas.enum do
+                  for (j, m) in ms.enum do
+                    recrCtx := recrCtx.insert (i, some j) (← getConstIdx m.name, m.name)
+                let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+                withRecrs recrCtx do
+                  let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
+                  pure $ .definition { name, lvls, type, value, safety }
+              | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
+            | .constructorProj anon, .constructorProj meta =>
+              let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+              let induct ← getInductive indBlock anon.idx
+              let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
+              let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
+              let name   := constructorMeta.name
+              let lvls   := constructorMeta.lvls
+              let idx    := constructorAnon.idx
+              let params := constructorAnon.params
+              let fields := constructorAnon.fields
+              let safe   := constructorAnon.safe
 
-            let recrCtx ← getIndRecrCtx indBlock
-            -- TODO optimize
-            withRecrs recrCtx do
-              let type ← exprFromIpld ⟨constructorAnon.type, constructorMeta.type⟩
-              let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-              let rhs := rhs.toImplicitLambda 
-              pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
-          | .recursorProj anon, .recursorProj meta =>
-            let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
-            let induct ← getInductive indBlock anon.idx
-            let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
-            let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
-            let recursorAnon := Sigma.snd pairAnon
-            let recursorMeta := Sigma.snd pairMeta
-            let name := recursorMeta.name
-            let lvls := recursorMeta.lvls
-            let params := recursorAnon.params
-            let indices := recursorAnon.indices
-            let motives := recursorAnon.motives
-            let minors := recursorAnon.minors
-            let k := recursorAnon.k
+              let recrCtx ← getIndRecrCtx indBlock
+              -- TODO optimize
+              withRecrs recrCtx do
+                let type ← exprFromIpld ⟨constructorAnon.type, constructorMeta.type⟩
+                let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
+                let rhs := rhs.toImplicitLambda 
+                pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
+            | .recursorProj anon, .recursorProj meta =>
+              let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+              let induct ← getInductive indBlock anon.idx
+              let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
+              let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
+              let recursorAnon := Sigma.snd pairAnon
+              let recursorMeta := Sigma.snd pairMeta
+              let name := recursorMeta.name
+              let lvls := recursorMeta.lvls
+              let params := recursorAnon.params
+              let indices := recursorAnon.indices
+              let motives := recursorAnon.motives
+              let minors := recursorAnon.minors
+              let k := recursorAnon.k
 
-            let recrCtx ← getIndRecrCtx indBlock
-            -- TODO optimize
-            withRecrs recrCtx do
-              let type ← exprFromIpld ⟨recursorAnon.type, recursorMeta.type⟩
-              let casesExtInt : (t₁ : RecType) → (t₂ : RecType) → (Ipld.Recursor t₁ .anon) → (Ipld.Recursor t₂ .meta) → ConvertM Const
-              | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
-              | .extr, .extr, recAnon, recMeta => do
-                let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
-                pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k }
-              | _, _, _, _ => throw .ipldError
-              casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
-          | .quotient quotientAnon, .quotient quotientMeta =>
-            let name := quotientMeta.name
-            let lvls := quotientMeta.lvls
-            let type ← exprFromIpld ⟨quotientAnon.type, quotientMeta.type⟩
-            let kind := quotientAnon.kind
-            pure $ .quotient { name, lvls, type, kind }
-          | .mutDefBlock .., .mutDefBlock .. => throw .mutDefBlockFound
-          | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
-          | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
-          cacheAndSetConst cid constIdx const
-          return constIdx
+              let recrCtx ← getIndRecrCtx indBlock
+              -- TODO optimize
+              withRecrs recrCtx do
+                let type ← exprFromIpld ⟨recursorAnon.type, recursorMeta.type⟩
+                let casesExtInt : (t₁ : RecType) → (t₂ : RecType) → (Ipld.Recursor t₁ .anon) → (Ipld.Recursor t₂ .meta) → ConvertM Const
+                | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
+                | .extr, .extr, recAnon, recMeta => do
+                  let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
+                  pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k }
+                | _, _, _, _ => throw .ipldError
+                casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
+            | .quotient quotientAnon, .quotient quotientMeta =>
+              let name := quotientMeta.name
+              let lvls := quotientMeta.lvls
+              let type ← exprFromIpld ⟨quotientAnon.type, quotientMeta.type⟩
+              let kind := quotientAnon.kind
+              pure $ .quotient { name, lvls, type, kind }
+            | .mutDefBlock .., .mutDefBlock .. => throw .mutDefBlockFound
+            | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
+            | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
+            cacheAndSetConst cid constIdx const
+            return constIdx
 
   /-- Converts constructor IPLD CIDs into a `Constructor` -/
   partial def ctorFromIpld (ctor : Ipld.Both Ipld.Constructor) : ConvertM Constructor := do

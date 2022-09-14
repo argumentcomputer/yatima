@@ -780,21 +780,24 @@ Once finished, tries to replace some operations by their primitive versions in
 the array of constants.
 -/
 def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
-  let log := (← read).log
-  constMap.forM fun _ const => do
-    let (_, c) ← getCompiledConst const
-    if log then
-      IO.println "\n========================================="
-      IO.println    const.name
-      IO.println   "========================================="
-      IO.println $  PrintLean.printLeanConst const
-      IO.println   "========================================="
-      IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
-      IO.println   "=========================================\n"
-  (← get).cache.forM fun _ c => do
-    match primOpMap.find? c.1.anon with
-    | some const => addToConsts c.2 const
-    | none => pure ()
+  match buildPrimOpMap with
+  | .ok primOpMap =>
+    let log := (← read).log
+    constMap.forM fun _ const => do
+      let (_, c) ← getCompiledConst const
+      if log then
+        IO.println "\n========================================="
+        IO.println    const.name
+        IO.println   "========================================="
+        IO.println $  PrintLean.printLeanConst const
+        IO.println   "========================================="
+        IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
+        IO.println   "=========================================\n"
+    (← get).cache.forM fun _ c => do
+      match primOpMap.find? c.1.anon with
+      | some const => addToConsts c.2 const
+      | none => pure ()
+  | .error s => throw $ .custom s
 
 /--
 Compiles the "delta" of a file, that is, the content that is added on top of
