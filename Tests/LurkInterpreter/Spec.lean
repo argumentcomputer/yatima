@@ -565,6 +565,14 @@ def mutrec2 : Test :=
      (g (lambda (x) (f x))))
     (g 0))⟧)
 
+def closure : Test :=
+(.ok 125, ⟦(letrec ((exp (lambda (base) (lambda (exponent)
+                  (if (= 0 exponent)
+                      1
+                      (* base ((exp base) (- exponent 1))))))))
+            (let ((myexp exp) (exp (lambda (base) (lambda (exponent) 10)))) ((myexp 5) 3)))⟧)
+
+
 def pairs : List Test := [
   outer_evaluate,
   outer_evaluate2,
@@ -645,7 +653,8 @@ def pairs : List Test := [
   strcons_not_char_str,
   car_unicode_char,
   mutrec1,
-  mutrec2
+  mutrec2,
+  closure
 ]
 
 open LSpec in
