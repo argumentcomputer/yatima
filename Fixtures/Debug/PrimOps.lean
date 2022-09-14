@@ -1,0 +1,1 @@
+def natSucc := Nat.succ
