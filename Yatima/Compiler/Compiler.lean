@@ -1,7 +1,7 @@
 import Yatima.Compiler.Printing
 import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
-import Yatima.Datatypes.PrimOps
+import Yatima.Ipld.PrimOps
 
 namespace Yatima.Compiler
 

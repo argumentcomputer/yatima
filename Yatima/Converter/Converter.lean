@@ -1,9 +1,9 @@
 import Yatima.Datatypes.Store
-import Yatima.Datatypes.PrimOps
 import YatimaStdLib.RBMap
 import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
+import Yatima.Ipld.PrimOps
 
 namespace Yatima
 
