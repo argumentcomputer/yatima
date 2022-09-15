@@ -72,7 +72,7 @@ inductive LitType
   | num
   | word
   deriving BEq, Inhabited
-  
+
 abbrev Hash := Ipld.Both Ipld.ExprCid
 
 /-- Representation of expressions for typechecking and transpilation -/
@@ -87,7 +87,21 @@ inductive Expr
   | lit   : Hash → Literal → Expr
   | lty   : Hash → LitType → Expr
   | proj  : Hash → Nat → Expr → Expr
-  deriving Inhabited, BEq
+  deriving Inhabited
+
+def Expr.beq : Expr → Expr → Bool
+  | .var _ n i, .var _ n' i' => n == n' && i == i'
+  | .sort _ u, .sort _ u' => u == u'
+  | .const _ n i us, .const _ n' i' us' => n == n' && i == i' && us == us'
+  | .lam _ n i t b, .lam _ n' i' t' b' => n == n' && i == i' && beq t t' && beq b b'
+  | .pi _ n i d c, .pi _ n' i' d' c' => n == n' && i == i' && beq d d' && beq c c'
+  | .letE _ n t v b, .letE _ n' t' v' b' => n == n' && beq t t' && beq v v' && beq b b'
+  | .lit _ l, .lit _ l' => l == l'
+  | .lty _ t, .lty _ t' => t == t'
+  | .proj _ i b, .proj _ i' b' => i == i' && beq b b'
+  | _, _ => false
+
+instance : BEq Expr := ⟨ Expr.beq ⟩
 
 namespace Expr
 
