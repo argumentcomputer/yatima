@@ -46,7 +46,7 @@ instance : ToString Ordering where toString
   | .eq => "eq"
 
 def isProp : Expr → Bool
-  | .sort Univ.zero => true
+  | .sort _ Univ.zero => true
   | _ => false
 
 def isAtomAux : Expr → Bool
@@ -55,7 +55,7 @@ def isAtomAux : Expr → Bool
 
 def isAtom : Expr → Bool
   | .const .. | .var .. | .lit .. | .lty .. => true
-  | .proj _ e => isAtom e
+  | .proj _ _ e => isAtom e
   | e => isProp e
 
 def isBinder : Expr → Bool
@@ -63,7 +63,7 @@ def isBinder : Expr → Bool
   | _ => false
 
 def isArrow : Expr → Bool
-  | .pi name bInfo _ body =>
+  | .pi _ name bInfo _ body =>
     !(Expr.isVarFree name body) && bInfo == .default
   | _ => false
 
@@ -77,8 +77,8 @@ def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
 mutual
   partial def printBinding (isPi : Bool) (e : Expr) : PrintM String := do
     match e, isArrow e, isPi with
-    | .pi name bInfo type body, false, true
-    | .lam name bInfo type body, _, false =>
+    | .pi _ name bInfo type body, false, true
+    | .lam _ name bInfo type body, _, false =>
       return s!" {printBinder name bInfo (← printExpr type)}" ++
              (← printBinding isPi body)
     | _, _, _ =>
@@ -97,29 +97,29 @@ mutual
     | .var  n idx => s!"({n}.{idx})"
 
   partial def printExpr (e : Expr) : PrintM String := match e with
-    | .var name i => return s!"{name}@{i}"
-    | .sort u => return s!"Sort {printUniv u}"
-    | .const name i us => return s!"{name}@{i}{us.map printUniv}"
-    | .app func body => match func with
+    | .var _ name i => return s!"{name}@{i}"
+    | .sort _ u => return s!"Sort {printUniv u}"
+    | .const _ name i us => return s!"{name}@{i}{us.map printUniv}"
+    | .app _ func body => match func with
       | .app .. => return s!"{← printExpr func} {← paren body}"
       | _ => return s!"{← paren func} {← paren body}"
-    | .lam name bInfo type body =>
-      return s!"λ{← printBinding false (.lam name bInfo type body)}"
-    | .pi name bInfo type body => do
+    | .lam h name bInfo type body =>
+      return s!"λ{← printBinding false (.lam h name bInfo type body)}"
+    | .pi h name bInfo type body => do
       let arrow := isArrow e || (bInfo == .default && name == "")
       if !arrow then
-        return s!"Π{← printBinding true (.pi name bInfo type body)}"
+        return s!"Π{← printBinding true (.pi h name bInfo type body)}"
       else
         return s!"{← paren type} -> " ++
           if isArrow body then ← printExpr body else ← paren body
-    | .letE name type value body =>
+    | .letE _ name type value body =>
       return s!"let {name} : {← printExpr type} := {← printExpr value} in {← printExpr body}"
-    | .lit lit => return match lit with
+    | .lit _ lit => return match lit with
       | .num num => s!"{num}"
       | .word str => s!"\"{str}\""
-    | .lty .num => return "Number"
-    | .lty .word => return "Word"
-    | .proj idx expr => return s!"{← paren expr}.{idx})"
+    | .lty _ .num => return "Number"
+    | .lty _ .word => return "Word"
+    | .proj _ idx expr => return s!"{← paren expr}.{idx})"
 end
 
 partial def printRecursorRule (rule : RecursorRule) : PrintM String := do
