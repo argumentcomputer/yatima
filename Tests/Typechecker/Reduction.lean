@@ -28,15 +28,15 @@ mutual
     let replace expr := replaceFvars consts ctx expr
     match e with
       | .var _ _ idx => readBack consts (ctx.exprs.get! idx).get
-      | .app h fn e  => do pure $ .app h (← replace fn) (← replace e)
-      | .lam h n bin t b => do
+      | .app _ fn e  => do pure $ .app default (← replace fn) (← replace e)
+      | .lam _ n bin t b => do
         let lamCtx := shiftCtx ctx
         let lamCtx := lamCtx.extendWith
           -- TODO double-check ordering here
           $ Value.app (.fvar n 0 $ Value.sort .zero) []
-        pure $ .lam h n bin (← replace t) (← replaceFvars consts lamCtx b)
-      | .letE h n e t b  => do pure $ .letE h n (← replace e) (← replace t) (← replace b)
-      | .proj h n e  => do pure $ .proj h n (← replace e)
+        pure $ .lam default n bin (← replace t) (← replaceFvars consts lamCtx b)
+      | .letE _ n e t b  => do pure $ .letE default n (← replace e) (← replace t) (← replace b)
+      | .proj _ n e  => do pure $ .proj default n (← replace e)
       | e => pure e
 
   /--
@@ -107,11 +107,11 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
 Strip the binder types from lambdas in `e` (i.e., replace them with `Sort 0`) for the purpose of comparison.
 -/
 def stripBinderTypes : Expr → Expr
-  | .lam h n bin _ b => .lam h n bin (.sort default .zero) (stripBinderTypes b)
-  | .pi h n bin _ b => .pi h n bin (.sort default .zero) (stripBinderTypes b)
-  | .app h fn e  => .app h (stripBinderTypes fn) (stripBinderTypes e)
-  | .letE h n e t b  => .letE h n (stripBinderTypes e) (stripBinderTypes t) (stripBinderTypes b)
-  | .proj h n e  => .proj h n (stripBinderTypes e)
+  | .lam _ n bin _ b => .lam default n bin (.sort default .zero) (stripBinderTypes b)
+  | .pi _ n bin _ b => .pi default n bin (.sort default .zero) (stripBinderTypes b)
+  | .app _ fn e  => .app default (stripBinderTypes fn) (stripBinderTypes e)
+  | .letE _ n e t b  => .letE default n (stripBinderTypes e) (stripBinderTypes t) (stripBinderTypes b)
+  | .proj _ n e  => .proj default n (stripBinderTypes e)
   | e => e
 
 def makeTcTests (pairs : Array ((Name × Expr) × (Name × Expr))) : TestSeq :=
