@@ -98,17 +98,6 @@ namespace Yatima.Transpiler
 open Yatima.Converter
 
 mutual
-  /-- Converts Yatima function applications `f a₁ a₂ ..` into `Lurk.Expr.app f [a₁, a₂, ..]` -/
-  partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
-    let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
-      match expr with 
-        | .app fn arg => descend fn <| arg :: argAcc
-        | _ => (expr, argAcc)
-    do
-      let (expr, args) := descend expr []
-      let fn ← exprToLurkExpr expr
-      let args ← args.mapM exprToLurkExpr
-      return .mkAppOrNoaryLam fn args
     
   /-- Converts Yatima lambda `fun x₁ x₂ .. => body` into `Lurk.Expr.lam [x₁, x₂, ..] body` -/    
   partial def telescopeLam (expr : Expr) : TranspileM Lurk.Expr := 
@@ -143,7 +132,7 @@ mutual
     -- if the inductive has arguments, then apply them from `ctor`'s bindings
     let ind : Lurk.Expr := match (indices + params) with 
       | 0 => ⟦$(name.getPrefix)⟧
-      | _ => .mkAppOrNoaryLam ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
+      | _ => .mkApp ⟦$(name.getPrefix)⟧ $ binds.take (params + indices) |>.map fun (n : Name) => ⟦$n⟧
     let body := if binds.length == 0 then 
       ⟦(cons $ind (cons $idx nil))⟧
     else ⟦
@@ -164,7 +153,7 @@ mutual
       let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem $args $n)⟧
       let recrArgs := binds.reverse.drop (recrIndices + 1) |>.map fun (n : Name) => ⟦$n⟧
       let newArgs := recrArgs.reverse ++ ctorArgs
-      return (⟦(= (car (cdr $argName)) $idx)⟧, .mkAppOrNoaryLam rhs newArgs) -- extract snd element
+      return (⟦(= (car (cdr $argName)) $idx)⟧, .mkApp rhs newArgs) -- extract snd element
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
     appendBinding (recrName, ⟦(lambda ($binds) $cases)⟧)
 
@@ -203,9 +192,9 @@ mutual
         let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
-    | e@(.app ..) => 
+    | .app fn arg => 
       IO.println s!"app"
-      telescopeApp e
+      return .app (← exprToLurkExpr fn) (← exprToLurkExpr arg)
     | e@(.lam ..) => 
       IO.println s!"lam"
       telescopeLam e

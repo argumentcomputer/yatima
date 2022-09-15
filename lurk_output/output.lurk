@@ -1,569 +1,534 @@
 (letrec
  ((getelem
-   (lambda (xs n)
-    (if (= n 0)
-     (car xs)
-     (getelem (cdr xs) (- n 1)))))
-  (Nat (cons "Nat" (cons 0 (cons 0 nil))))
+   (lambda (xs n) (if (= n 0) (car xs) (getelem (cdr xs) (- n 1)))))
+  (Nat (quote ("Nat" 0 0)))
   (Nat_zero 0)
   (Nat_succ (lambda (n) (+ n 1)))
   (Nat_rec
    (lambda (motive zero succ _t)
-    (if (= _t 0)
-     zero
-     (succ (- _t 1)
-      (Nat_rec motive zero succ (- _t 1))))))
-  (Nat_add
-   (lambda (_x_lurk_1 _x_lurk_2)
-    (+ _x_lurk_1 _x_lurk_2)))
-  (Nat_mul
-   (lambda (_x_lurk_1 _x_lurk_2)
-    (* _x_lurk_1 _x_lurk_2)))
-  (Decidable
-   (lambda (p) (quote ("Decidable" 1 0))))
+     (if (= _t 0)
+         zero
+         (succ (- _t 1) (Nat_rec motive zero succ (- _t 1))))))
+  (Nat_add (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2)))
+  (Nat_mul (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2)))
+  (Decidable (lambda (p) (quote ("Decidable" 1 0))))
   (Decidable_rec
    (lambda (p motive isFalse isTrue _t)
-    (if (= (car (cdr _t)) 0)
-     (isFalse h
-      p
-      motive
-      isFalse
-      isTrue
-      (getelem (cdr (cdr _t)) 0))
-     (if (= (car (cdr _t)) 1)
-      (isTrue h
-       p
-       motive
-       isFalse
-       isTrue
-       (getelem (cdr (cdr _t)) 0))
-      nil))))
+     (if (= (car (cdr _t)) 0)
+         ((lambda (p motive isFalse isTrue h) (isFalse h))
+          p
+          motive
+          isFalse
+          isTrue
+          (getelem (cdr (cdr _t)) 0))
+         (if (= (car (cdr _t)) 1)
+             ((lambda (p motive isFalse isTrue h) (isTrue h))
+              p
+              motive
+              isFalse
+              isTrue
+              (getelem (cdr (cdr _t)) 0))
+             nil))))
   (Decidable_isFalse
-   (lambda (p h)
-    (cons (Decidable p)
-     (cons 0 (cons p (cons h nil))))))
+   (lambda (p h) (cons (Decidable p) (cons 0 (cons p (cons h nil))))))
   (Decidable_isTrue
-   (lambda (p h)
-    (cons (Decidable p)
-     (cons 1 (cons p (cons h nil))))))
+   (lambda (p h) (cons (Decidable p) (cons 1 (cons p (cons h nil))))))
   (Decidable_casesOn
    (lambda (p motive _t isFalse isTrue)
-    (Decidable_rec p
-     motive
-     (lambda (h) (isFalse h))
-     (lambda (h) (isTrue h))
-     _t)))
+     (Decidable_rec
+      p
+      motive
+      (lambda (h) (isFalse h))
+      (lambda (h) (isTrue h))
+      _t)))
   (ite
    (lambda (:1 c h _t e)
-    (Decidable_casesOn c
-     (lambda (x__40_Init_Prelude__hyg_1552) :1)
-     h
-     (lambda (x__40_Init_Prelude__hyg_1557) e)
-     (lambda (x__40_Init_Prelude__hyg_1564) _t))))
+     (Decidable_casesOn
+      c
+      (lambda (x__40_Init_Prelude__hyg_1552) :1)
+      h
+      (lambda (x__40_Init_Prelude__hyg_1557) e)
+      (lambda (x__40_Init_Prelude__hyg_1564) _t))))
   (LT_lt
    (lambda (:1 self)
-    (getelem (cdr (cdr self))
-     (+
-      (+
-       (getelem (car self) 1)
-       (getelem (car self) 2))
-      0))))
+     (getelem
+      (cdr (cdr self))
+      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
   (LT (lambda (:1) (quote ("LT" 1 0))))
   (LT_rec
    (lambda (:1 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     (mk _uncap_lt
-      :1
-      motive
-      mk
-      (getelem (cdr (cdr _t)) 0))
-     nil)))
+     (if (= (car (cdr _t)) 0)
+         ((lambda (:1 motive mk _uncap_lt) (mk _uncap_lt))
+          :1
+          motive
+          mk
+          (getelem (cdr (cdr _t)) 0))
+         nil)))
   (LT_mk
    (lambda (:1 _uncap_lt)
-    (cons (LT :1)
-     (cons 0 (cons :1 (cons _uncap_lt nil))))))
+     (cons (LT :1) (cons 0 (cons :1 (cons _uncap_lt nil))))))
   (Nat_le
-   (lambda (n a__40_Init_Prelude__hyg_3356)
-    (quote ("Nat.le" 1 1))))
+   (lambda (n a__40_Init_Prelude__hyg_3356) (quote ("Nat.le" 1 1))))
   (Nat_le_rec
-   (lambda
-    (n
-     motive
-     refl
-     step
-     a__40_Init_Prelude__hyg_3356
-     _t)
-    (if (= (car (cdr _t)) 0)
-     (refl n motive refl step)
-     (if (= (car (cdr _t)) 1)
-      (step m
-       a__40_Init_Prelude__hyg_3363
-       (Nat_le_rec n
-        motive
-        refl
-        step
-        m
-        a__40_Init_Prelude__hyg_3363)
-       n
-       motive
-       refl
-       step
-       (getelem (cdr (cdr _t)) 0)
-       (getelem (cdr (cdr _t)) 1))
-      nil))))
-  (Nat_le_refl
-   (lambda (n)
-    (cons (Nat_le n) (cons 0 (cons n nil)))))
+   (lambda (n motive refl step a__40_Init_Prelude__hyg_3356 _t)
+     (if (= (car (cdr _t)) 0)
+         ((lambda (n motive refl step) refl) n motive refl step)
+         (if (= (car (cdr _t)) 1)
+             ((lambda (n
+                 motive
+                 refl
+                 step
+                 m
+                 a__40_Init_Prelude__hyg_3363)
+                (step
+                 m
+                 a__40_Init_Prelude__hyg_3363
+                 (Nat_le_rec
+                  n
+                  motive
+                  refl
+                  step
+                  m
+                  a__40_Init_Prelude__hyg_3363)))
+              n
+              motive
+              refl
+              step
+              (getelem (cdr (cdr _t)) 0)
+              (getelem (cdr (cdr _t)) 1))
+             nil))))
+  (Nat_le_refl (lambda (n) (cons (Nat_le n) (cons 0 (cons n nil)))))
   (Nat_le_step
    (lambda (n m a__40_Init_Prelude__hyg_3363)
-    (cons (Nat_le n m)
-     (cons 1
-      (cons n
-       (cons m
-        (cons a__40_Init_Prelude__hyg_3363
-         nil)))))))
+     (cons
+      (Nat_le n m)
+      (cons
+       1
+       (cons n (cons m (cons a__40_Init_Prelude__hyg_3363 nil)))))))
   (Nat_lt (lambda (n m) (Nat_le (Nat_succ n) m)))
   (instLTNat (LT_mk Nat Nat_lt))
   (OfNat_ofNat
    (lambda (:1 x__40_Init_Prelude__hyg_1823 self)
-    (getelem (cdr (cdr self))
-     (+
-      (+
-       (getelem (car self) 1)
-       (getelem (car self) 2))
-      0))))
+     (getelem
+      (cdr (cdr self))
+      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
   (OfNat
-   (lambda (:1 x__40_Init_Prelude__hyg_1823)
-    (quote ("OfNat" 2 0))))
+   (lambda (:1 x__40_Init_Prelude__hyg_1823) (quote ("OfNat" 2 0))))
   (OfNat_rec
-   (lambda
-    (:1 x__40_Init_Prelude__hyg_1823 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     (mk _uncap_ofNat
-      :1
-      x__40_Init_Prelude__hyg_1823
-      motive
-      mk
-      (getelem (cdr (cdr _t)) 0))
-     nil)))
+   (lambda (:1 x__40_Init_Prelude__hyg_1823 motive mk _t)
+     (if (= (car (cdr _t)) 0)
+         ((lambda (:1
+             x__40_Init_Prelude__hyg_1823
+             motive
+             mk
+             _uncap_ofNat)
+            (mk _uncap_ofNat))
+          :1
+          x__40_Init_Prelude__hyg_1823
+          motive
+          mk
+          (getelem (cdr (cdr _t)) 0))
+         nil)))
   (OfNat_mk
-   (lambda
-    (:1 x__40_Init_Prelude__hyg_1823 _uncap_ofNat)
-    (cons (OfNat :1 x__40_Init_Prelude__hyg_1823)
-     (cons 0
-      (cons :1
-       (cons x__40_Init_Prelude__hyg_1823
-        (cons _uncap_ofNat nil)))))))
+   (lambda (:1 x__40_Init_Prelude__hyg_1823 _uncap_ofNat)
+     (cons
+      (OfNat :1 x__40_Init_Prelude__hyg_1823)
+      (cons
+       0
+       (cons
+        :1
+        (cons
+         x__40_Init_Prelude__hyg_1823
+         (cons _uncap_ofNat nil)))))))
   (instOfNatNat (lambda (n) (OfNat_mk Nat n n)))
   (dite
    (lambda (:1 c h _t e)
-    (Decidable_casesOn c
-     (lambda (x__40_Init_Prelude__hyg_1539) :1)
-     h
-     e
-     _t)))
+     (Decidable_casesOn
+      c
+      (lambda (x__40_Init_Prelude__hyg_1539) :1)
+      h
+      e
+      _t)))
   (LE_le
    (lambda (:1 self)
-    (getelem (cdr (cdr self))
-     (+
-      (+
-       (getelem (car self) 1)
-       (getelem (car self) 2))
-      0))))
+     (getelem
+      (cdr (cdr self))
+      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
   (LE (lambda (:1) (quote ("LE" 1 0))))
   (LE_rec
    (lambda (:1 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     (mk _uncap_le
-      :1
-      motive
-      mk
-      (getelem (cdr (cdr _t)) 0))
-     nil)))
+     (if (= (car (cdr _t)) 0)
+         ((lambda (:1 motive mk _uncap_le) (mk _uncap_le))
+          :1
+          motive
+          mk
+          (getelem (cdr (cdr _t)) 0))
+         nil)))
   (LE_mk
    (lambda (:1 _uncap_le)
-    (cons (LE :1)
-     (cons 0 (cons :1 (cons _uncap_le nil))))))
+     (cons (LE :1) (cons 0 (cons :1 (cons _uncap_le nil))))))
   (instLENat (LE_mk Nat Nat_le))
   (LEq
-   (lambda
-    (:1
-     a__40_Init_Prelude__hyg_149
-     a__40_Init_Prelude__hyg_151)
-    (quote ("Eq" 2 1))))
+   (lambda (:1
+      a__40_Init_Prelude__hyg_149
+      a__40_Init_Prelude__hyg_151)
+     (quote ("Eq" 2 1))))
   (Eq_rec
-   (lambda
-    (:1
-     a__40_Init_Prelude__hyg_149
-     motive
-     refl
-     a__40_Init_Prelude__hyg_151
-     _t)
-    (if (= (car (cdr _t)) 0)
-     (refl :1
+   (lambda (:1
       a__40_Init_Prelude__hyg_149
       motive
-      refl)
-     nil)))
+      refl
+      a__40_Init_Prelude__hyg_151
+      _t)
+     (if (= (car (cdr _t)) 0)
+         ((lambda (:1 a__40_Init_Prelude__hyg_149 motive refl) refl)
+          :1
+          a__40_Init_Prelude__hyg_149
+          motive
+          refl)
+         nil)))
   (Eq_refl
-   (lambda (:1 a)
-    (cons (LEq :1 a)
-     (cons 0 (cons :1 (cons a nil))))))
+   (lambda (:1 a) (cons (LEq :1 a) (cons 0 (cons :1 (cons a nil))))))
   (Bool (quote ("Bool" 0 0)))
   (Bool_rec
    (lambda (motive false true _t)
-    (if (= (car (cdr _t)) 0)
-     (false motive false true)
-     (if (= (car (cdr _t)) 1)
-      (true motive false true)
-      nil))))
+     (if (= (car (cdr _t)) 0)
+         ((lambda (motive false true) false) motive false true)
+         (if (= (car (cdr _t)) 1)
+             ((lambda (motive false true) true) motive false true)
+             nil))))
   (Bool_false (cons Bool (cons 0 nil)))
   (Bool_true (cons Bool (cons 1 nil)))
   (PProd (lambda (:1 :2) (quote ("PProd" 2 0))))
   (PProd_rec
    (lambda (:1 :2 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     (mk fst
-      snd
-      :1
-      :2
-      motive
-      mk
-      (getelem (cdr (cdr _t)) 0)
-      (getelem (cdr (cdr _t)) 1))
-     nil)))
+     (if (= (car (cdr _t)) 0)
+         ((lambda (:1 :2 motive mk fst snd) (mk fst snd))
+          :1
+          :2
+          motive
+          mk
+          (getelem (cdr (cdr _t)) 0)
+          (getelem (cdr (cdr _t)) 1))
+         nil)))
   (PProd_mk
    (lambda (:1 :2 fst snd)
-    (cons (PProd :1 :2)
-     (cons 0
-      (cons :1
-       (cons :2 (cons fst (cons snd nil))))))))
+     (cons
+      (PProd :1 :2)
+      (cons 0 (cons :1 (cons :2 (cons fst (cons snd nil))))))))
   (PUnit (quote ("PUnit" 0 0)))
   (PUnit_rec
    (lambda (motive unit _t)
-    (if (= (car (cdr _t)) 0)
-     (unit motive unit)
-     nil)))
+     (if (= (car (cdr _t)) 0)
+         ((lambda (motive unit) unit) motive unit)
+         nil)))
   (PUnit_unit (cons PUnit (cons 0 nil)))
   (Nat_below
    (lambda (motive _t)
-    (Nat_rec (lambda (_t) nil)
-     PUnit
-     (lambda (n n_ih)
-      (PProd (PProd (motive n) n_ih) PUnit))
-     _t)))
+     (Nat_rec
+      (lambda (_t) nil)
+      PUnit
+      (lambda (n n_ih) (PProd (PProd (motive n) n_ih) PUnit))
+      _t)))
   (Nat_brecOn
    (lambda (motive _t F_1)
-    (getelem (cdr
+     (getelem
       (cdr
-       (Nat_rec (lambda (_t)
-         (PProd (motive _t)
-          (Nat_below motive _t)))
-        (PProd_mk (motive Nat_zero)
-         PUnit
-         (F_1 Nat_zero PUnit_unit)
-         PUnit_unit)
-        (lambda (n n_ih)
-         (PProd_mk (motive (Nat_succ n))
-          (PProd (PProd (motive n)
-            (Nat_below motive n))
-           PUnit)
-          (F_1 (Nat_succ n)
-           (PProd_mk (PProd (motive n)
-             (Nat_below motive n))
-            PUnit
-            n_ih
-            PUnit_unit))
-          (PProd_mk (PProd (motive n)
-            (Nat_below motive n))
-           PUnit
-           n_ih
-           PUnit_unit)))
-        _t)))
-     (+
+       (cdr
+        (Nat_rec
+         (lambda (_t) (PProd (motive _t) (Nat_below motive _t)))
+         (PProd_mk
+          (motive Nat_zero)
+          PUnit
+          (F_1 Nat_zero PUnit_unit)
+          PUnit_unit)
+         (lambda (n n_ih)
+           (PProd_mk
+            (motive (Nat_succ n))
+            (PProd (PProd (motive n) (Nat_below motive n)) PUnit)
+            (F_1
+             (Nat_succ n)
+             (PProd_mk
+              (PProd (motive n) (Nat_below motive n))
+              PUnit
+              n_ih
+              PUnit_unit))
+            (PProd_mk
+             (PProd (motive n) (Nat_below motive n))
+             PUnit
+             n_ih
+             PUnit_unit)))
+         _t)))
       (+
-       (getelem (car
-         (Nat_rec (lambda (_t)
-           (PProd (motive _t)
-            (Nat_below motive _t)))
-          (PProd_mk (motive Nat_zero)
-           PUnit
-           (F_1 Nat_zero PUnit_unit)
-           PUnit_unit)
-          (lambda (n n_ih)
-           (PProd_mk (motive (Nat_succ n))
-            (PProd (PProd (motive n)
-              (Nat_below motive n))
-             PUnit)
-            (F_1 (Nat_succ n)
-             (PProd_mk (PProd (motive n)
-               (Nat_below motive n))
-              PUnit
-              n_ih
-              PUnit_unit))
-            (PProd_mk (PProd (motive n)
-              (Nat_below motive n))
-             PUnit
-             n_ih
-             PUnit_unit)))
-          _t))
-        1)
-       (getelem (car
-         (Nat_rec (lambda (_t)
-           (PProd (motive _t)
-            (Nat_below motive _t)))
-          (PProd_mk (motive Nat_zero)
-           PUnit
-           (F_1 Nat_zero PUnit_unit)
-           PUnit_unit)
-          (lambda (n n_ih)
-           (PProd_mk (motive (Nat_succ n))
-            (PProd (PProd (motive n)
-              (Nat_below motive n))
-             PUnit)
-            (F_1 (Nat_succ n)
-             (PProd_mk (PProd (motive n)
-               (Nat_below motive n))
-              PUnit
-              n_ih
-              PUnit_unit))
-            (PProd_mk (PProd (motive n)
-              (Nat_below motive n))
-             PUnit
-             n_ih
-             PUnit_unit)))
-          _t))
-        2))
-      0))))
+       (+
+        (getelem
+         (car
+          (Nat_rec
+           (lambda (_t) (PProd (motive _t) (Nat_below motive _t)))
+           (PProd_mk
+            (motive Nat_zero)
+            PUnit
+            (F_1 Nat_zero PUnit_unit)
+            PUnit_unit)
+           (lambda (n n_ih)
+             (PProd_mk
+              (motive (Nat_succ n))
+              (PProd (PProd (motive n) (Nat_below motive n)) PUnit)
+              (F_1
+               (Nat_succ n)
+               (PProd_mk
+                (PProd (motive n) (Nat_below motive n))
+                PUnit
+                n_ih
+                PUnit_unit))
+              (PProd_mk
+               (PProd (motive n) (Nat_below motive n))
+               PUnit
+               n_ih
+               PUnit_unit)))
+           _t))
+         1)
+        (getelem
+         (car
+          (Nat_rec
+           (lambda (_t) (PProd (motive _t) (Nat_below motive _t)))
+           (PProd_mk
+            (motive Nat_zero)
+            PUnit
+            (F_1 Nat_zero PUnit_unit)
+            PUnit_unit)
+           (lambda (n n_ih)
+             (PProd_mk
+              (motive (Nat_succ n))
+              (PProd (PProd (motive n) (Nat_below motive n)) PUnit)
+              (F_1
+               (Nat_succ n)
+               (PProd_mk
+                (PProd (motive n) (Nat_below motive n))
+                PUnit
+                n_ih
+                PUnit_unit))
+              (PProd_mk
+               (PProd (motive n) (Nat_below motive n))
+               PUnit
+               n_ih
+               PUnit_unit)))
+           _t))
+         2))
+       0))))
   (Nat_casesOn
    (lambda (motive _t zero succ)
-    (Nat_rec motive
-     zero
-     (lambda (n n_ih) (succ n))
-     _t)))
+     (Nat_rec motive zero (lambda (n n_ih) (succ n)) _t)))
   (Unit_unit PUnit_unit)
   (Nat_beq_match_1
-   (lambda
-    (motive
-     _fun_discr__40_Init_Prelude__hyg_2901_2914
-     _fun_discr__40_Init_Prelude__hyg_2902_2915
-     h_1
-     h_2
-     h_3
-     h_4)
-    (Nat_casesOn (lambda (x)
-      (motive x
-       _fun_discr__40_Init_Prelude__hyg_2902_2915))
-     _fun_discr__40_Init_Prelude__hyg_2901_2914
-     (Nat_casesOn (lambda (x) (motive Nat_zero x))
+   (lambda (motive
+      _fun_discr__40_Init_Prelude__hyg_2901_2914
       _fun_discr__40_Init_Prelude__hyg_2902_2915
-      (h_1 Unit_unit)
-      (lambda (n__40_Init_Prelude__hyg_2955)
-       (h_2 n__40_Init_Prelude__hyg_2955)))
-     (lambda (n__40_Init_Prelude__hyg_2954)
-      (Nat_casesOn (lambda (x)
-        (motive (Nat_succ n__40_Init_Prelude__hyg_2954)
-         x))
+      h_1
+      h_2
+      h_3
+      h_4)
+     (Nat_casesOn
+      (lambda (x)
+        (motive x _fun_discr__40_Init_Prelude__hyg_2902_2915))
+      _fun_discr__40_Init_Prelude__hyg_2901_2914
+      (Nat_casesOn
+       (lambda (x) (motive Nat_zero x))
        _fun_discr__40_Init_Prelude__hyg_2902_2915
-       (h_3 n__40_Init_Prelude__hyg_2954)
-       (lambda (n__40_Init_Prelude__hyg_2956)
-        (h_4 n__40_Init_Prelude__hyg_2954
-         n__40_Init_Prelude__hyg_2956)))))))
+       (h_1 Unit_unit)
+       (lambda (n__40_Init_Prelude__hyg_2955)
+         (h_2 n__40_Init_Prelude__hyg_2955)))
+      (lambda (n__40_Init_Prelude__hyg_2954)
+        (Nat_casesOn
+         (lambda (x)
+           (motive (Nat_succ n__40_Init_Prelude__hyg_2954) x))
+         _fun_discr__40_Init_Prelude__hyg_2902_2915
+         (h_3 n__40_Init_Prelude__hyg_2954)
+         (lambda (n__40_Init_Prelude__hyg_2956)
+           (h_4
+            n__40_Init_Prelude__hyg_2954
+            n__40_Init_Prelude__hyg_2956)))))))
   (PProd_fst
    (lambda (:1 :2 self)
-    (getelem (cdr (cdr self))
-     (+
-      (+
-       (getelem (car self) 1)
-       (getelem (car self) 2))
-      0))))
+     (getelem
+      (cdr (cdr self))
+      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
   (Nat_ble
-   (lambda
-    (_fun_discr__40_Init_Prelude__hyg_3291
-     _fun_discr__40_Init_Prelude__hyg_3292)
-    (Nat_brecOn (lambda
-      (_fun_discr__40_Init_Prelude__hyg_3291)
-      nil)
-     _fun_discr__40_Init_Prelude__hyg_3291
-     (lambda
-      (_fun_discr__40_Init_Prelude__hyg_3291
-       f
-       _fun_discr__40_Init_Prelude__hyg_3292)
-      (Nat_beq_match_1 (lambda
-        (_fun_discr__40_Init_Prelude__hyg_3291_3304
-         _fun_discr__40_Init_Prelude__hyg_3292_3305)
-        nil)
-       _fun_discr__40_Init_Prelude__hyg_3291
-       _fun_discr__40_Init_Prelude__hyg_3292
-       (lambda
-        (anonymous x__40_Init_Prelude__hyg_3347)
-        Bool_true)
-       (lambda
-        (n__40_Init_Prelude__hyg_2931
-         x__40_Init_Prelude__hyg_3347)
-        Bool_true)
-       (lambda
-        (n__40_Init_Prelude__hyg_2941
-         x__40_Init_Prelude__hyg_3347)
-        Bool_false)
-       (lambda (n m x__40_Init_Prelude__hyg_3347)
-        (PProd_fst ((lambda
-           (_fun_discr__40_Init_Prelude__hyg_3291)
-           nil) n)
-         (Nat_rec (lambda (_t) nil)
-          PUnit
-          (lambda (n n_ih)
-           (PProd (PProd ((lambda
-               (_fun_discr__40_Init_Prelude__hyg_3291)
-               nil) n)
-             n_ih)
-            PUnit))
-          n)
-         (PProd_fst (PProd ((lambda
-             (_fun_discr__40_Init_Prelude__hyg_3291)
-             nil) n)
-           (Nat_rec (lambda (_t) nil)
-            PUnit
-            (lambda (n n_ih)
-             (PProd (PProd ((lambda
-                 (_fun_discr__40_Init_Prelude__hyg_3291)
-                 nil) n)
-               n_ih)
-              PUnit))
-            n))
-          PUnit
-          x__40_Init_Prelude__hyg_3347)
-         m))
-       f))
-     _fun_discr__40_Init_Prelude__hyg_3292)))
+   (lambda (_fun_discr__40_Init_Prelude__hyg_3291
+      _fun_discr__40_Init_Prelude__hyg_3292)
+     (Nat_brecOn
+      (lambda (_fun_discr__40_Init_Prelude__hyg_3291) nil)
+      _fun_discr__40_Init_Prelude__hyg_3291
+      (lambda (_fun_discr__40_Init_Prelude__hyg_3291
+         f
+         _fun_discr__40_Init_Prelude__hyg_3292)
+        (Nat_beq_match_1
+         (lambda (_fun_discr__40_Init_Prelude__hyg_3291_3304
+            _fun_discr__40_Init_Prelude__hyg_3292_3305)
+           nil)
+         _fun_discr__40_Init_Prelude__hyg_3291
+         _fun_discr__40_Init_Prelude__hyg_3292
+         (lambda (anonymous x__40_Init_Prelude__hyg_3347) Bool_true)
+         (lambda (n__40_Init_Prelude__hyg_2931
+            x__40_Init_Prelude__hyg_3347)
+           Bool_true)
+         (lambda (n__40_Init_Prelude__hyg_2941
+            x__40_Init_Prelude__hyg_3347)
+           Bool_false)
+         (lambda (n m x__40_Init_Prelude__hyg_3347)
+           (PProd_fst
+            ((lambda (_fun_discr__40_Init_Prelude__hyg_3291) nil) n)
+            (Nat_rec
+             (lambda (_t) nil)
+             PUnit
+             (lambda (n n_ih)
+               (PProd
+                (PProd
+                 ((lambda (_fun_discr__40_Init_Prelude__hyg_3291) nil)
+                  n)
+                 n_ih)
+                PUnit))
+             n)
+            (PProd_fst
+             (PProd
+              ((lambda (_fun_discr__40_Init_Prelude__hyg_3291) nil) n)
+              (Nat_rec
+               (lambda (_t) nil)
+               PUnit
+               (lambda (n n_ih)
+                 (PProd
+                  (PProd
+                   ((lambda (_fun_discr__40_Init_Prelude__hyg_3291)
+                      nil)
+                    n)
+                   n_ih)
+                  PUnit))
+               n))
+             PUnit
+             x__40_Init_Prelude__hyg_3347)
+            m))
+         f))
+      _fun_discr__40_Init_Prelude__hyg_3292)))
   (Bool_casesOn
-   (lambda (motive _t false true)
-    (Bool_rec motive false true _t)))
+   (lambda (motive _t false true) (Bool_rec motive false true _t)))
   (instDecidableEqBool_match_1
-   (lambda
-    (motive
-     a__40_Init_Prelude__hyg_1448
-     b__40_Init_Prelude__hyg_1449
-     h_1
-     h_2
-     h_3
-     h_4)
-    (Bool_casesOn (lambda (x)
-      (motive x b__40_Init_Prelude__hyg_1449))
-     a__40_Init_Prelude__hyg_1448
-     (Bool_casesOn (lambda (x)
-       (motive Bool_false x))
+   (lambda (motive
+      a__40_Init_Prelude__hyg_1448
       b__40_Init_Prelude__hyg_1449
-      (h_1 Unit_unit)
-      (h_2 Unit_unit))
-     (Bool_casesOn (lambda (x)
-       (motive Bool_true x))
-      b__40_Init_Prelude__hyg_1449
-      (h_3 Unit_unit)
-      (h_4 Unit_unit)))))
+      h_1
+      h_2
+      h_3
+      h_4)
+     (Bool_casesOn
+      (lambda (x) (motive x b__40_Init_Prelude__hyg_1449))
+      a__40_Init_Prelude__hyg_1448
+      (Bool_casesOn
+       (lambda (x) (motive Bool_false x))
+       b__40_Init_Prelude__hyg_1449
+       (h_1 Unit_unit)
+       (h_2 Unit_unit))
+      (Bool_casesOn
+       (lambda (x) (motive Bool_true x))
+       b__40_Init_Prelude__hyg_1449
+       (h_3 Unit_unit)
+       (h_4 Unit_unit)))))
   (rfl_proof_1 (lambda (:1 a) (Eq_refl :1 a)))
   (rfl rfl_proof_1)
   (Eq_ndrec
    (lambda (:1 a motive m b h)
-    (Eq_rec :1
-     a
-     (lambda
-      (x__40_Init_Prelude__hyg_178
-       x__40_Init_Prelude__hyg_177)
-      (motive x__40_Init_Prelude__hyg_178))
-     m
-     b
-     h)))
+     (Eq_rec
+      :1
+      a
+      (lambda (x__40_Init_Prelude__hyg_178
+         x__40_Init_Prelude__hyg_177)
+        (motive x__40_Init_Prelude__hyg_178))
+      m
+      b
+      h)))
   (Bool_noConfusionType
    (lambda (P v1 v2)
-    (Bool_casesOn (lambda (v1) nil)
-     v1
-     (Bool_casesOn (lambda (v1) nil) v2 nil P)
-     (Bool_casesOn (lambda (v1) nil) v2 P nil))))
+     (Bool_casesOn
+      (lambda (v1) nil)
+      v1
+      (Bool_casesOn (lambda (v1) nil) v2 nil P)
+      (Bool_casesOn (lambda (v1) nil) v2 P nil))))
   (Bool_noConfusion
    (lambda (P v1 v2 h12)
-    (Eq_ndrec Bool
-     v1
-     (lambda (a) nil)
-     (lambda (h11)
-      (Bool_casesOn (lambda (v1)
-        (Bool_noConfusionType P v1 v1))
-       v1
-       (lambda (a) a)
-       (lambda (a) a)))
-     v2
-     h12
-     h12)))
+     (Eq_ndrec
+      Bool
+      v1
+      (lambda (a) nil)
+      (lambda (h11)
+        (Bool_casesOn
+         (lambda (v1) (Bool_noConfusionType P v1 v1))
+         v1
+         (lambda (a) a)
+         (lambda (a) a)))
+      v2
+      h12
+      h12)))
   (False (quote ("False" 0 0)))
   (False_rec (lambda (motive _t) nil))
   (instDecidableEqBool_proof_1
-   (lambda (h)
-    (Bool_noConfusion False
-     Bool_false
-     Bool_true
-     h)))
+   (lambda (h) (Bool_noConfusion False Bool_false Bool_true h)))
   (instDecidableEqBool_proof_2
-   (lambda (h)
-    (Bool_noConfusion False
-     Bool_true
-     Bool_false
-     h)))
+   (lambda (h) (Bool_noConfusion False Bool_true Bool_false h)))
   (instDecidableEqBool
    (lambda (a b)
-    (instDecidableEqBool_match_1 (lambda
-      (a__40_Init_Prelude__hyg_1448
-       b__40_Init_Prelude__hyg_1449)
-      (Decidable (LEq Bool
-        a__40_Init_Prelude__hyg_1448
-        b__40_Init_Prelude__hyg_1449)))
-     a
-     b
-     (lambda (_x)
-      (Decidable_isTrue (LEq Bool
-        Bool_false
-        Bool_false)
-       (rfl Bool Bool_false)))
-     (lambda (_x)
-      (Decidable_isFalse (LEq Bool
-        Bool_false
-        Bool_true)
-       instDecidableEqBool_proof_1))
-     (lambda (_x)
-      (Decidable_isFalse (LEq Bool
-        Bool_true
-        Bool_false)
-       instDecidableEqBool_proof_2))
-     (lambda (_x)
-      (Decidable_isTrue (LEq Bool
-        Bool_true
-        Bool_true)
-       (rfl Bool Bool_true))))))
+     (instDecidableEqBool_match_1
+      (lambda (a__40_Init_Prelude__hyg_1448
+         b__40_Init_Prelude__hyg_1449)
+        (Decidable
+         (LEq
+          Bool
+          a__40_Init_Prelude__hyg_1448
+          b__40_Init_Prelude__hyg_1449)))
+      a
+      b
+      (lambda (_x)
+        (Decidable_isTrue
+         (LEq Bool Bool_false Bool_false)
+         (rfl Bool Bool_false)))
+      (lambda (_x)
+        (Decidable_isFalse
+         (LEq Bool Bool_false Bool_true)
+         instDecidableEqBool_proof_1))
+      (lambda (_x)
+        (Decidable_isFalse
+         (LEq Bool Bool_true Bool_false)
+         instDecidableEqBool_proof_2))
+      (lambda (_x)
+        (Decidable_isTrue
+         (LEq Bool Bool_true Bool_true)
+         (rfl Bool Bool_true))))))
   (Nat_le_of_ble_eq_true (lambda (n m h) t))
-  (Nat_not_le_of_not_ble_eq_true
-   (lambda (n m h) t))
+  (Nat_not_le_of_not_ble_eq_true (lambda (n m h) t))
   (Nat_decLe
    (lambda (n m)
-    (dite (Decidable (LE_le Nat instLENat n m))
-     (LEq Bool (Nat_ble n m) Bool_true)
-     (instDecidableEqBool (Nat_ble n m) Bool_true)
-     (lambda (h)
-      (Decidable_isTrue (LE_le Nat instLENat n m)
-       (Nat_le_of_ble_eq_true n m h)))
-     (lambda (h)
-      (Decidable_isFalse (LE_le Nat instLENat n m)
-       (Nat_not_le_of_not_ble_eq_true n m h))))))
-  (Nat_decLt
-   (lambda (n m) (Nat_decLe (Nat_succ n) m)))
-  (whee
-   (ite Nat
-    (LT_lt Nat
+     (dite
+      (Decidable (LE_le Nat instLENat n m))
+      (LEq Bool (Nat_ble n m) Bool_true)
+      (instDecidableEqBool (Nat_ble n m) Bool_true)
+      (lambda (h)
+        (Decidable_isTrue
+         (LE_le Nat instLENat n m)
+         (Nat_le_of_ble_eq_true n m h)))
+      (lambda (h)
+        (Decidable_isFalse
+         (LE_le Nat instLENat n m)
+         (Nat_not_le_of_not_ble_eq_true n m h))))))
+  (Nat_decLt (lambda (n m) (Nat_decLe (Nat_succ n) m)))
+  (tree
+   (ite
+    Nat
+    (LT_lt
+     Nat
      instLTNat
-     (OfNat_ofNat Nat 10 (instOfNatNat 10))
-     (OfNat_ofNat Nat 20 (instOfNatNat 20)))
-    (Nat_decLt (OfNat_ofNat Nat
-      10
-      (instOfNatNat 10))
-     (OfNat_ofNat Nat 20 (instOfNatNat 20)))
+     (OfNat_ofNat Nat 1 (instOfNatNat 1))
+     (OfNat_ofNat Nat 2 (instOfNatNat 2)))
+    (Nat_decLt
+     (OfNat_ofNat Nat 1 (instOfNatNat 1))
+     (OfNat_ofNat Nat 2 (instOfNatNat 2)))
     (OfNat_ofNat Nat 0 (instOfNatNat 0))
     (OfNat_ofNat Nat 1 (instOfNatNat 1))))
   )
