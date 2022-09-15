@@ -301,7 +301,7 @@ mutual
           withRecrs recrCtx do
             let type ← exprFromIpld ⟨constructorAnon.type, constructorMeta.type⟩
             let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            let rhs := rhs.toImplicitLambda 
+            let rhs := rhs
             pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
@@ -353,7 +353,6 @@ mutual
     let lvls := ctor.meta.lvls
     let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
     let rhs ← exprFromIpld ⟨ctor.anon.rhs, ctor.meta.rhs⟩
-    let rhs := rhs.toImplicitLambda 
     let idx := ctor.anon.idx
     let params := ctor.anon.params
     let fields := ctor.anon.fields

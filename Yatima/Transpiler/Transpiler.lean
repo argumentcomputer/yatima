@@ -157,7 +157,6 @@ mutual
     let (_, ⟨binds⟩) := descendPi recrType #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
     let ifThens ← rhs.mapM fun ctor => do 
-      -- FIXME rhs lacks binders here
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       let rhs ← exprToLurkExpr rhs 
       let args := ⟦(cdr (cdr $argName))⟧

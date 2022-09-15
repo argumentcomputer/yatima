@@ -509,7 +509,7 @@ mutual
         fields  := ctor.numFields
         -- the rhs of constructors are represented as implicit lambdas for an
         -- optimization in the typechecker
-        rhs     := rhs.toImplicitLambda
+        rhs     := rhs
         safe    := not ctor.isUnsafe
       }
       let (_, _, constIdx) ← getFromRecrCtx! ctor.name
