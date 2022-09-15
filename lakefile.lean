@@ -42,7 +42,7 @@ lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
 
 lean_exe Tests.LurkInterpreter.Spec
-lean_exe Tests.LurkInterpreter.CodeGen
+lean_exe Tests.LurkInterpreter.CodeGen     { supportInterpreter := true }
 
 end Testing
 
