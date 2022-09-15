@@ -144,19 +144,22 @@ mutual
        pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         let arg ← toCtorIfLit arg.get
-        match arg with
+        let ret ← match arg with
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
             withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        let ret ← toLitIfCtor ret
+        pure ret
     | .extRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
-        match arg.get with
+        let arg ← toCtorIfLit arg.get
+        let ret ← match arg with
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
@@ -169,6 +172,8 @@ mutual
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        let ret ← toLitIfCtor ret
+        pure ret
     | .quotient quotVal => match quotVal.kind with
       | .lift => applyQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
       | .ind  => applyQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
@@ -203,8 +208,17 @@ mutual
       let zeroIdx := (← read).prim.zero
       let succIdx := (← read).prim.succ
       if v == 0 then evalConst `Nat.Zero zeroIdx []
-      else pure $ .app (Neutral.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
+      else pure $ .app (.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
     | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
+    | e => pure e
+
+  partial def toLitIfCtor : Value → TypecheckM Value
+    | e@(.app (.const _ idx []) [arg]) => do
+      let succIdx := (← read).prim.succ
+      if idx != succIdx then pure e
+      else match arg.get with
+      | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
+      | _ => pure e
     | e => pure e
 end
 
