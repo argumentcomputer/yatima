@@ -67,12 +67,16 @@ instance : ToFormat Value := ⟨Value.pprint⟩
 instance : ToString Value where
   toString x := toString x.pprint
 
-abbrev EvalM := ExceptT String IO
+abbrev EvalM := ExceptT String $ EStateM Unit Unit
 
 abbrev Env := RBMap Name (EvalM Value) compare
 
 instance : Coe (EvalM Value) (Thunk Value) where coe := fun thunk =>
-  sorry
+  .mk $ fun _ => match (EStateM.run (ExceptT.run thunk) ()) with
+  | .error _ _ => default
+  | .ok v _ => match v with
+    | .error _ => default
+    | .ok v => v
 
 instance : Coe (Thunk Value) (EvalM Value) where coe := fun thunk => do
   pure thunk.get
@@ -101,7 +105,7 @@ mutual
 partial def bind (a : Expr) (env : Env) :
     List Name → EvalM ((Name × Thunk Value) × List Name)
   | n::ns => do
-    IO.println s!"[bind] {a.pprint} {n::ns}"
+    --IO.println s!"[bind] {a.pprint} {n::ns}"
     let value ← evalM env a
     return ((n, value), ns)
   | [] => throw "too many arguments"
@@ -109,30 +113,30 @@ partial def bind (a : Expr) (env : Env) :
 partial def evalM (env : Env) (e : Expr) : EvalM Value :=
   match e with
   | .lit lit => do 
-    IO.println s!"[evalM] literal {format lit}"
+    --IO.println s!"[evalM] literal {format lit}"
     return .lit lit
   | .sym n => do 
-    IO.println s!"[evalM] symbol {n}"
+    --IO.println s!"[evalM] symbol {n}"
     match env.find? n with
     | some v => v
     | none => throw s!"{n} not found"
   | .ifE tst con alt => do 
-    IO.println s!"[evalM] if"
+    --IO.println s!"[evalM] if"
     match ← evalM env tst with
     | TRUE  => evalM env con
     | FALSE => evalM env alt
     | v => throw s!"expected boolean value, got\n {v}"
   | .lam formals body => do 
-    IO.println s!"[evalM] lam {formals}\n{body.pprint}"
+    --IO.println s!"[evalM] lam {formals}\n{body.pprint}"
     return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
-    IO.println s!"[evalM] let"
+    --IO.println s!"[evalM] let"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
         return acc.insert n $ pure $ ← evalM acc e
     evalM env' body
   | .letRecE bindings body => do 
-    IO.println s!"[evalM] letrec"
+    --IO.println s!"[evalM] letrec"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
         let e' := .letRecE [(n, e)] e
@@ -149,7 +153,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       env' := env'.insert n $ pure $ ← evalM env' e
     evalM env' body
   | .app₀ fn => do 
-    IO.println s!"[evalM] app₀"
+    --IO.println s!"[evalM] app₀"
     match fn with
     | .currEnv =>
       return .env $ ← env.foldM (init := default)
@@ -161,7 +165,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       | _ => throw "application not a procedure"
     
   | .app fn arg => do 
-    IO.println s!"[evalM] app {fn.pprint} {arg.pprint}"
+    --IO.println s!"[evalM] app {fn.pprint} {arg.pprint}"
     dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← evalM env fn with
     | .lam ns patch lb =>
@@ -191,27 +195,27 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
         return .lam ns' patch lb
     | v => throw s!"expected lambda value, got\n {v}"
   | .quote s => do 
-    IO.println s!"[evalM] quote"
+    --IO.println s!"[evalM] quote"
     return .sexpr s
   | .binaryOp op e₁ e₂ => do 
-    IO.println s!"[evalM] binop {format op}"
+    --IO.println s!"[evalM] binop {format op}"
     evalBinaryOp (← evalM env e₁) (← evalM env e₂) op
   | .atom e => do 
-    IO.println s!"[evalM] atom"
+    --IO.println s!"[evalM] atom"
     return match ← evalM env e with
     | .cons .. => TRUE
     | _ => FALSE
   | .cons e₁ e₂ => do 
-    IO.println s!"[evalM] cons {e₁.pprint} {e₂.pprint}"
+    --IO.println s!"[evalM] cons {e₁.pprint} {e₂.pprint}"
     return .cons (← evalM env e₁) (← evalM env e₂)
   | .strcons e₁ e₂ => do 
-    IO.println s!"[evalM] strcons"
+    --IO.println s!"[evalM] strcons"
     match (← evalM env e₁), (← evalM env e₂) with
     | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
     | .lit (.char _), v => throw s!"expected string value, got\n {v}"
     | v, _ => throw s!"expected char value, got\n {v}"
   | .car e => do 
-    IO.println s!"[evalM] car"
+    --IO.println s!"[evalM] car"
     match ← evalM env e with
     | .cons v _ => return v
     | .lit (.str s) => match s.data with
@@ -219,7 +223,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       | [] => return FALSE
     | v => throw s!"expected cons value, got\n {v}"
   | .cdr e => do
-    IO.println s!"[evalM] cdr"
+    --IO.println s!"[evalM] cdr"
     match ← evalM env e with
     | .cons _ v => return v
     | .lit (.str s) => match s.data with
@@ -227,29 +231,31 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       | [] => return .lit $ .str ""
     | v => throw s!"expected cons value, got\n {v}"
   | .emit e => do
-    IO.println s!"[evalM] emit"
+    --IO.println s!"[evalM] emit"
     let v ← evalM env e
-    IO.println v
+    --IO.println v
     pure v
   | .begin es => do
-    IO.println s!"[evalM] begin"
+    --IO.println s!"[evalM] begin"
     match es.reverse.head? with
     | some e => evalM env e
     | none => return FALSE
   | .currEnv => do
-    IO.println s!"[evalM] current-env"
+    --IO.println s!"[evalM] current-env"
     throw "floating `current-env`, try `(current-env)` instead"
 end
 
-def eval (e : Expr) (env : Env := default) : IO $ Except String Value :=
-  return match ← evalM env e with
-  | .ok res => return res
-  | .error err => throw err
+def eval (e : Expr) (env : Env := default) : IO $ Except String Value := do
+  match (EStateM.run (ExceptT.run (evalM env e)) ()) with
+  | .ok res _ => pure res
+  | .error _ _ => throw default -- FIXME
 
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
-  return match ← evalM env e with
-  | .ok res => res.pprint
-  | .error e => e
+  match (EStateM.run (ExceptT.run (evalM env e)) ()) with
+  | .ok res _ => match res with
+    | .ok v => pure v.pprint
+    | .error _ => throw default -- FIXME
+  | .error _ _ => throw default -- FIXME
 
 instance : OfNat Value n where 
   ofNat := .lit $ .num $ Fin.ofNat n
@@ -280,28 +286,10 @@ abbrev Test := Except String Value × Expr
 --  (getelem (cons 1 nil) 1))⟧
 
 -- this one is very strange
-#eval ppEval ⟦
-(letrec
- (
-  (Nat (cons "Nat" (cons 0 (cons 0 nil))))
-  (Nat_zero 0)
-  (Nat_succ (lambda (n) (+ n 1)))
-  (Nat_rec
-   (lambda (motive zero succ _t)
-    (if (= _t 0)
-     zero
-     ((succ (- _t 1))
-      ((((Nat_rec motive) zero) succ)
-       (- _t 1))))))
-  (Nat_casesOn
-   (lambda (motive _t zero succ)
-    ((((Nat_rec motive) zero)
-      (lambda (n n_ih) (succ n)))
-     _t)))
-  (Bool (cons "Bool" (cons 0 (cons 0 nil))))
-  (Bool_false (cons Bool (cons 0 nil)))
-  (Bool_true (cons Bool (cons 1 nil)))
-     )
- (Nat_rec (lambda (x) Bool) Bool_true (lambda (x ih) Bool_false) 1))⟧
+#eval ppEval ⟦(letrec ((exp (lambda (base) (lambda (exponent)
+                  (if (= 0 exponent)
+                      1
+                      (* base ((exp base) (- exponent 1))))))))
+            (let ((myexp exp) (exp (lambda (base) (lambda (exponent) 10)))) ((myexp 5) 3)))⟧
 
 end Lurk
