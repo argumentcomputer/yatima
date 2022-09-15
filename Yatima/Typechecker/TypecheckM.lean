@@ -10,10 +10,10 @@ initialize its environment.
 namespace Yatima.Typechecker
 
 structure PrimIndex where
-  nat : Nat
-  string : Nat
-  succ : Nat
-  zero : Nat
+  nat : Option Nat
+  string : Option Nat
+  succ : Option Nat
+  zero : Option Nat
   deriving Inhabited
 /--
 The environment available to the typechecker monad. The available fields are
@@ -88,4 +88,12 @@ def withNewExtendedCtxByVar (ctx : Context) (name : Name) (i : Nat) (type : Thun
     TypecheckM α → TypecheckM α :=
   withNewExtendedCtx ctx (mkVar name i type)
 
+def natIndex : TypecheckM Nat := do
+  match (← read).prim.nat with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
+def stringIndex : TypecheckM Nat := do
+  match (← read).prim.string with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
+def zeroIndex : TypecheckM Nat := do
+  match (← read).prim.zero with | none => throw $ .custom "Cannot find definition of `Nat.Zero`" | some a => pure a
+def succIndex : TypecheckM Nat := do
+  match (← read).prim.succ with | none => throw $ .custom "Cannot find definition of `Nat.Succ`" | some a => pure a
 end Yatima.Typechecker

@@ -205,17 +205,14 @@ mutual
 
   partial def toCtorIfLit : Value → TypecheckM Value
     | .lit (.natVal v) => do
-      let zeroIdx := (← read).prim.zero
-      let succIdx := (← read).prim.succ
-      if v == 0 then evalConst `Nat.Zero zeroIdx []
-      else pure $ .app (.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
+      if v == 0 then evalConst `Nat.Zero (← zeroIndex) []
+      else pure $ .app (.const `Nat.succ (← succIndex) []) [Value.lit (.natVal (v-1))]
     | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
     | e => pure e
 
   partial def toLitIfCtor : Value → TypecheckM Value
     | e@(.app (.const _ idx []) [arg]) => do
-      let succIdx := (← read).prim.succ
-      if idx != succIdx then pure e
+      if idx != (← succIndex) then pure e
       else match arg.get with
       | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
       | _ => pure e
