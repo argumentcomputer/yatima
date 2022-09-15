@@ -248,14 +248,14 @@ end
 def eval (e : Expr) (env : Env := default) : IO $ Except String Value := do
   match (EStateM.run (ExceptT.run (evalM env e)) ()) with
   | .ok res _ => pure res
-  | .error _ _ => throw default -- FIXME
+  | .error _ _ => throw $ .otherError 0 "HERE" -- FIXME
 
 def ppEval (e : Expr) (env : Env := default) : IO Format :=
   match (EStateM.run (ExceptT.run (evalM env e)) ()) with
   | .ok res _ => match res with
     | .ok v => pure v.pprint
-    | .error _ => throw default -- FIXME
-  | .error _ _ => throw default -- FIXME
+    | .error s => throw $ .otherError 0 s -- FIXME
+  | .error _ _ => throw $ .otherError 0 "HERE" -- FIXME
 
 instance : OfNat Value n where 
   ofNat := .lit $ .num $ Fin.ofNat n
