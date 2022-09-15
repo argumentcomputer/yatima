@@ -1,5 +1,5 @@
 import Yatima.Datatypes.Cid
-import Yatima.Datatypes.Name
+import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Split
 
 namespace Yatima
@@ -7,7 +7,7 @@ namespace Yatima
 namespace Ipld
 
 -- Holds a `Nat` for anon and a `Yatima.Name` for meta
-scoped notation "NatₐNameₘ" => Split Nat Lean.Name
+scoped notation "NatₐNameₘ" => Split Nat Name
 
 /-- Parametric representation of universe levels for IPLD -/
 inductive Univ (k : Kind) where

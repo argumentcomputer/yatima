@@ -19,7 +19,7 @@ instance : ToString BinderInfo where toString
   | .instImplicit   => "inst"
   | .auxDecl        => "auxDecl"
 
-def printDefSafety : Yatima.DefinitionSafety → String
+def printDefSafety : DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
   | .partial => "partial "
@@ -115,8 +115,8 @@ mutual
     | .letE _ name type value body =>
       return s!"let {name} : {← printExpr type} := {← printExpr value} in {← printExpr body}"
     | .lit _ lit => return match lit with
-      | .num num => s!"{num}"
-      | .word str => s!"\"{str}\""
+      | .natVal num => s!"{num}"
+      | .strVal str => s!"\"{str}\""
     | .lty _ .num => return "Number"
     | .lty _ .word => return "Word"
     | .proj _ idx expr => return s!"{← paren expr}.{idx})"

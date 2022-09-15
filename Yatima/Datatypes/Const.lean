@@ -12,14 +12,6 @@ instance : Coe RecType Bool where coe
   | .intr => true
   | .extr => false
 
-inductive DefinitionSafety where
-  | safe | «unsafe» | «partial»
-  deriving BEq, Inhabited, Repr
-
-inductive QuotKind where
-  | type | ctor | lift | ind
-  deriving BEq
-
 namespace Ipld
 
 -- The number of universes for anon or their names for meta
