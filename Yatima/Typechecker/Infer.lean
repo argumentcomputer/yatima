@@ -19,6 +19,9 @@ In this module the two major functions `check` and `infer` are defined.
 
 namespace Yatima.Typechecker
 
+def NatCid : Ipld.Both Ipld.ExprCid := sorry
+def StringCid : Ipld.Both Ipld.ExprCid := sorry
+
 mutual
   /-- 
   Checks that `term : Expr` has type `type : Value`, and throws `TypecheckError.valueMismatch`
@@ -83,8 +86,8 @@ mutual
       check exp expType
       let exp := suspend exp (← read)
       withExtendedEnv exp expType $ infer bod
-    | .lit _ (.natVal _) => sorry
-    | .lit _ (.strVal _) => sorry
+    | .lit _ (.natVal _) => evalConst "Nat" (← read).prim.nat []
+    | .lit _ (.strVal _) => evalConst "String" (← read).prim.string []
     | .const _ name k constUnivs =>
       let univs := (← read).ctx.univs
       let const ← derefConst name k

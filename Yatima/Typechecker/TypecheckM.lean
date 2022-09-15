@@ -9,6 +9,12 @@ initialize its environment.
 
 namespace Yatima.Typechecker
 
+structure PrimIndex where
+  nat : Nat
+  string : Nat
+  succ : Nat
+  zero : Nat
+  deriving Inhabited
 /--
 The environment available to the typechecker monad. The available fields are
 * `lvl : Nat` : TODO: Get clarification on this.
@@ -21,6 +27,7 @@ structure TypecheckEnv where
   ctx   : Context
   types : List (Thunk Value)
   store : Array Const
+  prim  : PrimIndex
   deriving Inhabited
 
 /-- An initialization of the typchecker environment with a particular `store : Array Const` -/

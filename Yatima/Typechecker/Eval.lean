@@ -6,7 +6,7 @@ import Yatima.Typechecker.Printing
 
 ## Basic Structure
 
-This is the first of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`, 
+This is the first of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`,
 and `Infer`.
 
 TODO: Add a high level overview of Eval in the contenxt of Eval-Equal-Infer.
@@ -14,14 +14,14 @@ TODO: Add a high level overview of Eval in the contenxt of Eval-Equal-Infer.
 ## Evaluate
 
 In this module the evaluation (↔ reduction) of Yatima expressions is defined. Expressions that can
-be reduced take a few forms, for example `.app fnc args`, constants, and suspdended evaluations. 
-Functions that can not be reduced further evaluate to unreduced Values or suspended thunks waiting 
-to evaluate further. 
+be reduced take a few forms, for example `.app fnc args`, constants, and suspdended evaluations.
+Functions that can not be reduced further evaluate to unreduced Values or suspended thunks waiting
+to evaluate further.
 -/
 
 namespace Yatima.Typechecker
 
-/-- 
+/--
 Looks for a constant by its index `constIdx` in the `TypecheckEnv` store and
 returns it if it is found. If the constant is not found it throws an error.
 
@@ -34,69 +34,9 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   | none => throw $ .outOfConstsRange name constIdx store.size
 
 mutual
-  /-- 
-  Applies a named constant, referred by its constant index `k : ConstIdx` to the list of arguments
-  `arg :: args`.
-
-  The application of the constant is split into cases on whether it is an inductive recursor,
-  a quotient, or any other constant (which returns an unreduced application)
-   -/
-  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
-      (arg : Thunk Value) (args : Args) : TypecheckM Value := do
-    -- Assumes a partial application of k to args, which means in particular,
-    -- that it is in normal form
-    match ← derefConst name k with
-    | .intRecursor recur =>
-      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != majorIdx then
-       pure $ Value.app (Neutral.const name k univs) (arg :: args)
-      else
-        match arg.get with
-        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-          | .constructor ctor =>
-            let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-            withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
-          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .extRecursor recur =>
-      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
-      if args.length != majorIdx then
-        pure $ Value.app (Neutral.const name k univs) (arg :: args)
-      else
-        match arg.get with
-        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-          | .constructor ctor =>
-            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-            match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
-            | some rule =>
-              let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
-              withCtx ⟨exprs, univs⟩ $ eval rule.rhs
-            -- Since we assume expressions are previously type checked, we know that this constructor
-            -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
-          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | .quotient quotVal => match quotVal.kind with
-      | .lift => reduceQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | .ind  => reduceQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-
-  /-- 
-  Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `env : TypecheckEnv`
-  
-  Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
-  -/
-  partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
-    {fn := fun _ =>
-      match TypecheckM.run env (eval expr) with
-      | .ok a => a
-      | .error e => .exception e,
-     repr := toString expr}
-
   /--
-  Evaluates a `Yatima.Expr` into a `Typechecker.Value`. 
-  
+  Evaluates a `Yatima.Expr` into a `Typechecker.Value`.
+
   Evaluation here means applying functions to arguments, resuming evaluation of suspended Thunks,
   evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
   and evaluating a projection.
@@ -130,7 +70,7 @@ mutual
     | .lit _ lit => pure $ Value.lit lit
     | .proj _ idx expr => do
       match (← eval expr) with
-      | .app neu@(.const name k _) args => 
+      | .app neu@(.const name k _) args =>
         match ← derefConst name k with
         | .constructor ctor =>
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
@@ -153,13 +93,25 @@ mutual
       | .partial => pure $ mkConst name const univs
       | .unsafe  => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
-  
+
   /--
-  Evaluates an application of a reduced `value : Value` on the argument `arg : Thunk Value`.
+  Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `env : TypecheckEnv`
+
+  Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
+  -/
+  partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
+    {fn := fun _ =>
+      match TypecheckM.run env (eval expr) with
+      | .ok a => a
+      | .error e => .exception e,
+     repr := toString expr}
+
+  /--
+  Applies `value : Value` to the argument `arg : Thunk Value`.
 
   Applications are split into cases on whether `value` is a `Value.lam`, the application of a constant
-  or the application of a free variable. 
-  
+  or the application of a free variable.
+
   * `Value.lam` : Descends into and evaluates the body of the lambda expression
   * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
   * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
@@ -167,19 +119,66 @@ mutual
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
     -- bod : fun y => x^1 + y^0
-    | .lam _ _ bod lamCtx => 
+    | .lam _ _ bod lamCtx =>
       withNewExtendedCtx lamCtx arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
-  
-  /--
-  Reduces a Yatima quotient
 
-  TODO: Get more clarification on this
+  /--
+  Applies a named constant, referred by its constant index `k : ConstIdx` to the list of arguments
+  `arg :: args`.
+
+  The application of the constant is split into cases on whether it is an inductive recursor,
+  a quotient, or any other constant (which returns an unreduced application)
+   -/
+  partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
+      (arg : Thunk Value) (args : Args) : TypecheckM Value := do
+    -- Assumes a partial application of k to args, which means in particular,
+    -- that it is in normal form
+    match ← derefConst name k with
+    | .intRecursor recur =>
+      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != majorIdx then
+       pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      else
+        let arg ← toCtorIfLit arg.get
+        match arg with
+        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
+          | .constructor ctor =>
+            let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
+            withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
+          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+    | .extRecursor recur =>
+      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
+      if args.length != majorIdx then
+        pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      else
+        match arg.get with
+        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
+          | .constructor ctor =>
+            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
+            match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
+            | some rule =>
+              let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
+              withCtx ⟨exprs, univs⟩ $ eval rule.rhs
+            -- Since we assume expressions are previously type checked, we know that this constructor
+            -- must have an associated recursion rule
+            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
+          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+    | .quotient quotVal => match quotVal.kind with
+      | .lift => applyQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
+      | .ind  => applyQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
+      | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+    | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+
+  /--
+  Applies a quotient to a value. It might reduce if enough arguments are applied to it
   -/
-  partial def reduceQuot (major? : Thunk Value) (args : Args)
+  partial def applyQuot (major? : Thunk Value) (args : Args)
       (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
@@ -199,6 +198,14 @@ mutual
     else
       throw .impossible
 
+  partial def toCtorIfLit : Value → TypecheckM Value
+    | .lit (.natVal v) => do
+      let zeroIdx := (← read).prim.zero
+      let succIdx := (← read).prim.succ
+      if v == 0 then evalConst `Nat.Zero zeroIdx []
+      else pure $ .app (Neutral.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
+    | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
+    | e => pure e
 end
 
 end Yatima.Typechecker
