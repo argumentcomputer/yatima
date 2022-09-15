@@ -43,7 +43,10 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   | .mutRecE bindings body =>
     paren <| "mutrec" ++ line ++ paren (fmtBinds bindings) ++ line ++ pprint body pretty
   | .app₀ fn => paren <| pprint fn pretty
-  | .app fn arg => paren <| pprint fn pretty ++ line ++ pprint arg pretty
+  | e@(.app ..) => 
+    let (fn, args) := telescopeApp e []
+    let ws := if args.length == 0 then Format.nil else " "
+    paren <| pprint fn pretty ++ ws ++ group (fmtList args)
   | .quote datum =>
     paren <| "quote" ++ line ++ datum.pprint pretty
   | .binaryOp op expr₁ expr₂ =>
@@ -73,6 +76,9 @@ where
     | (n, e)::xs =>
       (paren $ format (fixName n pretty) ++ line ++ pprint e pretty)
         ++ line ++ fmtBinds xs
+  telescopeApp (e : Expr) (args : List Expr) := match e with 
+    | .app fn arg => telescopeApp fn <| arg :: args
+    | _ => (e, args)
 
 instance : ToFormat Expr where
   format := pprint

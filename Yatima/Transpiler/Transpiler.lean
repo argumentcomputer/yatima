@@ -179,10 +179,10 @@ mutual
       -- encoded as a lambda
       let lurkInd := if binds.isEmpty then
         -- TODO: fix back to use `quote`
-        ⟦(cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil)))⟧
+        ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
       else 
         ⟦(lambda ($binds) 
-            (cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil))))⟧
+            ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
       appendBinding (ind.name, lurkInd)
       for erecr in erecrs do
         recrToLurkExpr erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
@@ -293,6 +293,7 @@ def builtinInitialize : TranspileM Unit := do
     Lurk.Nat_rec,
     Lurk.Nat_add,
     Lurk.Nat_mul
+    -- Lurk.Nat_decLe
   ] 
   withBuiltin (decls.map fun x => x.fst) $ 
     decls.forM fun (n, e) => appendBinding (n, e)

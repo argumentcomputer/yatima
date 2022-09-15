@@ -1,10 +1,4 @@
-prelude
-inductive Wrapper : Type where
-  | mk : Wrapper
-
-def test (w : Wrapper) : Wrapper := w
-
-def evalTest := test .mk
+def whee := if 10 < 20 then 0 else 1
 
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero

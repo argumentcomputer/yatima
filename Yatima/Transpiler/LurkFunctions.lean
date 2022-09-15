@@ -93,6 +93,13 @@ def Nat_mul : Name × Expr := ( ``Nat.mul, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
 ⟧)
 
+def Nat_decLe : Name × Expr := ( ``Nat.decLe, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (<= _x_lurk_1 _x_lurk_2)
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) T)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) T)))
+⟧)
+
 -- doesn't quite work yet because depends on `Bool`
 def Nat_beq : Name × Expr := ( ``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (

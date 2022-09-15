@@ -33,16 +33,16 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
-syntax " + "      : lurk_bin_op
-syntax " - "      : lurk_bin_op
-syntax " * "      : lurk_bin_op
-syntax " / "      : lurk_bin_op
-syntax " = "      : lurk_bin_op
-syntax " < "      : lurk_bin_op
-syntax " > "      : lurk_bin_op
-syntax " <= "     : lurk_bin_op
-syntax " >= "     : lurk_bin_op
-syntax " eq "     : lurk_bin_op
+syntax "+ "      : lurk_bin_op
+syntax "- "      : lurk_bin_op
+syntax "* "      : lurk_bin_op
+syntax "/ "      : lurk_bin_op
+syntax "= "      : lurk_bin_op
+syntax "< "      : lurk_bin_op
+syntax "> "      : lurk_bin_op
+syntax "<= "     : lurk_bin_op
+syntax ">= "     : lurk_bin_op
+syntax "eq "     : lurk_bin_op
 
 def elabLurkBinOp : Syntax → TermElabM Expr
   | `(lurk_bin_op| +)    => return mkConst ``Lurk.BinaryOp.sum
