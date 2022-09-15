@@ -73,9 +73,13 @@ inductive LitType
   | word
   deriving BEq, Inhabited
 
--- Hashes are optional values. All "static" expressions will have hashes, but the dynamic expressions, i.e., the ones
--- generated on the fly, won't have hashes
-structure Hash where data : Option (Ipld.Both Ipld.ExprCid)
+/--
+Hashes are optional values. All "static" expressions will have hashes, but the
+dynamic expressions, i.e., the ones generated on the fly, won't have hashes
+-/
+structure Hash where
+  data : Option (Ipld.Both Ipld.ExprCid)
+
 instance : BEq Hash where beq _ _ := true
 instance : Coe (Ipld.Both Ipld.ExprCid) Hash where coe x := ⟨ .some x ⟩
 instance : Inhabited Hash where default := ⟨ .none ⟩
