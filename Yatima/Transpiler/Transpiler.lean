@@ -4,7 +4,6 @@ import Yatima.Transpiler.Utils
 import Yatima.Transpiler.LurkFunctions 
 
 /-!
-
 # The Transpiler
 
 This file provides all core functions needed to build Lurk expressions from raw Yatima IR. 
@@ -222,8 +221,8 @@ mutual
       return .letE [(name, val)] body
     | .lit _ lit  => match lit with 
       -- TODO: need to include `Int` somehow
-      | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
-      | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
+      | .natVal n => IO.println s!"lit {n}"; return ⟦$n⟧
+      | .strVal s => IO.println s!"lit {s}"; return ⟦$s⟧
     | .proj _ idx e => do
       IO.println s!"proj {idx}"; 
       -- this is very nifty; `e` contains its type information *at run time*

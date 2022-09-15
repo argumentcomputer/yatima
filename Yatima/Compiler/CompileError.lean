@@ -1,5 +1,5 @@
 import Yatima.Compiler.Utils
-import Yatima.Datatypes.Name
+import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Const
 
 namespace Yatima.Compiler

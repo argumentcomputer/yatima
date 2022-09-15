@@ -2,33 +2,9 @@ import Yatima.Compiler.Printing
 import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
 
-import Lean
-
 namespace Yatima.Compiler
 
 open Std (RBMap)
-
-instance : Coe Lean.BinderInfo BinderInfo where coe
-  | .default        => .default
-  | .auxDecl        => .auxDecl
-  | .instImplicit   => .instImplicit
-  | .strictImplicit => .strictImplicit
-  | .implicit       => .implicit
-
-instance : Coe Lean.Literal Literal where coe
-  | .natVal n => .num n
-  | .strVal s => .word s
-
-instance : Coe Lean.DefinitionSafety DefinitionSafety where coe
-  | .safe    => .safe
-  | .unsafe  => .unsafe
-  | .partial => .partial
-
-instance : Coe Lean.QuotKind QuotKind where coe
-  | .type => .type
-  | .ind  => .ind
-  | .lift => .lift
-  | .ctor => .ctor
 
 open ToIpld
 

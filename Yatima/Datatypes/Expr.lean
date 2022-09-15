@@ -2,21 +2,6 @@ import Yatima.Datatypes.Univ
 
 namespace Yatima
 
-/-- The type of binder for λ and Π expressions -/
-inductive BinderInfo
-  | default
-  | implicit
-  | strictImplicit
-  | instImplicit
-  | auxDecl
-  deriving BEq, Inhabited
-
-/-- The literal values: numbers or words -/
-inductive Literal
-  | num  : Nat → Literal
-  | word : String → Literal
-  deriving BEq, Inhabited
-
 namespace Ipld
 
 -- Carries a `Lean.Name` for meta

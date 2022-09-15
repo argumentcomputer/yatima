@@ -46,8 +46,8 @@ def printExpr : Expr → String
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
   | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
-  | .lit _ (.num x) => s!"{x}"
-  | .lit _ (.word x) => s!"\"{x}\""
+  | .lit _ (.natVal x) => s!"{x}"
+  | .lit _ (.strVal x) => s!"\"{x}\""
   | .proj _ idx val => s!"{printExpr val}.{idx}"
 
 /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
@@ -80,8 +80,8 @@ private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
     | .instImplicit => s!"([{nam}: {printLamBod dom ctx}] → {printLamBod cod ctx})"
     | _ => s!"(({nam}: {printLamBod dom ctx}) → {printLamBod cod ctx})"
   | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
-  | .lit _ (.num x) => s!"{x}"
-  | .lit _ (.word x) => s!"\"{x}\""
+  | .lit _ (.natVal x) => s!"{x}"
+  | .lit _ (.strVal x) => s!"\"{x}\""
   | .proj _ idx val => s!"{printLamBod val ctx}.{idx}"
 
 /-- Printer of typechecker values -/
@@ -101,8 +101,8 @@ partial def printVal : Value → String
     | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
     | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
     | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
+  | .lit (.natVal x) => s!"{x}"
+  | .lit (.strVal x) => s!"\"{x}\""
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"
   | .exception e => s!"exception {e}"
 
