@@ -5,33 +5,26 @@ namespace Lurk
 
 open Std
 
-inductive EnvExpr where
-  | mk : List (Name × EnvExpr) → Expr → EnvExpr
-  deriving Repr, BEq
-
-def EnvExpr.env : EnvExpr → List (Name × EnvExpr)
-  | .mk env _ => env
-
-def EnvExpr.expr : EnvExpr → Expr
-  | .mk _ expr => expr
-
-partial def EnvExpr.toString (depth := 0) : EnvExpr → String 
-  | .mk env expr => 
-    let _ := if depth <= 20 then 
-      dbg_trace s!">> toString {env.map Prod.fst}, {expr.pprint}"
-      0
-    else 
-      0
-    let env : List (Name × String) := env.map fun (n, ee) => (n, ee.toString (depth + 1))
-    s!"env: {env}\nexpr: {expr.pprint}"
-
 inductive Value where
   | lit  : Literal → Value
-  | lam  : List Name → List (Name × EnvExpr × Value) → EnvExpr → Value
+  | lam  : List Name → List (Name × Thunk Value) → (List (Name × Thunk Value)) × Expr → Value
   | sexpr : SExpr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
-  deriving Repr, BEq, Inhabited
+  deriving Inhabited
+
+
+partial def BEqVal : Value → Value → Bool
+  | .lit l₁, .lit l₂ => l₁ == l₂
+--| .lam ns₁ p₁ ([], b₁), .lam ns₂ p₂ ([], b₂) => ns₁ == ns₂ && (p₁.zip p₂).foldl (init := true) (fun acc ((n₁, v₁), (n₂, v₂)) => acc && n₁ == n₂ && BEqVal v₁ v₂) && b₁ == b₂
+  | .lam ns₁ [] ([], b₁), .lam ns₂ [] ([], b₂) => ns₁ == ns₂ && b₁ == b₂
+  | .lam .., .lam .. => false
+  | .sexpr s₁, .sexpr s₂ => s₁ == s₂
+  | .cons v₁ v₁', .cons v₂ v₂' => BEqVal v₁ v₂ && BEqVal v₁' v₂'
+  | .env l₁ , .env l₂ => (l₁.zip l₂).foldl (init := true) (fun acc ((n₁, v₁), (n₂, v₂)) => acc && n₁ == n₂ && BEqVal v₁ v₂)
+  | _, _ => false
+
+instance : BEq Value where beq := BEqVal
 
 notation "TRUE"  => Value.lit Literal.t
 notation "FALSE" => Value.lit Literal.nil
@@ -40,14 +33,13 @@ open Format ToFormat in
 partial def Value.pprint (v : Value) (pretty := true) : Format :=
   match v with
     | .lit l => format l
-    | .lam ns _ lb => paren $
-      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ lb.expr.pprint pretty
+    | .lam ns _ (_, lb) => paren $
+      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ lb.pprint pretty
     | e@(.cons ..) =>
       let (es, tail) := telescopeCons [] e
-      let tail := if tail == FALSE then
-        Format.nil
-      else
-        line ++ "." ++ line ++ pprint tail pretty
+      let tail := match tail with
+      | .lit Literal.nil => Format.nil
+      | _ => line ++ "." ++ line ++ pprint tail pretty
       paren <| fmtList es ++ tail
     | .sexpr s => s.pprint
     | .env e => paren <| fmtEnv e
@@ -77,10 +69,16 @@ instance : ToString Value where
 
 abbrev EvalM := ExceptT String IO
 
-abbrev Env := RBMap Name (EnvExpr × EvalM Value) compare
+abbrev Env := RBMap Name (EvalM Value) compare
 
-def Env.getEnvExpr (env : Env) (e : Expr) : EnvExpr :=
-  ⟨env.toList.map fun (n, (lb, _)) => (n, lb), e⟩
+instance : Coe (EvalM Value) (Thunk Value) where coe := fun thunk =>
+  sorry
+
+instance : Coe (Thunk Value) (EvalM Value) where coe := fun thunk => do
+  pure thunk.get
+
+def Env.getEnvExpr (env : Env) (e : Expr) : List (Name × Thunk Value) × Expr :=
+  ⟨env.toList.map fun (n, v) => (n, v), e⟩
 
 def num! : Value → EvalM (Fin N)
   | .lit (.num x) => pure x
@@ -101,25 +99,14 @@ def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
 mutual
 
 partial def bind (a : Expr) (env : Env) :
-    List Name → EvalM ((Name × (EnvExpr × Value)) × List Name)
+    List Name → EvalM ((Name × Thunk Value) × List Name)
   | n::ns => do
     IO.println s!"[bind] {a.pprint} {n::ns}"
     let value ← evalM env a
-    let envExpr := env.getEnvExpr a
-    return ((n, (envExpr, value)), ns)
+    return ((n, value), ns)
   | [] => throw "too many arguments"
 
--- Reproduce the environment needed to evaluate an `EnvExpr`.
-partial def envExprToEnv (envExpr : EnvExpr) : Env :=
-  -- dbg_trace s!">> envExprToEnv"
-  envExpr.env.foldl (init := default) fun acc (n, envExpr') =>
-    acc.insert n $ (envExpr', evalM (envExprToEnv envExpr') envExpr'.expr)
-
 partial def evalM (env : Env) (e : Expr) : EvalM Value :=
-  let evaledEntry (env : Env) (e : Expr) : EvalM (EnvExpr × EvalM Value) := do
-    return (env.getEnvExpr e, pure $ ← evalM env e)
-  -- "thunk" the result (that is, no "pure $ ←" in front)
-  let thunkedEntry (env : Env) (e : Expr) : EnvExpr × EvalM Value := (env.getEnvExpr e, evalM env e)
   match e with
   | .lit lit => do 
     IO.println s!"[evalM] literal {format lit}"
@@ -127,7 +114,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
   | .sym n => do 
     IO.println s!"[evalM] symbol {n}"
     match env.find? n with
-    | some (_, v) => v
+    | some v => v
     | none => throw s!"{n} not found"
   | .ifE tst con alt => do 
     IO.println s!"[evalM] if"
@@ -138,38 +125,39 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
   | .lam formals body => do 
     IO.println s!"[evalM] lam {formals}\n{body.pprint}"
     return .lam formals [] $ env.getEnvExpr body
-  | .letE bindings body => do 
+  | .letE bindings body => do
     IO.println s!"[evalM] let"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
-        return acc.insert n $ ← evaledEntry acc e
+        return acc.insert n $ pure $ ← evalM acc e
     evalM env' body
   | .letRecE bindings body => do 
     IO.println s!"[evalM] letrec"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
         let e' := .letRecE [(n, e)] e
-        let acc' : Env := acc.insert n $ thunkedEntry acc e'
-        return acc.insert n $ ← evaledEntry acc' e
+        -- "thunk" the result (that is, no `pure $ ←` in front)
+        let acc' : Env := acc.insert n $ evalM acc e'
+        return acc.insert n $ pure $ ← evalM acc' e
     evalM env' body
   | .mutRecE bindings body => do
     let mut env' := bindings.foldl (init := env) fun acc (n', e') =>
       let e' := .mutRecE bindings e'
       -- "thunk" the result (that is, no "pure $ ←" in front)
-      acc.insert n' $ thunkedEntry env e'
+      acc.insert n' $ evalM env e'
     for (n, e) in bindings do
-      env' := env'.insert n $ ← evaledEntry env' e
+      env' := env'.insert n $ pure $ ← evalM env' e
     evalM env' body
   | .app₀ fn => do 
     IO.println s!"[evalM] app₀"
     match fn with
     | .currEnv =>
       return .env $ ← env.foldM (init := default)
-        fun acc n (_, e) => return (n, ← e) :: acc
+        fun acc n e => return (n, ← e) :: acc
     | _ =>
       --dbg_trace s!"[.app₀] evaluating {← evalM env fn}"
       match ← evalM env fn with
-      | .lam [] [] body => evalM env body.expr
+      | .lam [] [] body => evalM env body.2
       | _ => throw "application not a procedure"
     
   | .app fn arg => do 
@@ -177,31 +165,27 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
     dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← evalM env fn with
     | .lam ns patch lb =>
-      dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
+      --dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, e) => (n, e.pprint)}}"
       let (patch', ns') ← bind arg env ns
       let patch := patch' :: patch
+      let patchM : List (Name × EvalM Value) := patch.map fun (n, thunk) => (n, thunk)
       if ns'.isEmpty then
         -- NOTE: `lb.env` is guaranteed not to have duplicates
         -- since it is extracted directly from an RBMap
-        let ctxBinds : List (Name × (EnvExpr × Value)) ← lb.env.mapM
+        let ctxBinds : List (Name × EvalM Value) ← lb.1.mapM
           fun (n, ee) => do
-              -- symbols coming from the original context in which this lambda appeared must use that context
-              IO.println s!">> RESURRECT {n}"
-              --IO.println ee.toString
-              IO.println ">>"
-              let env := envExprToEnv ee
-              return (n, (env.getEnvExpr ee.expr, ← evalM env ee.expr))
+              return (n, ee)
 
         --dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         --dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
-        let env ← (ctxBinds.reverse ++ patch.reverse).foldlM (init := default)
-          fun acc (n, (envExpr, value)) => do
+        let env ← (ctxBinds.reverse ++ patchM.reverse).foldlM (init := default)
+          fun acc (n, value) => do
             --dbg_trace s!"[.app] inserting: {n}, {value}"
-            return acc.insert n (envExpr, pure value)
+            return acc.insert n value
 
         -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
         --dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
-        evalM env lb.expr
+        evalM env lb.2
       else
         -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         return .lam ns' patch lb
