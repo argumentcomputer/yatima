@@ -50,11 +50,11 @@ def isProp : Expr → Bool
   | _ => false
 
 def isAtomAux : Expr → Bool
-  | .const .. | .var .. | .lit .. | .lty .. => true
+  | .const .. | .var .. | .lit .. => true
   | _ => false
 
 def isAtom : Expr → Bool
-  | .const .. | .var .. | .lit .. | .lty .. => true
+  | .const .. | .var .. | .lit .. => true
   | .proj _ _ e => isAtom e
   | e => isProp e
 
@@ -117,8 +117,6 @@ mutual
     | .lit _ lit => return match lit with
       | .num num => s!"{num}"
       | .word str => s!"\"{str}\""
-    | .lty _ .num => return "Number"
-    | .lty _ .word => return "Word"
     | .proj _ idx expr => return s!"{← paren expr}.{idx})"
 end
 

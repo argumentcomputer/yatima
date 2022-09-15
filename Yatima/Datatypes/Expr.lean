@@ -65,15 +65,6 @@ end Ipld
 abbrev ConstIdx := Nat
 
 /--
-The types for literal values. These only exist for us to be able to build
-expressions to represent them in the typechecker when infering types.
--/
-inductive LitType
-  | num
-  | word
-  deriving BEq, Inhabited
-
-/--
 Hashes are optional values. All "static" expressions will have hashes, but the
 dynamic expressions, i.e., the ones generated on the fly, won't have hashes
 -/
@@ -94,7 +85,6 @@ inductive Expr
   | pi    : Hash → Name → BinderInfo → Expr → Expr → Expr
   | letE  : Hash → Name → Expr → Expr → Expr → Expr
   | lit   : Hash → Literal → Expr
-  | lty   : Hash → LitType → Expr
   | proj  : Hash → Nat → Expr → Expr
   deriving BEq, Inhabited
 
@@ -167,7 +157,6 @@ def ctorName : Expr → String
   | pi    .. => "pi"
   | letE  .. => "let"
   | lit   .. => "lit"
-  | lty   .. => "lty"
   | proj  .. => "proj"
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)

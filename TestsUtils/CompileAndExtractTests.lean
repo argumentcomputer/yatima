@@ -88,7 +88,6 @@ def pairConstants (x y : Array Const) :
 def reindexExpr (map : NatNatMap) : Expr → Expr
   | e@(.var ..)
   | e@(.sort _ _)
-  | e@(.lty ..)
   | e@(.lit ..) => e
   | .const _ n i ls => .const default n (map.find! i) ls
   | .app _ e₁ e₂ => .app default (reindexExpr map e₁) (reindexExpr map e₂)

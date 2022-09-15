@@ -57,7 +57,6 @@ partial def isProp (lvl : Nat) : Value → TypecheckM Bool
     match ← applyType type.get args with
     | .sort u => pure u.isZero
     | _ => pure false
-  | .lty _ => pure false
   | .sort _ => pure false
   | _ => pure false -- these are actually impossible cases
 
@@ -75,7 +74,6 @@ mutual
     if isU || isP then pure true else 
     match term, term' with
     | .lit lit, .lit lit' => pure $ lit == lit'
-    | .lty lty, .lty lty' => pure $ lty == lty'
     | .sort u, .sort u' => return u.equalUniv u'
     | .pi name _ dom img ctx, .pi name' _ dom' img' ctx' => do
       -- For equality we don't need to know the universe levels, only the "shape" of the type.

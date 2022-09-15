@@ -48,8 +48,6 @@ def printExpr : Expr → String
   | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
   | .lit _ (.num x) => s!"{x}"
   | .lit _ (.word x) => s!"\"{x}\""
-  | .lty _ .num => "Number"
-  | .lty _ .word => "Word"
   | .proj _ idx val => s!"{printExpr val}.{idx}"
 
 /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
@@ -84,8 +82,6 @@ private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
   | .lit _ (.num x) => s!"{x}"
   | .lit _ (.word x) => s!"\"{x}\""
-  | .lty _ .num => "Number"
-  | .lty _ .word => "Word"
   | .proj _ idx val => s!"{printLamBod val ctx}.{idx}"
 
 /-- Printer of typechecker values -/
@@ -107,8 +103,6 @@ partial def printVal : Value → String
     | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
   | .lit (.num x) => s!"{x}"
   | .lit (.word x) => s!"\"{x}\""
-  | .lty .num => "Number"
-  | .lty .word => "Word"
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"
   | .exception e => s!"exception {e}"
 

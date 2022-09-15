@@ -128,7 +128,6 @@ mutual
       let ctx := (← read).ctx
       pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
     | .lit _ lit => pure $ Value.lit lit
-    | .lty _ lty => pure $ Value.lty lty
     | .proj _ idx expr => do
       match (← eval expr) with
       | .app neu@(.const name k _) args => 

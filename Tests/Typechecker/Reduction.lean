@@ -75,7 +75,6 @@ mutual
     -- TODO need to look into this case in the typechecker to make sure this is correct
     | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val =>
       return .app default expr (← readBack consts val.get)
-    | .lty l => pure $ .lty default l
     | .exception _ => none
 end
 
