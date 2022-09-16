@@ -189,40 +189,44 @@ mutual
       ctors.forM fun c => ctorToLurkExpr c ind.indices
 
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
-    IO.print ">> exprToLurkExpr: "
+    -- IO.print ">> exprToLurkExpr: "
     match e with 
     | .sort  ..
     | .lty   .. => return ⟦nil⟧
     | .var _ name _     => 
-      IO.println s!"var {name}"
+      -- IO.println s!"var {name}"
       return ⟦$name⟧
     | .const _ name idx .. => do
-      IO.println s!"const {name} {idx}"
+      -- IO.println s!"const {name} {idx}"
       if !(← get).visited.contains name then 
         let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
     | e@(.app ..) => 
-      IO.println s!"app"
+      -- IO.println s!"app"
       telescopeApp e
     | e@(.lam ..) => 
-      IO.println s!"lam"
+      -- IO.println s!"lam"
       telescopeLam e
     | .pi    .. => return ⟦nil⟧
     | .letE _ name _ value body  => do
-      IO.println s!"let {name}"
-      let val ← exprToLurkExpr value 
+      -- IO.println s!"let {name}"
+      let val ← exprToLurkExpr value
       let body ← exprToLurkExpr body
       return .letE [(name, val)] body
-    | .lit _ lit  => match lit with 
+    | .lit _ lit  => match lit with
       -- TODO: need to include `Int` somehow
-      | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
-      | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
+      | .num n =>
+        -- IO.println s!"lit {n}";
+        return ⟦$n⟧
+      | .word s =>
+        -- IO.println s!"lit {s}";
+        return ⟦$s⟧
     | .proj _ idx e => do
-      IO.println s!"proj {idx}"; 
+      -- IO.println s!"proj {idx}";
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection
-      let e ← exprToLurkExpr e 
+      let e ← exprToLurkExpr e
       -- TODO(Winston): inlining of `e` causes term size blowup, need to remove
       let offset := ⟦(+ (getelem (car $e) 1) (getelem (car $e) 2))⟧
       let args := ⟦(cdr (cdr $e))⟧
@@ -236,7 +240,7 @@ mutual
   the same block more than once.
   -/
   partial def constToLurkExpr (c : Const) : TranspileM Unit := do 
-    IO.println s!">> constToLurkExpr {c.name}"
+    -- IO.println s!">> constToLurkExpr {c.name}"
     match c with 
     | .axiom    _
     | .quotient _ => return

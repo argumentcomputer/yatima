@@ -166,7 +166,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
     
   | .app fn arg => do 
     --IO.println s!"[evalM] app {fn.pprint} {arg.pprint}"
-    dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
+    -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← evalM env fn with
     | .lam ns patch lb =>
       --dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, e) => (n, e.pprint)}}"
@@ -276,8 +276,8 @@ infix:75 " .ᵥ " => Value.cons
 
 abbrev Test := Except String Value × Expr 
 
---#eval ppEval ⟦
---(letrec
+-- #eval ppEval ⟦
+-- (letrec
 -- ((getelem
 --   (lambda (xs n)
 --    (if (= n 0)
