@@ -1,4 +1,4 @@
-import Std.Data.RBTree
+import Lean
 
 namespace Lurk 
 

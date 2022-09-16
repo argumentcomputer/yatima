@@ -177,44 +177,44 @@ mutual
         if !lvlsAnon.isEmpty then
           -- bound free variables should never have universe levels
           throw $ .invalidIndexDepth idx.projₗ depth
-        return .var name.projᵣ idx
+        pure $ .var cid name.projᵣ idx
       else
         -- this free variable came from recrCtx, and thus represents a mutual reference
         let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
           fun (anon, meta) => univFromIpld ⟨anon, meta⟩
         match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
-        | some (constIdx, name) => return .const name constIdx lvls
+        | some (constIdx, name) => pure $ .const cid name constIdx lvls
         | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
     | ⟨.sort uAnonCid, .sort uMetaCid⟩ =>
-      pure $ .sort (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
+      pure $ .sort cid (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
     | ⟨.const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids⟩ =>
       let const ← constFromIpld ⟨cAnonCid, cMetaCid⟩
       let univs ← Ipld.zipWith univFromIpld ⟨uAnonCids, uMetaCids⟩
-      pure $ .const name const univs
+      pure $ .const cid name const univs
     | ⟨.app fncAnon argAnon, .app fncMeta argMeta⟩ =>
       let fnc ← exprFromIpld ⟨fncAnon, fncMeta⟩
       let arg ← exprFromIpld ⟨argAnon, argMeta⟩
-      pure $ .app fnc arg
+      pure $ .app cid fnc arg
     | ⟨.lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta⟩ =>
       let dom ← exprFromIpld ⟨domAnon, domMeta⟩
       withNewBind do
         let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-        pure $ .lam name binfo dom bod
+        pure $ .lam cid name binfo dom bod
     | ⟨.pi () binfo domAnon codAnon, .pi name () domMeta codMeta⟩ =>
       let dom ← exprFromIpld ⟨domAnon, domMeta⟩
       withNewBind do
         let cod ← exprFromIpld ⟨codAnon, codMeta⟩
-        pure $ .pi name binfo dom cod
+        pure $ .pi cid name binfo dom cod
     | ⟨.letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta⟩ =>
       let typ ← exprFromIpld ⟨typAnon, typMeta⟩
       let val ← exprFromIpld ⟨valAnon, valMeta⟩
       withNewBind do
         let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-        pure $ .letE name typ val bod
-    | ⟨.lit lit, .lit ()⟩ => pure $ .lit lit
+        pure $ .letE cid name typ val bod
+    | ⟨.lit lit, .lit ()⟩ => pure $ .lit cid lit
     | ⟨.proj idx bodAnon, .proj () bodMeta⟩ =>
       let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-      pure $ .proj idx bod
+      pure $ .proj cid idx bod
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
   /-- Converts IPLD CIDs for a constant and return its constant index -/

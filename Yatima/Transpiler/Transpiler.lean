@@ -102,7 +102,7 @@ mutual
   partial def telescopeApp (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (argAcc : List Expr) : Expr × List Expr :=
       match expr with 
-        | .app fn arg => descend fn <| arg :: argAcc
+        | .app _ fn arg => descend fn <| arg :: argAcc
         | _ => (expr, argAcc)
     do
       let (expr, args) := descend expr []
@@ -114,7 +114,7 @@ mutual
   partial def telescopeLam (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
       match expr with 
-        | .lam name _ _ body => descend body <| bindAcc.concat name
+        | .lam _ name _ _ body => descend body <| bindAcc.concat name
         | _ => (expr, bindAcc)
     do
       let (expr, binds) := descend expr []
@@ -193,10 +193,10 @@ mutual
     match e with 
     | .sort  ..
     | .lty   .. => return ⟦nil⟧
-    | .var name _     => 
+    | .var _ name _     => 
       IO.println s!"var {name}"
       return ⟦$name⟧
-    | .const name idx .. => do
+    | .const _ name idx .. => do
       IO.println s!"const {name} {idx}"
       if !(← get).visited.contains name then 
         let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
@@ -209,16 +209,16 @@ mutual
       IO.println s!"lam"
       telescopeLam e
     | .pi    .. => return ⟦nil⟧
-    | .letE name _ value body  => do
+    | .letE _ name _ value body  => do
       IO.println s!"let {name}"
       let val ← exprToLurkExpr value 
       let body ← exprToLurkExpr body
       return .letE [(name, val)] body
-    | .lit lit  => match lit with 
+    | .lit _ lit  => match lit with 
       -- TODO: need to include `Int` somehow
       | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
       | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
-    | .proj idx e => do
+    | .proj _ idx e => do
       IO.println s!"proj {idx}"; 
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection

@@ -88,7 +88,7 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
 
 def descendPi (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
   match expr with 
-    | .pi name _ _ body => descendPi body <| bindAcc.push name
+    | .pi _ name _ _ body => descendPi body <| bindAcc.push name
     | _ => (expr, bindAcc)
 
 end Yatima.Transpiler
