@@ -572,7 +572,6 @@ def closure : Test :=
                       (* base ((exp base) (- exponent 1))))))))
             (let ((myexp exp) (exp (lambda (base) (lambda (exponent) 10)))) ((myexp 5) 3)))⟧)
 
-
 def pairs : List Test := [
   outer_evaluate,
   outer_evaluate2,

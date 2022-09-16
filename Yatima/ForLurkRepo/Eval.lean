@@ -105,7 +105,7 @@ mutual
 partial def bind (a : Expr) (env : Env) :
     List Name → EvalM ((Name × Thunk Value) × List Name)
   | n::ns => do
-    dbg_trace s!"[bind] {a.pprint} {n::ns}"
+    -- -- dbg_trace s!"[bind] {a.pprint} {n::ns}"
     let value ← evalM env a
     return ((n, value), ns)
   | [] => throw "too many arguments"
@@ -113,33 +113,33 @@ partial def bind (a : Expr) (env : Env) :
 partial def evalM (env : Env) (e : Expr) : EvalM Value :=
   match e with
   | .lit lit => do 
-    dbg_trace s!"[evalM] literal {format lit}"
+    -- -- dbg_trace s!"[evalM] literal {format lit}"
     return .lit lit
   | .sym n => do 
-    dbg_trace s!"[evalM] symbol {n}"
+    -- dbg_trace s!"[evalM] symbol {n}"
     match env.find? n with
     | some v => v
     | none => throw s!"{n} not found"
   | .ifE tst con alt => do 
-    dbg_trace s!"[evalM] if"
+    -- dbg_trace s!"[evalM] if"
     match ← evalM env tst with
     | TRUE  => evalM env con
     | FALSE => evalM env alt
     | v => throw s!"expected boolean value, got\n {v}"
   | .lam formals body => do 
-    dbg_trace s!"[evalM] lam {formals}\n{body.pprint}"
+    -- dbg_trace s!"[evalM] lam {formals}\n{body.pprint}"
     return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
-    dbg_trace s!"[evalM] let"
+    -- dbg_trace s!"[evalM] let"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
         return acc.insert n $ pure $ ← evalM acc e
     evalM env' body
   | .letRecE bindings body => do 
-    dbg_trace s!"[evalM] letrec {body.pprint}"
+    -- dbg_trace s!"[evalM] letrec {body.pprint}"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
-        dbg_trace s!"[evalM] letrec at {n}"
+        -- dbg_trace s!"[evalM] letrec at {n}"
         let e' := .letRecE [(n, e)] e
         -- "thunk" the result (that is, no `pure $ ←` in front)
         let acc' : Env := acc.insert n $ evalM acc e'
@@ -154,24 +154,24 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       env' := env'.insert n $ pure $ ← evalM env' e
     evalM env' body
   | .app₀ fn => do 
-    dbg_trace s!"[evalM] app₀"
+    -- dbg_trace s!"[evalM] app₀"
     match fn with
     | .currEnv =>
       return .env $ ← env.foldM (init := default)
         fun acc n e => 
-        dbg_trace s!"----- evaluating: {n} -----"
+        -- dbg_trace s!"----- evaluating: {n} -----"
         return (n, ← e) :: acc
     | _ =>
-      --dbg_trace s!"[.app₀] evaluating {← evalM env fn}"
+      ---- dbg_trace s!"[.app₀] evaluating {← evalM env fn}"
       match ← evalM env fn with
       | .lam [] [] body => evalM env body.2
       | _ => throw "application not a procedure"
     
   | .app fn arg => do 
-    dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
+    -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
     match ← evalM env fn with
     | .lam ns patch lb =>
-      dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, e) => (n, e.get.pprint)}}"
+      -- dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, e) => (n, e.get.pprint)}}"
       let (patch', ns') ← bind arg env ns
       let patch := patch' :: patch
       let patchM : List (Name × EvalM Value) := patch.map fun (n, thunk) => (n, thunk)
@@ -182,42 +182,42 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
           fun (n, ee) => do
               return (n, ee)
 
-        --dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
-        --dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
+        ---- dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        ---- dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
         let env ← (ctxBinds.reverse ++ patchM.reverse).foldlM (init := default)
           fun acc (n, value) => do
-            --dbg_trace s!"[.app] inserting: {n}, {value}"
+            ---- dbg_trace s!"[.app] inserting: {n}, {value}"
             return acc.insert n value
 
         -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
-        --dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
+        ---- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
         evalM env lb.2
       else
-        -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        -- -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         return .lam ns' patch lb
     | v => throw s!"expected lambda value, got\n {v}"
   | .quote s => do 
-    dbg_trace s!"[evalM] quote"
+    -- dbg_trace s!"[evalM] quote"
     return .sexpr s
   | .binaryOp op e₁ e₂ => do 
-    dbg_trace s!"[evalM] binop {format op}"
+    -- dbg_trace s!"[evalM] binop {format op}"
     evalBinaryOp (← evalM env e₁) (← evalM env e₂) op
   | .atom e => do 
-    dbg_trace s!"[evalM] atom"
+    -- dbg_trace s!"[evalM] atom"
     return match ← evalM env e with
     | .cons .. => TRUE
     | _ => FALSE
   | .cons e₁ e₂ => do 
-    dbg_trace s!"[evalM] cons {e₁.pprint} {e₂.pprint}"
+    -- dbg_trace s!"[evalM] cons {e₁.pprint} {e₂.pprint}"
     return .cons (← evalM env e₁) (← evalM env e₂)
   | .strcons e₁ e₂ => do 
-    dbg_trace s!"[evalM] strcons"
+    -- dbg_trace s!"[evalM] strcons"
     match (← evalM env e₁), (← evalM env e₂) with
     | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
     | .lit (.char _), v => throw s!"expected string value, got\n {v}"
     | v, _ => throw s!"expected char value, got\n {v}"
   | .car e => do 
-    dbg_trace s!"[evalM] car"
+    -- dbg_trace s!"[evalM] car"
     match ← evalM env e with
     | .cons v _ => return v
     | .lit (.str s) => match s.data with
@@ -225,7 +225,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       | [] => return FALSE
     | v => throw s!"expected cons value, got\n {v}"
   | .cdr e => do
-    dbg_trace s!"[evalM] cdr"
+    -- dbg_trace s!"[evalM] cdr"
     match ← evalM env e with
     | .cons _ v => return v
     | .lit (.str s) => match s.data with
@@ -233,17 +233,17 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
       | [] => return .lit $ .str ""
     | v => throw s!"expected cons value, got\n {v}"
   | .emit e => do
-    dbg_trace s!"[evalM] emit"
+    -- dbg_trace s!"[evalM] emit"
     let v ← evalM env e
     dbg_trace v
     pure v
   | .begin es => do
-    dbg_trace s!"[evalM] begin"
+    -- dbg_trace s!"[evalM] begin"
     match es.reverse.head? with
     | some e => evalM env e
     | none => return FALSE
   | .currEnv => do
-    dbg_trace s!"[evalM] current-env"
+    -- dbg_trace s!"[evalM] current-env"
     throw "floating `current-env`, try `(current-env)` instead"
 end
 
