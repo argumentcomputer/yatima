@@ -12,7 +12,7 @@ namespace Yatima.Typechecker
 
 /--
 The environment available to the typechecker monad. The available fields are
-* `lvl : Nat` : TODO: Get clarification on this.
+* `lvl : Nat` : Depth of the subterm. Coincides with the length of the list of types
 * `ctx : Context` : A context of known values, and universe levels. See `Context`
 * `types : List (Tunk Value)` : The types of the values in `Context`.
 * `store : Array Const` : An array of known constants in the environment that can be referred to by their index.
@@ -86,9 +86,9 @@ def natIndex : TypecheckM Nat := do
   match (← read).pStore.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
 def stringIndex : TypecheckM Nat := do
   match (← read).pStore.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
-def zeroIndex : TypecheckM Nat := do
-  match (← read).pStore.natZeroIdx with | none => throw $ .custom "Cannot find definition of `Nat.Zero`" | some a => pure a
-def succIndex : TypecheckM Nat := do
-  match (← read).pStore.natSuccIdx with | none => throw $ .custom "Cannot find definition of `Nat.Succ`" | some a => pure a
+def zeroIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).pStore.natZeroIdx with | none => noneHandle | some a => someHandle a
+def succIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).pStore.natSuccIdx with | none => noneHandle | some a => someHandle a
 
 end Yatima.Typechecker

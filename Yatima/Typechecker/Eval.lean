@@ -85,7 +85,8 @@ mutual
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    if const == (← zeroIndex) then pure $ .lit (.natVal 0)
+    let zero? ← zeroIndexWith (pure false) (fun zeroIdx => pure $ const == zeroIdx)
+    if zero? then pure $ .lit (.natVal 0)
     else match ← derefConst name const with
     | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
@@ -137,7 +138,8 @@ mutual
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : Thunk Value) (args : Args) : TypecheckM Value := do
 
-    if k == (← succIndex) then
+    let succ? ← succIndexWith (pure false) (fun succIdx => pure $ k == succIdx)
+    if succ? then
       -- Sanity check
       if !args.isEmpty then throw $ .custom "args should be empty"
       else match arg.get with
@@ -210,8 +212,10 @@ mutual
 
   partial def toCtorIfLit : Value → TypecheckM Value
     | .lit (.natVal v) => do
-      if v == 0 then evalConst `Nat.Zero (← zeroIndex) []
-      else pure $ .app (.const `Nat.succ (← succIndex) []) [Value.lit (.natVal (v-1))]
+      let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
+      let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
+      if v == 0 then evalConst `Nat.Zero zeroIdx []
+      else pure $ .app (.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
     | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
     | e => pure e
 end
