@@ -9,7 +9,7 @@ initialize its environment.
 
 namespace Yatima.Typechecker
 
-structure PrimIndex where
+structure PrimIndices where
   nat : Option Nat
   string : Option Nat
   succ : Option Nat
@@ -18,8 +18,8 @@ structure PrimIndex where
 /--
 The environment available to the typechecker monad. The available fields are
 * `lvl : Nat` : TODO: Get clarification on this.
-* `ctx : Context` : A context of known values, and universe levels. See `Context` 
-* `types : List (Tunk Value)` : The types of the values in `Context`. 
+* `ctx : Context` : A context of known values, and universe levels. See `Context`
+* `types : List (Tunk Value)` : The types of the values in `Context`.
 * `store : Array Const` : An array of known constants in the environment that can be referred to by their index.
 -/
 structure TypecheckEnv where
@@ -27,7 +27,7 @@ structure TypecheckEnv where
   ctx   : Context
   types : List (Thunk Value)
   store : Array Const
-  prim  : PrimIndex
+  prim  : PrimIndices
   deriving Inhabited
 
 /-- An initialization of the typchecker environment with a particular `store : Array Const` -/
@@ -38,7 +38,7 @@ def TypecheckEnv.init (store : Array Const) : TypecheckEnv :=
 def TypecheckEnv.initCtx (ctx : Context) (store : Array Const) : TypecheckEnv :=
   { (default : TypecheckEnv) with store, ctx }
 
-/-- 
+/--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckEnv`,
 and can throw exceptions of the form `TypecheckError`
 -/
@@ -52,11 +52,11 @@ def TypecheckM.run (env : TypecheckEnv) (m : TypecheckM α) : Except TypecheckEr
 def withCtx (ctx : Context) : TypecheckM α → TypecheckM α :=
   withReader fun env => { env with ctx := ctx }
 
-/-- 
+/--
 Evaluates a `TypecheckM` computation with a `TypecheckEnv` which has been extended with an additional
-`val : Thunk Value`, `typ : Thunk Type` pair. 
+`val : Thunk Value`, `typ : Thunk Type` pair.
 
-The `lvl` of the `TypecheckEnv` is also incremented. 
+The `lvl` of the `TypecheckEnv` is also incremented.
 TODO: Get clarification on this.
 -/
 def withExtendedEnv (val typ : Thunk Value) : TypecheckM α → TypecheckM α :=
@@ -65,14 +65,14 @@ def withExtendedEnv (val typ : Thunk Value) : TypecheckM α → TypecheckM α :=
     types := typ :: env.types,
     ctx := env.ctx.extendWith val }
 
-/-- 
-Evaluates a `TypecheckM` computation with a `TypecheckEnv` with a the context extended by a 
+/--
+Evaluates a `TypecheckM` computation with a `TypecheckEnv` with a the context extended by a
 `thunk : Thunk Value` (whose type is not known, unlike `withExtendedEnv`)
 -/
 def withExtendedCtx (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
   withReader fun env => { env with ctx := env.ctx.extendWith thunk }
 
-/-- 
+/--
 Evaluates a `TypecheckM` computation with a `TypecheckEnv` whose context is an extension of `ctx`
 by a `thunk : Thunk Value` (whose type is not known)
 -/
@@ -80,7 +80,7 @@ def withNewExtendedCtx (ctx : Context) (thunk : Thunk Value) :
     TypecheckM α → TypecheckM α :=
   withReader fun env => { env with ctx := ctx.extendWith thunk }
 
-/-- 
+/--
 Evaluates a `TypecheckM` computation with a `TypecheckEnv` whose context is an extension of `ctx`
 by a free variable with name `name : Name`, de-Bruijn index `i : Nat`, and type `type : ThunK Value`
 -/
@@ -96,4 +96,5 @@ def zeroIndex : TypecheckM Nat := do
   match (← read).prim.zero with | none => throw $ .custom "Cannot find definition of `Nat.Zero`" | some a => pure a
 def succIndex : TypecheckM Nat := do
   match (← read).prim.succ with | none => throw $ .custom "Cannot find definition of `Nat.Succ`" | some a => pure a
+
 end Yatima.Typechecker

@@ -83,8 +83,8 @@ mutual
       check exp expType
       let exp := suspend exp (← read)
       withExtendedEnv exp expType $ infer bod
-    | .lit _ (.natVal _) => evalConst "Nat" (← natIndex) []
-    | .lit _ (.strVal _) => evalConst "String" (← stringIndex) []
+    | .lit _ (.natVal _) => evalConst `Nat (← natIndex) []
+    | .lit _ (.strVal _) => evalConst `String (← stringIndex) []
     | .const _ name k constUnivs =>
       let univs := (← read).ctx.univs
       let const ← derefConst name k
