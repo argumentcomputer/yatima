@@ -21,6 +21,2432 @@
     (if (<= _x_lurk_1 _x_lurk_2)
      (quote (("Decidable" 1 0) 1 ("Nat.le" 1 1) _T))
      (quote (("Decidable" 1 0) 0 ("Nat.le" 1 1) _T)))))
+  (Subtype (lambda (:1 p) (cons "Subtype" (cons 2 (cons 0 nil)))))
+  (Subtype_rec
+   (lambda (:1 p motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 p motive mk val property) (mk val property)) :1
+      p
+      motive
+      mk
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+      (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1))))
+     nil)))
+  (Subtype_mk
+   (lambda (:1 p val property)
+    (cons (Subtype :1 p)
+     (cons 0 (cons :1 (cons p (cons val (cons property nil))))))))
+  (Subtype_casesOn
+   (lambda (:1 p motive _t mk)
+    (Subtype_rec :1
+     p
+     motive
+     (lambda (val property) (mk val property))
+     _t)))
+  (Std_RBNode
+   (lambda (:1 :2) (cons "Std.RBNode" (cons 2 (cons 0 nil)))))
+  (Std_RBNode_rec
+   (lambda (:1 :2 motive leaf node _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 :2 motive leaf node) leaf) :1 :2 motive leaf node)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (:1 :2 motive leaf node color lchild key val rchild)
+        (node color
+         lchild
+         key
+         val
+         rchild
+         (Std_RBNode_rec :1 :2 motive leaf node lchild)
+         (Std_RBNode_rec :1 :2 motive leaf node rchild))) :1
+       :2
+       motive
+       leaf
+       node
+       (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 2 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 3 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 4 (getelem (car _t) 1))))
+      nil))))
+  (Std_RBNode_leaf
+   (lambda (:1 :2)
+    (cons (Std_RBNode :1 :2) (cons 0 (cons :1 (cons :2 nil))))))
+  (Std_RBNode_node
+   (lambda (:1 :2 color lchild key val rchild)
+    (cons (Std_RBNode :1 :2)
+     (cons 1
+      (cons :1
+       (cons :2
+        (cons color
+         (cons lchild (cons key (cons val (cons rchild nil)))))))))))
+  (Std_RBNode_WellFormed
+   (lambda (:1 :2 cmp a__40_Lean_Data_RBMap__hyg_3664)
+    (cons "Std.RBNode.WellFormed" (cons 3 (cons 1 nil)))))
+  (Std_RBNode_WellFormed_rec
+   (lambda
+    (:1
+     :2
+     cmp
+     motive
+     leafWff
+     insertWff
+     eraseWff
+     a__40_Lean_Data_RBMap__hyg_3664
+     _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 :2 cmp motive leafWff insertWff eraseWff)
+       leafWff) :1
+      :2
+      cmp
+      motive
+      leafWff
+      insertWff
+      eraseWff)
+     (if (= (car (cdr _t)) 1)
+      ((lambda
+        (:1
+         :2
+         cmp
+         motive
+         leafWff
+         insertWff
+         eraseWff
+         n
+         n27
+         k
+         v
+         a__40_Lean_Data_RBMap__hyg_3681
+         a__40_Lean_Data_RBMap__hyg_3685)
+        (insertWff n
+         n27
+         k
+         v
+         a__40_Lean_Data_RBMap__hyg_3681
+         a__40_Lean_Data_RBMap__hyg_3685
+         (Std_RBNode_WellFormed_rec :1
+          :2
+          cmp
+          motive
+          leafWff
+          insertWff
+          eraseWff
+          n
+          a__40_Lean_Data_RBMap__hyg_3681))) :1
+       :2
+       cmp
+       motive
+       leafWff
+       insertWff
+       eraseWff
+       (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 2 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 3 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 4 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 5 (getelem (car _t) 1))))
+      (if (= (car (cdr _t)) 2)
+       ((lambda
+         (:1
+          :2
+          cmp
+          motive
+          leafWff
+          insertWff
+          eraseWff
+          n
+          n27
+          k
+          a__40_Lean_Data_RBMap__hyg_3705
+          a__40_Lean_Data_RBMap__hyg_3709)
+         (eraseWff n
+          n27
+          k
+          a__40_Lean_Data_RBMap__hyg_3705
+          a__40_Lean_Data_RBMap__hyg_3709
+          (Std_RBNode_WellFormed_rec :1
+           :2
+           cmp
+           motive
+           leafWff
+           insertWff
+           eraseWff
+           n
+           a__40_Lean_Data_RBMap__hyg_3705))) :1
+        :2
+        cmp
+        motive
+        leafWff
+        insertWff
+        eraseWff
+        (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+        (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1)))
+        (getelem (cdr (cdr _t)) (+ 2 (getelem (car _t) 1)))
+        (getelem (cdr (cdr _t)) (+ 3 (getelem (car _t) 1)))
+        (getelem (cdr (cdr _t)) (+ 4 (getelem (car _t) 1))))
+       nil)))))
+  (Std_RBNode_WellFormed_leafWff
+   (lambda (:1 :2 cmp)
+    (cons (Std_RBNode_WellFormed :1 :2 cmp)
+     (cons 0 (cons :1 (cons :2 (cons cmp nil)))))))
+  (Std_RBNode_WellFormed_insertWff
+   (lambda
+    (:1
+     :2
+     cmp
+     n
+     n27
+     k
+     v
+     a__40_Lean_Data_RBMap__hyg_3681
+     a__40_Lean_Data_RBMap__hyg_3685)
+    (cons (Std_RBNode_WellFormed :1 :2 cmp n)
+     (cons 1
+      (cons :1
+       (cons :2
+        (cons cmp
+         (cons n
+          (cons n27
+           (cons k
+            (cons v
+             (cons a__40_Lean_Data_RBMap__hyg_3681
+              (cons a__40_Lean_Data_RBMap__hyg_3685 nil)))))))))))))
+  (Std_RBNode_WellFormed_eraseWff
+   (lambda
+    (:1
+     :2
+     cmp
+     n
+     n27
+     k
+     a__40_Lean_Data_RBMap__hyg_3705
+     a__40_Lean_Data_RBMap__hyg_3709)
+    (cons (Std_RBNode_WellFormed :1 :2 cmp n)
+     (cons 2
+      (cons :1
+       (cons :2
+        (cons cmp
+         (cons n
+          (cons n27
+           (cons k
+            (cons a__40_Lean_Data_RBMap__hyg_3705
+             (cons a__40_Lean_Data_RBMap__hyg_3709 nil))))))))))))
+  (Std_RBMap_insert_match_1
+   (lambda
+    (:1
+     :2
+     cmp
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_4729_4748
+     _fun_discr__40_Lean_Data_RBMap__hyg_4730_4749
+     _fun_discr__40_Lean_Data_RBMap__hyg_4731_4750
+     h_1)
+    (Subtype_casesOn (Std_RBNode :1
+      (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2))
+     (lambda (_t)
+      (Std_RBNode_WellFormed :1
+       (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+       cmp
+       _t))
+     (lambda (x)
+      (motive x
+       _fun_discr__40_Lean_Data_RBMap__hyg_4730_4749
+       _fun_discr__40_Lean_Data_RBMap__hyg_4731_4750))
+     _fun_discr__40_Lean_Data_RBMap__hyg_4729_4748
+     (lambda
+      (val__40_Lean_Data_RBMap__hyg_4771
+       property__40_Lean_Data_RBMap__hyg_4772)
+      (h_1 val__40_Lean_Data_RBMap__hyg_4771
+       property__40_Lean_Data_RBMap__hyg_4772
+       _fun_discr__40_Lean_Data_RBMap__hyg_4730_4749
+       _fun_discr__40_Lean_Data_RBMap__hyg_4731_4750)))))
+  (Std_RBMap
+   (lambda (:1 :2 cmp)
+    (Subtype (Std_RBNode :1
+      (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2))
+     (lambda (_t)
+      (Std_RBNode_WellFormed :1
+       (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+       cmp
+       _t)))))
+  (Decidable (lambda (p) (cons "Decidable" (cons 1 (cons 0 nil)))))
+  (Decidable_rec
+   (lambda (p motive isFalse isTrue _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (p motive isFalse isTrue h) (isFalse h)) p
+      motive
+      isFalse
+      isTrue
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
+     (if (= (car (cdr _t)) 1)
+      ((lambda (p motive isFalse isTrue h) (isTrue h)) p
+       motive
+       isFalse
+       isTrue
+       (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
+      nil))))
+  (Decidable_isFalse
+   (lambda (p h) (cons (Decidable p) (cons 0 (cons p (cons h nil))))))
+  (Decidable_isTrue
+   (lambda (p h) (cons (Decidable p) (cons 1 (cons p (cons h nil))))))
+  (Decidable_casesOn
+   (lambda (p motive _t isFalse isTrue)
+    (Decidable_rec p
+     motive
+     (lambda (h) (isFalse h))
+     (lambda (h) (isTrue h))
+     _t)))
+  (ite
+   (lambda (:1 c h _t e)
+    (Decidable_casesOn c
+     (lambda (x__40_Init_Prelude__hyg_1557) :1)
+     h
+     (lambda (x__40_Init_Prelude__hyg_1562) e)
+     (lambda (x__40_Init_Prelude__hyg_1569) _t))))
+  (LEq
+   (lambda
+    (:1 a__40_Init_Prelude__hyg_154 a__40_Init_Prelude__hyg_156)
+    (cons "Eq" (cons 2 (cons 1 nil)))))
+  (Eq_rec
+   (lambda
+    (:1
+     a__40_Init_Prelude__hyg_154
+     motive
+     refl
+     a__40_Init_Prelude__hyg_156
+     _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 a__40_Init_Prelude__hyg_154 motive refl) refl) :1
+      a__40_Init_Prelude__hyg_154
+      motive
+      refl)
+     nil)))
+  (Eq_refl
+   (lambda (:1 a) (cons (LEq :1 a) (cons 0 (cons :1 (cons a nil))))))
+  (Bool (cons "Bool" (cons 0 (cons 0 nil))))
+  (Bool_rec
+   (lambda (motive false true _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive false true) false) motive false true)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (motive false true) true) motive false true)
+      nil))))
+  (Bool_false (cons Bool (cons 0 nil)))
+  (Bool_true (cons Bool (cons 1 nil)))
+  (Std_RBNode_casesOn
+   (lambda (:1 :2 motive _t leaf node)
+    (Std_RBNode_rec :1
+     :2
+     motive
+     leaf
+     (lambda (color lchild key val rchild lchild_ih rchild_ih)
+      (node color lchild key val rchild))
+     _t)))
+  (Std_Rbcolor (cons "Std.Rbcolor" (cons 0 (cons 0 nil))))
+  (Std_Rbcolor_rec
+   (lambda (motive red black _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive red black) red) motive red black)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (motive red black) black) motive red black)
+      nil))))
+  (Std_Rbcolor_red (cons Std_Rbcolor (cons 0 nil)))
+  (Std_Rbcolor_black (cons Std_Rbcolor (cons 1 nil)))
+  (Std_Rbcolor_casesOn
+   (lambda (motive _t red black)
+    (Std_Rbcolor_rec motive red black _t)))
+  (Std_RBNode_isRed_match_1
+   (lambda
+    (:1
+     :2
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_1671_1678
+     h_1
+     h_2)
+    (Std_RBNode_casesOn :1
+     :2
+     (lambda (x) (motive x))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1671_1678
+     (h_2 (Std_RBNode_leaf :1 :2))
+     (lambda
+      (color__40_Lean_Data_RBMap__hyg_1708
+       lchild__40_Lean_Data_RBMap__hyg_1709
+       key__40_Lean_Data_RBMap__hyg_1710
+       val__40_Lean_Data_RBMap__hyg_1711
+       rchild__40_Lean_Data_RBMap__hyg_1712)
+      (Std_Rbcolor_casesOn (lambda (x)
+        (motive (Std_RBNode_node :1
+          :2
+          x
+          lchild__40_Lean_Data_RBMap__hyg_1709
+          key__40_Lean_Data_RBMap__hyg_1710
+          val__40_Lean_Data_RBMap__hyg_1711
+          rchild__40_Lean_Data_RBMap__hyg_1712)))
+       color__40_Lean_Data_RBMap__hyg_1708
+       (h_1 lchild__40_Lean_Data_RBMap__hyg_1709
+        key__40_Lean_Data_RBMap__hyg_1710
+        val__40_Lean_Data_RBMap__hyg_1711
+        rchild__40_Lean_Data_RBMap__hyg_1712)
+       (h_2 (Std_RBNode_node :1
+         :2
+         Std_Rbcolor_black
+         lchild__40_Lean_Data_RBMap__hyg_1709
+         key__40_Lean_Data_RBMap__hyg_1710
+         val__40_Lean_Data_RBMap__hyg_1711
+         rchild__40_Lean_Data_RBMap__hyg_1712)))))))
+  (Std_RBNode_isRed
+   (lambda (:1 :2 _fun_discr__40_Lean_Data_RBMap__hyg_1671)
+    (Std_RBNode_isRed_match_1 :1
+     :2
+     (lambda (_fun_discr__40_Lean_Data_RBMap__hyg_1671_1678) Bool)
+     _fun_discr__40_Lean_Data_RBMap__hyg_1671
+     (lambda
+      (lchild__40_Lean_Data_RBMap__hyg_1698
+       key__40_Lean_Data_RBMap__hyg_1699
+       val__40_Lean_Data_RBMap__hyg_1700
+       rchild__40_Lean_Data_RBMap__hyg_1701)
+      Bool_true)
+     (lambda (x__40_Lean_Data_RBMap__hyg_1706) Bool_false))))
+  (Bool_casesOn
+   (lambda (motive _t false true) (Bool_rec motive false true _t)))
+  (PUnit (cons "PUnit" (cons 0 (cons 0 nil))))
+  (PUnit_rec
+   (lambda (motive unit _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive unit) unit) motive unit)
+     nil)))
+  (PUnit_unit (cons PUnit (cons 0 nil)))
+  (Unit_unit PUnit_unit)
+  (instDecidableEqBool_match_1
+   (lambda
+    (motive
+     a__40_Init_Prelude__hyg_1453
+     b__40_Init_Prelude__hyg_1454
+     h_1
+     h_2
+     h_3
+     h_4)
+    (Bool_casesOn (lambda (x) (motive x b__40_Init_Prelude__hyg_1454))
+     a__40_Init_Prelude__hyg_1453
+     (Bool_casesOn (lambda (x) (motive Bool_false x))
+      b__40_Init_Prelude__hyg_1454
+      (h_1 Unit_unit)
+      (h_2 Unit_unit))
+     (Bool_casesOn (lambda (x) (motive Bool_true x))
+      b__40_Init_Prelude__hyg_1454
+      (h_3 Unit_unit)
+      (h_4 Unit_unit)))))
+  (rfl_proof_1 (lambda (:1 a) (Eq_refl :1 a)))
+  (rfl rfl_proof_1)
+  (Eq_ndrec
+   (lambda (:1 a motive m b h)
+    (Eq_rec :1
+     a
+     (lambda (x__40_Init_Prelude__hyg_183 x__40_Init_Prelude__hyg_182)
+      (motive x__40_Init_Prelude__hyg_183))
+     m
+     b
+     h)))
+  (Bool_noConfusionType
+   (lambda (P v1 v2)
+    (Bool_casesOn (lambda (v1) nil)
+     v1
+     (Bool_casesOn (lambda (v1) nil) v2 nil P)
+     (Bool_casesOn (lambda (v1) nil) v2 P nil))))
+  (Bool_noConfusion
+   (lambda (P v1 v2 h12)
+    (Eq_ndrec Bool
+     v1
+     (lambda (a) nil)
+     (lambda (h11)
+      (Bool_casesOn (lambda (v1) (Bool_noConfusionType P v1 v1))
+       v1
+       (lambda (a) a)
+       (lambda (a) a)))
+     v2
+     h12
+     h12)))
+  (False (cons "False" (cons 0 (cons 0 nil))))
+  (False_rec (lambda (motive _t) nil))
+  (instDecidableEqBool_proof_1
+   (lambda (h) (Bool_noConfusion False Bool_false Bool_true h)))
+  (instDecidableEqBool_proof_2
+   (lambda (h) (Bool_noConfusion False Bool_true Bool_false h)))
+  (instDecidableEqBool
+   (lambda (a b)
+    (instDecidableEqBool_match_1 (lambda
+      (a__40_Init_Prelude__hyg_1453 b__40_Init_Prelude__hyg_1454)
+      (Decidable (LEq Bool
+        a__40_Init_Prelude__hyg_1453
+        b__40_Init_Prelude__hyg_1454)))
+     a
+     b
+     (lambda (_x)
+      (Decidable_isTrue (LEq Bool Bool_false Bool_false)
+       (rfl Bool Bool_false)))
+     (lambda (_x)
+      (Decidable_isFalse (LEq Bool Bool_false Bool_true)
+       instDecidableEqBool_proof_1))
+     (lambda (_x)
+      (Decidable_isFalse (LEq Bool Bool_true Bool_false)
+       instDecidableEqBool_proof_2))
+     (lambda (_x)
+      (Decidable_isTrue (LEq Bool Bool_true Bool_true)
+       (rfl Bool Bool_true))))))
+  (Std_RBNode_setBlack_match_1
+   (lambda
+    (:1
+     :2
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_2034_2041
+     h_1
+     h_2)
+    (Std_RBNode_casesOn :1
+     :2
+     (lambda (x) (motive x))
+     _fun_discr__40_Lean_Data_RBMap__hyg_2034_2041
+     (h_2 (Std_RBNode_leaf :1 :2))
+     (lambda
+      (color__40_Lean_Data_RBMap__hyg_2067
+       lchild__40_Lean_Data_RBMap__hyg_2068
+       key__40_Lean_Data_RBMap__hyg_2069
+       val__40_Lean_Data_RBMap__hyg_2070
+       rchild__40_Lean_Data_RBMap__hyg_2071)
+      (h_1 color__40_Lean_Data_RBMap__hyg_2067
+       lchild__40_Lean_Data_RBMap__hyg_2068
+       key__40_Lean_Data_RBMap__hyg_2069
+       val__40_Lean_Data_RBMap__hyg_2070
+       rchild__40_Lean_Data_RBMap__hyg_2071)))))
+  (Std_RBNode_setBlack
+   (lambda (:1 :2 _fun_discr__40_Lean_Data_RBMap__hyg_2034)
+    (Std_RBNode_setBlack_match_1 :1
+     :2
+     (lambda (_fun_discr__40_Lean_Data_RBMap__hyg_2034_2041)
+      (Std_RBNode :1 :2))
+     _fun_discr__40_Lean_Data_RBMap__hyg_2034
+     (lambda (color__40_Lean_Data_RBMap__hyg_2057 l k v r)
+      (Std_RBNode_node :1 :2 Std_Rbcolor_black l k v r))
+     (lambda (e) e))))
+  (PProd (lambda (:1 :2) (cons "PProd" (cons 2 (cons 0 nil)))))
+  (PProd_rec
+   (lambda (:1 :2 motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 :2 motive mk fst snd) (mk fst snd)) :1
+      :2
+      motive
+      mk
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+      (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1))))
+     nil)))
+  (PProd_mk
+   (lambda (:1 :2 fst snd)
+    (cons (PProd :1 :2)
+     (cons 0 (cons :1 (cons :2 (cons fst (cons snd nil))))))))
+  (Std_RBNode_below
+   (lambda (:1 :2 motive _t)
+    (Std_RBNode_rec :1
+     :2
+     (lambda (_t) nil)
+     PUnit
+     (lambda (color lchild key val rchild lchild_ih rchild_ih)
+      (PProd (PProd (motive lchild) lchild_ih)
+       (PProd (PProd (motive rchild) rchild_ih) PUnit)))
+     _t)))
+  (Std_RBNode_brecOn
+   (lambda (:1 :2 motive _t F_1)
+    (getelem (cdr
+      (cdr
+       (Std_RBNode_rec :1
+        :2
+        (lambda (_t)
+         (PProd (motive _t) (Std_RBNode_below :1 :2 motive _t)))
+        (PProd_mk (motive (Std_RBNode_leaf :1 :2))
+         PUnit
+         (F_1 (Std_RBNode_leaf :1 :2) PUnit_unit)
+         PUnit_unit)
+        (lambda (color lchild key val rchild lchild_ih rchild_ih)
+         (PProd_mk (motive (Std_RBNode_node :1
+            :2
+            color
+            lchild
+            key
+            val
+            rchild))
+          (PProd (PProd (motive lchild)
+            (Std_RBNode_below :1 :2 motive lchild))
+           (PProd (PProd (motive rchild)
+             (Std_RBNode_below :1 :2 motive rchild))
+            PUnit))
+          (F_1 (Std_RBNode_node :1 :2 color lchild key val rchild)
+           (PProd_mk (PProd (motive lchild)
+             (Std_RBNode_below :1 :2 motive lchild))
+            (PProd (PProd (motive rchild)
+              (Std_RBNode_below :1 :2 motive rchild))
+             PUnit)
+            lchild_ih
+            (PProd_mk (PProd (motive rchild)
+              (Std_RBNode_below :1 :2 motive rchild))
+             PUnit
+             rchild_ih
+             PUnit_unit)))
+          (PProd_mk (PProd (motive lchild)
+            (Std_RBNode_below :1 :2 motive lchild))
+           (PProd (PProd (motive rchild)
+             (Std_RBNode_below :1 :2 motive rchild))
+            PUnit)
+           lchild_ih
+           (PProd_mk (PProd (motive rchild)
+             (Std_RBNode_below :1 :2 motive rchild))
+            PUnit
+            rchild_ih
+            PUnit_unit))))
+        _t)))
+     (+
+      (+
+       (getelem (car
+         (Std_RBNode_rec :1
+          :2
+          (lambda (_t)
+           (PProd (motive _t) (Std_RBNode_below :1 :2 motive _t)))
+          (PProd_mk (motive (Std_RBNode_leaf :1 :2))
+           PUnit
+           (F_1 (Std_RBNode_leaf :1 :2) PUnit_unit)
+           PUnit_unit)
+          (lambda (color lchild key val rchild lchild_ih rchild_ih)
+           (PProd_mk (motive (Std_RBNode_node :1
+              :2
+              color
+              lchild
+              key
+              val
+              rchild))
+            (PProd (PProd (motive lchild)
+              (Std_RBNode_below :1 :2 motive lchild))
+             (PProd (PProd (motive rchild)
+               (Std_RBNode_below :1 :2 motive rchild))
+              PUnit))
+            (F_1 (Std_RBNode_node :1 :2 color lchild key val rchild)
+             (PProd_mk (PProd (motive lchild)
+               (Std_RBNode_below :1 :2 motive lchild))
+              (PProd (PProd (motive rchild)
+                (Std_RBNode_below :1 :2 motive rchild))
+               PUnit)
+              lchild_ih
+              (PProd_mk (PProd (motive rchild)
+                (Std_RBNode_below :1 :2 motive rchild))
+               PUnit
+               rchild_ih
+               PUnit_unit)))
+            (PProd_mk (PProd (motive lchild)
+              (Std_RBNode_below :1 :2 motive lchild))
+             (PProd (PProd (motive rchild)
+               (Std_RBNode_below :1 :2 motive rchild))
+              PUnit)
+             lchild_ih
+             (PProd_mk (PProd (motive rchild)
+               (Std_RBNode_below :1 :2 motive rchild))
+              PUnit
+              rchild_ih
+              PUnit_unit))))
+          _t))
+        1)
+       (getelem (car
+         (Std_RBNode_rec :1
+          :2
+          (lambda (_t)
+           (PProd (motive _t) (Std_RBNode_below :1 :2 motive _t)))
+          (PProd_mk (motive (Std_RBNode_leaf :1 :2))
+           PUnit
+           (F_1 (Std_RBNode_leaf :1 :2) PUnit_unit)
+           PUnit_unit)
+          (lambda (color lchild key val rchild lchild_ih rchild_ih)
+           (PProd_mk (motive (Std_RBNode_node :1
+              :2
+              color
+              lchild
+              key
+              val
+              rchild))
+            (PProd (PProd (motive lchild)
+              (Std_RBNode_below :1 :2 motive lchild))
+             (PProd (PProd (motive rchild)
+               (Std_RBNode_below :1 :2 motive rchild))
+              PUnit))
+            (F_1 (Std_RBNode_node :1 :2 color lchild key val rchild)
+             (PProd_mk (PProd (motive lchild)
+               (Std_RBNode_below :1 :2 motive lchild))
+              (PProd (PProd (motive rchild)
+                (Std_RBNode_below :1 :2 motive rchild))
+               PUnit)
+              lchild_ih
+              (PProd_mk (PProd (motive rchild)
+                (Std_RBNode_below :1 :2 motive rchild))
+               PUnit
+               rchild_ih
+               PUnit_unit)))
+            (PProd_mk (PProd (motive lchild)
+              (Std_RBNode_below :1 :2 motive lchild))
+             (PProd (PProd (motive rchild)
+               (Std_RBNode_below :1 :2 motive rchild))
+              PUnit)
+             lchild_ih
+             (PProd_mk (PProd (motive rchild)
+               (Std_RBNode_below :1 :2 motive rchild))
+              PUnit
+              rchild_ih
+              PUnit_unit))))
+          _t))
+        2))
+      0))))
+  (Std_RBNode_ins_match_2
+   (lambda
+    (:1
+     :2
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_1802_1821
+     _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+     _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823
+     h_1
+     h_2
+     h_3)
+    (Std_RBNode_casesOn :1
+     :2
+     (lambda (x)
+      (motive x
+       _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+       _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1802_1821
+     (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+      _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823)
+     (lambda
+      (color__40_Lean_Data_RBMap__hyg_2004
+       lchild__40_Lean_Data_RBMap__hyg_2005
+       key__40_Lean_Data_RBMap__hyg_2006
+       val__40_Lean_Data_RBMap__hyg_2007
+       rchild__40_Lean_Data_RBMap__hyg_2008)
+      (Std_Rbcolor_casesOn (lambda (x)
+        (motive (Std_RBNode_node :1
+          :2
+          x
+          lchild__40_Lean_Data_RBMap__hyg_2005
+          key__40_Lean_Data_RBMap__hyg_2006
+          val__40_Lean_Data_RBMap__hyg_2007
+          rchild__40_Lean_Data_RBMap__hyg_2008)
+         _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+         _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823))
+       color__40_Lean_Data_RBMap__hyg_2004
+       (h_2 lchild__40_Lean_Data_RBMap__hyg_2005
+        key__40_Lean_Data_RBMap__hyg_2006
+        val__40_Lean_Data_RBMap__hyg_2007
+        rchild__40_Lean_Data_RBMap__hyg_2008
+        _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+        _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823)
+       (h_3 lchild__40_Lean_Data_RBMap__hyg_2005
+        key__40_Lean_Data_RBMap__hyg_2006
+        val__40_Lean_Data_RBMap__hyg_2007
+        rchild__40_Lean_Data_RBMap__hyg_2008
+        _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+        _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823))))))
+  (Ordering (cons "Ordering" (cons 0 (cons 0 nil))))
+  (Ordering_rec
+   (lambda (motive _uncap_lt _eq gt _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (motive _uncap_lt _eq gt) _uncap_lt) motive
+      _uncap_lt
+      _eq
+      gt)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (motive _uncap_lt _eq gt) _eq) motive _uncap_lt _eq gt)
+      (if (= (car (cdr _t)) 2)
+       ((lambda (motive _uncap_lt _eq gt) gt) motive _uncap_lt _eq gt)
+       nil)))))
+  (Ordering_lt (cons Ordering (cons 0 nil)))
+  (Ordering_eq (cons Ordering (cons 1 nil)))
+  (Ordering_gt (cons Ordering (cons 2 nil)))
+  (Ordering_casesOn
+   (lambda (motive _t _uncap_lt _eq gt)
+    (Ordering_rec motive _uncap_lt _eq gt _t)))
+  (Std_RBNode_ins_match_1
+   (lambda (motive x__40_Lean_Data_RBMap__hyg_1865 h_1 h_2 h_3)
+    (Ordering_casesOn (lambda (x) (motive x))
+     x__40_Lean_Data_RBMap__hyg_1865
+     (h_1 Unit_unit)
+     (h_3 Unit_unit)
+     (h_2 Unit_unit))))
+  (PProd_fst
+   (lambda (:1 :2 self)
+    (getelem (cdr (cdr self))
+     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
+  (PProd_snd
+   (lambda (:1 :2 self)
+    (getelem (cdr (cdr self))
+     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 1))))
+  (Std_RBNode_balance1_match_1
+   (lambda
+    (:1
+     :2
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+     _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+     _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+     _fun_discr__40_Lean_Data_RBMap__hyg_1205_1230
+     h_1
+     h_2
+     h_3
+     h_4)
+    (Std_RBNode_casesOn :1
+     :2
+     (lambda (x)
+      (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+       _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+       _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+       x))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1205_1230
+     (h_4 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+      _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+      _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+      (Std_RBNode_leaf :1 :2))
+     (lambda
+      (color__40_Lean_Data_RBMap__hyg_1395
+       lchild__40_Lean_Data_RBMap__hyg_1396
+       key__40_Lean_Data_RBMap__hyg_1397
+       val__40_Lean_Data_RBMap__hyg_1398
+       rchild__40_Lean_Data_RBMap__hyg_1399)
+      (Std_RBNode_casesOn :1
+       :2
+       (lambda (x)
+        (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+         _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+         _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+         (Std_RBNode_node :1
+          :2
+          color__40_Lean_Data_RBMap__hyg_1395
+          x
+          key__40_Lean_Data_RBMap__hyg_1397
+          val__40_Lean_Data_RBMap__hyg_1398
+          rchild__40_Lean_Data_RBMap__hyg_1399)))
+       lchild__40_Lean_Data_RBMap__hyg_1396
+       (Std_RBNode_casesOn :1
+        :2
+        (lambda (x)
+         (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+          _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+          _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+          (Std_RBNode_node :1
+           :2
+           color__40_Lean_Data_RBMap__hyg_1395
+           (Std_RBNode_leaf :1 :2)
+           key__40_Lean_Data_RBMap__hyg_1397
+           val__40_Lean_Data_RBMap__hyg_1398
+           x)))
+        rchild__40_Lean_Data_RBMap__hyg_1399
+        (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+         _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+         _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+         color__40_Lean_Data_RBMap__hyg_1395
+         (Std_RBNode_leaf :1 :2)
+         key__40_Lean_Data_RBMap__hyg_1397
+         val__40_Lean_Data_RBMap__hyg_1398
+         (Std_RBNode_leaf :1 :2))
+        (lambda
+         (color__40_Lean_Data_RBMap__hyg_1405
+          lchild__40_Lean_Data_RBMap__hyg_1406
+          key__40_Lean_Data_RBMap__hyg_1407
+          val__40_Lean_Data_RBMap__hyg_1408
+          rchild__40_Lean_Data_RBMap__hyg_1409)
+         (Std_Rbcolor_casesOn (lambda (x)
+           (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+            _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+            _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+            (Std_RBNode_node :1
+             :2
+             color__40_Lean_Data_RBMap__hyg_1395
+             (Std_RBNode_leaf :1 :2)
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             (Std_RBNode_node :1
+              :2
+              x
+              lchild__40_Lean_Data_RBMap__hyg_1406
+              key__40_Lean_Data_RBMap__hyg_1407
+              val__40_Lean_Data_RBMap__hyg_1408
+              rchild__40_Lean_Data_RBMap__hyg_1409))))
+          color__40_Lean_Data_RBMap__hyg_1405
+          (h_2 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+           _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+           _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+           color__40_Lean_Data_RBMap__hyg_1395
+           (Std_RBNode_leaf :1 :2)
+           key__40_Lean_Data_RBMap__hyg_1397
+           val__40_Lean_Data_RBMap__hyg_1398
+           lchild__40_Lean_Data_RBMap__hyg_1406
+           key__40_Lean_Data_RBMap__hyg_1407
+           val__40_Lean_Data_RBMap__hyg_1408
+           rchild__40_Lean_Data_RBMap__hyg_1409)
+          (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+           _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+           _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+           color__40_Lean_Data_RBMap__hyg_1395
+           (Std_RBNode_leaf :1 :2)
+           key__40_Lean_Data_RBMap__hyg_1397
+           val__40_Lean_Data_RBMap__hyg_1398
+           (Std_RBNode_node :1
+            :2
+            Std_Rbcolor_black
+            lchild__40_Lean_Data_RBMap__hyg_1406
+            key__40_Lean_Data_RBMap__hyg_1407
+            val__40_Lean_Data_RBMap__hyg_1408
+            rchild__40_Lean_Data_RBMap__hyg_1409)))))
+       (lambda
+        (color__40_Lean_Data_RBMap__hyg_1400
+         lchild__40_Lean_Data_RBMap__hyg_1401
+         key__40_Lean_Data_RBMap__hyg_1402
+         val__40_Lean_Data_RBMap__hyg_1403
+         rchild__40_Lean_Data_RBMap__hyg_1404)
+        (Std_Rbcolor_casesOn (lambda (x)
+          (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+           _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+           _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+           (Std_RBNode_node :1
+            :2
+            color__40_Lean_Data_RBMap__hyg_1395
+            (Std_RBNode_node :1
+             :2
+             x
+             lchild__40_Lean_Data_RBMap__hyg_1401
+             key__40_Lean_Data_RBMap__hyg_1402
+             val__40_Lean_Data_RBMap__hyg_1403
+             rchild__40_Lean_Data_RBMap__hyg_1404)
+            key__40_Lean_Data_RBMap__hyg_1397
+            val__40_Lean_Data_RBMap__hyg_1398
+            rchild__40_Lean_Data_RBMap__hyg_1399)))
+         color__40_Lean_Data_RBMap__hyg_1400
+         (Std_RBNode_casesOn :1
+          :2
+          (lambda (x)
+           (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+            _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+            _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+            (Std_RBNode_node :1
+             :2
+             color__40_Lean_Data_RBMap__hyg_1395
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_red
+              lchild__40_Lean_Data_RBMap__hyg_1401
+              key__40_Lean_Data_RBMap__hyg_1402
+              val__40_Lean_Data_RBMap__hyg_1403
+              rchild__40_Lean_Data_RBMap__hyg_1404)
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             x)))
+          rchild__40_Lean_Data_RBMap__hyg_1399
+          (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+           _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+           _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+           color__40_Lean_Data_RBMap__hyg_1395
+           lchild__40_Lean_Data_RBMap__hyg_1401
+           key__40_Lean_Data_RBMap__hyg_1402
+           val__40_Lean_Data_RBMap__hyg_1403
+           rchild__40_Lean_Data_RBMap__hyg_1404
+           key__40_Lean_Data_RBMap__hyg_1397
+           val__40_Lean_Data_RBMap__hyg_1398
+           (Std_RBNode_leaf :1 :2))
+          (lambda
+           (color__40_Lean_Data_RBMap__hyg_1410
+            lchild__40_Lean_Data_RBMap__hyg_1411
+            key__40_Lean_Data_RBMap__hyg_1412
+            val__40_Lean_Data_RBMap__hyg_1413
+            rchild__40_Lean_Data_RBMap__hyg_1414)
+           (Std_Rbcolor_casesOn (lambda (x)
+             (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+              _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+              _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+              (Std_RBNode_node :1
+               :2
+               color__40_Lean_Data_RBMap__hyg_1395
+               (Std_RBNode_node :1
+                :2
+                Std_Rbcolor_red
+                lchild__40_Lean_Data_RBMap__hyg_1401
+                key__40_Lean_Data_RBMap__hyg_1402
+                val__40_Lean_Data_RBMap__hyg_1403
+                rchild__40_Lean_Data_RBMap__hyg_1404)
+               key__40_Lean_Data_RBMap__hyg_1397
+               val__40_Lean_Data_RBMap__hyg_1398
+               (Std_RBNode_node :1
+                :2
+                x
+                lchild__40_Lean_Data_RBMap__hyg_1411
+                key__40_Lean_Data_RBMap__hyg_1412
+                val__40_Lean_Data_RBMap__hyg_1413
+                rchild__40_Lean_Data_RBMap__hyg_1414))))
+            color__40_Lean_Data_RBMap__hyg_1410
+            (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+             _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+             _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+             color__40_Lean_Data_RBMap__hyg_1395
+             lchild__40_Lean_Data_RBMap__hyg_1401
+             key__40_Lean_Data_RBMap__hyg_1402
+             val__40_Lean_Data_RBMap__hyg_1403
+             rchild__40_Lean_Data_RBMap__hyg_1404
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_red
+              lchild__40_Lean_Data_RBMap__hyg_1411
+              key__40_Lean_Data_RBMap__hyg_1412
+              val__40_Lean_Data_RBMap__hyg_1413
+              rchild__40_Lean_Data_RBMap__hyg_1414))
+            (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+             _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+             _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+             color__40_Lean_Data_RBMap__hyg_1395
+             lchild__40_Lean_Data_RBMap__hyg_1401
+             key__40_Lean_Data_RBMap__hyg_1402
+             val__40_Lean_Data_RBMap__hyg_1403
+             rchild__40_Lean_Data_RBMap__hyg_1404
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1411
+              key__40_Lean_Data_RBMap__hyg_1412
+              val__40_Lean_Data_RBMap__hyg_1413
+              rchild__40_Lean_Data_RBMap__hyg_1414)))))
+         (Std_RBNode_casesOn :1
+          :2
+          (lambda (x)
+           (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+            _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+            _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+            (Std_RBNode_node :1
+             :2
+             color__40_Lean_Data_RBMap__hyg_1395
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1401
+              key__40_Lean_Data_RBMap__hyg_1402
+              val__40_Lean_Data_RBMap__hyg_1403
+              rchild__40_Lean_Data_RBMap__hyg_1404)
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             x)))
+          rchild__40_Lean_Data_RBMap__hyg_1399
+          (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+           _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+           _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+           color__40_Lean_Data_RBMap__hyg_1395
+           (Std_RBNode_node :1
+            :2
+            Std_Rbcolor_black
+            lchild__40_Lean_Data_RBMap__hyg_1401
+            key__40_Lean_Data_RBMap__hyg_1402
+            val__40_Lean_Data_RBMap__hyg_1403
+            rchild__40_Lean_Data_RBMap__hyg_1404)
+           key__40_Lean_Data_RBMap__hyg_1397
+           val__40_Lean_Data_RBMap__hyg_1398
+           (Std_RBNode_leaf :1 :2))
+          (lambda
+           (color__40_Lean_Data_RBMap__hyg_1415
+            lchild__40_Lean_Data_RBMap__hyg_1416
+            key__40_Lean_Data_RBMap__hyg_1417
+            val__40_Lean_Data_RBMap__hyg_1418
+            rchild__40_Lean_Data_RBMap__hyg_1419)
+           (Std_Rbcolor_casesOn (lambda (x)
+             (motive _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+              _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+              _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+              (Std_RBNode_node :1
+               :2
+               color__40_Lean_Data_RBMap__hyg_1395
+               (Std_RBNode_node :1
+                :2
+                Std_Rbcolor_black
+                lchild__40_Lean_Data_RBMap__hyg_1401
+                key__40_Lean_Data_RBMap__hyg_1402
+                val__40_Lean_Data_RBMap__hyg_1403
+                rchild__40_Lean_Data_RBMap__hyg_1404)
+               key__40_Lean_Data_RBMap__hyg_1397
+               val__40_Lean_Data_RBMap__hyg_1398
+               (Std_RBNode_node :1
+                :2
+                x
+                lchild__40_Lean_Data_RBMap__hyg_1416
+                key__40_Lean_Data_RBMap__hyg_1417
+                val__40_Lean_Data_RBMap__hyg_1418
+                rchild__40_Lean_Data_RBMap__hyg_1419))))
+            color__40_Lean_Data_RBMap__hyg_1415
+            (h_2 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+             _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+             _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+             color__40_Lean_Data_RBMap__hyg_1395
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1401
+              key__40_Lean_Data_RBMap__hyg_1402
+              val__40_Lean_Data_RBMap__hyg_1403
+              rchild__40_Lean_Data_RBMap__hyg_1404)
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             lchild__40_Lean_Data_RBMap__hyg_1416
+             key__40_Lean_Data_RBMap__hyg_1417
+             val__40_Lean_Data_RBMap__hyg_1418
+             rchild__40_Lean_Data_RBMap__hyg_1419)
+            (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+             _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+             _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+             color__40_Lean_Data_RBMap__hyg_1395
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1401
+              key__40_Lean_Data_RBMap__hyg_1402
+              val__40_Lean_Data_RBMap__hyg_1403
+              rchild__40_Lean_Data_RBMap__hyg_1404)
+             key__40_Lean_Data_RBMap__hyg_1397
+             val__40_Lean_Data_RBMap__hyg_1398
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1416
+              key__40_Lean_Data_RBMap__hyg_1417
+              val__40_Lean_Data_RBMap__hyg_1418
+              rchild__40_Lean_Data_RBMap__hyg_1419))))))))))))
+  (Std_RBNode_balance1
+   (lambda
+    (:1
+     :2
+     _fun_discr__40_Lean_Data_RBMap__hyg_1202
+     _fun_discr__40_Lean_Data_RBMap__hyg_1203
+     _fun_discr__40_Lean_Data_RBMap__hyg_1204
+     _fun_discr__40_Lean_Data_RBMap__hyg_1205)
+    (Std_RBNode_balance1_match_1 :1
+     :2
+     (lambda
+      (_fun_discr__40_Lean_Data_RBMap__hyg_1202_1227
+       _fun_discr__40_Lean_Data_RBMap__hyg_1203_1228
+       _fun_discr__40_Lean_Data_RBMap__hyg_1204_1229
+       _fun_discr__40_Lean_Data_RBMap__hyg_1205_1230)
+      (Std_RBNode :1 :2))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1202
+     _fun_discr__40_Lean_Data_RBMap__hyg_1203
+     _fun_discr__40_Lean_Data_RBMap__hyg_1204
+     _fun_discr__40_Lean_Data_RBMap__hyg_1205
+     (lambda
+      (kv
+       vv
+       _t
+       color__40_Lean_Data_RBMap__hyg_1267
+       l
+       kx
+       vx
+       r:1
+       ky
+       vy
+       r:2)
+      (Std_RBNode_node :1
+       :2
+       Std_Rbcolor_red
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black l kx vx r:1)
+       ky
+       vy
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black r:2 kv vv _t)))
+     (lambda
+      (kv
+       vv
+       _t
+       color__40_Lean_Data_RBMap__hyg_1322
+       l:1
+       ky
+       vy
+       l:2
+       kx
+       vx
+       r)
+      (Std_RBNode_node :1
+       :2
+       Std_Rbcolor_red
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black l:1 ky vy l:2)
+       kx
+       vx
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black r kv vv _t)))
+     (lambda (kv vv _t color__40_Lean_Data_RBMap__hyg_1364 l ky vy r)
+      (Std_RBNode_node :1
+       :2
+       Std_Rbcolor_black
+       (Std_RBNode_node :1 :2 Std_Rbcolor_red l ky vy r)
+       kv
+       vv
+       _t))
+     (lambda
+      (x__40_Lean_Data_RBMap__hyg_1393
+       x__40_Lean_Data_RBMap__hyg_1392
+       x__40_Lean_Data_RBMap__hyg_1391
+       x__40_Lean_Data_RBMap__hyg_1390)
+      (Std_RBNode_leaf :1 :2)))))
+  (Std_RBNode_balance2_match_1
+   (lambda
+    (:1
+     :2
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+     _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+     _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+     _fun_discr__40_Lean_Data_RBMap__hyg_1445_1470
+     h_1
+     h_2
+     h_3
+     h_4)
+    (Std_RBNode_casesOn :1
+     :2
+     (lambda (x)
+      (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+       _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+       _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+       x))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1445_1470
+     (h_4 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+      _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+      _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+      (Std_RBNode_leaf :1 :2))
+     (lambda
+      (color__40_Lean_Data_RBMap__hyg_1635
+       lchild__40_Lean_Data_RBMap__hyg_1636
+       key__40_Lean_Data_RBMap__hyg_1637
+       val__40_Lean_Data_RBMap__hyg_1638
+       rchild__40_Lean_Data_RBMap__hyg_1639)
+      (Std_RBNode_casesOn :1
+       :2
+       (lambda (x)
+        (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+         _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+         _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+         (Std_RBNode_node :1
+          :2
+          color__40_Lean_Data_RBMap__hyg_1635
+          x
+          key__40_Lean_Data_RBMap__hyg_1637
+          val__40_Lean_Data_RBMap__hyg_1638
+          rchild__40_Lean_Data_RBMap__hyg_1639)))
+       lchild__40_Lean_Data_RBMap__hyg_1636
+       (Std_RBNode_casesOn :1
+        :2
+        (lambda (x)
+         (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+          _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+          _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+          (Std_RBNode_node :1
+           :2
+           color__40_Lean_Data_RBMap__hyg_1635
+           (Std_RBNode_leaf :1 :2)
+           key__40_Lean_Data_RBMap__hyg_1637
+           val__40_Lean_Data_RBMap__hyg_1638
+           x)))
+        rchild__40_Lean_Data_RBMap__hyg_1639
+        (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+         _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+         _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+         color__40_Lean_Data_RBMap__hyg_1635
+         (Std_RBNode_leaf :1 :2)
+         key__40_Lean_Data_RBMap__hyg_1637
+         val__40_Lean_Data_RBMap__hyg_1638
+         (Std_RBNode_leaf :1 :2))
+        (lambda
+         (color__40_Lean_Data_RBMap__hyg_1645
+          lchild__40_Lean_Data_RBMap__hyg_1646
+          key__40_Lean_Data_RBMap__hyg_1647
+          val__40_Lean_Data_RBMap__hyg_1648
+          rchild__40_Lean_Data_RBMap__hyg_1649)
+         (Std_Rbcolor_casesOn (lambda (x)
+           (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+            _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+            _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+            (Std_RBNode_node :1
+             :2
+             color__40_Lean_Data_RBMap__hyg_1635
+             (Std_RBNode_leaf :1 :2)
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             (Std_RBNode_node :1
+              :2
+              x
+              lchild__40_Lean_Data_RBMap__hyg_1646
+              key__40_Lean_Data_RBMap__hyg_1647
+              val__40_Lean_Data_RBMap__hyg_1648
+              rchild__40_Lean_Data_RBMap__hyg_1649))))
+          color__40_Lean_Data_RBMap__hyg_1645
+          (h_2 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+           _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+           _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+           color__40_Lean_Data_RBMap__hyg_1635
+           (Std_RBNode_leaf :1 :2)
+           key__40_Lean_Data_RBMap__hyg_1637
+           val__40_Lean_Data_RBMap__hyg_1638
+           lchild__40_Lean_Data_RBMap__hyg_1646
+           key__40_Lean_Data_RBMap__hyg_1647
+           val__40_Lean_Data_RBMap__hyg_1648
+           rchild__40_Lean_Data_RBMap__hyg_1649)
+          (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+           _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+           _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+           color__40_Lean_Data_RBMap__hyg_1635
+           (Std_RBNode_leaf :1 :2)
+           key__40_Lean_Data_RBMap__hyg_1637
+           val__40_Lean_Data_RBMap__hyg_1638
+           (Std_RBNode_node :1
+            :2
+            Std_Rbcolor_black
+            lchild__40_Lean_Data_RBMap__hyg_1646
+            key__40_Lean_Data_RBMap__hyg_1647
+            val__40_Lean_Data_RBMap__hyg_1648
+            rchild__40_Lean_Data_RBMap__hyg_1649)))))
+       (lambda
+        (color__40_Lean_Data_RBMap__hyg_1640
+         lchild__40_Lean_Data_RBMap__hyg_1641
+         key__40_Lean_Data_RBMap__hyg_1642
+         val__40_Lean_Data_RBMap__hyg_1643
+         rchild__40_Lean_Data_RBMap__hyg_1644)
+        (Std_Rbcolor_casesOn (lambda (x)
+          (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+           _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+           _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+           (Std_RBNode_node :1
+            :2
+            color__40_Lean_Data_RBMap__hyg_1635
+            (Std_RBNode_node :1
+             :2
+             x
+             lchild__40_Lean_Data_RBMap__hyg_1641
+             key__40_Lean_Data_RBMap__hyg_1642
+             val__40_Lean_Data_RBMap__hyg_1643
+             rchild__40_Lean_Data_RBMap__hyg_1644)
+            key__40_Lean_Data_RBMap__hyg_1637
+            val__40_Lean_Data_RBMap__hyg_1638
+            rchild__40_Lean_Data_RBMap__hyg_1639)))
+         color__40_Lean_Data_RBMap__hyg_1640
+         (Std_RBNode_casesOn :1
+          :2
+          (lambda (x)
+           (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+            _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+            _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+            (Std_RBNode_node :1
+             :2
+             color__40_Lean_Data_RBMap__hyg_1635
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_red
+              lchild__40_Lean_Data_RBMap__hyg_1641
+              key__40_Lean_Data_RBMap__hyg_1642
+              val__40_Lean_Data_RBMap__hyg_1643
+              rchild__40_Lean_Data_RBMap__hyg_1644)
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             x)))
+          rchild__40_Lean_Data_RBMap__hyg_1639
+          (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+           _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+           _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+           color__40_Lean_Data_RBMap__hyg_1635
+           lchild__40_Lean_Data_RBMap__hyg_1641
+           key__40_Lean_Data_RBMap__hyg_1642
+           val__40_Lean_Data_RBMap__hyg_1643
+           rchild__40_Lean_Data_RBMap__hyg_1644
+           key__40_Lean_Data_RBMap__hyg_1637
+           val__40_Lean_Data_RBMap__hyg_1638
+           (Std_RBNode_leaf :1 :2))
+          (lambda
+           (color__40_Lean_Data_RBMap__hyg_1650
+            lchild__40_Lean_Data_RBMap__hyg_1651
+            key__40_Lean_Data_RBMap__hyg_1652
+            val__40_Lean_Data_RBMap__hyg_1653
+            rchild__40_Lean_Data_RBMap__hyg_1654)
+           (Std_Rbcolor_casesOn (lambda (x)
+             (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+              _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+              _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+              (Std_RBNode_node :1
+               :2
+               color__40_Lean_Data_RBMap__hyg_1635
+               (Std_RBNode_node :1
+                :2
+                Std_Rbcolor_red
+                lchild__40_Lean_Data_RBMap__hyg_1641
+                key__40_Lean_Data_RBMap__hyg_1642
+                val__40_Lean_Data_RBMap__hyg_1643
+                rchild__40_Lean_Data_RBMap__hyg_1644)
+               key__40_Lean_Data_RBMap__hyg_1637
+               val__40_Lean_Data_RBMap__hyg_1638
+               (Std_RBNode_node :1
+                :2
+                x
+                lchild__40_Lean_Data_RBMap__hyg_1651
+                key__40_Lean_Data_RBMap__hyg_1652
+                val__40_Lean_Data_RBMap__hyg_1653
+                rchild__40_Lean_Data_RBMap__hyg_1654))))
+            color__40_Lean_Data_RBMap__hyg_1650
+            (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+             _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+             _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+             color__40_Lean_Data_RBMap__hyg_1635
+             lchild__40_Lean_Data_RBMap__hyg_1641
+             key__40_Lean_Data_RBMap__hyg_1642
+             val__40_Lean_Data_RBMap__hyg_1643
+             rchild__40_Lean_Data_RBMap__hyg_1644
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_red
+              lchild__40_Lean_Data_RBMap__hyg_1651
+              key__40_Lean_Data_RBMap__hyg_1652
+              val__40_Lean_Data_RBMap__hyg_1653
+              rchild__40_Lean_Data_RBMap__hyg_1654))
+            (h_1 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+             _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+             _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+             color__40_Lean_Data_RBMap__hyg_1635
+             lchild__40_Lean_Data_RBMap__hyg_1641
+             key__40_Lean_Data_RBMap__hyg_1642
+             val__40_Lean_Data_RBMap__hyg_1643
+             rchild__40_Lean_Data_RBMap__hyg_1644
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1651
+              key__40_Lean_Data_RBMap__hyg_1652
+              val__40_Lean_Data_RBMap__hyg_1653
+              rchild__40_Lean_Data_RBMap__hyg_1654)))))
+         (Std_RBNode_casesOn :1
+          :2
+          (lambda (x)
+           (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+            _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+            _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+            (Std_RBNode_node :1
+             :2
+             color__40_Lean_Data_RBMap__hyg_1635
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1641
+              key__40_Lean_Data_RBMap__hyg_1642
+              val__40_Lean_Data_RBMap__hyg_1643
+              rchild__40_Lean_Data_RBMap__hyg_1644)
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             x)))
+          rchild__40_Lean_Data_RBMap__hyg_1639
+          (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+           _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+           _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+           color__40_Lean_Data_RBMap__hyg_1635
+           (Std_RBNode_node :1
+            :2
+            Std_Rbcolor_black
+            lchild__40_Lean_Data_RBMap__hyg_1641
+            key__40_Lean_Data_RBMap__hyg_1642
+            val__40_Lean_Data_RBMap__hyg_1643
+            rchild__40_Lean_Data_RBMap__hyg_1644)
+           key__40_Lean_Data_RBMap__hyg_1637
+           val__40_Lean_Data_RBMap__hyg_1638
+           (Std_RBNode_leaf :1 :2))
+          (lambda
+           (color__40_Lean_Data_RBMap__hyg_1655
+            lchild__40_Lean_Data_RBMap__hyg_1656
+            key__40_Lean_Data_RBMap__hyg_1657
+            val__40_Lean_Data_RBMap__hyg_1658
+            rchild__40_Lean_Data_RBMap__hyg_1659)
+           (Std_Rbcolor_casesOn (lambda (x)
+             (motive _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+              _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+              _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+              (Std_RBNode_node :1
+               :2
+               color__40_Lean_Data_RBMap__hyg_1635
+               (Std_RBNode_node :1
+                :2
+                Std_Rbcolor_black
+                lchild__40_Lean_Data_RBMap__hyg_1641
+                key__40_Lean_Data_RBMap__hyg_1642
+                val__40_Lean_Data_RBMap__hyg_1643
+                rchild__40_Lean_Data_RBMap__hyg_1644)
+               key__40_Lean_Data_RBMap__hyg_1637
+               val__40_Lean_Data_RBMap__hyg_1638
+               (Std_RBNode_node :1
+                :2
+                x
+                lchild__40_Lean_Data_RBMap__hyg_1656
+                key__40_Lean_Data_RBMap__hyg_1657
+                val__40_Lean_Data_RBMap__hyg_1658
+                rchild__40_Lean_Data_RBMap__hyg_1659))))
+            color__40_Lean_Data_RBMap__hyg_1655
+            (h_2 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+             _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+             _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+             color__40_Lean_Data_RBMap__hyg_1635
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1641
+              key__40_Lean_Data_RBMap__hyg_1642
+              val__40_Lean_Data_RBMap__hyg_1643
+              rchild__40_Lean_Data_RBMap__hyg_1644)
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             lchild__40_Lean_Data_RBMap__hyg_1656
+             key__40_Lean_Data_RBMap__hyg_1657
+             val__40_Lean_Data_RBMap__hyg_1658
+             rchild__40_Lean_Data_RBMap__hyg_1659)
+            (h_3 _fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+             _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+             _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+             color__40_Lean_Data_RBMap__hyg_1635
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1641
+              key__40_Lean_Data_RBMap__hyg_1642
+              val__40_Lean_Data_RBMap__hyg_1643
+              rchild__40_Lean_Data_RBMap__hyg_1644)
+             key__40_Lean_Data_RBMap__hyg_1637
+             val__40_Lean_Data_RBMap__hyg_1638
+             (Std_RBNode_node :1
+              :2
+              Std_Rbcolor_black
+              lchild__40_Lean_Data_RBMap__hyg_1656
+              key__40_Lean_Data_RBMap__hyg_1657
+              val__40_Lean_Data_RBMap__hyg_1658
+              rchild__40_Lean_Data_RBMap__hyg_1659))))))))))))
+  (Std_RBNode_balance2
+   (lambda
+    (:1
+     :2
+     _fun_discr__40_Lean_Data_RBMap__hyg_1442
+     _fun_discr__40_Lean_Data_RBMap__hyg_1443
+     _fun_discr__40_Lean_Data_RBMap__hyg_1444
+     _fun_discr__40_Lean_Data_RBMap__hyg_1445)
+    (Std_RBNode_balance2_match_1 :1
+     :2
+     (lambda
+      (_fun_discr__40_Lean_Data_RBMap__hyg_1442_1467
+       _fun_discr__40_Lean_Data_RBMap__hyg_1443_1468
+       _fun_discr__40_Lean_Data_RBMap__hyg_1444_1469
+       _fun_discr__40_Lean_Data_RBMap__hyg_1445_1470)
+      (Std_RBNode :1 :2))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1442
+     _fun_discr__40_Lean_Data_RBMap__hyg_1443
+     _fun_discr__40_Lean_Data_RBMap__hyg_1444
+     _fun_discr__40_Lean_Data_RBMap__hyg_1445
+     (lambda
+      (_t
+       kv
+       vv
+       color__40_Lean_Data_RBMap__hyg_1507
+       l
+       kx:1
+       vx:1
+       r:1
+       ky
+       vy
+       r:2)
+      (Std_RBNode_node :1
+       :2
+       Std_Rbcolor_red
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black _t kv vv l)
+       kx:1
+       vx:1
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black r:1 ky vy r:2)))
+     (lambda
+      (_t
+       kv
+       vv
+       color__40_Lean_Data_RBMap__hyg_1562
+       l:1
+       ky
+       vy
+       l:2
+       kx:2
+       vx:2
+       r:2)
+      (Std_RBNode_node :1
+       :2
+       Std_Rbcolor_red
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black _t kv vv l:1)
+       ky
+       vy
+       (Std_RBNode_node :1 :2 Std_Rbcolor_black l:2 kx:2 vx:2 r:2)))
+     (lambda (_t kv vv color__40_Lean_Data_RBMap__hyg_1604 l ky vy r)
+      (Std_RBNode_node :1
+       :2
+       Std_Rbcolor_black
+       _t
+       kv
+       vv
+       (Std_RBNode_node :1 :2 Std_Rbcolor_red l ky vy r)))
+     (lambda
+      (x__40_Lean_Data_RBMap__hyg_1633
+       x__40_Lean_Data_RBMap__hyg_1632
+       x__40_Lean_Data_RBMap__hyg_1631
+       x__40_Lean_Data_RBMap__hyg_1630)
+      (Std_RBNode_leaf :1 :2)))))
+  (Std_RBNode_ins
+   (lambda
+    (:1
+     :2
+     cmp
+     _fun_discr__40_Lean_Data_RBMap__hyg_1802
+     _fun_discr__40_Lean_Data_RBMap__hyg_1803
+     _fun_discr__40_Lean_Data_RBMap__hyg_1804)
+    (Std_RBNode_brecOn :1
+     :2
+     (lambda (_fun_discr__40_Lean_Data_RBMap__hyg_1802) nil)
+     _fun_discr__40_Lean_Data_RBMap__hyg_1802
+     (lambda
+      (_fun_discr__40_Lean_Data_RBMap__hyg_1802
+       f
+       _fun_discr__40_Lean_Data_RBMap__hyg_1803
+       _fun_discr__40_Lean_Data_RBMap__hyg_1804)
+      (Std_RBNode_ins_match_2 :1
+       :2
+       (lambda
+        (_fun_discr__40_Lean_Data_RBMap__hyg_1802_1821
+         _fun_discr__40_Lean_Data_RBMap__hyg_1803_1822
+         _fun_discr__40_Lean_Data_RBMap__hyg_1804_1823)
+        nil)
+       _fun_discr__40_Lean_Data_RBMap__hyg_1802
+       _fun_discr__40_Lean_Data_RBMap__hyg_1803
+       _fun_discr__40_Lean_Data_RBMap__hyg_1804
+       (lambda (kx vx x__40_Lean_Data_RBMap__hyg_2009)
+        (Std_RBNode_node :1
+         :2
+         Std_Rbcolor_red
+         (Std_RBNode_leaf :1 :2)
+         kx
+         vx
+         (Std_RBNode_leaf :1 :2)))
+       (lambda (a ky vy b kx vx x__40_Lean_Data_RBMap__hyg_2009)
+        (Std_RBNode_ins_match_1 (lambda
+          (x__40_Lean_Data_RBMap__hyg_1865)
+          (Std_RBNode :1 :2))
+         (cmp kx ky)
+         (lambda (_x)
+          (Std_RBNode_node :1
+           :2
+           Std_Rbcolor_red
+           (PProd_fst ((lambda
+              (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+              nil) a)
+            (Std_RBNode_rec :1
+             :2
+             (lambda (_t) nil)
+             PUnit
+             (lambda (color lchild key val rchild lchild_ih rchild_ih)
+              (PProd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) lchild)
+                lchild_ih)
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) rchild)
+                 rchild_ih)
+                PUnit)))
+             a)
+            (PProd_fst (PProd ((lambda
+                (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                nil) a)
+              (Std_RBNode_rec :1
+               :2
+               (lambda (_t) nil)
+               PUnit
+               (lambda
+                (color lchild key val rchild lchild_ih rchild_ih)
+                (PProd (PProd ((lambda
+                    (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                    nil) lchild)
+                  lchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) rchild)
+                   rchild_ih)
+                  PUnit)))
+               a))
+             (PProd (PProd ((lambda
+                 (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                 nil) b)
+               (Std_RBNode_rec :1
+                :2
+                (lambda (_t) nil)
+                PUnit
+                (lambda
+                 (color lchild key val rchild lchild_ih rchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) lchild)
+                   lchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) rchild)
+                    rchild_ih)
+                   PUnit)))
+                b))
+              PUnit)
+             x__40_Lean_Data_RBMap__hyg_2009)
+            kx
+            vx)
+           ky
+           vy
+           b))
+         (lambda (_x)
+          (Std_RBNode_node :1
+           :2
+           Std_Rbcolor_red
+           a
+           ky
+           vy
+           (PProd_fst ((lambda
+              (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+              nil) b)
+            (Std_RBNode_rec :1
+             :2
+             (lambda (_t) nil)
+             PUnit
+             (lambda (color lchild key val rchild lchild_ih rchild_ih)
+              (PProd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) lchild)
+                lchild_ih)
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) rchild)
+                 rchild_ih)
+                PUnit)))
+             b)
+            (PProd_fst (PProd ((lambda
+                (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                nil) b)
+              (Std_RBNode_rec :1
+               :2
+               (lambda (_t) nil)
+               PUnit
+               (lambda
+                (color lchild key val rchild lchild_ih rchild_ih)
+                (PProd (PProd ((lambda
+                    (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                    nil) lchild)
+                  lchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) rchild)
+                   rchild_ih)
+                  PUnit)))
+               b))
+             PUnit
+             (PProd_snd (PProd ((lambda
+                 (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                 nil) a)
+               (Std_RBNode_rec :1
+                :2
+                (lambda (_t) nil)
+                PUnit
+                (lambda
+                 (color lchild key val rchild lchild_ih rchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) lchild)
+                   lchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) rchild)
+                    rchild_ih)
+                   PUnit)))
+                a))
+              (PProd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) b)
+                (Std_RBNode_rec :1
+                 :2
+                 (lambda (_t) nil)
+                 PUnit
+                 (lambda
+                  (color lchild key val rchild lchild_ih rchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) lchild)
+                    lchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) rchild)
+                     rchild_ih)
+                    PUnit)))
+                 b))
+               PUnit)
+              x__40_Lean_Data_RBMap__hyg_2009))
+            kx
+            vx)))
+         (lambda (_x)
+          (Std_RBNode_node :1 :2 Std_Rbcolor_red a kx vx b))))
+       (lambda (a ky vy b kx vx x__40_Lean_Data_RBMap__hyg_2009)
+        (Std_RBNode_ins_match_1 (lambda
+          (x__40_Lean_Data_RBMap__hyg_1930)
+          (Std_RBNode :1 :2))
+         (cmp kx ky)
+         (lambda (_x)
+          (ite (Std_RBNode :1 :2)
+           (LEq Bool (Std_RBNode_isRed :1 :2 a) Bool_true)
+           (instDecidableEqBool (Std_RBNode_isRed :1 :2 a) Bool_true)
+           (Std_RBNode_balance1 :1
+            :2
+            ky
+            vy
+            b
+            (PProd_fst ((lambda
+               (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+               nil) a)
+             (Std_RBNode_rec :1
+              :2
+              (lambda (_t) nil)
+              PUnit
+              (lambda
+               (color lchild key val rchild lchild_ih rchild_ih)
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) lchild)
+                 lchild_ih)
+                (PProd (PProd ((lambda
+                    (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                    nil) rchild)
+                  rchild_ih)
+                 PUnit)))
+              a)
+             (PProd_fst (PProd ((lambda
+                 (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                 nil) a)
+               (Std_RBNode_rec :1
+                :2
+                (lambda (_t) nil)
+                PUnit
+                (lambda
+                 (color lchild key val rchild lchild_ih rchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) lchild)
+                   lchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) rchild)
+                    rchild_ih)
+                   PUnit)))
+                a))
+              (PProd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) b)
+                (Std_RBNode_rec :1
+                 :2
+                 (lambda (_t) nil)
+                 PUnit
+                 (lambda
+                  (color lchild key val rchild lchild_ih rchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) lchild)
+                    lchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) rchild)
+                     rchild_ih)
+                    PUnit)))
+                 b))
+               PUnit)
+              x__40_Lean_Data_RBMap__hyg_2009)
+             kx
+             vx))
+           (Std_RBNode_node :1
+            :2
+            Std_Rbcolor_black
+            (PProd_fst ((lambda
+               (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+               nil) a)
+             (Std_RBNode_rec :1
+              :2
+              (lambda (_t) nil)
+              PUnit
+              (lambda
+               (color lchild key val rchild lchild_ih rchild_ih)
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) lchild)
+                 lchild_ih)
+                (PProd (PProd ((lambda
+                    (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                    nil) rchild)
+                  rchild_ih)
+                 PUnit)))
+              a)
+             (PProd_fst (PProd ((lambda
+                 (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                 nil) a)
+               (Std_RBNode_rec :1
+                :2
+                (lambda (_t) nil)
+                PUnit
+                (lambda
+                 (color lchild key val rchild lchild_ih rchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) lchild)
+                   lchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) rchild)
+                    rchild_ih)
+                   PUnit)))
+                a))
+              (PProd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) b)
+                (Std_RBNode_rec :1
+                 :2
+                 (lambda (_t) nil)
+                 PUnit
+                 (lambda
+                  (color lchild key val rchild lchild_ih rchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) lchild)
+                    lchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) rchild)
+                     rchild_ih)
+                    PUnit)))
+                 b))
+               PUnit)
+              x__40_Lean_Data_RBMap__hyg_2009)
+             kx
+             vx)
+            ky
+            vy
+            b)))
+         (lambda (_x)
+          (ite (Std_RBNode :1 :2)
+           (LEq Bool (Std_RBNode_isRed :1 :2 b) Bool_true)
+           (instDecidableEqBool (Std_RBNode_isRed :1 :2 b) Bool_true)
+           (Std_RBNode_balance2 :1
+            :2
+            a
+            ky
+            vy
+            (PProd_fst ((lambda
+               (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+               nil) b)
+             (Std_RBNode_rec :1
+              :2
+              (lambda (_t) nil)
+              PUnit
+              (lambda
+               (color lchild key val rchild lchild_ih rchild_ih)
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) lchild)
+                 lchild_ih)
+                (PProd (PProd ((lambda
+                    (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                    nil) rchild)
+                  rchild_ih)
+                 PUnit)))
+              b)
+             (PProd_fst (PProd ((lambda
+                 (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                 nil) b)
+               (Std_RBNode_rec :1
+                :2
+                (lambda (_t) nil)
+                PUnit
+                (lambda
+                 (color lchild key val rchild lchild_ih rchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) lchild)
+                   lchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) rchild)
+                    rchild_ih)
+                   PUnit)))
+                b))
+              PUnit
+              (PProd_snd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) a)
+                (Std_RBNode_rec :1
+                 :2
+                 (lambda (_t) nil)
+                 PUnit
+                 (lambda
+                  (color lchild key val rchild lchild_ih rchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) lchild)
+                    lchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) rchild)
+                     rchild_ih)
+                    PUnit)))
+                 a))
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) b)
+                 (Std_RBNode_rec :1
+                  :2
+                  (lambda (_t) nil)
+                  PUnit
+                  (lambda
+                   (color lchild key val rchild lchild_ih rchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) lchild)
+                     lchild_ih)
+                    (PProd (PProd ((lambda
+                        (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                        nil) rchild)
+                      rchild_ih)
+                     PUnit)))
+                  b))
+                PUnit)
+               x__40_Lean_Data_RBMap__hyg_2009))
+             kx
+             vx))
+           (Std_RBNode_node :1
+            :2
+            Std_Rbcolor_black
+            a
+            ky
+            vy
+            (PProd_fst ((lambda
+               (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+               nil) b)
+             (Std_RBNode_rec :1
+              :2
+              (lambda (_t) nil)
+              PUnit
+              (lambda
+               (color lchild key val rchild lchild_ih rchild_ih)
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) lchild)
+                 lchild_ih)
+                (PProd (PProd ((lambda
+                    (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                    nil) rchild)
+                  rchild_ih)
+                 PUnit)))
+              b)
+             (PProd_fst (PProd ((lambda
+                 (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                 nil) b)
+               (Std_RBNode_rec :1
+                :2
+                (lambda (_t) nil)
+                PUnit
+                (lambda
+                 (color lchild key val rchild lchild_ih rchild_ih)
+                 (PProd (PProd ((lambda
+                     (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                     nil) lchild)
+                   lchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) rchild)
+                    rchild_ih)
+                   PUnit)))
+                b))
+              PUnit
+              (PProd_snd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                  nil) a)
+                (Std_RBNode_rec :1
+                 :2
+                 (lambda (_t) nil)
+                 PUnit
+                 (lambda
+                  (color lchild key val rchild lchild_ih rchild_ih)
+                  (PProd (PProd ((lambda
+                      (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                      nil) lchild)
+                    lchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) rchild)
+                     rchild_ih)
+                    PUnit)))
+                 a))
+               (PProd (PProd ((lambda
+                   (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                   nil) b)
+                 (Std_RBNode_rec :1
+                  :2
+                  (lambda (_t) nil)
+                  PUnit
+                  (lambda
+                   (color lchild key val rchild lchild_ih rchild_ih)
+                   (PProd (PProd ((lambda
+                       (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                       nil) lchild)
+                     lchild_ih)
+                    (PProd (PProd ((lambda
+                        (_fun_discr__40_Lean_Data_RBMap__hyg_1802)
+                        nil) rchild)
+                      rchild_ih)
+                     PUnit)))
+                  b))
+                PUnit)
+               x__40_Lean_Data_RBMap__hyg_2009))
+             kx
+             vx))))
+         (lambda (_x)
+          (Std_RBNode_node :1 :2 Std_Rbcolor_black a kx vx b))))
+       f))
+     _fun_discr__40_Lean_Data_RBMap__hyg_1803
+     _fun_discr__40_Lean_Data_RBMap__hyg_1804)))
+  (Std_RBNode_insert
+   (lambda (:1 :2 cmp _t k v)
+    (ite (Std_RBNode :1 :2)
+     (LEq Bool (Std_RBNode_isRed :1 :2 _t) Bool_true)
+     (instDecidableEqBool (Std_RBNode_isRed :1 :2 _t) Bool_true)
+     (Std_RBNode_setBlack :1 :2 (Std_RBNode_ins :1 :2 cmp _t k v))
+     (Std_RBNode_ins :1 :2 cmp _t k v))))
+  (Std_RBMap_insert_proof_1
+   (lambda (:1 :2 cmp _t w k v)
+    (Std_RBNode_WellFormed_insertWff :1
+     (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+     cmp
+     _t
+     (Std_RBNode_insert :1
+      (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+      cmp
+      _t
+      k
+      v)
+     k
+     v
+     w
+     (rfl (Std_RBNode :1
+       (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2))
+      (Std_RBNode_insert :1
+       (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+       cmp
+       _t
+       k
+       v)))))
+  (Std_RBMap_insert
+   (lambda
+    (:1
+     :2
+     cmp
+     _fun_discr__40_Lean_Data_RBMap__hyg_4729
+     _fun_discr__40_Lean_Data_RBMap__hyg_4730
+     _fun_discr__40_Lean_Data_RBMap__hyg_4731)
+    (Std_RBMap_insert_match_1 :1
+     :2
+     cmp
+     (lambda
+      (_fun_discr__40_Lean_Data_RBMap__hyg_4729_4748
+       _fun_discr__40_Lean_Data_RBMap__hyg_4730_4749
+       _fun_discr__40_Lean_Data_RBMap__hyg_4731_4750)
+      (Std_RBMap :1 :2 cmp))
+     _fun_discr__40_Lean_Data_RBMap__hyg_4729
+     _fun_discr__40_Lean_Data_RBMap__hyg_4730
+     _fun_discr__40_Lean_Data_RBMap__hyg_4731
+     (lambda (_t w k v)
+      (Subtype_mk (Std_RBNode :1
+        (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2))
+       (lambda (_t)
+        (Std_RBNode_WellFormed :1
+         (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+         cmp
+         _t))
+       (Std_RBNode_insert :1
+        (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+        cmp
+        _t
+        k
+        v)
+       (Std_RBMap_insert_proof_1 :1 :2 cmp _t w k v))))))
+  (Ord_compare
+   (lambda (:1 self)
+    (getelem (cdr (cdr self))
+     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
+  (Ord (lambda (:1) (cons "Ord" (cons 1 (cons 0 nil)))))
+  (Ord_rec
+   (lambda (:1 motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 motive mk compare) (mk compare)) :1
+      motive
+      mk
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
+     nil)))
+  (Ord_mk
+   (lambda (:1 compare)
+    (cons (Ord :1) (cons 0 (cons :1 (cons compare nil))))))
+  (LT_lt
+   (lambda (:1 self)
+    (getelem (cdr (cdr self))
+     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
+  (compareOfLessAndEq
+   (lambda
+    (:1
+     x
+     y
+     inst__40_Init_Data_Ord__hyg_43
+     inst__40_Init_Data_Ord__hyg_46
+     inst__40_Init_Data_Ord__hyg_55)
+    (ite Ordering
+     (LT_lt :1 inst__40_Init_Data_Ord__hyg_43 x y)
+     inst__40_Init_Data_Ord__hyg_46
+     Ordering_lt
+     (ite Ordering
+      (LEq :1 x y)
+      (inst__40_Init_Data_Ord__hyg_55 x y)
+      Ordering_eq
+      Ordering_gt))))
+  (LT (lambda (:1) (cons "LT" (cons 1 (cons 0 nil)))))
+  (LT_rec
+   (lambda (:1 motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 motive mk _uncap_lt) (mk _uncap_lt)) :1
+      motive
+      mk
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
+     nil)))
+  (LT_mk
+   (lambda (:1 _uncap_lt)
+    (cons (LT :1) (cons 0 (cons :1 (cons _uncap_lt nil))))))
+  (Nat_le
+   (lambda (n a__40_Init_Prelude__hyg_3361)
+    (cons "Nat.le" (cons 1 (cons 1 nil)))))
+  (Nat_le_rec
+   (lambda (n motive refl step a__40_Init_Prelude__hyg_3361 _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (n motive refl step) refl) n motive refl step)
+     (if (= (car (cdr _t)) 1)
+      ((lambda (n motive refl step m a__40_Init_Prelude__hyg_3368)
+        (step m
+         a__40_Init_Prelude__hyg_3368
+         (Nat_le_rec n
+          motive
+          refl
+          step
+          m
+          a__40_Init_Prelude__hyg_3368))) n
+       motive
+       refl
+       step
+       (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1))))
+      nil))))
+  (Nat_le_refl (lambda (n) (cons (Nat_le n) (cons 0 (cons n nil)))))
+  (Nat_le_step
+   (lambda (n m a__40_Init_Prelude__hyg_3368)
+    (cons (Nat_le n m)
+     (cons 1
+      (cons n (cons m (cons a__40_Init_Prelude__hyg_3368 nil)))))))
+  (Nat_lt (lambda (n m) (Nat_le (Nat_succ n) m)))
+  (instLTNat (LT_mk Nat Nat_lt))
+  (Nat_decLt (lambda (n m) (Nat_decLe (Nat_succ n) m)))
+  (Nat_decEq_match_1
+   (lambda (motive x__40_Init_Prelude__hyg_3258 h_1 h_2)
+    ((lambda (x__40_Init_Prelude__hyg_3258)
+      (Bool_casesOn (lambda (x) nil)
+       x__40_Init_Prelude__hyg_3258
+       h_2
+       h_1)) x__40_Init_Prelude__hyg_3258
+     (Eq_refl Bool x__40_Init_Prelude__hyg_3258))))
+  (Nat_below
+   (lambda (motive _t)
+    (Nat_rec (lambda (_t) nil)
+     PUnit
+     (lambda (n n_ih) (PProd (PProd (motive n) n_ih) PUnit))
+     _t)))
+  (Nat_brecOn
+   (lambda (motive _t F_1)
+    (getelem (cdr
+      (cdr
+       (Nat_rec (lambda (_t)
+         (PProd (motive _t) (Nat_below motive _t)))
+        (PProd_mk (motive Nat_zero)
+         PUnit
+         (F_1 Nat_zero PUnit_unit)
+         PUnit_unit)
+        (lambda (n n_ih)
+         (PProd_mk (motive (Nat_succ n))
+          (PProd (PProd (motive n) (Nat_below motive n)) PUnit)
+          (F_1 (Nat_succ n)
+           (PProd_mk (PProd (motive n) (Nat_below motive n))
+            PUnit
+            n_ih
+            PUnit_unit))
+          (PProd_mk (PProd (motive n) (Nat_below motive n))
+           PUnit
+           n_ih
+           PUnit_unit)))
+        _t)))
+     (+
+      (+
+       (getelem (car
+         (Nat_rec (lambda (_t)
+           (PProd (motive _t) (Nat_below motive _t)))
+          (PProd_mk (motive Nat_zero)
+           PUnit
+           (F_1 Nat_zero PUnit_unit)
+           PUnit_unit)
+          (lambda (n n_ih)
+           (PProd_mk (motive (Nat_succ n))
+            (PProd (PProd (motive n) (Nat_below motive n)) PUnit)
+            (F_1 (Nat_succ n)
+             (PProd_mk (PProd (motive n) (Nat_below motive n))
+              PUnit
+              n_ih
+              PUnit_unit))
+            (PProd_mk (PProd (motive n) (Nat_below motive n))
+             PUnit
+             n_ih
+             PUnit_unit)))
+          _t))
+        1)
+       (getelem (car
+         (Nat_rec (lambda (_t)
+           (PProd (motive _t) (Nat_below motive _t)))
+          (PProd_mk (motive Nat_zero)
+           PUnit
+           (F_1 Nat_zero PUnit_unit)
+           PUnit_unit)
+          (lambda (n n_ih)
+           (PProd_mk (motive (Nat_succ n))
+            (PProd (PProd (motive n) (Nat_below motive n)) PUnit)
+            (F_1 (Nat_succ n)
+             (PProd_mk (PProd (motive n) (Nat_below motive n))
+              PUnit
+              n_ih
+              PUnit_unit))
+            (PProd_mk (PProd (motive n) (Nat_below motive n))
+             PUnit
+             n_ih
+             PUnit_unit)))
+          _t))
+        2))
+      0))))
+  (Nat_casesOn
+   (lambda (motive _t zero succ)
+    (Nat_rec motive zero (lambda (n n_ih) (succ n)) _t)))
+  (Nat_beq_match_1
+   (lambda
+    (motive
+     _fun_discr__40_Init_Prelude__hyg_2906_2919
+     _fun_discr__40_Init_Prelude__hyg_2907_2920
+     h_1
+     h_2
+     h_3
+     h_4)
+    (Nat_casesOn (lambda (x)
+      (motive x _fun_discr__40_Init_Prelude__hyg_2907_2920))
+     _fun_discr__40_Init_Prelude__hyg_2906_2919
+     (Nat_casesOn (lambda (x) (motive Nat_zero x))
+      _fun_discr__40_Init_Prelude__hyg_2907_2920
+      (h_1 Unit_unit)
+      (lambda (n__40_Init_Prelude__hyg_2960)
+       (h_2 n__40_Init_Prelude__hyg_2960)))
+     (lambda (n__40_Init_Prelude__hyg_2959)
+      (Nat_casesOn (lambda (x)
+        (motive (Nat_succ n__40_Init_Prelude__hyg_2959) x))
+       _fun_discr__40_Init_Prelude__hyg_2907_2920
+       (h_3 n__40_Init_Prelude__hyg_2959)
+       (lambda (n__40_Init_Prelude__hyg_2961)
+        (h_4 n__40_Init_Prelude__hyg_2959
+         n__40_Init_Prelude__hyg_2961)))))))
+  (Nat_beq
+   (lambda
+    (_fun_discr__40_Init_Prelude__hyg_2906
+     _fun_discr__40_Init_Prelude__hyg_2907)
+    (Nat_brecOn (lambda (_fun_discr__40_Init_Prelude__hyg_2906) nil)
+     _fun_discr__40_Init_Prelude__hyg_2906
+     (lambda
+      (_fun_discr__40_Init_Prelude__hyg_2906
+       f
+       _fun_discr__40_Init_Prelude__hyg_2907)
+      (Nat_beq_match_1 (lambda
+        (_fun_discr__40_Init_Prelude__hyg_2906_2919
+         _fun_discr__40_Init_Prelude__hyg_2907_2920)
+        nil)
+       _fun_discr__40_Init_Prelude__hyg_2906
+       _fun_discr__40_Init_Prelude__hyg_2907
+       (lambda (anonymous x__40_Init_Prelude__hyg_2962) Bool_true)
+       (lambda
+        (n__40_Init_Prelude__hyg_2936 x__40_Init_Prelude__hyg_2962)
+        Bool_false)
+       (lambda
+        (n__40_Init_Prelude__hyg_2946 x__40_Init_Prelude__hyg_2962)
+        Bool_false)
+       (lambda (n m x__40_Init_Prelude__hyg_2962)
+        (PProd_fst ((lambda (_fun_discr__40_Init_Prelude__hyg_2906)
+           nil) n)
+         (Nat_rec (lambda (_t) nil)
+          PUnit
+          (lambda (n n_ih)
+           (PProd (PProd ((lambda
+               (_fun_discr__40_Init_Prelude__hyg_2906)
+               nil) n)
+             n_ih)
+            PUnit))
+          n)
+         (PProd_fst (PProd ((lambda
+             (_fun_discr__40_Init_Prelude__hyg_2906)
+             nil) n)
+           (Nat_rec (lambda (_t) nil)
+            PUnit
+            (lambda (n n_ih)
+             (PProd (PProd ((lambda
+                 (_fun_discr__40_Init_Prelude__hyg_2906)
+                 nil) n)
+               n_ih)
+              PUnit))
+            n))
+          PUnit
+          x__40_Init_Prelude__hyg_2962)
+         m))
+       f))
+     _fun_discr__40_Init_Prelude__hyg_2907)))
+  (Nat_eq_of_beq_eq_true
+   (lambda (n m a__40_Init_Prelude__hyg_2980) t))
+  (Nat_ne_of_beq_eq_false
+   (lambda (n m a__40_Init_Prelude__hyg_3101) t))
+  (Nat_decEq
+   (lambda (n m)
+    (Nat_decEq_match_1 (lambda (x__40_Init_Prelude__hyg_3258)
+      (Decidable (LEq Nat n m)))
+     (Nat_beq n m)
+     (lambda (h)
+      (Decidable_isTrue (LEq Nat n m) (Nat_eq_of_beq_eq_true n m h)))
+     (lambda (h)
+      (Decidable_isFalse (LEq Nat n m)
+       (Nat_ne_of_beq_eq_false n m h))))))
+  (instDecidableEqNat Nat_decEq)
+  (instOrdNat
+   (Ord_mk Nat
+    (lambda (x y)
+     (compareOfLessAndEq Nat
+      x
+      y
+      instLTNat
+      (Nat_decLt x y)
+      (lambda (a b) (instDecidableEqNat a b))))))
   (List (lambda (:1) (cons "List" (cons 1 (cons 0 nil)))))
   (List_rec
    (lambda (:1 motive _nil _cons _t)
@@ -39,6 +2465,104 @@
   (List_cons
    (lambda (:1 head tail)
     (cons (List :1) (cons 1 (cons :1 (cons head (cons tail nil)))))))
+  (List_below
+   (lambda (:1 motive _t)
+    (List_rec :1
+     (lambda (_t) nil)
+     PUnit
+     (lambda (head tail tail_ih)
+      (PProd (PProd (motive tail) tail_ih) PUnit))
+     _t)))
+  (List_brecOn
+   (lambda (:1 motive _t F_1)
+    (getelem (cdr
+      (cdr
+       (List_rec :1
+        (lambda (_t) (PProd (motive _t) (List_below :1 motive _t)))
+        (PProd_mk (motive (List_nil :1))
+         PUnit
+         (F_1 (List_nil :1) PUnit_unit)
+         PUnit_unit)
+        (lambda (head tail tail_ih)
+         (PProd_mk (motive (List_cons :1 head tail))
+          (PProd (PProd (motive tail) (List_below :1 motive tail))
+           PUnit)
+          (F_1 (List_cons :1 head tail)
+           (PProd_mk (PProd (motive tail) (List_below :1 motive tail))
+            PUnit
+            tail_ih
+            PUnit_unit))
+          (PProd_mk (PProd (motive tail) (List_below :1 motive tail))
+           PUnit
+           tail_ih
+           PUnit_unit)))
+        _t)))
+     (+
+      (+
+       (getelem (car
+         (List_rec :1
+          (lambda (_t) (PProd (motive _t) (List_below :1 motive _t)))
+          (PProd_mk (motive (List_nil :1))
+           PUnit
+           (F_1 (List_nil :1) PUnit_unit)
+           PUnit_unit)
+          (lambda (head tail tail_ih)
+           (PProd_mk (motive (List_cons :1 head tail))
+            (PProd (PProd (motive tail) (List_below :1 motive tail))
+             PUnit)
+            (F_1 (List_cons :1 head tail)
+             (PProd_mk (PProd (motive tail)
+               (List_below :1 motive tail))
+              PUnit
+              tail_ih
+              PUnit_unit))
+            (PProd_mk (PProd (motive tail)
+              (List_below :1 motive tail))
+             PUnit
+             tail_ih
+             PUnit_unit)))
+          _t))
+        1)
+       (getelem (car
+         (List_rec :1
+          (lambda (_t) (PProd (motive _t) (List_below :1 motive _t)))
+          (PProd_mk (motive (List_nil :1))
+           PUnit
+           (F_1 (List_nil :1) PUnit_unit)
+           PUnit_unit)
+          (lambda (head tail tail_ih)
+           (PProd_mk (motive (List_cons :1 head tail))
+            (PProd (PProd (motive tail) (List_below :1 motive tail))
+             PUnit)
+            (F_1 (List_cons :1 head tail)
+             (PProd_mk (PProd (motive tail)
+               (List_below :1 motive tail))
+              PUnit
+              tail_ih
+              PUnit_unit))
+            (PProd_mk (PProd (motive tail)
+              (List_below :1 motive tail))
+             PUnit
+             tail_ih
+             PUnit_unit)))
+          _t))
+        2))
+      0))))
+  (Prod (lambda (:1 :2) (cons "Prod" (cons 2 (cons 0 nil)))))
+  (Prod_rec
+   (lambda (:1 :2 motive mk _t)
+    (if (= (car (cdr _t)) 0)
+     ((lambda (:1 :2 motive mk fst snd) (mk fst snd)) :1
+      :2
+      motive
+      mk
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+      (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1))))
+     nil)))
+  (Prod_mk
+   (lambda (:1 :2 fst snd)
+    (cons (Prod :1 :2)
+     (cons 0 (cons :1 (cons :2 (cons fst (cons snd nil))))))))
   (List_casesOn
    (lambda (:1 motive _t _nil _cons)
     (List_rec :1
@@ -46,6 +2570,102 @@
      _nil
      (lambda (head tail tail_ih) (_cons head tail))
      _t)))
+  (Prod_casesOn
+   (lambda (:1 :2 motive _t mk)
+    (Prod_rec :1 :2 motive (lambda (fst snd) (mk fst snd)) _t)))
+  (Std_RBMap_ofList_match_1
+   (lambda
+    (:1
+     :2
+     motive
+     _fun_discr__40_Lean_Data_RBMap__hyg_4849_4856
+     h_1
+     h_2)
+    (List_casesOn (Prod :1 :2)
+     (lambda (x) (motive x))
+     _fun_discr__40_Lean_Data_RBMap__hyg_4849_4856
+     (h_1 Unit_unit)
+     (lambda
+      (head__40_Lean_Data_RBMap__hyg_4882
+       tail__40_Lean_Data_RBMap__hyg_4883)
+      (Prod_casesOn :1
+       :2
+       (lambda (x)
+        (motive (List_cons (Prod :1 :2)
+          x
+          tail__40_Lean_Data_RBMap__hyg_4883)))
+       head__40_Lean_Data_RBMap__hyg_4882
+       (lambda
+        (fst__40_Lean_Data_RBMap__hyg_4884
+         snd__40_Lean_Data_RBMap__hyg_4885)
+        (h_2 fst__40_Lean_Data_RBMap__hyg_4884
+         snd__40_Lean_Data_RBMap__hyg_4885
+         tail__40_Lean_Data_RBMap__hyg_4883)))))))
+  (Std_mkRBMap_proof_1
+   (lambda (:1 :2 cmp)
+    (Std_RBNode_WellFormed_leafWff :1
+     (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+     cmp)))
+  (Std_mkRBMap
+   (lambda (:1 :2 cmp)
+    (Subtype_mk (Std_RBNode :1
+      (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2))
+     (lambda (_t)
+      (Std_RBNode_WellFormed :1
+       (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2)
+       cmp
+       _t))
+     (Std_RBNode_leaf :1
+      (lambda (x__40_Lean_Data_RBMap__hyg_4008) :2))
+     (Std_mkRBMap_proof_1 :1 :2 cmp))))
+  (Std_RBMap_ofList
+   (lambda (:1 :2 cmp _fun_discr__40_Lean_Data_RBMap__hyg_4849)
+    (List_brecOn (Prod :1 :2)
+     (lambda (_fun_discr__40_Lean_Data_RBMap__hyg_4849)
+      (Std_RBMap :1 :2 cmp))
+     _fun_discr__40_Lean_Data_RBMap__hyg_4849
+     (lambda (_fun_discr__40_Lean_Data_RBMap__hyg_4849 f)
+      (Std_RBMap_ofList_match_1 :1
+       :2
+       (lambda (_fun_discr__40_Lean_Data_RBMap__hyg_4849_4856) nil)
+       _fun_discr__40_Lean_Data_RBMap__hyg_4849
+       (lambda (anonymous x__40_Lean_Data_RBMap__hyg_4886)
+        (Std_mkRBMap :1 :2 cmp))
+       (lambda (k v xs x__40_Lean_Data_RBMap__hyg_4886)
+        (Std_RBMap_insert :1
+         :2
+         cmp
+         (PProd_fst ((lambda
+            (_fun_discr__40_Lean_Data_RBMap__hyg_4849)
+            (Std_RBMap :1 :2 cmp)) xs)
+          (List_rec (Prod :1 :2)
+           (lambda (_t) nil)
+           PUnit
+           (lambda (head tail tail_ih)
+            (PProd (PProd ((lambda
+                (_fun_discr__40_Lean_Data_RBMap__hyg_4849)
+                (Std_RBMap :1 :2 cmp)) tail)
+              tail_ih)
+             PUnit))
+           xs)
+          (PProd_fst (PProd ((lambda
+              (_fun_discr__40_Lean_Data_RBMap__hyg_4849)
+              (Std_RBMap :1 :2 cmp)) xs)
+            (List_rec (Prod :1 :2)
+             (lambda (_t) nil)
+             PUnit
+             (lambda (head tail tail_ih)
+              (PProd (PProd ((lambda
+                  (_fun_discr__40_Lean_Data_RBMap__hyg_4849)
+                  (Std_RBMap :1 :2 cmp)) tail)
+                tail_ih)
+               PUnit))
+             xs))
+           PUnit
+           x__40_Lean_Data_RBMap__hyg_4886))
+         k
+         v))
+       f)))))
   (OfNat_ofNat
    (lambda (:1 x__40_Init_Prelude__hyg_1828 self)
     (getelem (cdr (cdr self))
@@ -71,72 +2691,31 @@
        (cons x__40_Init_Prelude__hyg_1828
         (cons _uncap_ofNat nil)))))))
   (instOfNatNat (lambda (n) (OfNat_mk Nat n n)))
-  (HAdd_hAdd
-   (lambda (:1 :2 :3 self)
-    (getelem (cdr (cdr self))
-     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
-  (HAdd (lambda (:1 :2 :3) (cons "HAdd" (cons 3 (cons 0 nil)))))
-  (HAdd_rec
-   (lambda (:1 :2 :3 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     ((lambda (:1 :2 :3 motive mk _uncap_hAdd) (mk _uncap_hAdd)) :1
-      :2
-      :3
-      motive
-      mk
-      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
-     nil)))
-  (HAdd_mk
-   (lambda (:1 :2 :3 _uncap_hAdd)
-    (cons (HAdd :1 :2 :3)
-     (cons 0 (cons :1 (cons :2 (cons :3 (cons _uncap_hAdd nil))))))))
-  (Add_add
-   (lambda (:1 self)
-    (getelem (cdr (cdr self))
-     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
-  (instHAdd
-   (lambda (:1 inst__40_Init_Prelude__hyg_2386)
-    (HAdd_mk :1
-     :1
-     :1
-     (lambda (a b)
-      (Add_add :1 inst__40_Init_Prelude__hyg_2386 a b)))))
-  (Add (lambda (:1) (cons "Add" (cons 1 (cons 0 nil)))))
-  (Add_rec
-   (lambda (:1 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     ((lambda (:1 motive mk _uncap_add) (mk _uncap_add)) :1
-      motive
-      mk
-      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
-     nil)))
-  (Add_mk
-   (lambda (:1 _uncap_add)
-    (cons (Add :1) (cons 0 (cons :1 (cons _uncap_add nil))))))
-  (instAddNat (Add_mk Nat Nat_add))
-  (my_length
-   (lambda (xs)
-    (List_casesOn Nat
-     (lambda (x__40__hyg_25) Nat)
-     xs
-     (OfNat_ofNat ((lambda (x__40__hyg_25) Nat) (List_nil Nat))
-      0
-      (instOfNatNat 0))
-     (lambda (n x__40__hyg_33)
-      (HAdd_hAdd Nat
-       ((lambda (x__40__hyg_25) Nat) (List_cons Nat n x__40__hyg_33))
+  (stuff
+   (Std_RBMap_ofList Nat
+    Nat
+    (Ord_compare Nat instOrdNat)
+    (List_cons (Prod Nat Nat)
+     (Prod_mk Nat
+      Nat
+      (OfNat_ofNat Nat 0 (instOfNatNat 0))
+      (OfNat_ofNat Nat 0 (instOfNatNat 0)))
+     (List_cons (Prod Nat Nat)
+      (Prod_mk Nat
        Nat
-       (instHAdd Nat instAddNat)
-       n
-       (OfNat_ofNat ((lambda (x__40__hyg_25)
-          Nat) (List_cons Nat n x__40__hyg_33))
-        1
-        (instOfNatNat 1)))))))
-  (map
-   (List_cons Nat
-    (OfNat_ofNat Nat 1 (instOfNatNat 1))
-    (List_cons Nat
-     (OfNat_ofNat Nat 2 (instOfNatNat 2))
-     (List_nil Nat))))
-  (root (my_length map)))
- (current-env))
+       (OfNat_ofNat Nat 1 (instOfNatNat 1))
+       (OfNat_ofNat Nat 1 (instOfNatNat 1)))
+      (List_cons (Prod Nat Nat)
+       (Prod_mk Nat
+        Nat
+        (OfNat_ofNat Nat 2 (instOfNatNat 2))
+        (OfNat_ofNat Nat 2 (instOfNatNat 2)))
+       (List_nil (Prod Nat Nat)))))))
+  (root
+   (Std_RBMap_insert Nat
+    Nat
+    (Ord_compare Nat instOrdNat)
+    stuff
+    (OfNat_ofNat Nat 3 (instOfNatNat 3))
+    (OfNat_ofNat Nat 3 (instOfNatNat 3)))))
+ root)
