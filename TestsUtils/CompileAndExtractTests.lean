@@ -125,7 +125,7 @@ def reindexConst (map : NatNatMap) : Const → Const
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractConstArray` succeeds"
     (extractConstArray stt.store) fun consts =>
-      withExceptOk "Pairing succeeds" (pairConstants stt.consts consts) $
+      withExceptOk "Pairing succeeds" (pairConstants stt.pStore.consts consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
@@ -149,8 +149,8 @@ def typecheckConst (consts : Array Const) (name : Name) : Except String Unit :=
   | .error err => throw $ toString err
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  stt.consts.foldl (init := .done) fun tSeq const =>
+  stt.pStore.consts.foldl (init := .done) fun tSeq const =>
     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConst stt.consts const.name) fun _ => .done
+      (typecheckConst stt.pStore.consts const.name) fun _ => .done
 
 end Typechecking
