@@ -149,7 +149,7 @@ mutual
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       let rhs ← exprToLurkExpr rhs 
       let args := ⟦(cdr (cdr $argName))⟧
-      let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem $args $n)⟧
+      let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem $args (+ $n (getelem (car $argName) 1)))⟧
       let recrArgs := binds.reverse.drop (recrIndices + 1) |>.map fun (n : Name) => ⟦$n⟧
       let newArgs := recrArgs.reverse ++ ctorArgs
       return (⟦(= (car (cdr $argName)) $idx)⟧, .mkApp rhs newArgs) -- extract snd element
@@ -296,7 +296,7 @@ def transpileM : TranspileM Unit := do
   let store := (← read).compileState
   builtinInitialize
   for c in store.consts do 
-    if c.name == `test then 
+    if c.name == `root then 
       constToLurkExpr c
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/

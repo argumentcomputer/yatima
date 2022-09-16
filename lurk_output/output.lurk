@@ -21,7 +21,7 @@
     (if (<= _x_lurk_1 _x_lurk_2)
      (quote (("Decidable" 1 0) 1 ("Nat.le" 1 1) _T))
      (quote (("Decidable" 1 0) 0 ("Nat.le" 1 1) _T)))))
-  (List (lambda (:1) (quote ("List" 1 0))))
+  (List (lambda (:1) (cons "List" (cons 1 (cons 0 nil)))))
   (List_rec
    (lambda (:1 motive _nil _cons _t)
     (if (= (car (cdr _t)) 0)
@@ -32,118 +32,13 @@
        motive
        _nil
        _cons
-       (getelem (cdr (cdr _t)) 0)
-       (getelem (cdr (cdr _t)) 1))
+       (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1)))
+       (getelem (cdr (cdr _t)) (+ 1 (getelem (car _t) 1))))
       nil))))
   (List_nil (lambda (:1) (cons (List :1) (cons 0 (cons :1 nil)))))
   (List_cons
    (lambda (:1 head tail)
     (cons (List :1) (cons 1 (cons :1 (cons head (cons tail nil)))))))
-  (PProd (lambda (:1 :2) (quote ("PProd" 2 0))))
-  (PProd_rec
-   (lambda (:1 :2 motive mk _t)
-    (if (= (car (cdr _t)) 0)
-     ((lambda (:1 :2 motive mk fst snd) (mk fst snd)) :1
-      :2
-      motive
-      mk
-      (getelem (cdr (cdr _t)) 0)
-      (getelem (cdr (cdr _t)) 1))
-     nil)))
-  (PProd_mk
-   (lambda (:1 :2 fst snd)
-    (cons (PProd :1 :2)
-     (cons 0 (cons :1 (cons :2 (cons fst (cons snd nil))))))))
-  (PUnit (quote ("PUnit" 0 0)))
-  (PUnit_rec
-   (lambda (motive unit _t)
-    (if (= (car (cdr _t)) 0)
-     ((lambda (motive unit) unit) motive unit)
-     nil)))
-  (PUnit_unit (cons PUnit (cons 0 nil)))
-  (List_below
-   (lambda (:1 motive _t)
-    (List_rec :1
-     (lambda (_t) nil)
-     PUnit
-     (lambda (head tail tail_ih)
-      (PProd (PProd (motive tail) tail_ih) PUnit))
-     _t)))
-  (List_brecOn
-   (lambda (:1 motive _t F_1)
-    (getelem (cdr
-      (cdr
-       (List_rec :1
-        (lambda (_t) (PProd (motive _t) (List_below :1 motive _t)))
-        (PProd_mk (motive (List_nil :1))
-         PUnit
-         (F_1 (List_nil :1) PUnit_unit)
-         PUnit_unit)
-        (lambda (head tail tail_ih)
-         (PProd_mk (motive (List_cons :1 head tail))
-          (PProd (PProd (motive tail) (List_below :1 motive tail))
-           PUnit)
-          (F_1 (List_cons :1 head tail)
-           (PProd_mk (PProd (motive tail) (List_below :1 motive tail))
-            PUnit
-            tail_ih
-            PUnit_unit))
-          (PProd_mk (PProd (motive tail) (List_below :1 motive tail))
-           PUnit
-           tail_ih
-           PUnit_unit)))
-        _t)))
-     (+
-      (+
-       (getelem (car
-         (List_rec :1
-          (lambda (_t) (PProd (motive _t) (List_below :1 motive _t)))
-          (PProd_mk (motive (List_nil :1))
-           PUnit
-           (F_1 (List_nil :1) PUnit_unit)
-           PUnit_unit)
-          (lambda (head tail tail_ih)
-           (PProd_mk (motive (List_cons :1 head tail))
-            (PProd (PProd (motive tail) (List_below :1 motive tail))
-             PUnit)
-            (F_1 (List_cons :1 head tail)
-             (PProd_mk (PProd (motive tail)
-               (List_below :1 motive tail))
-              PUnit
-              tail_ih
-              PUnit_unit))
-            (PProd_mk (PProd (motive tail)
-              (List_below :1 motive tail))
-             PUnit
-             tail_ih
-             PUnit_unit)))
-          _t))
-        1)
-       (getelem (car
-         (List_rec :1
-          (lambda (_t) (PProd (motive _t) (List_below :1 motive _t)))
-          (PProd_mk (motive (List_nil :1))
-           PUnit
-           (F_1 (List_nil :1) PUnit_unit)
-           PUnit_unit)
-          (lambda (head tail tail_ih)
-           (PProd_mk (motive (List_cons :1 head tail))
-            (PProd (PProd (motive tail) (List_below :1 motive tail))
-             PUnit)
-            (F_1 (List_cons :1 head tail)
-             (PProd_mk (PProd (motive tail)
-               (List_below :1 motive tail))
-              PUnit
-              tail_ih
-              PUnit_unit))
-            (PProd_mk (PProd (motive tail)
-              (List_below :1 motive tail))
-             PUnit
-             tail_ih
-             PUnit_unit)))
-          _t))
-        2))
-      0))))
   (List_casesOn
    (lambda (:1 motive _t _nil _cons)
     (List_rec :1
@@ -151,48 +46,36 @@
      _nil
      (lambda (head tail tail_ih) (_cons head tail))
      _t)))
-  (Unit_unit PUnit_unit)
-  (List_length_match_1
-   (lambda
-    (:1 motive _fun_discr__40_Init_Prelude__hyg_7127_7134 h_1 h_2)
-    (List_casesOn :1
-     (lambda (x) (motive x))
-     _fun_discr__40_Init_Prelude__hyg_7127_7134
-     (h_1 Unit_unit)
-     (lambda
-      (head__40_Init_Prelude__hyg_7154
-       tail__40_Init_Prelude__hyg_7155)
-      (h_2 head__40_Init_Prelude__hyg_7154
-       tail__40_Init_Prelude__hyg_7155)))))
   (OfNat_ofNat
-   (lambda (:1 x__40_Init_Prelude__hyg_1823 self)
+   (lambda (:1 x__40_Init_Prelude__hyg_1828 self)
     (getelem (cdr (cdr self))
      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
   (OfNat
-   (lambda (:1 x__40_Init_Prelude__hyg_1823) (quote ("OfNat" 2 0))))
+   (lambda (:1 x__40_Init_Prelude__hyg_1828)
+    (cons "OfNat" (cons 2 (cons 0 nil)))))
   (OfNat_rec
-   (lambda (:1 x__40_Init_Prelude__hyg_1823 motive mk _t)
+   (lambda (:1 x__40_Init_Prelude__hyg_1828 motive mk _t)
     (if (= (car (cdr _t)) 0)
-     ((lambda (:1 x__40_Init_Prelude__hyg_1823 motive mk _uncap_ofNat)
+     ((lambda (:1 x__40_Init_Prelude__hyg_1828 motive mk _uncap_ofNat)
        (mk _uncap_ofNat)) :1
-      x__40_Init_Prelude__hyg_1823
+      x__40_Init_Prelude__hyg_1828
       motive
       mk
-      (getelem (cdr (cdr _t)) 0))
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
      nil)))
   (OfNat_mk
-   (lambda (:1 x__40_Init_Prelude__hyg_1823 _uncap_ofNat)
-    (cons (OfNat :1 x__40_Init_Prelude__hyg_1823)
+   (lambda (:1 x__40_Init_Prelude__hyg_1828 _uncap_ofNat)
+    (cons (OfNat :1 x__40_Init_Prelude__hyg_1828)
      (cons 0
       (cons :1
-       (cons x__40_Init_Prelude__hyg_1823
+       (cons x__40_Init_Prelude__hyg_1828
         (cons _uncap_ofNat nil)))))))
   (instOfNatNat (lambda (n) (OfNat_mk Nat n n)))
   (HAdd_hAdd
    (lambda (:1 :2 :3 self)
     (getelem (cdr (cdr self))
      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
-  (HAdd (lambda (:1 :2 :3) (quote ("HAdd" 3 0))))
+  (HAdd (lambda (:1 :2 :3) (cons "HAdd" (cons 3 (cons 0 nil)))))
   (HAdd_rec
    (lambda (:1 :2 :3 motive mk _t)
     (if (= (car (cdr _t)) 0)
@@ -201,7 +84,7 @@
       :3
       motive
       mk
-      (getelem (cdr (cdr _t)) 0))
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
      nil)))
   (HAdd_mk
    (lambda (:1 :2 :3 _uncap_hAdd)
@@ -212,92 +95,48 @@
     (getelem (cdr (cdr self))
      (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
   (instHAdd
-   (lambda (:1 inst__40_Init_Prelude__hyg_2381)
+   (lambda (:1 inst__40_Init_Prelude__hyg_2386)
     (HAdd_mk :1
      :1
      :1
      (lambda (a b)
-      (Add_add :1 inst__40_Init_Prelude__hyg_2381 a b)))))
-  (Add (lambda (:1) (quote ("Add" 1 0))))
+      (Add_add :1 inst__40_Init_Prelude__hyg_2386 a b)))))
+  (Add (lambda (:1) (cons "Add" (cons 1 (cons 0 nil)))))
   (Add_rec
    (lambda (:1 motive mk _t)
     (if (= (car (cdr _t)) 0)
      ((lambda (:1 motive mk _uncap_add) (mk _uncap_add)) :1
       motive
       mk
-      (getelem (cdr (cdr _t)) 0))
+      (getelem (cdr (cdr _t)) (+ 0 (getelem (car _t) 1))))
      nil)))
   (Add_mk
    (lambda (:1 _uncap_add)
     (cons (Add :1) (cons 0 (cons :1 (cons _uncap_add nil))))))
   (instAddNat (Add_mk Nat Nat_add))
-  (PProd_fst
-   (lambda (:1 :2 self)
-    (getelem (cdr (cdr self))
-     (+ (+ (getelem (car self) 1) (getelem (car self) 2)) 0))))
-  (List_length
-   (lambda (:1 _fun_discr__40_Init_Prelude__hyg_7127)
-    (List_brecOn :1
-     (lambda (_fun_discr__40_Init_Prelude__hyg_7127) Nat)
-     _fun_discr__40_Init_Prelude__hyg_7127
-     (lambda (_fun_discr__40_Init_Prelude__hyg_7127 f)
-      (List_length_match_1 :1
-       (lambda (_fun_discr__40_Init_Prelude__hyg_7127_7134) nil)
-       _fun_discr__40_Init_Prelude__hyg_7127
-       (lambda (anonymous x__40_Init_Prelude__hyg_7156)
-        (OfNat_ofNat Nat 0 (instOfNatNat 0)))
-       (lambda
-        (head__40_Init_Prelude__hyg_7147
-         as
-         x__40_Init_Prelude__hyg_7156)
-        (HAdd_hAdd Nat
-         Nat
-         Nat
-         (instHAdd Nat instAddNat)
-         (PProd_fst ((lambda (_fun_discr__40_Init_Prelude__hyg_7127)
-            Nat) as)
-          (List_rec :1
-           (lambda (_t) nil)
-           PUnit
-           (lambda (head tail tail_ih)
-            (PProd (PProd ((lambda
-                (_fun_discr__40_Init_Prelude__hyg_7127)
-                Nat) tail)
-              tail_ih)
-             PUnit))
-           as)
-          (PProd_fst (PProd ((lambda
-              (_fun_discr__40_Init_Prelude__hyg_7127)
-              Nat) as)
-            (List_rec :1
-             (lambda (_t) nil)
-             PUnit
-             (lambda (head tail tail_ih)
-              (PProd (PProd ((lambda
-                  (_fun_discr__40_Init_Prelude__hyg_7127)
-                  Nat) tail)
-                tail_ih)
-               PUnit))
-             as))
-           PUnit
-           x__40_Init_Prelude__hyg_7156))
-         (OfNat_ofNat Nat 1 (instOfNatNat 1))))
-       f)))))
+  (my_length
+   (lambda (xs)
+    (List_casesOn Nat
+     (lambda (x__40__hyg_25) Nat)
+     xs
+     (OfNat_ofNat ((lambda (x__40__hyg_25) Nat) (List_nil Nat))
+      0
+      (instOfNatNat 0))
+     (lambda (n x__40__hyg_33)
+      (HAdd_hAdd Nat
+       ((lambda (x__40__hyg_25) Nat) (List_cons Nat n x__40__hyg_33))
+       Nat
+       (instHAdd Nat instAddNat)
+       n
+       (OfNat_ofNat ((lambda (x__40__hyg_25)
+          Nat) (List_cons Nat n x__40__hyg_33))
+        1
+        (instOfNatNat 1)))))))
   (map
    (List_cons Nat
     (OfNat_ofNat Nat 1 (instOfNatNat 1))
     (List_cons Nat
      (OfNat_ofNat Nat 2 (instOfNatNat 2))
-     (List_cons Nat
-      (OfNat_ofNat Nat 3 (instOfNatNat 3))
-      (List_cons Nat
-       (OfNat_ofNat Nat 4 (instOfNatNat 4))
-       (List_cons Nat
-        (OfNat_ofNat Nat 5 (instOfNatNat 5))
-        (List_cons Nat
-         (OfNat_ofNat Nat 6 (instOfNatNat 6))
-         (List_nil Nat))))))))
-  
-)
-
-  (List_length Nat map))
+     (List_nil Nat))))
+  (root (my_length map)))
+ (current-env))
