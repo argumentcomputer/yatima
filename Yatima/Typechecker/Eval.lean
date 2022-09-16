@@ -85,7 +85,8 @@ mutual
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    match ← derefConst name const with
+    if const == (← zeroIndex) then pure $ .lit (.natVal 0)
+    else match ← derefConst name const with
     | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
@@ -135,31 +136,37 @@ mutual
    -/
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : Thunk Value) (args : Args) : TypecheckM Value := do
+
+    if k == (← succIndex) then
+      -- Sanity check
+      if !args.isEmpty then throw $ .custom "args should be empty"
+      else match arg.get with
+      | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
+      | _ => pure $ .app (.const name k univs) [arg]
+
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
-    match ← derefConst name k with
+    else match ← derefConst name k with
     | .intRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
        pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         let arg ← toCtorIfLit arg.get
-        let ret ← match arg with
+        match arg with
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
             withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        let ret ← toLitIfCtor ret
-        pure ret
     | .extRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         let arg ← toCtorIfLit arg.get
-        let ret ← match arg with
+        match arg with
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
@@ -172,8 +179,6 @@ mutual
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        let ret ← toLitIfCtor ret
-        pure ret
     | .quotient quotVal => match quotVal.kind with
       | .lift => applyQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
       | .ind  => applyQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
@@ -208,14 +213,6 @@ mutual
       if v == 0 then evalConst `Nat.Zero (← zeroIndex) []
       else pure $ .app (.const `Nat.succ (← succIndex) []) [Value.lit (.natVal (v-1))]
     | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
-    | e => pure e
-
-  partial def toLitIfCtor : Value → TypecheckM Value
-    | e@(.app (.const _ idx []) [arg]) => do
-      if idx != (← succIndex) then pure e
-      else match arg.get with
-      | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
-      | _ => pure e
     | e => pure e
 end
 
