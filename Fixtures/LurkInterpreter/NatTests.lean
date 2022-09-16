@@ -1,3 +1,3 @@
-def isZero : Nat → Bool 
-  | 0 => true 
-  | n + 1 => false 
+def map := [1, 2, 3, 4, 5, 6]
+def whee := map.length
+

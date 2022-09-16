@@ -281,8 +281,9 @@ def builtinInitialize : TranspileM Unit := do
     Lurk.Nat_succ, 
     Lurk.Nat_rec,
     Lurk.Nat_add,
-    Lurk.Nat_mul
-    -- Lurk.Nat_decLe
+    Lurk.Nat_mul,
+    Lurk.Nat_div,
+    Lurk.Nat_decLe
   ] 
   withBuiltin (decls.map fun x => x.fst) $ 
     decls.forM fun (n, e) => appendBinding (n, e)
@@ -291,7 +292,9 @@ def builtinInitialize : TranspileM Unit := do
 def transpileM : TranspileM Unit := do
   let store := (← read).compileState
   builtinInitialize
-  store.consts.forM constToLurkExpr
+  for c in store.consts do 
+    if c.name == `whee then 
+      constToLurkExpr c
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
 def transpile (filePath : System.FilePath) (body : Lurk.Expr) : IO $ Except String Lurk.Expr := do

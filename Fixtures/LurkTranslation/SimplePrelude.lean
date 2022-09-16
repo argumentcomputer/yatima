@@ -1,5 +1,68 @@
-def whee := if 10 < 20 then 0 else 1
+import Yatima.Datatypes.Univ 
 
+-- def zero := Yatima.Univ.zero
+
+-- def name := zero.ctorName
+
+def map := [1, 2, 3, 4, 5, 6]
+
+def whee := map.length
+
+-- (List_length
+--    (lambda (Nat _fun_discr__40_Init_Prelude__hyg_7127)
+
+
+--     (List_brecOn Nat
+--      (lambda (_fun_discr__40_Init_Prelude__hyg_7127) Nat)
+--      map
+--      (lambda (_fun_discr__40_Init_Prelude__hyg_7127 f)
+--       (List_length_match_1 Nat
+--        (lambda (_fun_discr__40_Init_Prelude__hyg_7127_7134) nil)
+--        _fun_discr__40_Init_Prelude__hyg_7127
+--        (lambda (anonymous x__40_Init_Prelude__hyg_7156)
+--         (OfNat_ofNat Nat 0 (instOfNatNat 0)))
+--        (lambda
+--         (head__40_Init_Prelude__hyg_7147
+--          as
+--          x__40_Init_Prelude__hyg_7156)
+--         (HAdd_hAdd Nat
+--          Nat
+--          Nat
+--          (instHAdd Nat instAddNat)
+--          (PProd_fst ((lambda (_fun_discr__40_Init_Prelude__hyg_7127)
+--             Nat) as)
+--           (List_rec Nat
+--            (lambda (_t) nil)
+--            PUnit
+--            (lambda (head tail tail_ih)
+--             (PProd (PProd ((lambda
+--                 (_fun_discr__40_Init_Prelude__hyg_7127)
+--                 Nat) tail)
+--               tail_ih)
+--              PUnit))
+--            as)
+--           (PProd_fst (PProd ((lambda
+--               (_fun_discr__40_Init_Prelude__hyg_7127)
+--               Nat) as)
+--             (List_rec Nat
+--              (lambda (_t) nil)
+--              PUnit
+--              (lambda (head tail tail_ih)
+--               (PProd (PProd ((lambda
+--                   (_fun_discr__40_Init_Prelude__hyg_7127)
+--                   Nat) tail)
+--                 tail_ih)
+--                PUnit))
+--              as))
+--            PUnit
+--            x__40_Init_Prelude__hyg_7156))
+--          (OfNat_ofNat Nat 1 (instOfNatNat 1))))
+--        f)))
+       
+--        ))
+
+#print whee._cstage1
+    
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
 --   | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A n.succ

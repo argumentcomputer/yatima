@@ -93,6 +93,13 @@ def Nat_mul : Name × Expr := ( ``Nat.mul, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
 ⟧)
 
+def Nat_div : Name × Expr := ( ``Nat.div, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (< _x_lurk_1 _x_lurk_2)
+        0
+        (+ (Nat_div (- _x_lurk_1 _x_lurk_2) _x_lurk_2) 1)))
+⟧)
+
 def Nat_decLe : Name × Expr := ( ``Nat.decLe, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (<= _x_lurk_1 _x_lurk_2)

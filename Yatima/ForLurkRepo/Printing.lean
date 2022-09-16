@@ -46,7 +46,7 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   | e@(.app ..) => 
     let (fn, args) := telescopeApp e []
     let ws := if args.length == 0 then Format.nil else " "
-    paren <| pprint fn pretty ++ ws ++ group (fmtList args)
+    paren <| pprint fn pretty ++ ws ++ fmtList args
   | .quote datum =>
     paren <| "quote" ++ line ++ datum.pprint pretty
   | .binaryOp op expr₁ expr₂ =>

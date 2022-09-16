@@ -509,7 +509,7 @@ mutual
         fields  := ctor.numFields
         -- the rhs of constructors are represented as implicit lambdas for an
         -- optimization in the typechecker
-        rhs     := rhs.toImplicitLambda
+        rhs     := rhs
         safe    := not ctor.isUnsafe
       }
       let (_, _, constIdx) ← getFromRecrCtx! ctor.name
@@ -845,7 +845,14 @@ def compile (filePath : System.FilePath) (log : Bool := false)
         | none    => acc.insert n c
 
     -- triggering compilation
-    CompileM.run (.init map log) stt (compileM delta)
+    let stt ← CompileM.run (.init map log) stt (compileM delta)
+    
+    IO.println "\n========================================="
+    IO.println   "Char.rec"
+    IO.println   "========================================="
+    IO.println $  PrintLean.printLeanConst (map₀.find? `Char.rec).get!
+    IO.println   "=========================================\n"
+    return stt 
 
 /--
 Sets the directories where `olean` files can be found.

@@ -55,7 +55,7 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
         let output := p.flag? "output" |>.map (Flag.as! · String) |>.getD "output"
         IO.FS.createDirAll $ path/"lurk_output"
         let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
-        IO.FS.writeFile fname s!"{(exp.pprint false).pretty 50}"
+        IO.FS.writeFile fname s!"{(exp.pprint false).pretty 70}"
         if p.hasFlag "run" then
           IO.println $ ← Lurk.ppEval exp default
       return 0
