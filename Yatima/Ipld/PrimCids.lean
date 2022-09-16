@@ -10,7 +10,7 @@ def primCidsMap : RBMap String PrimConst compare := .ofList [
   ("bagcyb6egbqlcbvcn3yk3eojuobxafm2yn42oyux6im7vkcwrx7zykci56kwbt6pm", .nat),
   ("bagcyb6egbqlcbtdf56fiqql3sk3ei2nt4zwsudg4z5tcdehqqvrw4duozqjbp4ao", .natZero),
   ("bagcyb6egbqlcbop4tscfzg2s3eb7cfprycbn2r2oufqqmcg4uf5vcsqcp75fkeuh", .natSucc),
-  ("bagcyb6egbqlcb4zsubwj2w2ygvvertlfc32ntomotqqcx5db25ewy7s73oo3n4ig", .string)
+  ("bagcyb6egbqlcba4ftu73ay23wjzrrrf5t3uycgkjftlubwgakbty2k4t4jer5ydf", .string)
 ]
 
 end Yatima.Ipld
