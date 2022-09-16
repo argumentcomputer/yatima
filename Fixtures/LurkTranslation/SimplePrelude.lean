@@ -1,12 +1,11 @@
 import Yatima.Datatypes.Univ 
 
--- def zero := Yatima.Univ.zero
+def zero := Yatima.Univ.zero
 
--- def name := zero.ctorName
 
 def map := [1, 2, 3, 4, 5, 6]
 
-def whee := map.length
+def root := map.length
 
 -- (List_length
 --    (lambda (Nat _fun_discr__40_Init_Prelude__hyg_7127)
@@ -60,8 +59,6 @@ def whee := map.length
 --        f)))
        
 --        ))
-
-#print whee._cstage1
     
 -- inductive Vector (A : Type) : (n : Nat) → Type where
 --   | nil : Vector A Nat.zero
