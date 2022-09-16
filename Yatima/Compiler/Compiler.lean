@@ -10,7 +10,7 @@ open ToIpld
 
 /-- Gets a constant from the array of constants -/
 def derefConst (idx : ConstIdx) : CompileM Const := do
-  let consts := (← get).consts
+  let consts := (← get).pStore.consts
   let size := consts.size
   if h : idx < size then
     return consts[idx]'h
@@ -138,7 +138,8 @@ mutual
     -- It is important to push first with some value so we don't lose the
     -- position of the constant in a recursive call
     let constIdx ← modifyGet fun stt =>
-      (stt.consts.size, { stt with consts := stt.consts.push default })
+      (stt.pStore.consts.size,
+        { stt with pStore := { stt.pStore with consts := stt.pStore.consts.push default } })
     let values : Ipld.Both Ipld.Const × Const ← match const with
       | .axiomInfo struct =>
         let (typeCid, type) ← compileExpr struct.type
@@ -296,8 +297,8 @@ mutual
     -- append an array of `mutualConsts.length` to `consts` and save the mapping
     -- of all names in `mutualConsts` to their respective indices
     let mut firstIdx : ConstIdx ← modifyGet fun stt =>
-      (stt.consts.size,
-        { stt with consts := stt.consts ++ mkArray mutualConsts.length default })
+      (stt.pStore.consts.size,
+        { stt with pStore := { stt.pStore with consts := stt.pStore.consts ++ mkArray mutualConsts.length default } })
 
     let recrCtx := mutualConsts.enum.foldl (init := default)
       fun acc (i, n) => acc.insert n (i, none, firstIdx + i)
@@ -598,10 +599,11 @@ mutual
     
     -- Reserving the slots in the array of constants
     let mut firstIdx ← modifyGet fun stt =>
-      (stt.consts.size, { stt with consts := stt.consts ++ mkArray mutualSize default })
+      (stt.pStore.consts.size,
+        { stt with pStore := { stt.pStore with consts := stt.pStore.consts ++ mkArray mutualSize default } })
 
     -- Building the `recrCtx`
-    let mut recrCtx : RBMap Name RecrCtxEntry compare := RBMap.empty
+    let mut recrCtx := RBMap.empty
     let mut mutIdx := 0
     for (i, ds) in mutualDefs.enum do
       for (j, d) in ds.enum do

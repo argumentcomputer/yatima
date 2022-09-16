@@ -204,7 +204,7 @@ mutual
       IO.println s!"const {name} {idx}"
       let visited? := (← get).visited.contains name
       if !visited? then 
-        let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
+        let const := (← read).compileState.pStore.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
     | e@(.app ..) => 
@@ -266,9 +266,9 @@ mutual
   where 
     getInductive (name : Name) : TranspileM Inductive := do 
       let indName := name.getPrefix
-      let store := (← read).compileState
-      match store.cache.find? indName with 
-      | some (_, idx) => match store.consts[idx]! with 
+      let compileState := (← read).compileState
+      match compileState.cache.find? indName with 
+      | some (_, idx) => match compileState.pStore.consts[idx]! with 
         | .inductive i => return i 
         | x => throw $ .invalidConstantKind x "inductive"
       | none => throw $ .notFoundInCache indName
@@ -295,9 +295,8 @@ def builtinInitialize : TranspileM Unit := do
 
 /-- Main translation function -/
 def transpileM : TranspileM Unit := do
-  let store := (← read).compileState
   builtinInitialize
-  store.consts.forM constToLurkExpr
+  (← read).compileState.pStore.consts.forM constToLurkExpr
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
 def transpile (ctx : Context) : IO $ Except String Lurk.Expr := do
