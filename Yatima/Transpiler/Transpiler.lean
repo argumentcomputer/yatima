@@ -192,7 +192,7 @@ mutual
         constToLurkExpr const
       return ⟦$name⟧
     | .app _ fn arg => 
-      IO.println s!"app"
+      -- IO.println s!"app"
       return .app (← exprToLurkExpr fn) (← exprToLurkExpr arg)
     | e@(.lam ..) => 
       -- IO.println s!"lam"
