@@ -3,6 +3,7 @@ import YatimaStdLib.RBMap
 import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
+import Yatima.Ipld.PrimCids
 
 namespace Yatima
 
@@ -338,10 +339,11 @@ mutual
         | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
         | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
         Key.cache (.const_cache cid) constIdx
-        let consts := (← get).consts
+        let pStore := (← get).pStore
+        let consts := pStore.consts
         let maxSize := consts.size
         if h : constIdx < maxSize then
-          set { ← get with consts := consts.set ⟨constIdx, h⟩ const }
+          set { ← get with pStore := { pStore with consts := consts.set ⟨constIdx, h⟩ const } }
         else
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
@@ -363,7 +365,7 @@ mutual
   partial def ruleFromIpld (rule : Ipld.Both Ipld.RecursorRule) : ConvertM RecursorRule := do
     let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let consts := (← get).consts
+    let consts := (← get).pStore.consts
     let maxSize := consts.size
     if h : ctorIdx < maxSize then
       let ctor ← match consts[ctorIdx]'h with
@@ -383,17 +385,24 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
     (← read).store.const_meta.toList.enum.forM fun (idx, (_, meta)) => do
       modifyGet fun state => (default, { state with
-        consts := state.consts.push default,
+        pStore := { state.pStore with consts := state.pStore.consts.push default },
         constsIdx := state.constsIdx.insert meta.name idx })
     (← read).store.consts.forM fun cid => discard $ constFromIpld cid
+    (← get).const_cache.forM fun cid idx => do
+      match Ipld.primCidsMap.find? cid.anon.data.toString with
+      | some .nat     => modify fun stt => { stt with pStore := { stt.pStore with natIdx     := some idx } }
+      | some .natZero => modify fun stt => { stt with pStore := { stt.pStore with natZeroIdx := some idx } }
+      | some .natSucc => modify fun stt => { stt with pStore := { stt.pStore with natSuccIdx := some idx } }
+      | some .string  => modify fun stt => { stt with pStore := { stt.pStore with stringIdx  := some idx } }
+      | none => pure ()
 
 /--
 Main function in the converter API. Extracts the final array of constants from
 an `Ipld.Store`
 -/
-def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
+def extractPureStore (store : Ipld.Store) : Except String PureStore :=
   match convertStore store with
-  | .ok stt => pure stt.consts
+  | .ok stt => pure stt.pStore
   | .error err => .error $ toString err
 
 end Converter

@@ -28,10 +28,10 @@ returns it if it is found. If the constant is not found it throws an error.
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
-  let store := (← read).store
-  match store.get? constIdx with
+  let consts := (← read).pStore.consts
+  match consts.get? constIdx with
   | some const => pure const
-  | none => throw $ .outOfConstsRange name constIdx store.size
+  | none => throw $ .outOfConstsRange name constIdx consts.size
 
 mutual
   /--

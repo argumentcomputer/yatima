@@ -91,7 +91,7 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       | some (_, ridx)  =>
         let some (.definition const) ← pure state.pStore.consts[idx]? | throw "invalid definition index"
         let some (.definition rconst) ← pure state.pStore.consts[ridx]? | throw "invalid definition index"
-        match TypecheckM.run (.init state.pStore.consts) $ eval const.value with
+        match TypecheckM.run (.init state.pStore) $ eval const.value with
         | .ok value =>
           -- dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
           let some expr ← pure $ readBack state.pStore.consts value | throw s!"failed to read back value {value}"

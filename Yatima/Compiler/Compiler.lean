@@ -1,6 +1,7 @@
 import Yatima.Compiler.Printing
 import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
+import Yatima.Ipld.PrimCids
 
 namespace Yatima.Compiler
 
@@ -796,6 +797,13 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
       IO.println   "========================================="
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
+  (← get).cache.forM fun _ (cid, idx) =>
+    match Ipld.primCidsMap.find? cid.anon.data.toString with
+    | some .nat     => modify fun stt => { stt with pStore := { stt.pStore with natIdx     := idx } }
+    | some .natZero => modify fun stt => { stt with pStore := { stt.pStore with natZeroIdx := idx } }
+    | some .natSucc => modify fun stt => { stt with pStore := { stt.pStore with natSuccIdx := idx } }
+    | some .string  => modify fun stt => { stt with pStore := { stt.pStore with stringIdx  := idx } }
+    | none => pure ()
 
 /--
 Compiles the "delta" of a file, that is, the content that is added on top of

@@ -1,4 +1,5 @@
 import Yatima.Typechecker.Datatypes
+import Yatima.Datatypes.Store
 
 /-!
 # The Typechecker monad
@@ -9,12 +10,6 @@ initialize its environment.
 
 namespace Yatima.Typechecker
 
-structure PrimIndices where
-  nat : Option Nat
-  string : Option Nat
-  succ : Option Nat
-  zero : Option Nat
-  deriving Inhabited
 /--
 The environment available to the typechecker monad. The available fields are
 * `lvl : Nat` : TODO: Get clarification on this.
@@ -23,20 +18,19 @@ The environment available to the typechecker monad. The available fields are
 * `store : Array Const` : An array of known constants in the environment that can be referred to by their index.
 -/
 structure TypecheckEnv where
-  lvl   : Nat
-  ctx   : Context
-  types : List (Thunk Value)
-  store : Array Const
-  prim  : PrimIndices
+  lvl    : Nat
+  ctx    : Context
+  types  : List (Thunk Value)
+  pStore : PureStore
   deriving Inhabited
 
 /-- An initialization of the typchecker environment with a particular `store : Array Const` -/
-def TypecheckEnv.init (store : Array Const) : TypecheckEnv :=
-  { (default : TypecheckEnv) with store }
+def TypecheckEnv.init (pStore : PureStore) : TypecheckEnv :=
+  { (default : TypecheckEnv) with pStore }
 
 /-- An initialization of the typechecker environment with a particular `ctx : Context` and `store : Array Const` -/
-def TypecheckEnv.initCtx (ctx : Context) (store : Array Const) : TypecheckEnv :=
-  { (default : TypecheckEnv) with store, ctx }
+def TypecheckEnv.initCtx (ctx : Context) (pStore : PureStore) : TypecheckEnv :=
+  { (default : TypecheckEnv) with pStore, ctx }
 
 /--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckEnv`,
@@ -89,12 +83,12 @@ def withNewExtendedCtxByVar (ctx : Context) (name : Name) (i : Nat) (type : Thun
   withNewExtendedCtx ctx (mkVar name i type)
 
 def natIndex : TypecheckM Nat := do
-  match (← read).prim.nat with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
+  match (← read).pStore.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
 def stringIndex : TypecheckM Nat := do
-  match (← read).prim.string with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
+  match (← read).pStore.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
 def zeroIndex : TypecheckM Nat := do
-  match (← read).prim.zero with | none => throw $ .custom "Cannot find definition of `Nat.Zero`" | some a => pure a
+  match (← read).pStore.natZeroIdx with | none => throw $ .custom "Cannot find definition of `Nat.Zero`" | some a => pure a
 def succIndex : TypecheckM Nat := do
-  match (← read).prim.succ with | none => throw $ .custom "Cannot find definition of `Nat.Succ`" | some a => pure a
+  match (← read).pStore.natSuccIdx with | none => throw $ .custom "Cannot find definition of `Nat.Succ`" | some a => pure a
 
 end Yatima.Typechecker

@@ -57,7 +57,7 @@ structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Lean.Name RecrCtxEntry compare
+  recrCtx  : Std.RBMap Name RecrCtxEntry compare
   log      : Bool
   deriving Inhabited
 
