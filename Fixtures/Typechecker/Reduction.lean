@@ -88,3 +88,6 @@ def J' := MyNat.nope
 
 def K := struc.3
 def K' := MyNat.next $ .next $ .next $ .next $ .next $ .next .nope
+
+def L := 2 + 3
+def L' := nat_lit 5
