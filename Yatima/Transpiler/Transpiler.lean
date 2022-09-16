@@ -103,7 +103,7 @@ mutual
   partial def telescopeLam (expr : Expr) : TranspileM Lurk.Expr := 
     let rec descend (expr : Expr) (bindAcc : List Name) : Expr × List Name :=
       match expr with 
-        | .lam name _ _ body => descend body <| bindAcc.concat name
+        | .lam _ name _ _ body => descend body <| bindAcc.concat name
         | _ => (expr, bindAcc)
     do
       let (expr, binds) := descend expr []
@@ -146,7 +146,6 @@ mutual
     let (_, ⟨binds⟩) := descendPi recrType #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
     let ifThens ← rhs.mapM fun ctor => do 
-      -- FIXME rhs lacks binders here
       let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
       let rhs ← exprToLurkExpr rhs 
       let args := ⟦(cdr (cdr $argName))⟧
@@ -168,10 +167,10 @@ mutual
       -- encoded as a lambda
       let lurkInd := if binds.isEmpty then
         -- TODO: fix back to use `quote`
-        ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
+        ⟦(cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil)))⟧
       else 
         ⟦(lambda ($binds) 
-            ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
+            (cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil))))⟧
       appendBinding (ind.name, lurkInd)
       for erecr in erecrs do
         recrToLurkExpr erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
@@ -179,40 +178,44 @@ mutual
       ctors.forM fun c => ctorToLurkExpr c ind.indices
 
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
-    IO.print ">> exprToLurkExpr: "
+    -- IO.print ">> exprToLurkExpr: "
     match e with 
     | .sort  ..
     | .lty   .. => return ⟦nil⟧
-    | .var name _     => 
-      IO.println s!"var {name}"
+    | .var _ name _     => 
+      -- IO.println s!"var {name}"
       return ⟦$name⟧
-    | .const name idx .. => do
-      IO.println s!"const {name} {idx}"
+    | .const _ name idx .. => do
+      -- IO.println s!"const {name} {idx}"
       if !(← get).visited.contains name then 
         let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
-    | .app fn arg => 
+    | .app _ fn arg => 
       IO.println s!"app"
       return .app (← exprToLurkExpr fn) (← exprToLurkExpr arg)
     | e@(.lam ..) => 
-      IO.println s!"lam"
+      -- IO.println s!"lam"
       telescopeLam e
     | .pi    .. => return ⟦nil⟧
-    | .letE name _ value body  => do
-      IO.println s!"let {name}"
-      let val ← exprToLurkExpr value 
+    | .letE _ name _ value body  => do
+      -- IO.println s!"let {name}"
+      let val ← exprToLurkExpr value
       let body ← exprToLurkExpr body
       return .letE [(name, val)] body
-    | .lit lit  => match lit with 
+    | .lit _ lit  => match lit with
       -- TODO: need to include `Int` somehow
-      | .num n => IO.println s!"lit {n}"; return ⟦$n⟧
-      | .word s => IO.println s!"lit {s}"; return ⟦$s⟧
-    | .proj idx e => do
-      IO.println s!"proj {idx}"; 
+      | .num n =>
+        -- IO.println s!"lit {n}";
+        return ⟦$n⟧
+      | .word s =>
+        -- IO.println s!"lit {s}";
+        return ⟦$s⟧
+    | .proj _ idx e => do
+      -- IO.println s!"proj {idx}";
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection
-      let e ← exprToLurkExpr e 
+      let e ← exprToLurkExpr e
       -- TODO(Winston): inlining of `e` causes term size blowup, need to remove
       let offset := ⟦(+ (getelem (car $e) 1) (getelem (car $e) 2))⟧
       let args := ⟦(cdr (cdr $e))⟧
@@ -226,7 +229,7 @@ mutual
   the same block more than once.
   -/
   partial def constToLurkExpr (c : Const) : TranspileM Unit := do 
-    IO.println s!">> constToLurkExpr {c.name}"
+    -- IO.println s!">> constToLurkExpr {c.name}"
     match c with 
     | .axiom    _
     | .quotient _ => return
@@ -293,7 +296,7 @@ def transpileM : TranspileM Unit := do
   let store := (← read).compileState
   builtinInitialize
   for c in store.consts do 
-    if c.name == `whee then 
+    if c.name == `test then 
       constToLurkExpr c
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/

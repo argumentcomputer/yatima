@@ -20,26 +20,25 @@ abbrev TranspileM := ReaderT Context $
 
 /-- Set `name` as a visited node -/
 def visit (name : Name) : TranspileM Unit := do 
-  IO.println s!"visit {name}"
+  -- IO.println s!"visit {name}"
   set $ { (← get) with visited := (← get).visited.insert name }
-  IO.println (← get).visited.toList
+  -- IO.println (← get).visited.toList
 
-def appendBindingNoVisit (b : Name × Lurk.Expr) : TranspileM Unit := do
+def printBind (b : Name × Lurk.Expr) : TranspileM Unit := do
   IO.println "\n========================================="
   IO.println    b.1
   IO.println   "========================================="
   IO.println s!"{b.2.pprint false |>.pretty 100}"
   IO.println   "========================================="
+
+def appendBindingNoVisit (b : Name × Lurk.Expr) : TranspileM Unit := do
+  printBind b
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
 
 def appendBinding (b : Name × Lurk.Expr) : TranspileM Unit := do
+  printBind b
   visit b.1
-  IO.println "\n========================================="
-  IO.println    b.1
-  IO.println   "========================================="
-  IO.println s!"{b.2.pprint false |>.pretty 100}"
-  IO.println   "========================================="
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
 

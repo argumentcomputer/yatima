@@ -55,7 +55,7 @@ mutual
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-            withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
+            withCtx ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda 
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
@@ -70,7 +70,7 @@ mutual
             match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
             | some rule =>
               let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
-              withCtx ⟨exprs, univs⟩ $ eval rule.rhs
+              withCtx ⟨exprs, univs⟩ $ eval rule.rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
@@ -102,34 +102,34 @@ mutual
   and evaluating a projection.
   -/
   partial def eval : Expr → TypecheckM Value
-    | .app fnc arg => do
+    | .app _ fnc arg => do
       let env ← read
       let argThunk := suspend arg env
       let fnc := (← eval fnc)
       apply fnc argThunk
-    | .lam name info _ bod => do
+    | .lam _ name info _ bod => do
       let ctx := (← read).ctx
       pure $ Value.lam name info bod ctx
-    | .var name idx => do
+    | .var _ name idx => do
       let exprs := (← read).ctx.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
       pure thunk.get
-    | .const name k const_univs => do
+    | .const _ name k const_univs => do
       let ctx := (← read).ctx
       evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
-    | .letE _ _ val bod => do
+    | .letE _ _ _ val bod => do
       let thunk := suspend val (← read)
       withExtendedCtx thunk (eval bod)
-    | .pi name info dom img => do
+    | .pi _ name info dom img => do
       let env ← read
       let dom' := suspend dom env
       pure $ Value.pi name info dom' img env.ctx
-    | .sort univ => do
+    | .sort _ univ => do
       let ctx := (← read).ctx
       pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
-    | .lit lit => pure $ Value.lit lit
-    | .lty lty => pure $ Value.lty lty
-    | .proj idx expr => do
+    | .lit _ lit => pure $ Value.lit lit
+    | .lty _ lty => pure $ Value.lty lty
+    | .proj _ idx expr => do
       match (← eval expr) with
       | .app neu@(.const name k _) args => 
         match ← derefConst name k with

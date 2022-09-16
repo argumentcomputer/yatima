@@ -29,28 +29,28 @@ end
 
 /-- Printer of expressions -/
 def printExpr : Expr → String
-  | .var nam idx => s!"{nam}@{idx}"
-  | .sort u => s!"(Sort {printUniv u})"
-  | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
-  | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
-  | .lam nam binfo dom bod =>
+  | .var _ nam idx => s!"{nam}@{idx}"
+  | .sort _ u => s!"(Sort {printUniv u})"
+  | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+  | .app _ fnc arg => s!"({printExpr fnc} {printExpr arg})"
+  | .lam _ nam binfo dom bod =>
     match binfo with
     | .implicit => s!"(λ\{{nam}: {printExpr dom}}. {printExpr bod})"
     | .strictImplicit => s!"(λ⦃{nam}: {printExpr dom}⦄. {printExpr bod})"
     | .instImplicit => s!"(λ[{nam}: {printExpr dom}]. {printExpr bod})"
     | _ => s!"(λ({nam}: {printExpr dom}). {printExpr bod})"
-  | .pi nam binfo dom cod =>
+  | .pi _ nam binfo dom cod =>
     match binfo with
     | .implicit => s!"(\{{nam}: {printExpr dom}} → {printExpr cod})"
     | .strictImplicit => s!"(⦃{nam}: {printExpr dom}⦄ → {printExpr cod})"
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
-  | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
-  | .lty .num => "Number"
-  | .lty .word => "Word"
-  | .proj idx val => s!"{printExpr val}.{idx}"
+  | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
+  | .lit _ (.num x) => s!"{x}"
+  | .lit _ (.word x) => s!"\"{x}\""
+  | .lty _ .num => "Number"
+  | .lty _ .word => "Word"
+  | .proj _ idx val => s!"{printExpr val}.{idx}"
 
 /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
 private partial def printSpine (neu : Neutral) (args : Args) : String :=
@@ -61,32 +61,32 @@ private partial def printSpine (neu : Neutral) (args : Args) : String :=
 /-- Auxiliary function to print the body of a lambda expression given `ctx : Context` -/
 private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
   match expr with
-  | .var nam 0 => s!"{nam}@0"
-  | .var nam idx =>
+  | .var _ nam 0 => s!"{nam}@0"
+  | .var _ nam idx =>
     match ctx.exprs.get? (idx-1) with
    | some val => val.repr
    | none => s!"!{nam}@{idx}!"
-  | .sort u => s!"(Sort {printUniv u})"
-  | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
-  | .app fnc arg => s!"({printLamBod fnc ctx} {printLamBod arg ctx})"
-  | .lam nam binfo dom bod =>
+  | .sort _ u => s!"(Sort {printUniv u})"
+  | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+  | .app _ fnc arg => s!"({printLamBod fnc ctx} {printLamBod arg ctx})"
+  | .lam _ nam binfo dom bod =>
     match binfo with
     | .implicit => s!"(λ\{{nam}: {printLamBod dom ctx}}. {printLamBod bod ctx})"
     | .strictImplicit => s!"(λ⦃{nam}: {printLamBod dom ctx}⦄. {printLamBod bod ctx})"
     | .instImplicit => s!"(λ[{nam}: {printLamBod dom ctx}]. {printLamBod bod ctx})"
     | _ => s!"(λ({nam}: {printLamBod dom ctx}). {printLamBod bod ctx})"
-  | .pi nam binfo dom cod =>
+  | .pi _ nam binfo dom cod =>
     match binfo with
     | .implicit => s!"(\{{nam}: {printLamBod dom ctx}} → {printLamBod cod ctx})"
     | .strictImplicit => s!"(⦃{nam}: {printLamBod dom ctx}⦄ → {printLamBod cod ctx})"
     | .instImplicit => s!"([{nam}: {printLamBod dom ctx}] → {printLamBod cod ctx})"
     | _ => s!"(({nam}: {printLamBod dom ctx}) → {printLamBod cod ctx})"
-  | .letE nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
-  | .lit (.num x) => s!"{x}"
-  | .lit (.word x) => s!"\"{x}\""
-  | .lty .num => "Number"
-  | .lty .word => "Word"
-  | .proj idx val => s!"{printLamBod val ctx}.{idx}"
+  | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
+  | .lit _ (.num x) => s!"{x}"
+  | .lit _ (.word x) => s!"\"{x}\""
+  | .lty _ .num => "Number"
+  | .lty _ .word => "Word"
+  | .proj _ idx val => s!"{printLamBod val ctx}.{idx}"
 
 /-- Printer of typechecker values -/
 partial def printVal : Value → String

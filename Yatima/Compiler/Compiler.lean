@@ -222,17 +222,19 @@ mutual
   partial def compileExpr : Lean.Expr → CompileM (ExprCid × Expr)
   | .mdata _ e => compileExpr e
   | expr => do
-    let (value, expr) ← match expr with
+    match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         -- Bound variables must be in the bind context
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () [], .var name (Split.injᵣ none) [] ⟩
-          pure (value, .var name idx)
+          let cid ← addToStore $ .expr value
+          pure (cid, .var cid name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
         let (univCid, univ) ← compileUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
-        pure (value, .sort univ)
+        let cid ← addToStore $ .expr value
+        pure (cid, .sort cid univ)
       | .const name lvls =>
         let pairs ← lvls.mapM $ compileUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
@@ -242,51 +244,57 @@ mutual
           let idx := (← read).bindCtx.length + i
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () (univCids.map (·.anon)),
             .var name i? (univCids.map (·.meta)) ⟩
-          pure (value, .const name ref univs)
+          let cid ← addToStore $ .expr value
+          pure (cid, .const cid name ref univs)
         | none =>
           let const ← getLeanConstant name
           let (constCid, const) ← getCompiledConst const
           let value : Ipld.Both Ipld.Expr :=
             ⟨ .const () constCid.anon $ univCids.map (·.anon),
               .const name constCid.meta $ univCids.map (·.meta) ⟩
-          pure (value, .const name const univs)
+          let cid ← addToStore $ .expr value
+          pure (cid, .const cid name const univs)
       | .app fnc arg =>
         let (fncCid, fnc) ← compileExpr fnc
         let (argCid, arg) ← compileExpr arg
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
-        pure (value, .app fnc arg)
+        let cid ← addToStore $ .expr value
+        pure (cid, .app cid fnc arg)
       | .lam name typ bod bnd =>
         let (typCid, typ) ← compileExpr typ
         let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
-        pure (value, .lam name bnd typ bod)
+        let cid ← addToStore $ .expr value
+        pure (cid, .lam cid name bnd typ bod)
       | .forallE name dom img bnd =>
         let (domCid, dom) ← compileExpr dom
         let (imgCid, img) ← withBinder name $ compileExpr img
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
-        pure (value, .pi name bnd dom img)
+        let cid ← addToStore $ .expr value
+        pure (cid, .pi cid name bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← compileExpr typ
         let (expCid, exp) ← compileExpr exp
         let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
-        pure (value, .letE name typ exp bod)
+        let cid ← addToStore $ .expr value
+        pure (cid, .letE cid name typ exp bod)
       | .lit lit =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
-        pure (value, .lit lit)
+        let cid ← addToStore $ .expr value
+        pure (cid, .lit cid lit)
       | .proj _ idx exp =>
         let (expCid, exp) ← compileExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
-        pure (value, .proj idx exp)
+        let cid ← addToStore $ .expr value
+        pure (cid, .proj cid idx exp)
       | .fvar ..  => throw $ .freeVariableExpr expr
       | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr
-    let cid ← addToStore $ .expr value
-    pure (cid, expr)
 
   /--
   Compiles an inductive and all inductives in the mutual block as a mutual
