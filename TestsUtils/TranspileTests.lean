@@ -22,5 +22,3 @@ def transpileTests (fixtures : List String) (body : Lurk.Expr)
     | .error e => 
       IO.eprintln s!"Transpilation failure; {e}"
       return tSeq
-
-  

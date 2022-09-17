@@ -434,7 +434,8 @@ mutual
         , typeCid.anon
         , ind.numParams
         , ind.numIndices
-        -- NOTE: for the purpose of conversion, the order of `ctors` and `recs` MUST match the order used in `recrCtx`
+        -- NOTE: for the purpose of conversion, the order of `ctors` and `recs`
+        -- MUST match the order used in `recrCtx`
         , ctors.map (·.anon)
         , recs.map (·.anon)
         , ind.isRec
@@ -515,8 +516,6 @@ mutual
         idx     := ctor.cidx
         params  := ctor.numParams
         fields  := ctor.numFields
-        -- the rhs of constructors are represented as implicit lambdas for an
-        -- optimization in the typechecker
         rhs     := rhs
         safe    := not ctor.isUnsafe
       }
@@ -664,7 +663,8 @@ mutual
     | none => throw $ .constantNotCompiled struct.name
 
   /-- Encodes a definition to IPLD -/
-  partial def toYatimaIpldDefinition (all : List ConstIdx) (defn : Lean.DefinitionVal):
+  partial def toYatimaIpldDefinition
+    (all : List ConstIdx) (defn : Lean.DefinitionVal) :
       CompileM (Ipld.Both Ipld.Definition × Definition) := do
     let (typeCid, type) ← compileExpr defn.type
     let (valueCid, value) ← compileExpr defn.value
@@ -853,14 +853,7 @@ def compile (filePath : System.FilePath) (log : Bool := false)
         | none    => acc.insert n c
 
     -- triggering compilation
-    let stt ← CompileM.run (.init map log) stt (compileM delta)
-    
-    IO.println "\n========================================="
-    IO.println   "Char.rec"
-    IO.println   "========================================="
-    IO.println $  PrintLean.printLeanConst (map₀.find? `Char.rec).get!
-    IO.println   "=========================================\n"
-    return stt 
+    CompileM.run (.init map log) stt (compileM delta)
 
 /--
 Sets the directories where `olean` files can be found.

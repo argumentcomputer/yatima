@@ -216,16 +216,16 @@ def getAppFnArgs (e : Expr) : Name × Array Expr :=
 /-- Converts a `Expr` of a list to a list of `Expr`s -/
 partial def toListExpr (e : Expr) : List Expr :=
   match e.getAppFnArgs with
-    | (``List.nil, #[_]) => []
-    | (``List.cons, #[_, x, xs]) => x :: toListExpr xs
-    | _ => []
+  | (``List.nil, #[_]) => []
+  | (``List.cons, #[_, x, xs]) => x :: toListExpr xs
+  | _ => []
 
 end Lean.Expr
 
 namespace Array
 
 @[inline]
-def concat {α : Type u} (ass : Array $ Array α) : Array α :=
-  ass.foldl (init := empty) fun as a => as ++ a
+def concat {α : Type u} (ars : Array $ Array α) : Array α :=
+  ars.foldl (init := empty) fun acc ar => acc ++ ar
 
 end Array

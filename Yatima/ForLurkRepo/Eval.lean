@@ -7,7 +7,8 @@ open Std
 
 inductive Value where
   | lit  : Literal → Value
-  | lam  : List Name → List (Name × Thunk Value) → (List (Name × Thunk Value)) × Expr → Value
+  | lam  : List Name → List (Name × Thunk Value) →
+    (List (Name × Thunk Value)) × Expr → Value
   | sexpr : SExpr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
@@ -16,7 +17,6 @@ inductive Value where
 
 partial def BEqVal : Value → Value → Bool
   | .lit l₁, .lit l₂ => l₁ == l₂
---| .lam ns₁ p₁ ([], b₁), .lam ns₂ p₂ ([], b₂) => ns₁ == ns₂ && (p₁.zip p₂).foldl (init := true) (fun acc ((n₁, v₁), (n₂, v₂)) => acc && n₁ == n₂ && BEqVal v₁ v₂) && b₁ == b₂
   | .lam ns₁ [] ([], b₁), .lam ns₂ [] ([], b₂) => ns₁ == ns₂ && b₁ == b₂
   | .lam .., .lam .. => false
   | .sexpr s₁, .sexpr s₂ => s₁ == s₂
@@ -105,7 +105,7 @@ mutual
 partial def bind (a : Expr) (env : Env) :
     List Name → EvalM ((Name × Thunk Value) × List Name)
   | n::ns => do
-    -- -- dbg_trace s!"[bind] {a.pprint} {n::ns}"
+    -- dbg_trace s!"[bind] {a.pprint} {n::ns}"
     let value ← evalM env a
     return ((n, value), ns)
   | [] => throw "too many arguments"
@@ -113,7 +113,7 @@ partial def bind (a : Expr) (env : Env) :
 partial def evalM (env : Env) (e : Expr) : EvalM Value :=
   match e with
   | .lit lit => do 
-    -- -- dbg_trace s!"[evalM] literal {format lit}"
+    -- dbg_trace s!"[evalM] literal {format lit}"
     return .lit lit
   | .sym n => do 
     -- dbg_trace s!"[evalM] symbol {n}"
@@ -162,7 +162,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
         -- dbg_trace s!"----- evaluating: {n} -----"
         return (n, ← e) :: acc
     | _ =>
-      ---- dbg_trace s!"[.app₀] evaluating {← evalM env fn}"
+      -- dbg_trace s!"[.app₀] evaluating {← evalM env fn}"
       match ← evalM env fn with
       | .lam [] [] body => evalM env body.2
       | _ => throw "application not a procedure"
@@ -182,15 +182,16 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
           fun (n, ee) => do
               return (n, ee)
 
-        ---- dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
-        ---- dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
+        -- dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        -- dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
         let env ← (ctxBinds.reverse ++ patchM.reverse).foldlM (init := default)
           fun acc (n, value) => do
-            ---- dbg_trace s!"[.app] inserting: {n}, {value}"
+            -- dbg_trace s!"[.app] inserting: {n}, {value}"
             return acc.insert n value
 
-        -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
-        ---- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
+        -- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
+        -- a lambda body should be evaluated in the context of
+        -- *its arguments alone* (plus whatever context it originally had)
         evalM env lb.2
       else
         -- -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
@@ -286,12 +287,5 @@ abbrev Test := Except String Value × Expr
 --     (car xs)
 --     ((getelem (cdr xs)) (- n 1))))))
 --  (getelem (cons 1 nil) 1))⟧
-
--- this one is very strange
-#eval ppEval ⟦(letrec ((exp (lambda (base) (lambda (exponent)
-                  (if (= 0 exponent)
-                      1
-                      (* base ((exp base) (- exponent 1))))))))
-            (let ((myexp exp) (exp (lambda (base) (lambda (exponent) 10)))) ((myexp 5) 3)))⟧
 
 end Lurk
