@@ -28,7 +28,7 @@ inductive TypecheckError where
   | noName : TypecheckError
   | impossible : TypecheckError
   | outOfRangeError : Name → Nat → Nat → TypecheckError
-  | outOfContextRange : Name → Nat → Nat → TypecheckError
+  | outOfEnvironmentRange : Name → Nat → Nat → TypecheckError
   | outOfConstsRange : Name → Nat → Nat → TypecheckError
   | custom : String → TypecheckError
   deriving Inhabited
@@ -46,7 +46,7 @@ instance : ToString TypecheckError where toString
   | .cannotApply => "Cannot apply argument list to type. Implementation broken."
   | .outOfRangeError name idx len => s!"'{name}' (index {idx}) out of the thunk list range (size {len})"
   | .outOfConstsRange name idx len => s!"'{name}' (index {idx}) out of the range of definitions (size {len})"
-  | .outOfContextRange name idx len => s!"'{name}' (index {idx}) out of context range (size {len})"
+  | .outOfEnvironmentRange name idx len => s!"'{name}' (index {idx}) out of environment range (size {len})"
   | .impossibleEqualCase => "Impossible equal case"
   | .impossibleProjectionCase => "Impossible case on projections"
   | .impossibleEvalCase => "Impossible eval case"

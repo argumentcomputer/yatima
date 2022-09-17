@@ -56,51 +56,51 @@ private partial def printSpine (neu : Neutral) (args : Args) : String :=
   | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
   | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
 
-/-- Auxiliary function to print the body of a lambda expression given `ctx : Context` -/
-private partial def printLamBod (expr : Expr) (ctx : Context) : String :=
+/-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
+private partial def printLamBod (expr : Expr) (env : Env) : String :=
   match expr with
   | .var _ nam 0 => s!"{nam}@0"
   | .var _ nam idx =>
-    match ctx.exprs.get? (idx-1) with
+    match env.exprs.get? (idx-1) with
    | some val => val.repr
    | none => s!"!{nam}@{idx}!"
   | .sort _ u => s!"(Sort {printUniv u})"
   | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
-  | .app _ fnc arg => s!"({printLamBod fnc ctx} {printLamBod arg ctx})"
+  | .app _ fnc arg => s!"({printLamBod fnc env} {printLamBod arg env})"
   | .lam _ nam binfo dom bod =>
     match binfo with
-    | .implicit => s!"(λ\{{nam}: {printLamBod dom ctx}}. {printLamBod bod ctx})"
-    | .strictImplicit => s!"(λ⦃{nam}: {printLamBod dom ctx}⦄. {printLamBod bod ctx})"
-    | .instImplicit => s!"(λ[{nam}: {printLamBod dom ctx}]. {printLamBod bod ctx})"
-    | _ => s!"(λ({nam}: {printLamBod dom ctx}). {printLamBod bod ctx})"
+    | .implicit => s!"(λ\{{nam}: {printLamBod dom env}}. {printLamBod bod env})"
+    | .strictImplicit => s!"(λ⦃{nam}: {printLamBod dom env}⦄. {printLamBod bod env})"
+    | .instImplicit => s!"(λ[{nam}: {printLamBod dom env}]. {printLamBod bod env})"
+    | _ => s!"(λ({nam}: {printLamBod dom env}). {printLamBod bod env})"
   | .pi _ nam binfo dom cod =>
     match binfo with
-    | .implicit => s!"(\{{nam}: {printLamBod dom ctx}} → {printLamBod cod ctx})"
-    | .strictImplicit => s!"(⦃{nam}: {printLamBod dom ctx}⦄ → {printLamBod cod ctx})"
-    | .instImplicit => s!"([{nam}: {printLamBod dom ctx}] → {printLamBod cod ctx})"
-    | _ => s!"(({nam}: {printLamBod dom ctx}) → {printLamBod cod ctx})"
-  | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ ctx} := {printLamBod val ctx} in {printLamBod bod ctx}"
+    | .implicit => s!"(\{{nam}: {printLamBod dom env}} → {printLamBod cod env})"
+    | .strictImplicit => s!"(⦃{nam}: {printLamBod dom env}⦄ → {printLamBod cod env})"
+    | .instImplicit => s!"([{nam}: {printLamBod dom env}] → {printLamBod cod env})"
+    | _ => s!"(({nam}: {printLamBod dom env}) → {printLamBod cod env})"
+  | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
   | .lit _ (.natVal x) => s!"{x}"
   | .lit _ (.strVal x) => s!"\"{x}\""
-  | .proj _ idx val => s!"{printLamBod val ctx}.{idx}"
+  | .proj _ idx val => s!"{printLamBod val env}.{idx}"
 
 /-- Printer of typechecker values -/
 partial def printVal : Value → String
   | .sort u => s!"(Sort {printUniv u})"
   | .app neu args => printSpine neu args
-  | .lam nam binfo bod ctx =>
+  | .lam nam binfo bod env =>
     match binfo with
-    | .implicit => s!"(λ\{{nam}}}. {printLamBod bod ctx})"
-    | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod ctx})"
-    | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
-    | _ => s!"(λ({nam}). {printLamBod bod ctx})"
-  | .pi nam binfo dom cod ctx =>
+    | .implicit => s!"(λ\{{nam}}}. {printLamBod bod env})"
+    | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod env})"
+    | .instImplicit => s!"(λ[{nam}]. {printLamBod bod env})"
+    | _ => s!"(λ({nam}). {printLamBod bod env})"
+  | .pi nam binfo dom cod env =>
     let dom := dom.repr
     match binfo with
-    | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod ctx})"
-    | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
-    | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
-    | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
+    | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod env})"
+    | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod env})"
+    | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod env})"
+    | _ => s!"(({nam}: {dom}) → {printLamBod cod env})"
   | .lit (.natVal x) => s!"{x}"
   | .lit (.strVal x) => s!"\"{x}\""
   | .proj idx neu args => s!"{printSpine neu args}.{idx}"

@@ -9,7 +9,7 @@ import Yatima.Typechecker.Printing
 This is the first of the three main files that constitute the Yatima typechecker: `Eval`, `Equal`,
 and `Infer`.
 
-TODO: Add a high level overview of Eval in the contenxt of Eval-Equal-Infer.
+TODO: Add a high level overview of Eval in the context of Eval-Equal-Infer.
 
 ## Evaluate
 
@@ -22,7 +22,7 @@ to evaluate further.
 namespace Yatima.Typechecker
 
 /--
-Looks for a constant by its index `constIdx` in the `TypecheckEnv` store and
+Looks for a constant by its index `constIdx` in the `TypecheckCtx` store and
 returns it if it is found. If the constant is not found it throws an error.
 
 Note: The `name : Name` is used only in the error messaging
@@ -43,30 +43,30 @@ mutual
   -/
   partial def eval : Expr → TypecheckM Value
     | .app _ fnc arg => do
-      let env ← read
-      let argThunk := suspend arg env
+      let ctx ← read
+      let argThunk := suspend arg ctx
       let fnc := (← eval fnc)
       apply fnc argThunk
     | .lam _ name info _ bod => do
-      let ctx := (← read).ctx
-      pure $ Value.lam name info bod ctx
+      let env := (← read).env
+      pure $ Value.lam name info bod env
     | .var _ name idx => do
-      let exprs := (← read).ctx.exprs
+      let exprs := (← read).env.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
       pure thunk.get
     | .const _ name k const_univs => do
-      let ctx := (← read).ctx
-      evalConst name k (const_univs.map (Univ.instBulkReduce ctx.univs))
+      let env := (← read).env
+      evalConst name k (const_univs.map (Univ.instBulkReduce env.univs))
     | .letE _ _ _ val bod => do
       let thunk := suspend val (← read)
-      withExtendedCtx thunk (eval bod)
+      withExtendedEnv thunk (eval bod)
     | .pi _ name info dom img => do
-      let env ← read
-      let dom' := suspend dom env
-      pure $ Value.pi name info dom' img env.ctx
+      let ctx ← read
+      let dom' := suspend dom ctx
+      pure $ Value.pi name info dom' img ctx.env
     | .sort _ univ => do
-      let ctx := (← read).ctx
-      pure $ Value.sort (Univ.instBulkReduce ctx.univs univ)
+      let env := (← read).env
+      pure $ Value.sort (Univ.instBulkReduce env.univs univ)
     | .lit _ lit => pure $ Value.lit lit
     | .proj _ idx expr => do
       match (← eval expr) with
@@ -88,22 +88,22 @@ mutual
     let zero? ← zeroIndexWith (pure false) (fun zeroIdx => pure $ const == zeroIdx)
     if zero? then pure $ .lit (.natVal 0)
     else match ← derefConst name const with
-    | .theorem x => withCtx ⟨[], univs⟩ $ eval x.value
+    | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
-      | .safe    => withCtx ⟨[], univs⟩ $ eval x.value
+      | .safe    => withEnv ⟨[], univs⟩ $ eval x.value
       | .partial => pure $ mkConst name const univs
       | .unsafe  => throw .unsafeDefinition
     | _ => pure $ mkConst name const univs
 
   /--
-  Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `env : TypecheckEnv`
+  Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `ctx : TypecheckCtx`
 
   Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
   -/
-  partial def suspend (expr : Expr) (env : TypecheckEnv) : Thunk Value :=
+  partial def suspend (expr : Expr) (ctx : TypecheckCtx) : Thunk Value :=
     {fn := fun _ =>
-      match TypecheckM.run env (eval expr) with
+      match TypecheckM.run ctx (eval expr) with
       | .ok a => a
       | .error e => .exception e,
      repr := toString expr}
@@ -121,8 +121,8 @@ mutual
   partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
     match value with
     -- bod : fun y => x^1 + y^0
-    | .lam _ _ bod lamCtx =>
-      withNewExtendedCtx lamCtx arg (eval bod)
+    | .lam _ _ bod lamEnv =>
+      withNewExtendedEnv lamEnv arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
     -- Since terms are well-typed we know that any other case is impossible
@@ -159,7 +159,7 @@ mutual
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-            withCtx ⟨exprs, univs⟩ $ eval ctor.rhs
+            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
@@ -175,7 +175,7 @@ mutual
             match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
             | some rule =>
               let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
-              withCtx ⟨exprs, univs⟩ $ eval rule.rhs
+              withEnv ⟨exprs, univs⟩ $ eval rule.rhs
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
