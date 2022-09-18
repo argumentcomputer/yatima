@@ -180,15 +180,14 @@ mutual
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     -- IO.print ">> exprToLurkExpr: "
     match e with 
-    | .sort  ..
-    | .lty   .. => return ⟦nil⟧
+    | .sort  .. => return ⟦nil⟧
     | .var _ name _     => 
       -- IO.println s!"var {name}"
       return ⟦$name⟧
     | .const _ name idx .. => do
       -- IO.println s!"const {name} {idx}"
       if !(← get).visited.contains name then 
-        let const := (← read).compileState.consts[idx]! -- TODO: Add proof later
+        let const := (← read).compileState.pStore.consts[idx]! -- TODO: Add proof later
         constToLurkExpr const
       return ⟦$name⟧
     | .app _ fn arg => 
@@ -205,10 +204,10 @@ mutual
       return .letE [(name, val)] body
     | .lit _ lit  => match lit with
       -- TODO: need to include `Int` somehow
-      | .num n =>
+      | .natVal n =>
         -- IO.println s!"lit {n}";
         return ⟦$n⟧
-      | .word s =>
+      | .strVal s =>
         -- IO.println s!"lit {s}";
         return ⟦$s⟧
     | .proj _ idx e => do
@@ -262,9 +261,9 @@ mutual
   where 
     getInductive (name : Name) : TranspileM Inductive := do 
       let indName := name.getPrefix
-      let store := (← read).compileState
-      match store.cache.find? indName with 
-      | some (_, idx) => match store.consts[idx]! with 
+      let compileState := (← read).compileState
+      match compileState.cache.find? indName with 
+      | some (_, idx) => match compileState.pStore.consts[idx]! with 
         | .inductive i => return i 
         | x => throw $ .invalidConstantKind x "inductive"
       | none => throw $ .notFoundInCache indName
@@ -293,11 +292,11 @@ def builtinInitialize : TranspileM Unit := do
 
 /-- Main translation function -/
 def transpileM : TranspileM Unit := do
-  let store := (← read).compileState
   builtinInitialize
-  for c in store.consts do 
-    if c.name == `root then 
+  for c in (← read).compileState.pStore.consts do
+    if c.name == `root then
       constToLurkExpr c
+      break
 
 /-- Constructs the array of bindings and builds a `Lurk.Expr.letRecE` from it -/
 def transpile (filePath : System.FilePath) (body : Lurk.Expr) : IO $ Except String Lurk.Expr := do

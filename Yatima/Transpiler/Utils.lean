@@ -34,7 +34,7 @@ Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 def getMutualIndInfo (ind : Inductive) : 
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let cache := (← read).compileState.cache
-  let consts := (← read).compileState.consts
+  let consts := (← read).compileState.pStore.consts
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name
@@ -80,7 +80,7 @@ def getMutualIndInfo (ind : Inductive) :
 
 /-- Gets the list of definitions involved in the mutual block of a definition -/
 def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
-  let consts := (← read).compileState.consts
+  let consts := (← read).compileState.pStore.consts
   defn.all.mapM fun constIdx =>
     match consts[constIdx]! with
     | .definition d => pure d

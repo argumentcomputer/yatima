@@ -3,6 +3,7 @@ import YatimaStdLib.RBMap
 import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
+import Yatima.Ipld.PrimCids
 
 namespace Yatima
 
@@ -169,6 +170,8 @@ mutual
   that the `.var` case may represent a recursive reference.
   -/
   partial def exprFromIpld (cid : Ipld.Both Ipld.ExprCid) : ConvertM Expr := do
+    
+    let eMeta := { (default : Expr.Meta) with hash := cid }
     match ← Key.find $ .expr_store cid with
     | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
       let depth := (← read).bindDepth
@@ -177,44 +180,44 @@ mutual
         if !lvlsAnon.isEmpty then
           -- bound free variables should never have universe levels
           throw $ .invalidIndexDepth idx.projₗ depth
-        pure $ .var cid name.projᵣ idx
+        pure $ .var eMeta name.projᵣ idx
       else
         -- this free variable came from recrCtx, and thus represents a mutual reference
         let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
           fun (anon, meta) => univFromIpld ⟨anon, meta⟩
         match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
-        | some (constIdx, name) => pure $ .const cid name constIdx lvls
+        | some (constIdx, name) => pure $ .const eMeta name constIdx lvls
         | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
     | ⟨.sort uAnonCid, .sort uMetaCid⟩ =>
-      pure $ .sort cid (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
+      pure $ .sort eMeta (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
     | ⟨.const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids⟩ =>
       let const ← constFromIpld ⟨cAnonCid, cMetaCid⟩
       let univs ← Ipld.zipWith univFromIpld ⟨uAnonCids, uMetaCids⟩
-      pure $ .const cid name const univs
+      pure $ .const eMeta name const univs
     | ⟨.app fncAnon argAnon, .app fncMeta argMeta⟩ =>
       let fnc ← exprFromIpld ⟨fncAnon, fncMeta⟩
       let arg ← exprFromIpld ⟨argAnon, argMeta⟩
-      pure $ .app cid fnc arg
+      pure $ .app eMeta fnc arg
     | ⟨.lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta⟩ =>
       let dom ← exprFromIpld ⟨domAnon, domMeta⟩
       withNewBind do
         let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-        pure $ .lam cid name binfo dom bod
+        pure $ .lam eMeta name binfo dom bod
     | ⟨.pi () binfo domAnon codAnon, .pi name () domMeta codMeta⟩ =>
       let dom ← exprFromIpld ⟨domAnon, domMeta⟩
       withNewBind do
         let cod ← exprFromIpld ⟨codAnon, codMeta⟩
-        pure $ .pi cid name binfo dom cod
+        pure $ .pi eMeta name binfo dom cod
     | ⟨.letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta⟩ =>
       let typ ← exprFromIpld ⟨typAnon, typMeta⟩
       let val ← exprFromIpld ⟨valAnon, valMeta⟩
       withNewBind do
         let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-        pure $ .letE cid name typ val bod
-    | ⟨.lit lit, .lit ()⟩ => pure $ .lit cid lit
+        pure $ .letE eMeta name typ val bod
+    | ⟨.lit lit, .lit ()⟩ => pure $ .lit eMeta lit
     | ⟨.proj idx bodAnon, .proj () bodMeta⟩ =>
       let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
-      pure $ .proj cid idx bod
+      pure $ .proj eMeta idx bod
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
   /-- Converts IPLD CIDs for a constant and return its constant index -/
@@ -339,10 +342,11 @@ mutual
         | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
         | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
         Key.cache (.const_cache cid) constIdx
-        let consts := (← get).consts
+        let pStore := (← get).pStore
+        let consts := pStore.consts
         let maxSize := consts.size
         if h : constIdx < maxSize then
-          set { ← get with consts := consts.set ⟨constIdx, h⟩ const }
+          set { ← get with pStore := { pStore with consts := consts.set ⟨constIdx, h⟩ const } }
         else
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
@@ -363,7 +367,7 @@ mutual
   partial def ruleFromIpld (rule : Ipld.Both Ipld.RecursorRule) : ConvertM RecursorRule := do
     let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let consts := (← get).consts
+    let consts := (← get).pStore.consts
     let maxSize := consts.size
     if h : ctorIdx < maxSize then
       let ctor ← match consts[ctorIdx]'h with
@@ -383,17 +387,24 @@ def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
     (← read).store.const_meta.toList.enum.forM fun (idx, (_, meta)) => do
       modifyGet fun state => (default, { state with
-        consts := state.consts.push default,
+        pStore := { state.pStore with consts := state.pStore.consts.push default },
         constsIdx := state.constsIdx.insert meta.name idx })
     (← read).store.consts.forM fun cid => discard $ constFromIpld cid
+    (← get).const_cache.forM fun cid idx => do
+      match Ipld.primCidsMap.find? cid.anon.data.toString with
+      | some .nat     => modify fun stt => { stt with pStore := { stt.pStore with natIdx     := some idx } }
+      | some .natZero => modify fun stt => { stt with pStore := { stt.pStore with natZeroIdx := some idx } }
+      | some .natSucc => modify fun stt => { stt with pStore := { stt.pStore with natSuccIdx := some idx } }
+      | some .string  => modify fun stt => { stt with pStore := { stt.pStore with stringIdx  := some idx } }
+      | none => pure ()
 
 /--
 Main function in the converter API. Extracts the final array of constants from
 an `Ipld.Store`
 -/
-def extractConstArray (store : Ipld.Store) : Except String (Array Const) :=
+def extractPureStore (store : Ipld.Store) : Except String PureStore :=
   match convertStore store with
-  | .ok stt => pure stt.consts
+  | .ok stt => pure stt.pStore
   | .error err => .error $ toString err
 
 end Converter
