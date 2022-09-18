@@ -45,7 +45,7 @@ Contains the progress of the conversion process.
 structure ConvertState where
   univ_cache  : RBMap UnivCid Univ compare
   const_cache : RBMap ConstCid ConstIdx compare
-  consts      : Array Const
+  pStore      : PureStore
   constsIdx   : RBMap Name ConstIdx compare
   deriving Inhabited
 

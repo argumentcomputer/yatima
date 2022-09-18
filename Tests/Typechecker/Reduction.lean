@@ -6,35 +6,31 @@ open Yatima LSpec
 
 open Typechecker
 
-def readBackNeutral : Neutral → Expr
-  | .fvar name idx _ => .var default name idx
-  | .const name idx univs => .const default name idx univs
-
 local instance : Coe (Except ε α) (Option α) where coe
   | .ok a => some a
   | .error _ => none
 
-partial def shiftCtx (ctx : Context) : Context :=
+partial def shiftEnv (env : Env) : Env :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
-  ctx.withExprs $ ctx.exprs.map fun val => match val.get with
-    | .app (.fvar name idx typ) args => Value.app (.fvar name (idx + 1) typ) args
+  env.withExprs $ env.exprs.map fun val => match val.get with
+    | .app (.fvar name idx) args => Value.app (.fvar name (idx + 1)) args
     | other => other
 
 mutual
   /--
-    Replace free variables in `e` with values from `ctx.exprs`.
+    Replace free variables in `e` with values from `env.exprs`.
   -/
-  partial def replaceFvars (consts : Array Const) (ctx : Context) (e : Expr) : Option Expr :=
-    let replace expr := replaceFvars consts ctx expr
+  partial def replaceFvars (consts : Array Const) (env : Env) (e : Expr) : Option Expr :=
+    let replace expr := replaceFvars consts env expr
     match e with
-      | .var _ _ idx => readBack consts (ctx.exprs.get! idx).get
+      | .var _ _ idx => readBack consts (env.exprs.get! idx).get
       | .app _ fn e  => do pure $ .app default (← replace fn) (← replace e)
       | .lam _ n bin t b => do
-        let lamCtx := shiftCtx ctx
-        let lamCtx := lamCtx.extendWith
+        let lamEnv := shiftEnv env
+        let lamEnv := lamEnv.extendWith
           -- TODO double-check ordering here
-          $ Value.app (.fvar n 0 $ Value.sort .zero) []
-        pure $ .lam default n bin (← replace t) (← replaceFvars consts lamCtx b)
+          $ Value.app (.fvar n 0) []
+        pure $ .lam default n bin (← replace t) (← replaceFvars consts lamEnv b)
       | .letE _ n e t b  => do pure $ .letE default n (← replace e) (← replace t) (← replace b)
       | .proj _ n e  => do pure $ .proj default n (← replace e)
       | e => pure e
@@ -53,30 +49,34 @@ mutual
   -/
   partial def readBack (consts : Array Const) : Value → Option Expr
     | .sort univ => pure $ .sort default univ
-    | .app neu args => args.foldlM (init := readBackNeutral neu) fun acc arg => do
+    | .app neu args => do args.foldlM (init := ← readBackNeutral consts neu) fun acc arg => do
       pure $ Expr.app default acc $ ← readBack consts arg.get
     | .lam name binfo bod env => do
       -- any neutral fvars in the environment are now additionally nested,
       -- and so must have their de bruijn indices incremented
-      let lamCtx := shiftCtx env
-      let lamCtx := lamCtx.extendWith
+      let lamEnv := shiftEnv env
+      let lamEnv := lamEnv.extendWith
         -- binder types are irrelevant to reduction and so are lost on evaluation;
         -- arbitrarily fill these in with `Sort 0`
         -- TODO double-check ordering here
-        $ Value.app (.fvar name 0 $ Value.sort .zero) []
-      pure $ .lam default name binfo (.sort default .zero) $ ← replaceFvars consts lamCtx bod
-    | .pi name binfo dom bod ctx => do
-      let piCtx := shiftCtx ctx
-      let piCtx := piCtx.extendWith
+        $ Value.app (.fvar name 0) []
+      pure $ .lam default name binfo (.sort default .zero) $ ← replaceFvars consts lamEnv bod
+    | .pi name binfo dom bod env => do
+      let piEnv := shiftEnv env
+      let piEnv := piEnv.extendWith
         -- TODO double-check ordering here
-        $ Value.app (.fvar name 0 dom) []
-      pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piCtx bod
+        $ Value.app (.fvar name 0) []
+      pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piEnv bod
     | .lit lit => pure $ .lit default lit
-    -- TODO need to look into this case in the typechecker to make sure this is correct
-    | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val =>
-      return .app default expr (← readBack consts val.get)
-    | .lty l => pure $ .lty default l
     | .exception _ => none
+
+  partial def readBackNeutral (consts : Array Const) : Neutral → Option Expr
+    | .fvar name idx => pure $ .var default name idx
+    | .const name idx univs => pure $ .const default name idx univs
+    | .proj idx val => do
+      let val ← readBack consts val
+      pure $ .proj default idx val
+
 end
 
 def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
@@ -90,12 +90,12 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       match state.cache.find? rconstName with
       | none            => notFound := notFound.push rconstName
       | some (_, ridx)  =>
-        let some (.definition const) ← pure state.consts[idx]? | throw "invalid definition index"
-        let some (.definition rconst) ← pure state.consts[ridx]? | throw "invalid definition index"
-        match TypecheckM.run (.init state.consts) $ eval const.value with
+        let some (.definition const) ← pure state.pStore.consts[idx]? | throw "invalid definition index"
+        let some (.definition rconst) ← pure state.pStore.consts[ridx]? | throw "invalid definition index"
+        match TypecheckM.run (.init state.pStore) $ eval const.value with
         | .ok value =>
           -- dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
-          let some expr ← pure $ readBack state.consts value | throw s!"failed to read back value {value}"
+          let some expr ← pure $ readBack state.pStore.consts value | throw s!"failed to read back value {value}"
           pairList := pairList.push ((constName, expr), (rconstName, rconst.value))
         | _ => .error "failed to evaluate value"
   if notFound.isEmpty then
@@ -136,7 +136,8 @@ def tcExtractor := extractTcTests
       (`H, `H'),
       (`I, `I'),
       (`J, `J'),
-      (`K, `K')
+      (`K, `K'),
+      (`L, `L')
     ]
 
 def main := do

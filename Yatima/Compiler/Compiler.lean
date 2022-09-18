@@ -1,40 +1,17 @@
 import Yatima.Compiler.Printing
 import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
-
-import Lean
+import Yatima.Ipld.PrimCids
 
 namespace Yatima.Compiler
 
 open Std (RBMap)
 
-instance : Coe Lean.BinderInfo BinderInfo where coe
-  | .default        => .default
-  | .auxDecl        => .auxDecl
-  | .instImplicit   => .instImplicit
-  | .strictImplicit => .strictImplicit
-  | .implicit       => .implicit
-
-instance : Coe Lean.Literal Literal where coe
-  | .natVal n => .num n
-  | .strVal s => .word s
-
-instance : Coe Lean.DefinitionSafety DefinitionSafety where coe
-  | .safe    => .safe
-  | .unsafe  => .unsafe
-  | .partial => .partial
-
-instance : Coe Lean.QuotKind QuotKind where coe
-  | .type => .type
-  | .ind  => .ind
-  | .lift => .lift
-  | .ctor => .ctor
-
 open ToIpld
 
 /-- Gets a constant from the array of constants -/
 def derefConst (idx : ConstIdx) : CompileM Const := do
-  let consts := (← get).consts
+  let consts := (← get).pStore.consts
   let size := consts.size
   if h : idx < size then
     return consts[idx]'h
@@ -162,7 +139,8 @@ mutual
     -- It is important to push first with some value so we don't lose the
     -- position of the constant in a recursive call
     let constIdx ← modifyGet fun stt =>
-      (stt.consts.size, { stt with consts := stt.consts.push default })
+      (stt.pStore.consts.size,
+        { stt with pStore := { stt.pStore with consts := stt.pStore.consts.push default } })
     let values : Ipld.Both Ipld.Const × Const ← match const with
       | .axiomInfo struct =>
         let (typeCid, type) ← compileExpr struct.type
@@ -228,13 +206,15 @@ mutual
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () [], .var name (Split.injᵣ none) [] ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .var cid name idx)
+          let meta := { (default : Expr.Meta) with hash := cid }
+          pure (cid, .var meta name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
         let (univCid, univ) ← compileUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .sort cid univ)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .sort meta univ)
       | .const name lvls =>
         let pairs ← lvls.mapM $ compileUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
@@ -245,7 +225,8 @@ mutual
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () (univCids.map (·.anon)),
             .var name i? (univCids.map (·.meta)) ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .const cid name ref univs)
+          let meta := { (default : Expr.Meta) with hash := cid }
+          pure (cid, .const meta name ref univs)
         | none =>
           let const ← getLeanConstant name
           let (constCid, const) ← getCompiledConst const
@@ -253,28 +234,32 @@ mutual
             ⟨ .const () constCid.anon $ univCids.map (·.anon),
               .const name constCid.meta $ univCids.map (·.meta) ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .const cid name const univs)
+          let meta := { (default : Expr.Meta) with hash := cid }
+          pure (cid, .const meta name const univs)
       | .app fnc arg =>
         let (fncCid, fnc) ← compileExpr fnc
         let (argCid, arg) ← compileExpr arg
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .app cid fnc arg)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .app meta fnc arg)
       | .lam name typ bod bnd =>
         let (typCid, typ) ← compileExpr typ
         let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .lam cid name bnd typ bod)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .lam meta name bnd typ bod)
       | .forallE name dom img bnd =>
         let (domCid, dom) ← compileExpr dom
         let (imgCid, img) ← withBinder name $ compileExpr img
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .pi cid name bnd dom img)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .pi meta name bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← compileExpr typ
         let (expCid, exp) ← compileExpr exp
@@ -282,16 +267,19 @@ mutual
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .letE cid name typ exp bod)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .letE meta name typ exp bod)
       | .lit lit =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .lit cid lit)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .lit meta lit)
       | .proj _ idx exp =>
         let (expCid, exp) ← compileExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .proj cid idx exp)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .proj meta idx exp)
       | .fvar ..  => throw $ .freeVariableExpr expr
       | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr
@@ -320,8 +308,8 @@ mutual
     -- append an array of `mutualConsts.length` to `consts` and save the mapping
     -- of all names in `mutualConsts` to their respective indices
     let mut firstIdx : ConstIdx ← modifyGet fun stt =>
-      (stt.consts.size,
-        { stt with consts := stt.consts ++ mkArray mutualConsts.length default })
+      (stt.pStore.consts.size,
+        { stt with pStore := { stt.pStore with consts := stt.pStore.consts ++ mkArray mutualConsts.length default } })
 
     let recrCtx := mutualConsts.enum.foldl (init := default)
       fun acc (i, n) => acc.insert n (i, none, firstIdx + i)
@@ -622,10 +610,11 @@ mutual
     
     -- Reserving the slots in the array of constants
     let mut firstIdx ← modifyGet fun stt =>
-      (stt.consts.size, { stt with consts := stt.consts ++ mkArray mutualSize default })
+      (stt.pStore.consts.size,
+        { stt with pStore := { stt.pStore with consts := stt.pStore.consts ++ mkArray mutualSize default } })
 
     -- Building the `recrCtx`
-    let mut recrCtx : RBMap Name RecrCtxEntry compare := RBMap.empty
+    let mut recrCtx := RBMap.empty
     let mut mutIdx := 0
     for (i, ds) in mutualDefs.enum do
       for (j, d) in ds.enum do
@@ -818,6 +807,13 @@ def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
       IO.println   "========================================="
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
+  (← get).cache.forM fun _ (cid, idx) =>
+    match Ipld.primCidsMap.find? cid.anon.data.toString with
+    | some .nat     => modify fun stt => { stt with pStore := { stt.pStore with natIdx     := idx } }
+    | some .natZero => modify fun stt => { stt with pStore := { stt.pStore with natZeroIdx := idx } }
+    | some .natSucc => modify fun stt => { stt with pStore := { stt.pStore with natSuccIdx := idx } }
+    | some .string  => modify fun stt => { stt with pStore := { stt.pStore with stringIdx  := idx } }
+    | none => pure ()
 
 /--
 Compiles the "delta" of a file, that is, the content that is added on top of

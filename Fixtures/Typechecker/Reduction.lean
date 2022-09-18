@@ -20,7 +20,7 @@ def proj₁ (s : Split Nat Bool true) : Nat := s.casesOn (fun n => n) (fun _ => 
 def proj₂ (s : Split Nat Bool false) : Bool := s.casesOn (fun _ => false) (fun b => b)
 
 def D  := proj₁ $ .injₗ $ .succ .zero
-def D' := Nat.succ .zero
+def D' := nat_lit 1
 
 def E  := proj₂ $ .injᵣ $ true
 def E' := true
@@ -81,10 +81,13 @@ structure TProd where
 def struc : TProd := ⟨Nat.zero, G, H⟩
 
 def I := struc.1
-def I' := Nat.zero
+def I' := nat_lit 0
 
 def J := struc.2
 def J' := MyNat.nope
 
 def K := struc.3
 def K' := MyNat.next $ .next $ .next $ .next $ .next $ .next .nope
+
+def L := 2 + 3
+def L' := nat_lit 5

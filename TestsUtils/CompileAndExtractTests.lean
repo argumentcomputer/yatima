@@ -88,7 +88,6 @@ def pairConstants (x y : Array Const) :
 def reindexExpr (map : NatNatMap) : Expr → Expr
   | e@(.var ..)
   | e@(.sort _ _)
-  | e@(.lty ..)
   | e@(.lit ..) => e
   | .const _ n i ls => .const default n (map.find! i) ls
   | .app _ e₁ e₂ => .app default (reindexExpr map e₁) (reindexExpr map e₂)
@@ -124,9 +123,9 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
-  withExceptOk "`FromIpld.extractConstArray` succeeds"
-    (extractConstArray stt.store) fun consts =>
-      withExceptOk "Pairing succeeds" (pairConstants stt.consts consts) $
+  withExceptOk "`FromIpld.extractPureStore` succeeds"
+    (extractPureStore stt.store) fun pStore =>
+      withExceptOk "Pairing succeeds" (pairConstants stt.pStore.consts pStore.consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
@@ -142,16 +141,16 @@ also be accepted by our implementation
 -/
 
 def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).store.filter (·.name == name)).forM checkConst
+  ((← read).pStore.consts.filter (·.name == name)).forM checkConst
 
-def typecheckConst (consts : Array Const) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init consts) (typecheckConstM name) with
+def typecheckConst (pStore : PureStore) (name : Name) : Except String Unit :=
+  match TypecheckM.run (.init pStore) (typecheckConstM name) with
   | .ok u => .ok u
   | .error err => throw $ toString err
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  stt.consts.foldl (init := .done) fun tSeq const =>
+  stt.pStore.consts.foldl (init := .done) fun tSeq const =>
     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConst stt.consts const.name) fun _ => .done
+      (typecheckConst stt.pStore const.name) fun _ => .done
 
 end Typechecking

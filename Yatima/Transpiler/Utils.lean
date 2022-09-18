@@ -34,7 +34,7 @@ Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 def getMutualIndInfo (ind : Inductive) : 
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let cache := (← read).compileState.cache
-  let consts := (← read).compileState.consts
+  let consts := (← read).compileState.pStore.consts
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name

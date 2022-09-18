@@ -18,7 +18,7 @@ import Yatima.Datatypes.Cid
 import Yatima.Datatypes.Const
 import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Kind
-import Yatima.Datatypes.Name
+import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Split
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Univ
@@ -32,6 +32,7 @@ import Yatima.ForLurkRepo.Printing
 import Yatima.ForLurkRepo.SExpr
 import Yatima.ForLurkRepo.Tests
 import Yatima.ForLurkRepo.Utils
+import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld
 import Yatima.Transpiler.LurkFunctions
 import Yatima.Transpiler.TranspileError

@@ -135,8 +135,8 @@ instance : Coe BinderInfo Ipld where coe
   | .auxDecl        => .number 4
 
 instance : Coe Literal Ipld where coe
-  | .num n => n
-  | .word s => .string s
+  | .natVal n => n
+  | .strVal s => .string s
 
 instance : Coe DefinitionSafety Ipld where coe
   | .safe    => .number 0

@@ -30,4 +30,13 @@ def Store.union (s s' : Store) : Store := ⟨
 
 end Ipld
 
+/-- Keeps track of the data used for typechecking -/
+structure PureStore where
+  consts     : Array Const
+  natIdx     : Option Nat
+  natZeroIdx : Option Nat
+  natSuccIdx : Option Nat
+  stringIdx  : Option Nat
+  deriving Inhabited
+
 end Yatima

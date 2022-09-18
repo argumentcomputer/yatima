@@ -19,7 +19,7 @@ instance : ToString BinderInfo where toString
   | .instImplicit   => "inst"
   | .auxDecl        => "auxDecl"
 
-def printDefSafety : Yatima.DefinitionSafety → String
+def printDefSafety : DefinitionSafety → String
   | .unsafe  => "unsafe "
   | .safe    => ""
   | .partial => "partial "
@@ -50,11 +50,11 @@ def isProp : Expr → Bool
   | _ => false
 
 def isAtomAux : Expr → Bool
-  | .const .. | .var .. | .lit .. | .lty .. => true
+  | .const .. | .var .. | .lit .. => true
   | _ => false
 
 def isAtom : Expr → Bool
-  | .const .. | .var .. | .lit .. | .lty .. => true
+  | .const .. | .var .. | .lit .. => true
   | .proj _ _ e => isAtom e
   | e => isProp e
 
@@ -115,10 +115,8 @@ mutual
     | .letE _ name type value body =>
       return s!"let {name} : {← printExpr type} := {← printExpr value} in {← printExpr body}"
     | .lit _ lit => return match lit with
-      | .num num => s!"{num}"
-      | .word str => s!"\"{str}\""
-    | .lty _ .num => return "Number"
-    | .lty _ .word => return "Word"
+      | .natVal num => s!"{num}"
+      | .strVal str => s!"\"{str}\""
     | .proj _ idx expr => return s!"{← paren expr}.{idx})"
 end
 

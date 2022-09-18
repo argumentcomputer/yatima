@@ -16,13 +16,13 @@ The state for the `Yatima.Compiler.CompileM` monad.
 -/
 structure CompileState where
   store  : Ipld.Store
-  consts : Array Const
+  pStore : PureStore
   cache  : RBMap Name (ConstCid × ConstIdx) compare
   deriving Inhabited
 
 /-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
 def CompileState.summary (s : CompileState) : String :=
-  let consts := ", ".intercalate $ s.consts.toList.map
+  let consts := ", ".intercalate $ s.pStore.consts.toList.map
     fun c => s!"{c.name} : {c.ctorName}"
   "Compilation summary:\n" ++
   s!"-----------Constants-----------\n" ++
@@ -57,7 +57,7 @@ structure CompileEnv where
   constMap : Lean.ConstMap
   univCtx  : List Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Lean.Name RecrCtxEntry compare
+  recrCtx  : Std.RBMap Name RecrCtxEntry compare
   log      : Bool
   deriving Inhabited
 
@@ -147,9 +147,10 @@ def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
 
 /-- Adds a constant to the array of constants at a given index -/
 def addToConsts (idx : ConstIdx) (c : Const) : CompileM Unit := do
-  let consts := (← get).consts
+  let pStore := (← get).pStore
+  let consts := pStore.consts
   if h : idx < consts.size then
-    modify fun stt => { stt with consts := consts.set ⟨idx, h⟩ c }
+    modify fun stt => { stt with pStore := {pStore with consts := consts.set ⟨idx, h⟩ c} }
   else
     throw $ .invalidConstantIndex idx consts.size
 
