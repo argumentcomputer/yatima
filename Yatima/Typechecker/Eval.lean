@@ -130,6 +130,7 @@ mutual
       withNewExtendedEnv lamEnv arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
+    | .app proj@(.proj ..) args => pure $ Value.app proj (arg :: args)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
 
@@ -219,7 +220,7 @@ mutual
     | .lit (.natVal v) => do
       let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
       let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
-      if v == 0 then evalConst `Nat.Zero zeroIdx []
+      if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
       else pure $ .app (.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
     | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
     | e => pure e

@@ -85,7 +85,7 @@ mutual
     | .fvar nam idx .. => s!"{nam}#{idx}"
     | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
     | .proj idx val => s!"{printVal val}.{idx}"
-    List.foldl (fun str arg => s!"({str} {arg.repr})") neu args
+    List.foldr (fun arg str => s!"({str} {arg.repr})") neu args
   
   /-- Printer of typechecker values -/
   partial def printVal : Value → String
