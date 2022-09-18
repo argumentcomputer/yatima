@@ -53,27 +53,48 @@ abbrev ConstIdx := Nat
 Hashes are optional values. All "static" expressions will have hashes, but the
 dynamic expressions, i.e., the ones generated on the fly, won't have hashes
 -/
-structure Hash where
+structure Expr.Hash where
   data : Option (Ipld.Both Ipld.ExprCid)
+  deriving BEq, Inhabited
+instance : Coe (Ipld.Both Ipld.ExprCid) Expr.Hash where coe x := ⟨ .some x ⟩
 
-instance : BEq Hash where beq _ _ := true
-instance : Coe (Ipld.Both Ipld.ExprCid) Hash where coe x := ⟨ .some x ⟩
-instance : Inhabited Hash where default := ⟨ .none ⟩
+/--
+Hashes of expressions and some flags that are populated after typechecking
+-/
+structure Expr.Meta where
+  hash   : Expr.Hash
+  prop? : Bool
+  proof? : Bool
+  unit?  : Bool
+  erase? : Bool
+  deriving Inhabited
+instance : BEq Expr.Meta where beq _ _ := true
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
-  | var   : Hash → Name → Nat → Expr
-  | sort  : Hash → Univ → Expr
-  | const : Hash → Name → ConstIdx → List Univ → Expr
-  | app   : Hash → Expr → Expr → Expr
-  | lam   : Hash → Name → BinderInfo → Expr → Expr → Expr
-  | pi    : Hash → Name → BinderInfo → Expr → Expr → Expr
-  | letE  : Hash → Name → Expr → Expr → Expr → Expr
-  | lit   : Hash → Literal → Expr
-  | proj  : Hash → Nat → Expr → Expr
+  | var   : Expr.Meta → Name → Nat → Expr
+  | sort  : Expr.Meta → Univ → Expr
+  | const : Expr.Meta → Name → ConstIdx → List Univ → Expr
+  | app   : Expr.Meta → Expr → Expr → Expr
+  | lam   : Expr.Meta → Name → BinderInfo → Expr → Expr → Expr
+  | pi    : Expr.Meta → Name → BinderInfo → Expr → Expr → Expr
+  | letE  : Expr.Meta → Name → Expr → Expr → Expr → Expr
+  | lit   : Expr.Meta → Literal → Expr
+  | proj  : Expr.Meta → Nat → Expr → Expr
   deriving BEq, Inhabited
 
 namespace Expr
+
+def meta : Expr → Meta
+  | var   m ..
+  | sort  m ..
+  | const m ..
+  | app   m ..
+  | lam   m ..
+  | pi    m ..
+  | letE  m ..
+  | lit   m ..
+  | proj  m .. => m
 
 def name : Expr → Option Name
   | var   _ n _

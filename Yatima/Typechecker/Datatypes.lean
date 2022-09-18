@@ -51,9 +51,9 @@ mutual
   reduce. They appear as the head of a stuck application.
   -/
   inductive Neutral
-    -- Here variables also carry their types purely for an optimization
-    | fvar  : Name → Nat → Thunk Value → Neutral
+    | fvar  : Name → Nat → Neutral
     | const : Name → ConstIdx → List Univ → Neutral
+    | proj  : Nat → Value → Neutral
     deriving Inhabited
 
   /-- Values are the final result of reduced well-typed expressions -/
@@ -70,7 +70,6 @@ mutual
     -- analogous to lambda bodies for their codomains
     | pi : Name → BinderInfo → Thunk Value → Expr → Env → Value
     | lit : Literal → Value
-    | proj : Nat → Neutral → List (Thunk Value) → Value
     | exception : TypecheckError → Value
     deriving Inhabited
 
@@ -79,6 +78,7 @@ end
 def Neutral.ctorName : Neutral → String
   | .fvar ..  => "fvar"
   | .const .. => "const"
+  | .proj .. => "proj"
 
 def Value.ctorName : Value → String
   | .sort _  => "sort"
@@ -86,7 +86,6 @@ def Value.ctorName : Value → String
   | .lam ..  => "lam"
   | .pi  ..  => "pi"
   | .lit  _  => "lit"
-  | .proj .. => "proj"
   | .exception _ => "exception"
 
 namespace Env
@@ -114,8 +113,8 @@ def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   Value.app (Neutral.const name k univs) []
 
 /-- Creates a new variable with a name, a de-Bruijn index and a type -/
-def mkVar (name : Name) (idx : Nat) (type : Thunk Value) : Value :=
-  .app (Neutral.fvar name idx type) []
+def mkVar (name : Name) (idx : Nat) : Value :=
+  .app (Neutral.fvar name idx) []
 
 /-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
 abbrev Args := List (Thunk Value)

@@ -50,12 +50,6 @@ def printExpr : Expr → String
   | .lit _ (.strVal x) => s!"\"{x}\""
   | .proj _ idx val => s!"{printExpr val}.{idx}"
 
-/-- Auxiliary function to print a chain of unevaluated applications as a single application -/
-private partial def printSpine (neu : Neutral) (args : Args) : String :=
-  match neu with
-  | .fvar nam idx .. => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}#{idx}" args
-  | .const nam k univs => List.foldl (fun str arg => s!"({str} {arg.repr})") s!"{nam}@{k}.{univs.map printUniv}" args
-
 /-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
 private partial def printLamBod (expr : Expr) (env : Env) : String :=
   match expr with
@@ -84,27 +78,36 @@ private partial def printLamBod (expr : Expr) (env : Env) : String :=
   | .lit _ (.strVal x) => s!"\"{x}\""
   | .proj _ idx val => s!"{printLamBod val env}.{idx}"
 
-/-- Printer of typechecker values -/
-partial def printVal : Value → String
-  | .sort u => s!"(Sort {printUniv u})"
-  | .app neu args => printSpine neu args
-  | .lam nam binfo bod env =>
-    match binfo with
-    | .implicit => s!"(λ\{{nam}}}. {printLamBod bod env})"
-    | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod env})"
-    | .instImplicit => s!"(λ[{nam}]. {printLamBod bod env})"
-    | _ => s!"(λ({nam}). {printLamBod bod env})"
-  | .pi nam binfo dom cod env =>
-    let dom := dom.repr
-    match binfo with
-    | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod env})"
-    | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod env})"
-    | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod env})"
-    | _ => s!"(({nam}: {dom}) → {printLamBod cod env})"
-  | .lit (.natVal x) => s!"{x}"
-  | .lit (.strVal x) => s!"\"{x}\""
-  | .proj idx neu args => s!"{printSpine neu args}.{idx}"
-  | .exception e => s!"exception {e}"
+mutual
+  /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
+  private partial def printSpine (neu : Neutral) (args : Args) : String :=
+    let neu := match neu with
+    | .fvar nam idx .. => s!"{nam}#{idx}"
+    | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+    | .proj idx val => s!"{printVal val}.{idx}"
+    List.foldl (fun str arg => s!"({str} {arg.repr})") neu args
+  
+  /-- Printer of typechecker values -/
+  partial def printVal : Value → String
+    | .sort u => s!"(Sort {printUniv u})"
+    | .app neu args => printSpine neu args
+    | .lam nam binfo bod ctx =>
+      match binfo with
+      | .implicit => s!"(λ\{{nam}}}. {printLamBod bod ctx})"
+      | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod ctx})"
+      | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
+      | _ => s!"(λ({nam}). {printLamBod bod ctx})"
+    | .pi nam binfo dom cod ctx =>
+      let dom := dom.repr
+      match binfo with
+      | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod ctx})"
+      | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
+      | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
+      | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
+    | .lit (.natVal x) => s!"{x}"
+    | .lit (.strVal x) => s!"\"{x}\""
+    | .exception e => s!"exception {e}"
+end
 
 instance : ToString Expr  where toString := printExpr
 instance : ToString Univ  where toString := printUniv

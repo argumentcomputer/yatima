@@ -6,10 +6,6 @@ open Yatima LSpec
 
 open Typechecker
 
-def readBackNeutral : Neutral → Expr
-  | .fvar name idx _ => .var default name idx
-  | .const name idx univs => .const default name idx univs
-
 local instance : Coe (Except ε α) (Option α) where coe
   | .ok a => some a
   | .error _ => none
@@ -17,7 +13,7 @@ local instance : Coe (Except ε α) (Option α) where coe
 partial def shiftEnv (env : Env) : Env :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
   env.withExprs $ env.exprs.map fun val => match val.get with
-    | .app (.fvar name idx typ) args => Value.app (.fvar name (idx + 1) typ) args
+    | .app (.fvar name idx) args => Value.app (.fvar name (idx + 1)) args
     | other => other
 
 mutual
@@ -33,7 +29,7 @@ mutual
         let lamEnv := shiftEnv env
         let lamEnv := lamEnv.extendWith
           -- TODO double-check ordering here
-          $ Value.app (.fvar n 0 $ Value.sort .zero) []
+          $ Value.app (.fvar n 0) []
         pure $ .lam default n bin (← replace t) (← replaceFvars consts lamEnv b)
       | .letE _ n e t b  => do pure $ .letE default n (← replace e) (← replace t) (← replace b)
       | .proj _ n e  => do pure $ .proj default n (← replace e)
@@ -53,7 +49,7 @@ mutual
   -/
   partial def readBack (consts : Array Const) : Value → Option Expr
     | .sort univ => pure $ .sort default univ
-    | .app neu args => args.foldlM (init := readBackNeutral neu) fun acc arg => do
+    | .app neu args => do args.foldlM (init := ← readBackNeutral consts neu) fun acc arg => do
       pure $ Expr.app default acc $ ← readBack consts arg.get
     | .lam name binfo bod env => do
       -- any neutral fvars in the environment are now additionally nested,
@@ -63,19 +59,24 @@ mutual
         -- binder types are irrelevant to reduction and so are lost on evaluation;
         -- arbitrarily fill these in with `Sort 0`
         -- TODO double-check ordering here
-        $ Value.app (.fvar name 0 $ Value.sort .zero) []
+        $ Value.app (.fvar name 0) []
       pure $ .lam default name binfo (.sort default .zero) $ ← replaceFvars consts lamEnv bod
     | .pi name binfo dom bod env => do
       let piEnv := shiftEnv env
       let piEnv := piEnv.extendWith
         -- TODO double-check ordering here
-        $ Value.app (.fvar name 0 dom) []
+        $ Value.app (.fvar name 0) []
       pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piEnv bod
     | .lit lit => pure $ .lit default lit
-    -- TODO need to look into this case in the typechecker to make sure this is correct
-    | .proj idx neu vals => vals.foldlM (init := readBackNeutral neu) fun expr val =>
-      return .app default expr (← readBack consts val.get)
     | .exception _ => none
+
+  partial def readBackNeutral (consts : Array Const) : Neutral → Option Expr
+    | .fvar name idx => pure $ .var default name idx
+    | .const name idx univs => pure $ .const default name idx univs
+    | .proj idx val => do
+      let val ← readBack consts val
+      pure $ .proj default idx val
+
 end
 
 def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :

@@ -69,18 +69,23 @@ mutual
       pure $ Value.sort (Univ.instBulkReduce env.univs univ)
     | .lit _ lit => pure $ Value.lit lit
     | .proj _ idx expr => do
-      match (← eval expr) with
-      | .app neu@(.const name k _) args =>
+      let val ← eval expr
+      match val with
+      | .app (.const name k _) args =>
         match ← derefConst name k with
         | .constructor ctor =>
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx
-          let some arg := args.reverse.get? idx | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
+          let some arg := args.reverse.get? idx
+            | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        | _ => pure $ .proj idx neu args
-      | .app neu args => pure $ .proj idx neu args
-      | _ => throw .impossible
+        | _ =>
+          pure $ .app (.proj idx val) []
+      | .app (.fvar ..) ..
+      | .app (.proj ..) .. =>
+        pure $ .app (.proj idx val) []
+      | e => throw $ .custom s!"Value {e} is impossible to project"
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :

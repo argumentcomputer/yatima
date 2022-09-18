@@ -206,13 +206,15 @@ mutual
         | some name =>
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () [], .var name (Split.injᵣ none) [] ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .var cid name idx)
+          let meta := { (default : Expr.Meta) with hash := cid }
+          pure (cid, .var meta name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
         let (univCid, univ) ← compileUniv lvl
         let value : Ipld.Both Ipld.Expr := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .sort cid univ)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .sort meta univ)
       | .const name lvls =>
         let pairs ← lvls.mapM $ compileUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
@@ -223,7 +225,8 @@ mutual
           let value : Ipld.Both Ipld.Expr := ⟨ .var idx () (univCids.map (·.anon)),
             .var name i? (univCids.map (·.meta)) ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .const cid name ref univs)
+          let meta := { (default : Expr.Meta) with hash := cid }
+          pure (cid, .const meta name ref univs)
         | none =>
           let const ← getLeanConstant name
           let (constCid, const) ← getCompiledConst const
@@ -231,28 +234,32 @@ mutual
             ⟨ .const () constCid.anon $ univCids.map (·.anon),
               .const name constCid.meta $ univCids.map (·.meta) ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .const cid name const univs)
+          let meta := { (default : Expr.Meta) with hash := cid }
+          pure (cid, .const meta name const univs)
       | .app fnc arg =>
         let (fncCid, fnc) ← compileExpr fnc
         let (argCid, arg) ← compileExpr arg
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .app cid fnc arg)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .app meta fnc arg)
       | .lam name typ bod bnd =>
         let (typCid, typ) ← compileExpr typ
         let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .lam () bnd typCid.anon bodCid.anon, .lam name () typCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .lam cid name bnd typ bod)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .lam meta name bnd typ bod)
       | .forallE name dom img bnd =>
         let (domCid, dom) ← compileExpr dom
         let (imgCid, img) ← withBinder name $ compileExpr img
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .pi () bnd domCid.anon imgCid.anon, .pi name () domCid.meta imgCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .pi cid name bnd dom img)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .pi meta name bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← compileExpr typ
         let (expCid, exp) ← compileExpr exp
@@ -260,16 +267,19 @@ mutual
         let value : Ipld.Both Ipld.Expr :=
           ⟨ .letE () typCid.anon expCid.anon bodCid.anon, .letE name typCid.meta expCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .letE cid name typ exp bod)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .letE meta name typ exp bod)
       | .lit lit =>
         let value : Ipld.Both Ipld.Expr := ⟨ .lit lit, .lit () ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .lit cid lit)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .lit meta lit)
       | .proj _ idx exp =>
         let (expCid, exp) ← compileExpr exp
         let value : Ipld.Both Ipld.Expr := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .proj cid idx exp)
+        let meta := { (default : Expr.Meta) with hash := cid }
+        pure (cid, .proj meta idx exp)
       | .fvar ..  => throw $ .freeVariableExpr expr
       | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr

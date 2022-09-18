@@ -19,6 +19,42 @@ In this module the two major functions `check` and `infer` are defined.
 
 namespace Yatima.Typechecker
 
+/-- Reduces the application of a `pi` type to its arguments -/
+def applyType : Value → List (Thunk Value) → TypecheckM Value
+  | .pi _ _ _ img imgCtx, arg :: args => do
+    let res ← withEnv (imgCtx.extendWith arg) (eval img)
+    applyType res args
+  | type, [] => pure type
+  | _, _ => throw .cannotApply
+
+-- /-- Checks if a type is an unit inductive -/
+-- def isUnit : Value → TypecheckM Bool
+--   | .app (.const name i _) _ => do
+--     match ← derefConst name i with
+--     | .inductive induct => pure induct.unit
+--     | _ => pure false
+--   | _ => pure false
+
+/-- Determines if a value at level `lvl` is a `Prop` ( ↔ `Sort 0`) -/
+partial def isProp (lvl : Nat) : Value → TypecheckM Bool
+  | .pi name _ dom img ctx => do
+    let res ← withNewExtendedEnvByVar ctx name lvl $ eval img
+    -- A pi type is a proposition if and only if its image is a proposition
+    isProp (lvl + 1) res
+  | .app neu args => do
+    let type ← match neu with
+      | .const constName k us => do
+        let const ← derefConst constName k
+        let ctx := { (← read) with env := ⟨ [], us ⟩ }
+        pure $ suspend const.type ctx
+      | .fvar _ _ => sorry
+      | .proj _ _ => sorry
+    match ← applyType type.get args with
+    | .sort u => pure u.isZero
+    | _ => pure false
+  | .sort _ => pure false
+  | _ => pure false -- these are actually impossible cases
+
 mutual
   /-- 
   Checks that `term : Expr` has type `type : Value`, and throws `TypecheckError.valueMismatch`
@@ -32,7 +68,7 @@ mutual
         -- TODO check that `lamDom` == `dom`
         -- though this is wasteful, since this would force
         -- `dom`, which might not need to be evaluated.
-        let var := mkVar lamName (← read).lvl dom
+        let var := mkVar lamName (← read).lvl
         let img ← withNewExtendedEnv env var $ eval img
         withExtendedCtx var dom $ check bod img
       | val => throw $ .notPi (printVal val)
@@ -44,7 +80,7 @@ mutual
       withExtendedCtx exp expType $ check bod type
     | _ =>
       let inferType ← infer term
-      if !(← equal (← read).lvl type inferType (.sort .zero)) then
+      if !(← equal (← read).lvl type inferType) then
         throw $ .valueMismatch (printVal inferType) (printVal type)
 
   /-- Infers the type of `term : Expr` -/
@@ -73,7 +109,7 @@ mutual
       let domLvl ← isSort dom
       let ctx ← read
       let dom := suspend dom ctx
-      withExtendedCtx (mkVar name ctx.lvl dom) dom $ do
+      withExtendedCtx (mkVar name ctx.lvl) dom $ do
         let imgLvl ← isSort img
         let lvl := Univ.reduceIMax domLvl imgLvl
         return Value.sort lvl

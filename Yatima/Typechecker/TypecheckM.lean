@@ -78,9 +78,9 @@ def withNewExtendedEnv (env : Env) (thunk : Thunk Value) :
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
 by a free variable with name `name : Name`, de-Bruijn index `i : Nat`, and type `type : ThunK Value`
 -/
-def withNewExtendedEnvByVar (env : Env) (name : Name) (i : Nat) (type : Thunk Value) :
+def withNewExtendedEnvByVar (env : Env) (name : Name) (i : Nat) :
     TypecheckM α → TypecheckM α :=
-  withNewExtendedEnv env (mkVar name i type)
+  withNewExtendedEnv env (mkVar name i)
 
 def natIndex : TypecheckM Nat := do
   match (← read).pStore.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
