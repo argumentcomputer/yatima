@@ -89,24 +89,24 @@ mutual
   
   /-- Printer of typechecker values -/
   partial def printVal : Value → String
-    | .sort u => s!"(Sort {printUniv u})"
-    | .app neu args => printSpine neu args
-    | .lam nam binfo bod ctx =>
+    | .sort _ u => s!"(Sort {printUniv u})"
+    | .app _ neu args => printSpine neu args
+    | .lam _ nam binfo bod ctx =>
       match binfo with
       | .implicit => s!"(λ\{{nam}}}. {printLamBod bod ctx})"
       | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod ctx})"
       | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
       | _ => s!"(λ({nam}). {printLamBod bod ctx})"
-    | .pi nam binfo dom cod ctx =>
+    | .pi _ nam binfo dom cod ctx =>
       let dom := dom.repr
       match binfo with
       | .implicit => s!"(\{{nam}: {dom}} → {printLamBod cod ctx})"
       | .strictImplicit => s!"(⦃{nam}: {dom}⦄ → {printLamBod cod ctx})"
       | .instImplicit => s!"([{nam}: {dom}] → {printLamBod cod ctx})"
       | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
-    | .lit (.natVal x) => s!"{x}"
-    | .lit (.strVal x) => s!"\"{x}\""
-    | .exception e => s!"exception {e}"
+    | .lit _ (.natVal x) => s!"{x}"
+    | .lit _ (.strVal x) => s!"\"{x}\""
+    | .exception _ e => s!"exception {e}"
 end
 
 instance : ToString Expr  where toString := printExpr

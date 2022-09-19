@@ -63,7 +63,7 @@ Hashes of expressions and some flags that are populated after typechecking
 -/
 structure Expr.Meta where
   hash   : Expr.Hash
-  prop? : Bool
+  prop?  : Bool
   proof? : Bool
   unit?  : Bool
   erase? : Bool
