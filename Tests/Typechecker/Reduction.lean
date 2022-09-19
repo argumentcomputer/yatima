@@ -23,17 +23,17 @@ mutual
   partial def replaceFvars (consts : Array Const) (env : Env) (e : Expr) : Option Expr :=
     let replace expr := replaceFvars consts env expr
     match e with
-      | .var _ _ idx => readBack consts (env.exprs.get! idx).get
-      | .app _ fn e  => do pure $ .app default (← replace fn) (← replace e)
-      | .lam _ n bin t b => do
-        let lamEnv := shiftEnv env
-        let lamEnv := lamEnv.extendWith
-          -- TODO double-check ordering here
-          $ Value.app (.fvar n 0) []
-        pure $ .lam default n bin (← replace t) (← replaceFvars consts lamEnv b)
-      | .letE _ n e t b  => do pure $ .letE default n (← replace e) (← replace t) (← replace b)
-      | .proj _ n e  => do pure $ .proj default n (← replace e)
-      | e => pure e
+    | .var _ _ idx => readBack consts (env.exprs.get! idx).get
+    | .app _ fn e  => return .app default (← replace fn) (← replace e)
+    | .lam _ n bin ty b => do
+      let lamEnv := shiftEnv env
+      let lamEnv := lamEnv.extendWith
+        -- TODO double-check ordering here
+        $ Value.app (.fvar n 0) []
+      return .lam default n bin (← replace ty) (← replaceFvars consts lamEnv b)
+    | .letE _ n e ty b  => return .letE default n (← replace e) (← replace ty) (← replace b)
+    | .proj _ n e  => return .proj default n (← replace e)
+    | e => pure e
 
   /--
     Convert a `Value` back into its `Expr` representation.
@@ -110,7 +110,7 @@ def stripBinderTypes : Expr → Expr
   | .lam _ n bin _ b => .lam default n bin (.sort default .zero) (stripBinderTypes b)
   | .pi _ n bin _ b => .pi default n bin (.sort default .zero) (stripBinderTypes b)
   | .app _ fn e  => .app default (stripBinderTypes fn) (stripBinderTypes e)
-  | .letE _ n e t b  => .letE default n (stripBinderTypes e) (stripBinderTypes t) (stripBinderTypes b)
+  | .letE _ n e ty b  => .letE default n (stripBinderTypes e) (stripBinderTypes ty) (stripBinderTypes b)
   | .proj _ n e  => .proj default n (stripBinderTypes e)
   | e => e
 
