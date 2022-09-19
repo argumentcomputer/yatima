@@ -85,15 +85,15 @@ def NatRec : Name × Expr := (``Nat.rec, ⟦
      (succ (- _t 1) (Nat_rec motive zero succ (- _t 1)))))
 ⟧)
 
-def NatAdd : Name × Expr := ( ``Nat.add, ⟦
+def NatAdd : Name × Expr := (``Nat.add, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
 ⟧)
 
-def NatMul : Name × Expr := ( ``Nat.mul, ⟦
+def NatMul : Name × Expr := (``Nat.mul, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
 ⟧)
 
-def NatDiv : Name × Expr := ( ``Nat.div, ⟦
+def NatDiv : Name × Expr := (``Nat.div, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (< _x_lurk_1 _x_lurk_2)
         0

@@ -46,8 +46,8 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
         | .ok _       => cronos ← cronos.clock "Typechecking"
         | .error msg  => IO.eprintln msg; return 1
       cronos ← cronos.clock "Transpilation"
-      let root := p.flag? "root" |>.map (Flag.as! · String) |>.getD "root"
-      let root : Lean.Name := .mkSimple root
+      let root : Lean.Name := .mkSimple $
+        p.flag? "root" |>.map (Flag.as! · String) |>.getD "root"
       match transpile stt root with
       | .error msg => IO.eprintln msg
       | .ok exp =>
@@ -81,9 +81,9 @@ def pipeCmd : Cli.Cmd := `[Cli|
     l, "log";             "Logs compilation progress"
     s, "summary";         "Prints a compilation summary at the end of the process"
     ty, "typecheck";      "Typechecks the Yatima IR code"
+    rt, "root" : String;  "Sets the root call for the Lurk evaluation (defaults to `root`)"
     o, "output" : String; "Specifies the target file name for the Lurk code"
     r, "run";             "Runs the evaluation of the resulting Lurk expression"
-    rt, "root";           "Sets the root call for the Lurk evaluation (defaults to `root`)"
     "no-erase-types";     "Do not erase types from the Yatima source"
 
   ARGS:
