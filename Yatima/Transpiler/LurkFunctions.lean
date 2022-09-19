@@ -100,7 +100,7 @@ def NatDiv : Name × Expr := (``Nat.div, ⟦
         (+ (Nat_div (- _x_lurk_1 _x_lurk_2) _x_lurk_2) 1)))
 ⟧)
 
-def NatDecLe : Name × Expr := ( ``Nat.decLe, ⟦
+def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (<= _x_lurk_1 _x_lurk_2)
         ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) T)
@@ -108,7 +108,7 @@ def NatDecLe : Name × Expr := ( ``Nat.decLe, ⟦
 ⟧)
 
 -- doesn't quite work yet because depends on `Bool`
-def NatBeq : Name × Expr := ( ``Nat.beq, ⟦
+def NatBeq : Name × Expr := (``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (
     if (= _x_lurk_1 _x_lurk_2) 
       Bool_true
