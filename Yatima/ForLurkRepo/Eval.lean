@@ -14,7 +14,6 @@ inductive Value where
   | env  : List (Name × Value) → Value
   deriving Inhabited
 
-
 partial def BEqVal : Value → Value → Bool
   | .lit l₁, .lit l₂ => l₁ == l₂
   | .lam ns₁ [] ([], b₁), .lam ns₂ [] ([], b₂) => ns₁ == ns₂ && b₁ == b₂
@@ -248,13 +247,13 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
     throw "floating `current-env`, try `(current-env)` instead"
 end
 
-def eval (e : Expr) (env : Env := default) : IO $ Except String Value := do
-  match (EStateM.run (ExceptT.run (evalM env e)) ()) with
-  | .ok res _ => pure res
-  | .error _ _ => throw $ .otherError 0 "HERE" -- FIXME
+def eval (e : Expr) : Except String Value :=
+  match (ExceptT.run (evalM default e)) () with
+  | .ok res _ => res
+  | .error _ _ => .error "FIXME"
 
-def ppEval (e : Expr) (env : Env := default) : IO Format :=
-  match (EStateM.run (ExceptT.run (evalM env e)) ()) with
+def ppEval (e : Expr) : IO Format :=
+  match (ExceptT.run (evalM default e)) () with
   | .ok res _ => match res with
     | .ok v => pure v.pprint
     | .error s => throw $ .otherError 0 s -- FIXME

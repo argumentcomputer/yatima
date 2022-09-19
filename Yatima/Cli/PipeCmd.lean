@@ -46,7 +46,9 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
         | .ok _       => cronos ← cronos.clock "Typechecking"
         | .error msg  => IO.eprintln msg; return 1
       cronos ← cronos.clock "Transpilation"
-      match ← transpile' ⟨stt, []⟩ ⟦root⟧ with
+      let root := p.flag? "root" |>.map (Flag.as! · String) |>.getD "root"
+      let root : Lean.Name := .mkSimple root
+      match transpile stt root with
       | .error msg => IO.eprintln msg
       | .ok exp =>
         cronos ← cronos.clock "Transpilation"
@@ -57,7 +59,7 @@ def pipeRun (p : Cli.Parsed) : IO UInt32 := do
         let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
         IO.FS.writeFile fname s!"{(exp.pprint false).pretty 70}"
         if p.hasFlag "run" then
-          IO.println $ ← Lurk.ppEval exp default
+          IO.println $ ← Lurk.ppEval exp
       return 0
     else
       IO.eprintln "No store argument was found."
@@ -76,11 +78,12 @@ def pipeCmd : Cli.Cmd := `[Cli|
   FLAGS:
     p, "prelude"; "Optimizes the compilation of prelude files without imports." ++
       " All files to be compiled must follow this rule"
-    l, "log";             "Logs transpilation progress"
-    s, "summary";         "Prints a transpilation summary at the end of the process"
+    l, "log";             "Logs compilation progress"
+    s, "summary";         "Prints a compilation summary at the end of the process"
     ty, "typecheck";      "Typechecks the Yatima IR code"
     o, "output" : String; "Specifies the target file name for the Lurk code"
     r, "run";             "Runs the evaluation of the resulting Lurk expression"
+    rt, "root";           "Sets the root call for the Lurk evaluation (defaults to `root`)"
     "no-erase-types";     "Do not erase types from the Yatima source"
 
   ARGS:
