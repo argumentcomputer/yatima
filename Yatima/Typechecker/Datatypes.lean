@@ -27,7 +27,35 @@ When we talk about "unevaluated expressions", you should think of these
 expression/environment pairs. They are also called *closures*
 -/
 
+/--
+  The value's metadata is a simplified form of the value's type, with only
+  relevant information for typechecking. Namely, whether the value is a proof
+  or value of some unit-like type, which means conversion checking can be
+  shortcircuited, or whether the value is a proposition, which is used for
+  checking if a projection is allowed or not
+-/
+structure Value.Meta where
+  prop? : Bool
+  proofOrUnit? : Bool
+  deriving Inhabited
+
 mutual
+  /-- Values are the final result of reduced well-typed expressions -/
+  inductive Value
+    -- Type universes. It is assumed `Univ` is reduced/simplified
+    | sort : Value.Meta → Univ → Value
+    -- Values can only be an application if its a stuck application. That is, if
+    -- the head of the application is neutral
+    | app : Value.Meta → Neutral → List (Thunk Value) → Value
+    -- Lambdas are unevaluated expressions with environments for their free
+    -- variables apart from their argument variables
+    | lam : Value.Meta → Name → BinderInfo → Expr → Env → Value
+    -- Pi types will have thunks for their domains and unevaluated expressions
+    -- analogous to lambda bodies for their codomains
+    | pi : Value.Meta → Name → BinderInfo → Thunk Value → Expr → Env → Value
+    | lit : Value.Meta → Literal → Value
+    | exception : Value.Meta → TypecheckError → Value
+    deriving Inhabited
 
   /--
   The environment will bind free variables to different things, depending on
@@ -56,23 +84,6 @@ mutual
     | proj  : Nat → Value → Neutral
     deriving Inhabited
 
-  /-- Values are the final result of reduced well-typed expressions -/
-  inductive Value
-    -- Type universes. It is assumed `Univ` is reduced/simplified
-    | sort : Univ → Value
-    -- Values can only be an application if its a stuck application. That is, if
-    -- the head of the application is neutral
-    | app : Neutral → List (Thunk Value) → Value
-    -- Lambdas are unevaluated expressions with environments for their free
-    -- variables apart from their argument variables
-    | lam : Name → BinderInfo → Expr → Env → Value
-    -- Pi types will have thunks for their domains and unevaluated expressions
-    -- analogous to lambda bodies for their codomains
-    | pi : Name → BinderInfo → Thunk Value → Expr → Env → Value
-    | lit : Literal → Value
-    | exception : TypecheckError → Value
-    deriving Inhabited
-
 end
 
 def Neutral.ctorName : Neutral → String
@@ -80,13 +91,21 @@ def Neutral.ctorName : Neutral → String
   | .const .. => "const"
   | .proj .. => "proj"
 
+def Value.meta : Value → Value.Meta
+  | .sort m ..
+  | .app  m ..
+  | .lam  m ..
+  | .pi   m ..
+  | .lit  m ..
+  | .exception m .. => m
+
 def Value.ctorName : Value → String
-  | .sort _  => "sort"
+  | .sort ..  => "sort"
   | .app ..  => "app"
   | .lam ..  => "lam"
   | .pi  ..  => "pi"
-  | .lit  _  => "lit"
-  | .exception _ => "exception"
+  | .lit ..  => "lit"
+  | .exception .. => "exception"
 
 namespace Env
 
@@ -109,12 +128,12 @@ def withExprs (env : Env) (exprs : List (Thunk Value)) : Env :=
 end Env
 
 /-- Creates a new constant with a name, a constant index and an universe list -/
-def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
-  Value.app (Neutral.const name k univs) []
+def mkConst (meta : Value.Meta) (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
+  Value.app meta (Neutral.const name k univs) []
 
 /-- Creates a new variable with a name, a de-Bruijn index and a type -/
-def mkVar (name : Name) (idx : Nat) : Value :=
-  .app (Neutral.fvar name idx) []
+def mkVar (meta : Value.Meta) (name : Name) (idx : Nat) : Value :=
+  .app meta (Neutral.fvar name idx) []
 
 /-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
 abbrev Args := List (Thunk Value)
@@ -123,3 +142,11 @@ instance : Inhabited (Thunk Value) where
   default := {fn := default}
 
 end Yatima.Typechecker
+
+namespace Yatima.Expr
+
+def Meta.toVal (m : Meta) : Typechecker.Value.Meta :=
+  ⟨ m.prop?, m.proof? || m.unit? ⟩
+
+end Yatima.Expr
+
