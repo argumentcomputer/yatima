@@ -82,7 +82,7 @@ def NatRec : Name × Expr := (``Nat.rec, ⟦
   (lambda (motive zero succ _t)
     (if (= _t 0)
      zero
-     (succ (- _t 1) (Nat_rec motive zero succ (- _t 1)))))
+     (succ (- _t 1) ($(``Nat.rec) motive zero succ (- _t 1)))))
 ⟧)
 
 def NatAdd : Name × Expr := (``Nat.add, ⟦

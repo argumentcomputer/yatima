@@ -3,7 +3,7 @@ import TestsUtils.CompileAndExtractTests
 open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
-    "Fixtures/LurkTranslation/Demo.lean"
+    "Fixtures/Transpilation/Demo.lean"
     [
       extractIpldRoundtripTests,
       extractTranspilationTests [
