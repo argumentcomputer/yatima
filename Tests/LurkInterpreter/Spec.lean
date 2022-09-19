@@ -660,7 +660,7 @@ open LSpec in
 def main := do
   let tSeq : TestSeq ← pairs.foldlM (init := .done) fun tSeq pair => do
     let e := Prod.snd pair
-    let res ← eval e default
+    let res := eval e
     return match Prod.fst pair with
     | Except.ok v => withExceptOk s!"Evaluation of {e.pprint} succeeds" res
       fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v}" (v == v')
