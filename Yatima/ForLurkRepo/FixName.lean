@@ -2,7 +2,7 @@ import Lean
 
 namespace Lurk 
 
-abbrev Name := Lean.Name 
+scoped notation "Name" => Lean.Name
 
 open Std (RBTree) in
 /--
@@ -66,22 +66,22 @@ def invalidCaptureNames : List Name := [
 
 /-- Turns a `Name` into a valid variable identifier in Lurk. -/
 def fixName (name : Name) (pretty := true) : String :=
-  if pretty then 
+  if pretty then
     validate $ Lean.Name.toString name false
-  else 
+  else
     let name := (fixClassNameCapture name).toString.replace "." "_"
     let charsArray : Array Char := name.foldl (init := #[]) fun acc c =>
       acc.append ⟨charToValidChars c⟩
     validate ⟨charsArray.data⟩
-  where 
-    validate (n : String) := 
-      if invalidNames.contains n.toLower then 
-        if n == "_" then "_x" 
+  where
+    validate (n : String) :=
+      if invalidNames.contains n.toLower then
+        if n == "_" then "_x"
         else if n == "5banonymous5d" then "anonymous"
         else if n == "Eq" then "LEq"
         else "_" ++ n
       else n
-    fixClassNameCapture (n : Name) := 
-      if invalidCaptureNames.contains n then 
+    fixClassNameCapture (n : Name) :=
+      if invalidCaptureNames.contains n then
         `_uncap ++ n
       else n

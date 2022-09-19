@@ -282,9 +282,10 @@ mutual
               for (j, m) in ms.enum do
                 recrCtx := recrCtx.insert (i, some j) (← getConstIdx m.name, m.name)
             let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+            let all := recrCtx.toList.map fun (_, x, _) => x
             withRecrs recrCtx do
               let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
-              pure $ .definition { name, lvls, type, value, safety }
+              pure $ .definition { name, lvls, type, value, safety, all }
           | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
@@ -303,7 +304,6 @@ mutual
           withRecrs recrCtx do
             let type ← exprFromIpld ⟨constructorAnon.type, constructorMeta.type⟩
             let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            let rhs := rhs.toImplicitLambda 
             pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
@@ -356,7 +356,6 @@ mutual
     let lvls := ctor.meta.lvls
     let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
     let rhs ← exprFromIpld ⟨ctor.anon.rhs, ctor.meta.rhs⟩
-    let rhs := rhs.toImplicitLambda 
     let idx := ctor.anon.idx
     let params := ctor.anon.params
     let fields := ctor.anon.fields

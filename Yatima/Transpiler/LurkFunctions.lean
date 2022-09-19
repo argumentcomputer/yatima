@@ -67,34 +67,48 @@ def getelem : Name × Expr := (`getelem, ⟦
 ⟧)
 
 def Nat : Name × Expr := (``Nat, ⟦
-  ,("Nat" 0 0)
+  (cons "Nat" (cons 0 (cons 0 nil)))
 ⟧)
 
-def Nat_zero : Name × Expr := (``Nat.zero, ⟦
+def NatZero : Name × Expr := (``Nat.zero, ⟦
   0
 ⟧)
 
-def Nat_succ : Name × Expr := (``Nat.succ, ⟦
+def NatSucc : Name × Expr := (``Nat.succ, ⟦
   (lambda (n) (+ n 1))
 ⟧)
 
-def Nat_rec : Name × Expr := (``Nat.rec, ⟦
+def NatRec : Name × Expr := (``Nat.rec, ⟦
   (lambda (motive zero succ _t)
     (if (= _t 0)
      zero
-     (succ (- _t 1) (Nat_rec motive zero succ (- _t 1)))))
+     (succ (- _t 1) ($(``Nat.rec) motive zero succ (- _t 1)))))
 ⟧)
 
-def Nat_add : Name × Expr := ( ``Nat.add, ⟦
+def NatAdd : Name × Expr := (``Nat.add, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
 ⟧)
 
-def Nat_mul : Name × Expr := ( ``Nat.mul, ⟦
+def NatMul : Name × Expr := (``Nat.mul, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
 ⟧)
 
+def NatDiv : Name × Expr := (``Nat.div, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (< _x_lurk_1 _x_lurk_2)
+        0
+        (+ (Nat_div (- _x_lurk_1 _x_lurk_2) _x_lurk_2) 1)))
+⟧)
+
+def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (<= _x_lurk_1 _x_lurk_2)
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) T)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) T)))
+⟧)
+
 -- doesn't quite work yet because depends on `Bool`
-def Nat_beq : Name × Expr := ( ``Nat.beq, ⟦
+def NatBeq : Name × Expr := (``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (
     if (= _x_lurk_1 _x_lurk_2) 
       Bool_true
