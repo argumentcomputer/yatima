@@ -167,7 +167,7 @@ section Transpilation
 
 open Transpiler Lurk
 
-def extractTranspilationTests (expect : List (Name × Option Value))
+def extractTranspilationTests (expect : List (Lean.Name × Option Value))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expecVal?) =>
     withExceptOk "Transpilation succeeds" (transpile stt root) fun expr =>
