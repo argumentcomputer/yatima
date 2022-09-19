@@ -2,7 +2,7 @@ import Lean
 
 namespace Lurk 
 
-abbrev Name := Lean.Name 
+scoped notation "Name" => Lean.Name
 
 open Std (RBTree) in
 /--

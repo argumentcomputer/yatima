@@ -4,7 +4,7 @@ import Yatima.Compiler.Compiler
 namespace Yatima.Transpiler 
 
 inductive TranspileError where 
-  | notFoundInCache (const : Lurk.Name) : TranspileError
+  | notFoundInCache (const : Name) : TranspileError
   | invalidConstantKind (const : Const) (ex : String) : TranspileError
   | custom (msg : String) : TranspileError
 

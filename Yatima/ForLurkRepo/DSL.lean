@@ -96,10 +96,10 @@ partial def elabLurkIdents (i : TSyntax `ident) : TermElabM Expr := do
     match type.getAppFn with 
     | .const ``List _ => return e
     | _ => 
-      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lean.Name)]
       mkAppM ``List.cons #[e, «nil»]
   else
-    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lean.Name)]
     mkAppM ``List.cons #[← mkNameLit i.getId.toString, «nil»]
 
 
@@ -112,7 +112,7 @@ partial def elabLurkBinding : Syntax → TermElabM Expr
 partial def elabLurkBindings : Syntax → TermElabM Expr 
   | `(lurk_bindings| ($bindings*)) => do 
     let bindings ← bindings.mapM elabLurkBinding
-    let type ← mkAppM ``Prod #[mkConst ``Lurk.Name, mkConst ``Lurk.Expr]
+    let type ← mkAppM ``Prod #[mkConst ``Lean.Name, mkConst ``Lurk.Expr]
     mkListLit type bindings.toList
   | _ => throwUnsupportedSyntax
 
@@ -126,7 +126,7 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
       #[← elabLurkExpr test, ← elabLurkExpr con, ← elabLurkExpr alt]
   | `(lurk_expr| (lambda ($formals*) $body)) => do
     let formals ← Array.toList <$> formals.mapM elabLurkIdents
-    let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lurk.Name]) formals
+    let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lean.Name]) formals
     let formals ← mkAppM ``List.join #[formals]
     mkAppM ``Lurk.Expr.lam #[formals, ← elabLurkExpr body]
   | `(lurk_expr| (let $bind $body)) => do
