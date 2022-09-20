@@ -59,14 +59,26 @@ structure Expr.Hash where
 instance : Coe (Ipld.Both Ipld.ExprCid) Expr.Hash where coe x := ⟨ .some x ⟩
 
 /--
-Hashes of expressions and some flags that are populated after typechecking
+  The type info is a simplified form of the value's type, with only relevant
+  information for conversion checking, in order to get proof irrelevance and equality
+  of unit-like values. Expressions starts with `None` in all nodes until they are
+  populated by the typechecker.
+-/
+inductive TypeInfo where
+  | None
+  | UnitTyp
+  | UnitVal
+  | Prop
+  | Proof
+  deriving BEq
+instance : Inhabited TypeInfo where default := .None
+
+/--
+Hashes of expressions and a `info` field that is populated after typechecking
 -/
 structure Expr.Meta where
-  hash   : Expr.Hash
-  prop?  : Bool
-  proof? : Bool
-  unit?  : Bool
-  erase? : Bool
+  hash : Expr.Hash
+  info : TypeInfo
   deriving Inhabited
 instance : BEq Expr.Meta where beq _ _ := true
 

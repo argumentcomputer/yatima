@@ -20,7 +20,7 @@ The context available to the typechecker monad. The available fields are
 structure TypecheckCtx where
   lvl    : Nat
   env    : Env
-  types  : List (Thunk Value)
+  types  : List SusValue
   pStore : PureStore
   deriving Inhabited
 
@@ -48,12 +48,12 @@ def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` which has been extended with an additional
-`val : Thunk Value`, `typ : Thunk Type` pair.
+`val : SusValue`, `typ : SusValue` pair.
 
 The `lvl` of the `TypecheckCtx` is also incremented.
 TODO: Get clarification on this.
 -/
-def withExtendedCtx (val typ : Thunk Value) : TypecheckM α → TypecheckM α :=
+def withExtendedCtx (val typ : SusValue) : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with
     lvl := ctx.lvl + 1,
     types := typ :: ctx.types,
@@ -61,16 +61,16 @@ def withExtendedCtx (val typ : Thunk Value) : TypecheckM α → TypecheckM α :=
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` with a the environment extended by a
-`thunk : Thunk Value` (whose type is not known, unlike `withExtendedCtx`)
+`thunk : SusValue` (whose type is not known, unlike `withExtendedCtx`)
 -/
-def withExtendedEnv (thunk : Thunk Value) : TypecheckM α → TypecheckM α :=
+def withExtendedEnv (thunk : SusValue) : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := ctx.env.extendWith thunk }
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
-by a `thunk : Thunk Value` (whose type is not known)
+by a `thunk : SusValue` (whose type is not known)
 -/
-def withNewExtendedEnv (env : Env) (thunk : Thunk Value) :
+def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
@@ -78,9 +78,9 @@ def withNewExtendedEnv (env : Env) (thunk : Thunk Value) :
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
 by a free variable with name `name : Name`, de-Bruijn index `i : Nat`, and type `type : ThunK Value`
 -/
-def withNewExtendedEnvByVar (env : Env) (meta : Value.Meta) (name : Name) (i : Nat) :
+def withNewExtendedEnvByVar (env : Env) (info : TypeInfo) (name : Name) (i : Nat) :
     TypecheckM α → TypecheckM α :=
-  withNewExtendedEnv env (mkVar meta name i)
+  withNewExtendedEnv env $ .mk info (.mk fun _ => mkVar name i) (.mk fun _ => toString name)
 
 def natIndex : TypecheckM Nat := do
   match (← read).pStore.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
