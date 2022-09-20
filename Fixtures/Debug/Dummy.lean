@@ -1,4 +1,6 @@
-def nat := Nat
-def natZero := Nat.zero
-def natSucc := Nat.succ
-def strint := String
+import Yatima.Ipld.ToIpld
+import Yatima.Datatypes.Univ
+
+open Yatima Ipld ToIpld
+def univ := @Univ.zero Kind.anon
+def univCtor := univToIpld univ

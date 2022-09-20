@@ -9,17 +9,17 @@ inductive StoreKey : Type → Type
 
 def StoreKey.find? : (key : StoreKey A) → TranspileM (Option A)
   | .univ  univCid => do
-    let store := (← read).store
+    let store := (← read).state.store
     match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
     | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
     | _, _ => pure none
   | .expr  exprCid => do
-    let store := (← read).store
+    let store := (← read).state.store
     match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
     | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
     | _, _ => pure none
   | .const constCid => do
-    let store := (← read).store
+    let store := (← read).state.store
     match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
     | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
     | _, _ => pure none
@@ -33,8 +33,8 @@ Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 -/
 def getMutualIndInfo (ind : Inductive) : 
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
-  let cache := (← read).cache
-  let consts := (← read).pStore.consts
+  let cache := (← read).state.cache
+  let consts := (← read).state.pStore.consts
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name
@@ -80,7 +80,7 @@ def getMutualIndInfo (ind : Inductive) :
 
 /-- Gets the list of definitions involved in the mutual block of a definition -/
 def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
-  let consts := (← read).pStore.consts
+  let consts := (← read).state.pStore.consts
   defn.all.mapM fun constIdx =>
     match consts[constIdx]! with
     | .definition d => pure d

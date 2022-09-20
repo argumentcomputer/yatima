@@ -66,8 +66,22 @@ def getelem : Name × Expr := (`getelem, ⟦
   ))
 ⟧)
 
+def lurk_string_mk : Name × Expr := (`lurk_string_mk, ⟦
+  (lambda (cs) 
+    (if cs 
+      (strcons (car cs) (lurk_string_mk (cdr cs))) 
+      ""))
+⟧)
+
+def lurk_string_data : Name × Expr := (`lurk_string_data, ⟦
+  (lambda (s) 
+    (if (eq s "") 
+      nil
+      (cons (car s) (lurk_string_data (cdr s)))))
+⟧)
+
 def Nat : Name × Expr := (``Nat, ⟦
-  (cons "Nat" (cons 0 (cons 0 nil)))
+  ,("Nat" 0 0)
 ⟧)
 
 def NatZero : Name × Expr := (``Nat.zero, ⟦
@@ -115,6 +129,66 @@ def NatBeq : Name × Expr := (``Nat.beq, ⟦
       Bool_false
   ))
 ⟧)
+
+def Char : Name × Expr := (``Char, ⟦
+  ,("Char" 0 0)
+⟧)
+
+def CharMk : Name × Expr := (``Char.mk, ⟦
+  (lambda (val valid) 
+    (char (getelem (getelem val 2) 3)))
+⟧)
+
+def CharVal : Name × Expr := (``Char.val, ⟦
+  (lambda (self) 
+    ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) (num self) t)))
+⟧)
+
+def CharValid : Name × Expr := (``Char.val, ⟦
+  (lambda (self) t)
+⟧)
+
+def CharRec : Name × Expr := (``Char.rec, ⟦
+  (lambda (motive mk _t) 
+    (mk (num ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) n t)))))
+⟧)
+
+def List : Name × Expr := (``List, ⟦
+  (lambda (_lurk_1) (quote ("List" 1 0)))
+⟧)
+
+def ListNil : Name × Expr := (``List.nil, ⟦
+  (lambda (_lurk_1) nil)
+⟧)
+
+def ListCons : Name × Expr := (``List.cons, ⟦
+  (lambda (_lurk_1 head tail) (cons head tail))
+⟧)
+
+def ListRec : Name × Expr := (``List.rec, ⟦
+  (lambda (_lurk_1 motive _nil _cons _t)
+    (if _t
+     (_cons (car _t) (cdr _t) ($(``List.rec) _lurk_1 motive _nil _cons (cdr _t)))
+     _nil))
+⟧)
+
+def String : Name × Expr := (``String, ⟦
+  ,("String" 0 0)
+⟧)
+
+def StringMk : Name × Expr := (``String.mk, ⟦
+  (lambda (data) (lurk_string_mk data))
+⟧)
+
+def StringData : Name × Expr := (``String.data, ⟦
+  (lambda (self) (lurk_string_data self))
+⟧)
+
+def StringRec : Name × Expr := (``String.rec, ⟦
+  (lambda (motive mk _t) 
+    (mk (lurk_string_data _t)))
+⟧)
+
 
 /-! 
 ## `Nat` Example

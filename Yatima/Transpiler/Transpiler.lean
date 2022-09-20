@@ -292,6 +292,44 @@ mutual
       recrToLurkExpr irecr.type irecr.name irecr.indices ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
 
+  partial def builtinInitialize (name : Name) (func : Lurk.Expr) : TranspileM Unit := do 
+    visit name
+    go func 
+    appendBinding (name, func) (vst := false)
+  where 
+    go : Lurk.Expr → TranspileM Unit
+      | .sym n => do 
+        if !(← get).visited.contains n then 
+          let state := (← read).state
+          match state.cache.find? n with 
+          | some (_, idx) => 
+            let const := state.pStore.consts[idx]! -- TODO: Add proof later
+            constToLurkExpr const
+          | none => return 
+            -- TODO: better detection of what to compile, use this carefully for now
+            -- throw $ .custom s!"built constant contains unknown symbol {name}"
+      | .ifE test con alt => do go test; go con; go alt
+      | .lam _ body => go body
+      | .letE bindings body 
+      | .letRecE bindings body
+      | .mutRecE bindings body => do 
+        for (n, func) in bindings do 
+          go func
+        go body
+      | .app₀ fn => go fn
+      | .app fn args => do go fn; go args;
+      | .atom expr
+      | .cdr expr
+      | .car expr
+      | .emit expr => go expr
+      | .binaryOp _ e₁ e₂
+      | .cons e₁ e₂
+      | .strcons e₁ e₂ => do go e₁; go e₂
+      | .begin exprs => exprs.forM go
+      | .quote ..
+      | .currEnv
+      | .lit .. => return
+
   partial def exprToLurkExpr (e : Expr) : TranspileM Lurk.Expr := do  
     -- dbg_trace ">> exprToLurkExpr: "
     match e with 
@@ -301,9 +339,15 @@ mutual
       return ⟦$name⟧
     | .const _ name idx .. => do
       -- dbg_trace s!"const {name} {idx}"
-      if !(← get).visited.contains name then 
-        let const := (← read).pStore.consts[idx]! -- TODO: Add proof later
-        constToLurkExpr const
+      if !(← get).visited.contains name then
+        dbg_trace s!"{(← read).builtins.map Prod.fst}"
+        match (← read).builtins.find? (fun (n, _) => n == name) with 
+        | some (n, e) => 
+          dbg_trace s!">> builtin {n}"
+          builtinInitialize n e
+        | none =>  
+          let const := (← read).state.pStore.consts[idx]! -- TODO: Add proof later
+          constToLurkExpr const
       return ⟦$name⟧
     | .app _ fn arg => 
       -- dbg_trace s!"app"
@@ -376,7 +420,7 @@ mutual
   where 
     getInductive (name : Name) : TranspileM Inductive := do 
       let indName := name.getPrefix
-      let compileState ← read
+      let compileState := (← read).state
       match compileState.cache.find? indName with 
       | some (_, idx) => match compileState.pStore.consts[idx]! with 
         | .inductive i => return i 
@@ -390,8 +434,7 @@ mutual
 end
 
 /-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
-def builtinInitialize : TranspileM Unit := [
-  Lurk.getelem,
+def builtins : List (Name × Lurk.Expr) := [
   Lurk.Nat,
   Lurk.NatZero,
   Lurk.NatSucc,
@@ -399,13 +442,35 @@ def builtinInitialize : TranspileM Unit := [
   Lurk.NatAdd,
   Lurk.NatMul,
   Lurk.NatDiv,
-  Lurk.NatDecLe].forM fun (n, e) =>
+  Lurk.NatDecLe,
+  Lurk.Char,
+  Lurk.CharMk,
+  Lurk.CharVal,
+  Lurk.CharValid,
+  Lurk.CharRec,
+  Lurk.List,
+  Lurk.ListNil,
+  Lurk.ListCons,
+  Lurk.ListRec,
+  Lurk.String,
+  Lurk.StringMk,
+  Lurk.StringData,
+  Lurk.StringRec
+] 
+
+def initializePrimitives : TranspileM Unit := do
+  let decls := [
+    Lurk.getelem,
+    Lurk.lurk_string_mk,
+    Lurk.lurk_string_data
+  ]
+  for (n, e) in decls do
     appendBinding (n, e)
 
 /-- Main translation function -/
 def transpileM (root : Name) : TranspileM Unit := do
-  builtinInitialize
-  match (← read).pStore.consts.find? fun c => c.name == root with
+  initializePrimitives
+  match (← read).state.pStore.consts.find? fun c => c.name == root with
   | some c => constToLurkExpr c
   | none => throw $ .custom s!"Unknown const {root}"
 
@@ -416,7 +481,7 @@ that are needed to define `root`.
 -/
 def transpile (compileState : Compiler.CompileState) (root : Name := `root) :
     Except String Lurk.Expr :=
-  match TranspileM.run compileState default (transpileM root) with
+  match TranspileM.run ⟨compileState, builtins⟩ default (transpileM root) with
   | .ok    s => .ok $ Lurk.Expr.letRecE s.appendedBindings.data ⟦$root⟧
   | .error e => .error e
 

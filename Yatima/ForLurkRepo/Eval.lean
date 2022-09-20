@@ -123,9 +123,8 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
   | .ifE tst con alt => do 
     -- dbg_trace s!"[evalM] if"
     match ← evalM env tst with
-    | TRUE  => evalM env con
     | FALSE => evalM env alt
-    | v => throw s!"expected boolean value, got\n {v}"
+    | _ => evalM env con -- anything else is true
   | .lam formals body => do 
     -- dbg_trace s!"[evalM] lam {formals}\n{body.pprint}"
     return .lam formals [] $ env.getEnvExpr body
