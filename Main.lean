@@ -4,6 +4,8 @@ import Yatima.Cli.TranspileCmd
 import Yatima.Cli.PipeCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.VerifyCmd
+import Yatima.Cli.PutCmd
+import Yatima.Cli.GetCmd
 
 opaque VERSION : String :=
   s!"{Lean.versionString}|0.0.1"
@@ -18,7 +20,9 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     transpileCmd;
     pipeCmd;
     proveCmd;
-    verifyCmd
+    verifyCmd;
+    putCmd;
+    getCmd
 ]
 
 def main (args : List String) : IO UInt32 := do
@@ -26,3 +30,4 @@ def main (args : List String) : IO UInt32 := do
     yatimaCmd.printHelp
     return 0
   yatimaCmd.validate args
+
