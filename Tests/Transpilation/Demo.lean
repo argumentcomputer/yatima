@@ -9,8 +9,8 @@ def main := do
       extractTranspilationTests [
         (`listLength, none),
         (`expr, none),
-        (`univCtor, none)
-        -- (`map', none)
+        (`univCtor, none),
+        (`map', none)
       ]
     ]
   lspecIO tSeq
