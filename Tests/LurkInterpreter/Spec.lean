@@ -544,7 +544,7 @@ def strcons_char_char : Test :=
 
 -- STRCONSing anything but a character and a string is an error.
 def strcons_not_char_str : Test := 
-(.error "", ⟦(strcons 1 ,foo)⟧)
+(.error "", ⟦(strcons 1 ,"foo")⟧)
 
 -- A char is any 32_bit unicode character, but we currently only have reader
 -- support for whatever can be entered directly.

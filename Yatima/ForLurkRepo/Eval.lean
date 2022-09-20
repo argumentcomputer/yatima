@@ -9,7 +9,6 @@ inductive Value where
   | lit  : Literal → Value
   | lam  : List Name → List (Name × Thunk Value) →
     (List (Name × Thunk Value)) × Expr → Value
-  | sexpr : SExpr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
   deriving Inhabited
@@ -18,7 +17,6 @@ partial def BEqVal : Value → Value → Bool
   | .lit l₁, .lit l₂ => l₁ == l₂
   | .lam ns₁ [] ([], b₁), .lam ns₂ [] ([], b₂) => ns₁ == ns₂ && b₁ == b₂
   | .lam .., .lam .. => false
-  | .sexpr s₁, .sexpr s₂ => s₁ == s₂
   | .cons v₁ v₁', .cons v₂ v₂' => BEqVal v₁ v₂ && BEqVal v₁' v₂'
   | .env l₁ , .env l₂ => (l₁.zip l₂).foldl (init := true) (fun acc ((n₁, v₁), (n₂, v₂)) => acc && n₁ == n₂ && BEqVal v₁ v₂)
   | _, _ => false
@@ -40,7 +38,6 @@ partial def Value.pprint (v : Value) (pretty := true) : Format :=
       | .lit Literal.nil => Format.nil
       | _ => line ++ "." ++ line ++ pprint tail pretty
       paren <| fmtList es ++ tail
-    | .sexpr s => s.pprint
     | .env e => paren <| fmtEnv e
   where
     telescopeCons (acc : List Value) (e : Value) : List Value × Value := match e with
@@ -98,6 +95,10 @@ def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
   | .le    => return if (← num! v₁) <= (← num! v₂) then TRUE else FALSE
   | .ge    => return if (← num! v₁) >= (← num! v₂) then TRUE else FALSE
   | .eq    => return if v₁ == v₂ then TRUE else FALSE
+
+def SExpr.toValue : SExpr → Value 
+  | .lit l => .lit l
+  | .cons e₁ e₂ => .cons e₁.toValue e₂.toValue
 
 mutual
 
@@ -198,7 +199,7 @@ partial def evalM (env : Env) (e : Expr) : EvalM Value :=
     | v => throw s!"expected lambda value, got\n {v}"
   | .quote s => do 
     -- dbg_trace s!"[evalM] quote"
-    return .sexpr s
+    return s.toValue
   | .binaryOp op e₁ e₂ => do 
     -- dbg_trace s!"[evalM] binop {format op}"
     evalBinaryOp (← evalM env e₁) (← evalM env e₂) op
