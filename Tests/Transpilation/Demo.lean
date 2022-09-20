@@ -10,7 +10,7 @@ def main := do
         (`listLength, none),
         (`expr, none),
         (`univCtor, none),
-        (`map', none)
+        (`mapInsert, none)
       ]
     ]
   lspecIO tSeq
