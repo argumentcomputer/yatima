@@ -90,12 +90,12 @@ mutual
   partial def printVal : Value → String
     | .sort u => s!"(Sort {printUniv u})"
     | .app neu args => printSpine neu args
-    | .lam nam binfo bod ctx =>
+    | .lam nam binfo dom bod ctx =>
       match binfo with
-      | .implicit => s!"(λ\{{nam}}}. {printLamBod bod ctx})"
-      | .strictImplicit => s!"(λ⦃{nam}⦄. {printLamBod bod ctx})"
-      | .instImplicit => s!"(λ[{nam}]. {printLamBod bod ctx})"
-      | _ => s!"(λ({nam}). {printLamBod bod ctx})"
+      | .implicit => s!"(λ\{{nam}: {dom}}}. {printLamBod bod ctx})"
+      | .strictImplicit => s!"(λ⦃{nam}: {dom}⦄. {printLamBod bod ctx})"
+      | .instImplicit => s!"(λ[{nam}: {dom}]. {printLamBod bod ctx})"
+      | _ => s!"(λ({nam}: {dom}). {printLamBod bod ctx})"
     | .pi nam binfo dom cod ctx =>
       let dom := toString dom
       match binfo with

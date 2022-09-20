@@ -30,7 +30,7 @@ mutual
     | app : Neutral → List SusValue → Value
     -- Lambdas are unevaluated expressions with environments for their free
     -- variables apart from their argument variables
-    | lam : Name → BinderInfo → Expr → Env → Value
+    | lam : Name → BinderInfo → SusValue → Expr → Env → Value
     -- Pi types will have thunks for their domains and unevaluated expressions
     -- analogous to lambda bodies for their codomains
     | pi : Name → BinderInfo → SusValue → Expr → Env → Value

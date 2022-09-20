@@ -50,21 +50,19 @@ mutual
       let res  ← equal dom.info lvl dom.get dom'.get
       let res' ← equal imgInfo (lvl + 1) img img'
       pure $ res && res'
-    | .lam name _ bod env, .lam name' _ bod' env' =>
+    | .lam name _ dom bod env, .lam name' _ dom' bod' env' =>
       let bodInfo := bod.meta.info
-      let bod  ← withNewExtendedEnvByVar env default name lvl $ eval bod
-      let bod' ← withNewExtendedEnvByVar env' default name' lvl $ eval bod'
+      let bod  ← withNewExtendedEnvByVar env dom.info name lvl $ eval bod
+      let bod' ← withNewExtendedEnvByVar env' dom'.info name' lvl $ eval bod'
       equal bodInfo (lvl + 1) bod bod'
-    | .lam name _ bod env, .app neu' args' =>
-      -- sorry
-      let var := (mkVar name lvl).toSusVal default s!"{name}"
+    | .lam name _ dom bod env, .app neu' args' =>
+      let var := (mkVar name lvl).toSusVal dom.info s!"{name}"
       let bodInfo := bod.meta.info
       let bod ← withNewExtendedEnv env var (eval bod)
       let app := Value.app neu' (var :: args')
       equal bodInfo (lvl + 1) bod app
-    | .app neu args, .lam name _ bod env =>
-      -- sorry
-      let var := (mkVar name lvl).toSusVal default s!"{name}"
+    | .app neu args, .lam name _ dom bod env =>
+      let var := (mkVar name lvl).toSusVal dom.info s!"{name}"
       let bodInfo := bod.meta.info
       let bod ← withNewExtendedEnv env var (eval bod)
       let app := Value.app neu (var :: args)

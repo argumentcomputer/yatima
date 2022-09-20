@@ -53,9 +53,10 @@ mutual
       let argThunk := suspend arg ctx
       let fnc ← eval fnc
       apply fnc argThunk
-    | .lam _ name info _ bod => do
-      let env := (← read).env
-      pure $ Value.lam name info bod env
+    | .lam _ name info dom bod => do
+      let ctx ← read
+      let dom' := suspend dom ctx
+      pure $ Value.lam name info dom' bod ctx.env
     | .var _ name idx => do
       let exprs := (← read).env.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
@@ -133,7 +134,7 @@ mutual
   -/
   partial def apply (value : Value) (arg : SusValue) : TypecheckM Value :=
     match value with
-    | .lam _ _ bod lamEnv =>
+    | .lam _ _ _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
