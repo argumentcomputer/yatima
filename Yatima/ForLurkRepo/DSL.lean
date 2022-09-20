@@ -33,16 +33,16 @@ def elabLurkLiteral : Syntax → TermElabM Expr
   | _ => throwUnsupportedSyntax
 
 declare_syntax_cat  lurk_bin_op
-syntax " + "      : lurk_bin_op
-syntax " - "      : lurk_bin_op
-syntax " * "      : lurk_bin_op
-syntax " / "      : lurk_bin_op
-syntax " = "      : lurk_bin_op
-syntax " < "      : lurk_bin_op
-syntax " > "      : lurk_bin_op
-syntax " <= "     : lurk_bin_op
-syntax " >= "     : lurk_bin_op
-syntax " eq "     : lurk_bin_op
+syntax "+ "      : lurk_bin_op
+syntax "- "      : lurk_bin_op
+syntax "* "      : lurk_bin_op
+syntax "/ "      : lurk_bin_op
+syntax "= "      : lurk_bin_op
+syntax "< "      : lurk_bin_op
+syntax "> "      : lurk_bin_op
+syntax "<= "     : lurk_bin_op
+syntax ">= "     : lurk_bin_op
+syntax "eq "     : lurk_bin_op
 
 def elabLurkBinOp : Syntax → TermElabM Expr
   | `(lurk_bin_op| +)    => return mkConst ``Lurk.BinaryOp.sum
@@ -70,6 +70,7 @@ syntax "(" "if" lurk_expr lurk_expr lurk_expr ")" : lurk_expr
 syntax "(" "lambda" "(" ident* ")" lurk_expr ")"  : lurk_expr
 syntax "(" "let" lurk_bindings lurk_expr ")"      : lurk_expr
 syntax "(" "letrec" lurk_bindings lurk_expr ")"   : lurk_expr
+syntax "(" "mutrec" lurk_bindings lurk_expr ")"   : lurk_expr
 syntax "(" "quote " sexpr ")"                     : lurk_expr
 syntax "," sexpr                                  : lurk_expr
 syntax "(" lurk_bin_op lurk_expr lurk_expr ")"    : lurk_expr
@@ -95,10 +96,10 @@ partial def elabLurkIdents (i : TSyntax `ident) : TermElabM Expr := do
     match type.getAppFn with 
     | .const ``List _ => return e
     | _ => 
-      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+      let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lean.Name)]
       mkAppM ``List.cons #[e, «nil»]
   else
-    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lurk.Name)]
+    let «nil» ← mkAppOptM ``List.nil #[some (mkConst ``Lean.Name)]
     mkAppM ``List.cons #[← mkNameLit i.getId.toString, «nil»]
 
 
@@ -111,7 +112,7 @@ partial def elabLurkBinding : Syntax → TermElabM Expr
 partial def elabLurkBindings : Syntax → TermElabM Expr 
   | `(lurk_bindings| ($bindings*)) => do 
     let bindings ← bindings.mapM elabLurkBinding
-    let type ← mkAppM ``Prod #[mkConst ``Lurk.Name, mkConst ``Lurk.Expr]
+    let type ← mkAppM ``Prod #[mkConst ``Lean.Name, mkConst ``Lurk.Expr]
     mkListLit type bindings.toList
   | _ => throwUnsupportedSyntax
 
@@ -125,13 +126,15 @@ partial def elabLurkExpr : TSyntax `lurk_expr → TermElabM Expr
       #[← elabLurkExpr test, ← elabLurkExpr con, ← elabLurkExpr alt]
   | `(lurk_expr| (lambda ($formals*) $body)) => do
     let formals ← Array.toList <$> formals.mapM elabLurkIdents
-    let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lurk.Name]) formals
+    let formals ← mkListLit (← mkAppM ``List #[mkConst ``Lean.Name]) formals
     let formals ← mkAppM ``List.join #[formals]
     mkAppM ``Lurk.Expr.lam #[formals, ← elabLurkExpr body]
   | `(lurk_expr| (let $bind $body)) => do
     mkAppM ``Lurk.Expr.letE #[← elabLurkBindings bind, ← elabLurkExpr body]
   | `(lurk_expr| (letrec $bind $body)) => do
     mkAppM ``Lurk.Expr.letRecE #[← elabLurkBindings bind, ← elabLurkExpr body]
+  | `(lurk_expr| (mutrec $bind $body)) => do
+    mkAppM ``Lurk.Expr.mutRecE #[← elabLurkBindings bind, ← elabLurkExpr body]
   | `(lurk_expr| (quote $datum)) => do
     mkAppM ``Lurk.Expr.quote #[← elabSExpr datum]
   | `(lurk_expr| ,$datum) => do
@@ -175,14 +178,21 @@ elab "⟦ " e:lurk_expr " ⟧" : term =>
 
 namespace Lurk.Expr 
 
+/--
+Transforms a list of named expressions that were mutually defined into a
+"switch" function `S` and a set of projections (named after the original names)
+that call `S` with their respective indices.
+
+Important: the resulting expressions must to be bound in a `letrec`.
+-/
 def mkMutualBlock (mutuals : List (Name × Expr)) : List (Name × Expr) :=
   let names := mutuals.map Prod.fst
-  let mutualName := names.head! ++ `mutual
+  let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
   let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
-  let targets := fnProjs.map fun (n, e) => (⟦$n⟧, e)
+  let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
   let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
-    (⟦(= mutidx $i)⟧, e.replaceN targets)  
-  ) ⟦nil⟧
+      (⟦(= mutidx $i)⟧, replaceFreeVars map e)
+    ) ⟦nil⟧
   (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
 
-end Lurk.Expr 
+end Lurk.Expr

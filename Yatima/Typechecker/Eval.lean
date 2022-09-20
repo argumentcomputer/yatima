@@ -172,7 +172,7 @@ mutual
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs
+            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda 
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
@@ -187,7 +187,7 @@ mutual
             match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
             | some rule =>
               let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
-              withEnv ⟨exprs, univs⟩ $ eval rule.rhs
+              withEnv ⟨exprs, univs⟩ $ eval rule.rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
