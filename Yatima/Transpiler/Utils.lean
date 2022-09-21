@@ -9,17 +9,17 @@ inductive StoreKey : Type → Type
 
 def StoreKey.find? : (key : StoreKey A) → TranspileM (Option A)
   | .univ  univCid => do
-    let store := (← read).compileState.store
+    let store := (← read).store
     match store.univ_anon.find? univCid.anon, store.univ_meta.find? univCid.meta with
     | some univAnon, some univMeta => pure $ some ⟨ univAnon, univMeta ⟩
     | _, _ => pure none
   | .expr  exprCid => do
-    let store := (← read).compileState.store
+    let store := (← read).store
     match store.expr_anon.find? exprCid.anon, store.expr_meta.find? exprCid.meta with
     | some exprAnon, some exprMeta => pure $ some ⟨ exprAnon, exprMeta ⟩
     | _, _ => pure none
   | .const constCid => do
-    let store := (← read).compileState.store
+    let store := (← read).store
     match store.const_anon.find? constCid.anon, store.const_meta.find? constCid.meta with
     | some constAnon, some constMeta => pure $ some ⟨ constAnon, constMeta ⟩
     | _, _ => pure none
@@ -33,8 +33,8 @@ Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
 -/
 def getMutualIndInfo (ind : Inductive) : 
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
-  let cache := (← read).compileState.cache
-  let consts := (← read).compileState.pStore.consts
+  let cache := (← read).cache
+  let consts := (← read).pStore.consts
   let cid : ConstCid := ← match cache.find? ind.name with 
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache ind.name
@@ -78,25 +78,13 @@ def getMutualIndInfo (ind : Inductive) :
       return (ind, ctors, irecr, erecrs)
   | _ => throw $ .custom "blockCid not found in store"
 
-/-- 
-Return `List Definition`
--/
-def getMutualDefInfo (defn : Definition) : TranspileM $ List Name := do 
-  let cache := (← read).compileState.cache
-  let cid : ConstCid := ← match cache.find? defn.name with 
-  | some (cid, _) => return cid
-  | none => throw $ .notFoundInCache defn.name
-  let blockCid : ConstCid := ← match ← StoreKey.find! $ .const cid with 
-  | ⟨.definitionProj defAnon, .definitionProj defMeta⟩ => 
-    return ⟨defAnon.block, defMeta.block⟩
-  | _ => throw $ .custom "cid not found in store"
-  match ← StoreKey.find! $ .const blockCid with 
-  | ⟨_, .mutDefBlock blockMeta⟩ => 
-    let defs ← blockMeta.mapM fun defsMeta => do 
-      return defsMeta.projᵣ.map (·.name.projᵣ)
-    return defs.join
-  | _ => throw $ .custom "blockCid not found in store"
-
+/-- Gets the list of definitions involved in the mutual block of a definition -/
+def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
+  let consts := (← read).pStore.consts
+  defn.all.mapM fun constIdx =>
+    match consts[constIdx]! with
+    | .definition d => pure d
+    | _ => throw $ .custom "Invalid constant type"
 
 def descendPi (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
   match expr with 
@@ -105,12 +93,9 @@ def descendPi (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
 
 end Yatima.Transpiler
 
-namespace List 
+namespace List
 
-def last! [Inhabited α] : List α → α
-| [] => panic! "empty list"
-| [a] => a
-| [_, b] => b
-| _ :: _ :: l => last! l
+def last! [Inhabited α] (l : List α) : α :=
+  l.reverse.head!
 
 end List 

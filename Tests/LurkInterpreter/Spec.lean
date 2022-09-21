@@ -5,25 +5,6 @@ open Lurk
 
 -- TODO FIXME: bettter error handling, `.error ""` needs to be replaced
 
-instance : OfNat Value n where 
-  ofNat := .lit $ .num $ Fin.ofNat n
-
-instance : Coe Char Value where 
-  coe c := .lit (.char c)
-
-instance : Coe String Value where 
-  coe s := .lit (.str s)
-
-instance : Coe (List (Name × Nat)) Value where
-  coe l := .env $ l.map fun (name, n) => (name, .lit $ .num $ Fin.ofNat n)
-
-def Value.mkList (vs : List Value) : Value := 
-  vs.foldr (fun acc v => .cons acc v) FALSE
-
-local infix:75 " .ᵥ " => Value.cons
-
-abbrev Lurk.Test := Except String Value × Expr 
-
 def outer_evaluate : Test := (.ok 99, ⟦((lambda (x) x) 99)⟧)
 
 def outer_evaluate2 : Test := (.ok 99, ⟦
@@ -567,8 +548,29 @@ def strcons_not_char_str : Test :=
 
 -- A char is any 32_bit unicode character, but we currently only have reader
 -- support for whatever can be entered directly.
-def car_unicode_char : Test := 
+def car_unicode_char : Test :=
 (.ok 'Ŵ', ⟦(car "ŴTF?")⟧)
+
+def mutrec1 : Test :=
+(.ok 0, ⟦
+  (mutrec
+    ((f (lambda (x) (g x)))
+     (g (lambda (x) x)))
+    (f 0))⟧)
+
+def mutrec2 : Test :=
+(.ok 0, ⟦
+  (mutrec
+    ((f (lambda (x) x))
+     (g (lambda (x) (f x))))
+    (g 0))⟧)
+
+def closure : Test :=
+(.ok 125, ⟦(letrec ((exp (lambda (base) (lambda (exponent)
+                  (if (= 0 exponent)
+                      1
+                      (* base ((exp base) (- exponent 1))))))))
+            (let ((myexp exp) (exp (lambda (base) (lambda (exponent) 10)))) ((myexp 5) 3)))⟧)
 
 def pairs : List Test := [
   outer_evaluate,
@@ -648,14 +650,17 @@ def pairs : List Test := [
   strcons_str_str,
   strcons_char_char,
   strcons_not_char_str,
-  car_unicode_char
+  car_unicode_char,
+  mutrec1,
+  mutrec2,
+  closure
 ]
 
 open LSpec in
 def main := do
   let tSeq : TestSeq ← pairs.foldlM (init := .done) fun tSeq pair => do
     let e := Prod.snd pair
-    let res ← eval' e default
+    let res := eval e
     return match Prod.fst pair with
     | Except.ok v => withExceptOk s!"Evaluation of {e.pprint} succeeds" res
       fun v' => tSeq ++ test s!"Evaluation of {e.pprint} yields {v}" (v == v')

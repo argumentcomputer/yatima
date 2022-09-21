@@ -5,23 +5,25 @@ namespace Lurk
 
 open Std
 
-inductive EnvExpr where
-  | mk : (List $ Name × EnvExpr) → Expr → EnvExpr
-  deriving Repr, BEq
-
-def EnvExpr.env : EnvExpr → (List $ Name × EnvExpr)
-  | .mk env _ => env
-
-def EnvExpr.expr : EnvExpr → Expr
-  | .mk _ expr => expr
-
 inductive Value where
   | lit  : Literal → Value
-  | lam  : List Name → List (Name × (EnvExpr × Value)) → EnvExpr → Value
+  | lam  : List Name → List (Name × Thunk Value) →
+    (List (Name × Thunk Value)) × Expr → Value
   | sexpr : SExpr → Value
   | cons : Value → Value → Value
   | env  : List (Name × Value) → Value
-  deriving Repr, BEq, Inhabited
+  deriving Inhabited
+
+partial def BEqVal : Value → Value → Bool
+  | .lit l₁, .lit l₂ => l₁ == l₂
+  | .lam ns₁ [] ([], b₁), .lam ns₂ [] ([], b₂) => ns₁ == ns₂ && b₁ == b₂
+  | .lam .., .lam .. => false
+  | .sexpr s₁, .sexpr s₂ => s₁ == s₂
+  | .cons v₁ v₁', .cons v₂ v₂' => BEqVal v₁ v₂ && BEqVal v₁' v₂'
+  | .env l₁ , .env l₂ => (l₁.zip l₂).foldl (init := true) (fun acc ((n₁, v₁), (n₂, v₂)) => acc && n₁ == n₂ && BEqVal v₁ v₂)
+  | _, _ => false
+
+instance : BEq Value where beq := BEqVal
 
 notation "TRUE"  => Value.lit Literal.t
 notation "FALSE" => Value.lit Literal.nil
@@ -30,14 +32,13 @@ open Format ToFormat in
 partial def Value.pprint (v : Value) (pretty := true) : Format :=
   match v with
     | .lit l => format l
-    | .lam ns _ lb => paren $
-      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ lb.expr.pprint pretty
+    | .lam ns _ (_, lb) => paren $
+      group ("lambda" ++ line ++ paren (fmtNames ns)) ++ line ++ lb.pprint pretty
     | e@(.cons ..) =>
       let (es, tail) := telescopeCons [] e
-      let tail := if tail == FALSE then
-        Format.nil
-      else
-        line ++ "." ++ line ++ pprint tail pretty
+      let tail := match tail with
+      | .lit Literal.nil => Format.nil
+      | _ => line ++ "." ++ line ++ pprint tail pretty
       paren <| fmtList es ++ tail
     | .sexpr s => s.pprint
     | .env e => paren <| fmtEnv e
@@ -65,12 +66,22 @@ instance : ToFormat Value := ⟨Value.pprint⟩
 instance : ToString Value where
   toString x := toString x.pprint
 
-abbrev EvalM := ExceptT String IO
+abbrev EvalM := ExceptT String $ EStateM Unit Unit
 
-abbrev Env := RBMap Name (EnvExpr × EvalM Value) compare
+abbrev Env := RBMap Name (EvalM Value) compare
 
-def Env.getEnvExpr (env : Env) (e : Expr) : EnvExpr :=
-  ⟨env.toList.map fun (n, (lb, _)) => (n, lb), e⟩
+instance : Coe (EvalM Value) (Thunk Value) where coe := fun thunk =>
+  .mk $ fun _ => match (EStateM.run (ExceptT.run thunk) ()) with
+  | .error _ _ => default
+  | .ok v _ => match v with
+    | .error _ => default
+    | .ok v => v
+
+instance : Coe (Thunk Value) (EvalM Value) where coe := fun thunk => do
+  pure thunk.get
+
+def Env.getEnvExpr (env : Env) (e : Expr) : List (Name × Thunk Value) × Expr :=
+  ⟨env.toList.map fun (n, v) => (n, v), e⟩
 
 def num! : Value → EvalM (Fin N)
   | .lit (.num x) => pure x
@@ -91,124 +102,189 @@ def evalBinaryOp (v₁ v₂ : Value) : BinaryOp → EvalM Value
 mutual
 
 partial def bind (a : Expr) (env : Env) :
-    List Name → EvalM ((Name × (EnvExpr × Value)) × List Name)
+    List Name → EvalM ((Name × Thunk Value) × List Name)
   | n::ns => do
-    let value ← eval env a
-    let envExpr := env.getEnvExpr a
-    return ((n, (envExpr, value)), ns)
+    -- dbg_trace s!"[bind] {a.pprint} {n::ns}"
+    let value ← evalM env a
+    return ((n, value), ns)
   | [] => throw "too many arguments"
 
--- Reproduce the environment needed to evaluate an `EnvExpr`.
-partial def envExprToEnv (envExpr : EnvExpr) : Env :=
-  envExpr.env.foldl (init := default) fun acc (n, envExpr') =>
-    acc.insert n $ (envExpr', eval (envExprToEnv envExpr') envExpr'.expr)
-
-partial def eval (env : Env) : Expr → EvalM Value
-  | .lit lit => return .lit lit
-  | .sym n => match env.find? n with
-    | some (_, v) => v
+partial def evalM (env : Env) (e : Expr) : EvalM Value :=
+  match e with
+  | .lit lit => do 
+    -- dbg_trace s!"[evalM] literal {format lit}"
+    return .lit lit
+  | .sym n => do 
+    -- dbg_trace s!"[evalM] symbol {n}"
+    match env.find? n with
+    | some v => v
     | none => throw s!"{n} not found"
-  | .ifE tst con alt => do
-    match ← eval env tst with
-    | TRUE  => eval env con
-    | FALSE => eval env alt
+  | .ifE tst con alt => do 
+    -- dbg_trace s!"[evalM] if"
+    match ← evalM env tst with
+    | TRUE  => evalM env con
+    | FALSE => evalM env alt
     | v => throw s!"expected boolean value, got\n {v}"
-  | .lam formals body =>
+  | .lam formals body => do 
+    -- dbg_trace s!"[evalM] lam {formals}\n{body.pprint}"
     return .lam formals [] $ env.getEnvExpr body
   | .letE bindings body => do
+    -- dbg_trace s!"[evalM] let"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
-        return acc.insert n $ (acc.getEnvExpr e, pure $ ← eval acc e)
-    eval env' body
-  | .letRecE bindings body => do
+        return acc.insert n $ pure $ ← evalM acc e
+    evalM env' body
+  | .letRecE bindings body => do 
+    -- dbg_trace s!"[evalM] letrec {body.pprint}"
     let env' ← bindings.foldlM (init := env)
       fun acc (n, e) => do
-        let e' := (.letRecE [(n, e)] e)
-        -- "thunk" the result (that is, no "pure $ ←" in front)
-        let acc' : Env := acc.insert n $ (acc.getEnvExpr e', eval acc e')
-        return acc.insert n $ (acc'.getEnvExpr e, pure $ ← eval acc' e)
-    eval env' body
-  | .app₀ fn => do
-    match fn with 
-    | .currEnv => 
+        -- dbg_trace s!"[evalM] letrec at {n}"
+        let e' := .letRecE [(n, e)] e
+        -- "thunk" the result (that is, no `pure $ ←` in front)
+        let acc' : Env := acc.insert n $ evalM acc e'
+        return acc.insert n $ pure $ ← evalM acc' e
+    evalM env' body
+  | .mutRecE bindings body => do
+    let mut env' := bindings.foldl (init := env) fun acc (n', e') =>
+      let e' := .mutRecE bindings e'
+      -- "thunk" the result (that is, no "pure $ ←" in front)
+      acc.insert n' $ evalM env e'
+    for (n, e) in bindings do
+      env' := env'.insert n $ pure $ ← evalM env' e
+    evalM env' body
+  | .app₀ fn => do 
+    -- dbg_trace s!"[evalM] app₀"
+    match fn with
+    | .currEnv =>
       return .env $ ← env.foldM (init := default)
-        fun acc n (_, e) => return (n, ← e) :: acc
-    | _ => 
-      --dbg_trace s!"[.app₀] evaluating {← eval env fn}"
-      match ← eval env fn with 
-      | .lam [] [] body => eval env body.expr
+        fun acc n e => 
+        -- dbg_trace s!"----- evaluating: {n} -----"
+        return (n, ← e) :: acc
+    | _ =>
+      -- dbg_trace s!"[.app₀] evaluating {← evalM env fn}"
+      match ← evalM env fn with
+      | .lam [] [] body => evalM env body.2
       | _ => throw "application not a procedure"
     
-  | .app fn arg => do
-    --dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
-    match ← eval env fn with
+  | .app fn arg => do 
+    -- dbg_trace s!"[.app] before {fn.pprint}: to {arg.pprint}"
+    match ← evalM env fn with
     | .lam ns patch lb =>
-      --dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, (_, e)) => (n, e.pprint)}}"
+      -- dbg_trace s!"[.app] after {fn.pprint}: {ns}, {patch.map fun (n, e) => (n, e.get.pprint)}}"
       let (patch', ns') ← bind arg env ns
       let patch := patch' :: patch
+      let patchM : List (Name × EvalM Value) := patch.map fun (n, thunk) => (n, thunk)
       if ns'.isEmpty then
         -- NOTE: `lb.env` is guaranteed not to have duplicates
         -- since it is extracted directly from an RBMap
-        let ctxBinds : List (Name × (EnvExpr × Value)) ← lb.env.mapM
+        let ctxBinds : List (Name × EvalM Value) ← lb.1.mapM
           fun (n, ee) => do
-              -- symbols coming from the original context in which this lambda appeared must use that context
-              let env := envExprToEnv ee
-              return (n, (env.getEnvExpr ee.expr,  ← eval env ee.expr))
+              return (n, ee)
 
-        --dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
-        --dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
-        let env ← (ctxBinds.reverse ++ patch.reverse).foldlM (init := default)
-          fun acc (n, (envExpr, value)) => do
-            --dbg_trace s!"[.app] inserting: {n}, {value}"
-            return (acc.insert n (envExpr, pure value))
+        -- dbg_trace s!"[.app] patch: {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        -- dbg_trace s!"[.app] ctxBinds: {ctxBinds.map fun (n, (_, e)) => (n, e.pprint)}"
+        let env ← (ctxBinds.reverse ++ patchM.reverse).foldlM (init := default)
+          fun acc (n, value) => do
+            -- dbg_trace s!"[.app] inserting: {n}, {value}"
+            return acc.insert n value
 
-        -- a lambda body should be evaluated in the context of *its arguments alone* (plus whatever context it originally had)
-        --dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
-        eval env lb.expr
+        -- dbg_trace s!"[.app] evaluating {fn.pprint}: {env.toList.map fun (name, (ee, _)) => (name, ee.expr.pprint)}, {lb.expr.pprint}"
+        -- a lambda body should be evaluated in the context of
+        -- *its arguments alone* (plus whatever context it originally had)
+        evalM env lb.2
       else
-        -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
+        -- -- dbg_trace s!"[.app] not enough args {fn.pprint}: {ns'}, {patch.map fun (n, (_, e)) => (n, e.pprint)}"
         return .lam ns' patch lb
     | v => throw s!"expected lambda value, got\n {v}"
-  | .quote s => return .sexpr s
-  | .binaryOp op e₁ e₂ => do evalBinaryOp (← eval env e₁) (← eval env e₂) op
-  | .atom e => return match ← eval env e with
+  | .quote s => do 
+    -- dbg_trace s!"[evalM] quote"
+    return .sexpr s
+  | .binaryOp op e₁ e₂ => do 
+    -- dbg_trace s!"[evalM] binop {format op}"
+    evalBinaryOp (← evalM env e₁) (← evalM env e₂) op
+  | .atom e => do 
+    -- dbg_trace s!"[evalM] atom"
+    return match ← evalM env e with
     | .cons .. => TRUE
     | _ => FALSE
-  | .cons e₁ e₂ => return .cons (← eval env e₁) (← eval env e₂)
-  | .strcons e₁ e₂ => do match (← eval env e₁), (← eval env e₂) with
+  | .cons e₁ e₂ => do 
+    -- dbg_trace s!"[evalM] cons {e₁.pprint} {e₂.pprint}"
+    return .cons (← evalM env e₁) (← evalM env e₂)
+  | .strcons e₁ e₂ => do 
+    -- dbg_trace s!"[evalM] strcons"
+    match (← evalM env e₁), (← evalM env e₂) with
     | .lit (.char c), .lit (.str s) => return .lit (.str ⟨c :: s.data⟩)
     | .lit (.char _), v => throw s!"expected string value, got\n {v}"
     | v, _ => throw s!"expected char value, got\n {v}"
-  | .car e => do match ← eval env e with
+  | .car e => do 
+    -- dbg_trace s!"[evalM] car"
+    match ← evalM env e with
     | .cons v _ => return v
     | .lit (.str s) => match s.data with
       | c::_ => return .lit $ .char c
       | [] => return FALSE
     | v => throw s!"expected cons value, got\n {v}"
-  | .cdr e => do match ← eval env e with
+  | .cdr e => do
+    -- dbg_trace s!"[evalM] cdr"
+    match ← evalM env e with
     | .cons _ v => return v
     | .lit (.str s) => match s.data with
       | _::cs => return .lit $ .str ⟨cs⟩
       | [] => return .lit $ .str ""
     | v => throw s!"expected cons value, got\n {v}"
   | .emit e => do
-    let v ← eval env e
-    IO.println v
+    -- dbg_trace s!"[evalM] emit"
+    let v ← evalM env e
+    dbg_trace v
     pure v
-  | .begin es => match es.reverse.head? with
-    | some e => eval env e
+  | .begin es => do
+    -- dbg_trace s!"[evalM] begin"
+    match es.reverse.head? with
+    | some e => evalM env e
     | none => return FALSE
-  | .currEnv => throw "floating `current-env`, try `(current-env)` instead"
+  | .currEnv => do
+    -- dbg_trace s!"[evalM] current-env"
+    throw "floating `current-env`, try `(current-env)` instead"
 end
 
-def eval' (e : Expr) (env : Env := default) : IO $ Except String Value :=
-  return match ← eval env e with
-  | .ok res => return res
-  | .error err => throw err
+def eval (e : Expr) : Except String Value :=
+  match (ExceptT.run (evalM default e)) () with
+  | .ok res _ => res
+  | .error _ _ => .error "FIXME"
 
-def ppEval (e : Expr) (env : Env := default) : IO Format :=
-  return match ← eval env e with
-  | .ok res => res.pprint
-  | .error e => e
+def ppEval (e : Expr) : IO Format :=
+  match (ExceptT.run (evalM default e)) () with
+  | .ok res _ => match res with
+    | .ok v => pure v.pprint
+    | .error s => throw $ .otherError 0 s -- FIXME
+  | .error _ _ => throw $ .otherError 0 "HERE" -- FIXME
+
+instance : OfNat Value n where 
+  ofNat := .lit $ .num $ Fin.ofNat n
+
+instance : Coe Char Value where 
+  coe c := .lit (.char c)
+
+instance : Coe String Value where 
+  coe s := .lit (.str s)
+
+instance : Coe (List (Name × Nat)) Value where
+  coe l := .env $ l.map fun (name, n) => (name, .lit $ .num $ Fin.ofNat n)
+
+def Value.mkList (vs : List Value) : Value := 
+  vs.foldr (fun acc v => .cons acc v) FALSE
+
+infix:75 " .ᵥ " => Value.cons
+
+abbrev Test := Except String Value × Expr 
+
+-- #eval ppEval ⟦
+-- (letrec
+-- ((getelem
+--   (lambda (xs n)
+--    (if (= n 0)
+--     (car xs)
+--     ((getelem (cdr xs)) (- n 1))))))
+--  (getelem (cons 1 nil) 1))⟧
 
 end Lurk

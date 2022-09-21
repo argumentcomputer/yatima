@@ -4,8 +4,10 @@ import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
 import Yatima.Converter.Converter
 import Yatima.Typechecker.Typechecker
+import Yatima.Transpiler.Transpiler
+import Yatima.ForLurkRepo.Eval
 
-open LSpec Yatima Compiler Converter Typechecker
+open LSpec Yatima Compiler
 
 def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
@@ -54,6 +56,8 @@ def extractAnonCidGroupsTests (groups : List (List Lean.Name))
 end AnonCidGroups
 
 section IpldRoundtrip
+
+open Converter
 
 /-
 This section defines an extractor that validates that the Ipld conversion
@@ -110,7 +114,9 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
-    type := reindexExpr map x.type, value := reindexExpr map x.value }
+    type := reindexExpr map x.type,
+    value := reindexExpr map x.value,
+    all := x.all.map map.find! }
   | .constructor x => .constructor { x with
     type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
   | .extRecursor x =>
@@ -133,6 +139,8 @@ end IpldRoundtrip
 
 section Typechecking
 
+open Typechecker
+
 /-
 Here we define the following extractors:
 * `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
@@ -154,3 +162,20 @@ def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
       (typecheckConst stt.pStore const.name) fun _ => .done
 
 end Typechecking
+
+section Transpilation
+
+open Transpiler Lurk
+
+def extractTranspilationTests (expect : List (Lean.Name × Option Value))
+    (stt : CompileState) : TestSeq :=
+  expect.foldl (init := .done) fun tSeq (root, expecVal?) =>
+    withExceptOk "Transpilation succeeds" (transpile stt root) fun expr =>
+      withExceptOk s!"Evaluation of {root} suceeds" (eval expr) fun val =>
+        match expecVal? with
+        | some expecVal =>
+          tSeq ++ test s!"Evaluation of {root} yields {expecVal}"
+            (expecVal == val)
+        | none => tSeq
+
+end Transpilation
