@@ -157,13 +157,16 @@ that call `S` with their respective indices.
 Important: the resulting expressions must to be bound in a `letrec`.
 -/
 def mkMutualBlock (mutuals : List (Name × Expr)) : List (Name × Expr) :=
-  let names := mutuals.map Prod.fst
-  let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
-  let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
-  let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
-  let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
-      (⟦(= mutidx $i)⟧, replaceFreeVars map e)
-    ) ⟦nil⟧
-  (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
+  if mutuals.length == 1 then 
+    mutuals 
+  else 
+    let names := mutuals.map Prod.fst
+    let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
+    let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
+    let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
+    let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
+        (⟦(= mutidx $i)⟧, replaceFreeVars map e)
+      ) ⟦nil⟧
+    (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
 
 end Lurk.Expr

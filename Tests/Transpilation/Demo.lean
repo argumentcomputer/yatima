@@ -5,12 +5,13 @@ def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Transpilation/Demo.lean"
     [
-      extractIpldRoundtripTests,
       extractTranspilationTests [
-        (`listLength, none),
+        (`listLength, some 6),
         (`expr, none),
-        (`univCtor, none),
-        (`mapInsert, none)
+        (`univCtor, some "zero"),
+        (`mapInsert, none),
+        (`strAppend, some "abcdef"),
+        (`treeSize, some 7)
       ]
     ]
   lspecIO tSeq

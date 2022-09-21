@@ -13,3 +13,8 @@ def univCtor := univ.ctorName
 def map : Std.RBMap Nat Nat compare :=
   Std.RBMap.ofList [(0, 0), (1, 1), (2, 2)]
 def mapInsert := map.insert 3 3
+
+def strAppend := "abc" ++ "def"
+
+def tree : Tree Nat := .node 4 [.node 3 [.node 1 [], .node 2 []], .node 6 [.node 5 [], .node 7 []]]
+def treeSize := tree.size

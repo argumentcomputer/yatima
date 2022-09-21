@@ -1,6 +1,4 @@
-import Yatima.Ipld.ToIpld
-import Yatima.Datatypes.Univ
+set_option hygiene false
 
-open Yatima Ipld ToIpld
-def univ := @Univ.zero Kind.anon
-def univCtor := univToIpld univ
+def strAppend := "abc" ++ "def"
+#print strAppend._cstage1

@@ -258,7 +258,8 @@ mutual
     ⟧
     appendBinding (name, body)
 
-  partial def recrToLurkExpr (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) : TranspileM Unit := do
+  partial def recrToLurkExpr (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) : 
+      TranspileM (Name × Lurk.Expr) := do
     let (_, ⟨binds⟩) := descendPi recrType #[]
     let argName : Lurk.Expr := ⟦$(binds.last!)⟧
     let ifThens ← rhs.mapM fun ctor => do 
@@ -270,7 +271,7 @@ mutual
       let newArgs := recrArgs.reverse ++ ctorArgs
       return (⟦(= (car (cdr $argName)) $idx)⟧, .mkApp rhs newArgs) -- extract snd element
     let cases := Lurk.Expr.mkIfElses ifThens ⟦nil⟧
-    appendBinding (recrName, ⟦(lambda ($binds) $cases)⟧)
+    return (recrName, ⟦(lambda ($binds) $cases)⟧)
 
   partial def mutIndBlockToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) : 
       TranspileM Unit := do
@@ -287,10 +288,12 @@ mutual
         ⟦(lambda ($binds) 
             ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
       appendBinding (ind.name, lurkInd)
-      for erecr in erecrs do
-        recrToLurkExpr erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
-      recrToLurkExpr irecr.type irecr.name irecr.indices ctors
       ctors.forM fun c => ctorToLurkExpr c ind.indices
+      let erecrs ← erecrs.mapM fun erecr =>
+        recrToLurkExpr erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
+      let irecr ← recrToLurkExpr irecr.type irecr.name irecr.indices ctors
+      Lurk.Expr.mkMutualBlock (irecr::erecrs) |>.forM
+        fun (n, e) => appendBinding (n, e) false
 
   partial def builtinInitialize (name : Name) (func : Lurk.Expr) : TranspileM Unit := do 
     visit name
@@ -396,15 +399,18 @@ mutual
         let (_, ⟨binds⟩) := descendPi x.type #[]
         appendBinding (x.name, ⟦(lambda ($binds) t)⟧)
     | .opaque x =>
-      if !(← get).visited.contains x.name then
-        visit x.name -- force cache update before `exprToLurkExpr` to prevent looping
-        appendBinding (x.name, ← exprToLurkExpr x.value) false
+      let name := x.name ++ `_unsafe_rec
+      match (← read).state.pStore.consts.find? fun c => c.name == name with
+      | some c => 
+        constToLurkExpr c
+        appendBinding (x.name, ⟦$(name)⟧)
+      | none => throw $ .custom s!"cannot transpile opaque {x.name} without `_unsafe_rec` counterpart"
     | .definition x =>
       if !(← get).visited.contains x.name then
         match ← getMutualDefInfo x with
         | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
         | [d] =>
-          visit d.name
+          visit d.name -- force cache update before `exprToLurkExpr` to prevent looping
           appendBinding (d.name, ← exprToLurkExpr d.value) false
         | defs =>
           defs.forM fun d => visit d.name
