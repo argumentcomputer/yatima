@@ -1,46 +1,17 @@
-import Cli
 import Yatima.Cli.Utils
-import Yatima.Cli.Cronos
-import Yatima.Compiler.Compiler
 
 open Yatima.Compiler in
 def compileRun (p : Cli.Parsed) : IO UInt32 := do
-  match ← getToolchain with
-  | .error msg => IO.eprintln msg; return 1
-  | .ok toolchain =>
-    if toolchain != Lean.versionString then
-      IO.eprintln
-        s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
-      return 1
-  match p.variableArgsAs? String with
-  | some ⟨args⟩ =>
-    if !args.isEmpty then
-      if !(p.hasFlag "prelude") then setLibsPaths
-      let mut stt : CompileState := default
-      let log := p.hasFlag "log"
-      let mut cronos := Cronos.new
-      for arg in args do
-        for filePath in ← getLeanFilePathsList ⟨arg⟩ do
-          let filePathStr := filePath.toString
-          cronos ← cronos.clock filePathStr
-          match ← compile filePath log stt with
-          | .ok stt' =>
-            stt := stt'
-            cronos ← cronos.clock filePathStr
-          | .error msg => IO.eprintln msg; return 1
-      if p.hasFlag "summary" then
-        IO.println s!"{stt.summary}"
-        IO.println s!"\n{cronos.summary}"
-      -- TODO: write `stt.store` on disk
-      return 0
-    else
-      IO.eprintln "No store argument was found."
-      IO.eprintln "Run `yatima store -h` for further information."
-      return 1
-  | none =>
-    IO.eprintln "Couldn't parse store arguments."
-    IO.eprintln "Run `yatima store -h` for further information."
-    return 1
+  let mut cronos ← Cronos.new.clock "Compilation"
+  match ← cliCompile p with
+  | .ok (compileState, cronos') =>
+    cronos ← cronos.clock "Compilation"
+    if p.hasFlag "summary" then
+      IO.println s!"{compileState.summary}"
+      IO.println s!"\n{cronos'.summary}"
+      IO.println s!"\n{cronos.summary}"
+    return 0
+  | .error err => IO.eprintln err; return 1
 
 def compileCmd : Cli.Cmd := `[Cli|
   compile VIA compileRun;
