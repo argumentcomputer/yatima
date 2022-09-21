@@ -44,10 +44,9 @@ mutual
   `TypeInfo`, which by type preservation comes from the underlying expression that gave
   rise to this value by means of evaluation, is saved outside the thunk, instead of in
   the values themselves. This allows us to extract it without needing to force the thunk.
-  They also carry around a thunk of a string for debugging
   -/
   inductive SusValue
-  | mk : TypeInfo → Thunk Value → Thunk String → SusValue
+  | mk : Expr.Meta → Thunk Value → SusValue
 
   /--
   The environment will bind free variables to different things, depending on
@@ -73,7 +72,7 @@ mutual
   inductive Neutral
     | fvar  : Name → Nat → Neutral
     | const : Name → ConstIdx → List Univ → Neutral
-    | proj  : Nat → Value → TypeInfo → Neutral
+    | proj  : Nat → SusValue → Neutral
     deriving Inhabited
 
 end
@@ -82,16 +81,13 @@ end
 abbrev Args := List SusValue
 
 instance : Inhabited SusValue where
-  default := .mk .None {fn := default} {fn := default}
+  default := .mk default {fn := default}
 
-instance : ToString SusValue where
-  toString sus := match sus with | .mk _ _ str => str.get
-
-def SusValue.info : SusValue → TypeInfo
-| .mk info _ _ => info
+def SusValue.meta : SusValue → Expr.Meta
+| .mk meta _ => meta
 
 def SusValue.get : SusValue → Value
-| .mk _ thunk _ => thunk.get
+| .mk _ thunk => thunk.get
 
 def Neutral.ctorName : Neutral → String
   | .fvar ..  => "fvar"
@@ -129,9 +125,9 @@ end Env
 def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   .app (.const name k univs) []
 
-/-- Creates a new variable with a name, a de-Bruijn index and a type -/
-def mkVar (name : Name) (idx : Nat) : Value :=
-  .app (.fvar name idx) []
+/-- Creates a new variable as a thunk -/
+def mkSusVar (meta : Expr.Meta) (name : Name) (idx : Nat) : SusValue :=
+  .mk meta (.mk fun _ => .app (.fvar name idx) [])
 
 end Yatima.Typechecker
 

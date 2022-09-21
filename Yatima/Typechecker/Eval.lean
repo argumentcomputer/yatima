@@ -33,12 +33,6 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
   | some const => pure const
   | none => throw $ .outOfConstsRange name constIdx consts.size
 
-/--
-  Should only be used for already evaluated values, since Lean is strict. If you want laziness,
-  manually write the expression for the value inside the `fun _ => ...` thunk
--/
-def Value.toSusVal (val : Value) (info : TypeInfo) (str : String) : SusValue := .mk info val (.mk fun _ => str)
-
 mutual
   /--
   Evaluates a `Yatima.Expr` into a `Typechecker.Value`.
@@ -77,8 +71,8 @@ mutual
     | .lit _ lit =>
       pure $ Value.lit lit
     | .proj _ idx expr => do
-      let val ← eval expr
-      match val with
+      let val := suspend expr (← read)
+      match val.get with
       | .app (.const name k _) args =>
         match ← derefConst name k with
         | .constructor ctor =>
@@ -88,8 +82,8 @@ mutual
           let some arg := args.reverse.get? idx
             | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        | _ => pure $ .app (.proj idx val expr.meta.info) []
-      | .app .. => pure $ .app (.proj idx val expr.meta.info) []
+        | _ => pure $ .app (.proj idx val) []
+      | .app .. => pure $ .app (.proj idx val) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
@@ -119,8 +113,7 @@ mutual
       | .ok a => a
       | .error e => .exception e,
      }
-    let str := { fn := fun _ => toString thunk.get }
-    .mk expr.meta.info thunk str
+    .mk expr.meta thunk
 
   /--
   Applies `value : Value` to the argument `arg : SusValue`.
@@ -223,14 +216,14 @@ mutual
       throw .impossible
 
   partial def toCtorIfLit : SusValue → TypecheckM Value
-    | .mk info thunk _ => match thunk.get with
+    | .mk meta thunk => match thunk.get with
       | .lit (.natVal v) => do
         let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
         let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
         if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
         else
-          let val := Value.lit (.natVal (v-1))
-          pure $ .app (.const `Nat.succ succIdx []) [val.toSusVal info "{v-1}"]
+          let thunk := SusValue.mk meta (Value.lit (.natVal (v-1)))
+          pure $ .app (.const `Nat.succ succIdx []) [thunk]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
       | e => pure e
 end
