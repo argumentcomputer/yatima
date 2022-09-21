@@ -1,15 +1,14 @@
 import Cli
-import Yatima.Cli.Utils
 
 def dagGet (_p : Cli.Parsed) : IO UInt32 := do
-    return 0
+  return 0
 
 def getCmd : Cli.Cmd := `[Cli|
-    get VIA dagGet;
-    "Retrieve a Yatima data store from IPFS"
+  get VIA dagGet;
+  "Retrieve a Yatima data store from IPFS"
 
-    --FLAGS:
+  --FLAGS:
     
-    ARGS:
+  ARGS:
     ...sources : String; "CID of stored Yatima data"
 ]
