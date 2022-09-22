@@ -134,18 +134,6 @@ def filterConstants (cs : ConstMap) : ConstMap :=
   Lean.List.toSMap $ cs.toList.filter fun (n, c) =>
     (!openReferences.contains n) && (!hasOpenReferenceInConst openReferences c)
 
--- def fixUnsafeRecAux (c : ConstantInfo) (cs : ConstMap) : ConstMap := 
---   match cs.find? c.name, cs.find? (c.name ++ `_unsafe_rec) with 
---   | some (.opaqueInfo o), some (.defnInfo d) => 
---     if d.safety == DefinitionSafety.partial then 
---       _
---     else 
---       _
---   | _, _ => cs 
-
--- def fixUnsafeRec (cs : ConstMap) : ConstMap := 
-  
-
 end OpenReferences
 
 instance : BEq ReducibilityHints where beq
@@ -281,13 +269,11 @@ def patchUnsafeRec (cs : ConstMap) : ConstMap :=
     cs.fold (init := .empty) fun acc n _ => match n with 
     | .str n "_unsafe_rec" => acc.insert n 
     | _ => acc
-  -- dbg_trace s!"unsafes: {unsafes.toList}"
   cs.map fun c => match c with 
     | .opaqueInfo o => 
       if unsafes.contains o.name then 
         .opaqueInfo ⟨
-            o.toConstantVal, 
-            mkConst (o.name ++ `_unsafe_rec), 
+            o.toConstantVal, mkConst (o.name ++ `_unsafe_rec), 
             o.isUnsafe, o.levelParams
           ⟩
       else 
