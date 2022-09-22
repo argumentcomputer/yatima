@@ -103,20 +103,8 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
   else
     throw s!"Not found: {", ".intercalate (notFound.data.map toString)}"
 
-/--
-Strip the binder types from lambdas in `e` (i.e., replace them with `Sort 0`) for the purpose of comparison.
--/
-def stripBinderTypes : Expr → Expr
-  | .lam _ n bin _ b => .lam default n bin (.sort default .zero) (stripBinderTypes b)
-  | .pi _ n bin _ b => .pi default n bin (.sort default .zero) (stripBinderTypes b)
-  | .app _ fn e  => .app default (stripBinderTypes fn) (stripBinderTypes e)
-  | .letE _ n e ty b  => .letE default n (stripBinderTypes e) (stripBinderTypes ty) (stripBinderTypes b)
-  | .proj _ n e  => .proj default n (stripBinderTypes e)
-  | e => e
-
 def makeTcTests (pairs : Array ((Name × Expr) × (Name × Expr))) : TestSeq :=
   pairs.foldl (init := .done) fun tSeq ((nameReduced, constReduced), (nameExpected, constExpected)) =>
-    let constExpected := stripBinderTypes constExpected
     tSeq ++ test s!"Comparing {nameReduced} to {nameExpected}:\n  Reduced:\t{constReduced}\n  Expected:\t{constExpected}"
       (constReduced == constExpected)
 
