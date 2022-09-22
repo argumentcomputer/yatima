@@ -107,7 +107,7 @@ instance : Coe Bool Ipld where
   coe x := .bool x
 
 instance : Coe Name Ipld where
-  coe x := .string (Lean.Name.toString x)
+  coe x := .string (Lean.Name.toString x) -- this is lossy
 
 instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
 instance : Coe (ExprCid k)  Ipld where coe u := .link u.data
@@ -143,12 +143,12 @@ instance : Coe DefinitionSafety Ipld where coe
   | .unsafe  => .number 1
   | .partial => .number 2
 
-instance [Coe A Ipld] [Coe B Ipld] : Coe (Split A B k) Ipld where coe
+instance [Coe α Ipld] [Coe β Ipld] : Coe (Split α β k) Ipld where coe
   | .injₗ a => .array #[.number 0, a]
   | .injᵣ b => .array #[.number 1, b]
 
 instance : Coe Unit Ipld where coe
-  | .unit => .array #[]
+  | .unit => .null
 
 instance : (k : Kind) → Coe (RecursorRule k) Ipld
   | .anon => { coe := fun | .mk c f r => .array #[c, f, r] }
@@ -197,7 +197,7 @@ def exprToIpld : Ipld.Expr k → Ipld
   | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
   | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
   | .lam n i d b  => .array #[.number $ Ipld.EXPR k, .number 4, n, i, d, b]
-  | .pi n i d c   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
+  | .pi n i d b   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, b]
   | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
   | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
   | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 8, n, e]
