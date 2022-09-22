@@ -34,33 +34,33 @@ mutual
   and their original unevaluated terms both lived in the same context.
   -/
   partial def equal (info : TypeInfo) (lvl : Nat) (term term' : Value) : TypecheckM Bool := do
-    if info.unit? || info.prop? then pure true else
+    if info.unit? || info.proof? then pure true else
     match term, term' with
     | .lit lit, .lit lit' => pure $ lit == lit'
     | .sort u, .sort u' => pure $ u.equalUniv u'
     | .pi name _ dom img env, .pi name' _ dom' img' env' => do
-      let res  ← equal dom.meta.info lvl dom.get dom'.get
-      let imgInfo := img.meta.info
-      let img  ← withNewExtendedEnv env  (mkSusVar dom.meta  name  lvl) $ eval img
-      let img' ← withNewExtendedEnv env' (mkSusVar dom'.meta name' lvl) $ eval img'
+      let res  ← equal dom.info lvl dom.get dom'.get
+      let imgInfo := img.info
+      let img  ← withNewExtendedEnv env  (mkSusVar dom.info  name  lvl) $ eval img
+      let img' ← withNewExtendedEnv env' (mkSusVar dom'.info name' lvl) $ eval img'
       let res' ← equal imgInfo (lvl + 1) img img'
       pure $ res && res'
     | .lam name _ dom bod env, .lam name' _ dom' bod' env' =>
-      let res  ← equal dom.meta.info lvl dom.get dom'.get
-      let bodInfo := bod.meta.info
-      let bod  ← withNewExtendedEnv env  (mkSusVar dom.meta  name  lvl) $ eval bod
-      let bod' ← withNewExtendedEnv env' (mkSusVar dom'.meta name' lvl) $ eval bod'
+      let res  ← equal dom.info lvl dom.get dom'.get
+      let bodInfo := bod.info
+      let bod  ← withNewExtendedEnv env  (mkSusVar dom.info  name  lvl) $ eval bod
+      let bod' ← withNewExtendedEnv env' (mkSusVar dom'.info name' lvl) $ eval bod'
       let res' ← equal bodInfo (lvl + 1) bod bod'
       pure $ res && res'
     | .lam name _ dom bod env, .app neu' args' =>
-      let var := mkSusVar dom.meta name lvl
-      let bodInfo := bod.meta.info
+      let var := mkSusVar dom.info name lvl
+      let bodInfo := bod.info
       let bod ← withNewExtendedEnv env var (eval bod)
       let app := Value.app neu' (var :: args')
       equal bodInfo (lvl + 1) bod app
     | .app neu args, .lam name _ dom bod env =>
-      let var := mkSusVar dom.meta name lvl
-      let bodInfo := bod.meta.info
+      let var := mkSusVar dom.info name lvl
+      let bodInfo := bod.info
       let bod ← withNewExtendedEnv env var (eval bod)
       let app := Value.app neu (var :: args)
       equal bodInfo (lvl + 1) app bod
@@ -76,10 +76,10 @@ mutual
         equalThunks lvl args args'
       else pure false
     | .app (.proj idx val) args, .app (.proj idx' val') args' =>
-      match val.meta.info.struct?, val'.meta.info.struct? with
+      match val.info.struct?, val'.info.struct? with
       | .some const, .some const' =>
         if const == const' && idx == idx' then
-          let eqVal ← equal val.meta.info lvl val.get val'.get
+          let eqVal ← equal val.info lvl val.get val'.get
           let eqThunks ← equalThunks lvl args args'
           pure (eqVal && eqThunks)
         else pure false
@@ -93,7 +93,7 @@ and checking the evaluated images are equal.
   partial def equalThunks (lvl : Nat) (vals vals' : List SusValue) : TypecheckM Bool :=
     match vals, vals' with
     | val::vals, val'::vals' => do
-      let eq ← equal val.meta.info lvl val.get val'.get
+      let eq ← equal val.info lvl val.get val'.get
       let eq' ← equalThunks lvl vals vals'
       pure $ eq && eq'
     | [], [] => pure true

@@ -13,8 +13,8 @@ local instance : Coe (Except ε α) (Option α) where coe
 partial def shiftEnv (env : Env) : Env :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
   env.withExprs $ env.exprs.map fun val => match val.get with
-    | .app (.fvar name idx) args => Value.app (.fvar name (idx + 1)) args
-    | other => other
+    | .app (.fvar name idx) args => .mk default (Value.app (.fvar name (idx + 1)) args)
+    | _ => val
 
 mutual
   /--
@@ -29,7 +29,7 @@ mutual
       let lamEnv := shiftEnv env
       let lamEnv := lamEnv.extendWith
         -- TODO double-check ordering here
-        $ Value.app (.fvar n 0) []
+        $ .mk default $ Value.app (.fvar n 0) []
       return .lam default n bin (← replace ty) (← replaceFvars consts lamEnv b)
     | .letE _ n e ty b  => return .letE default n (← replace e) (← replace ty) (← replace b)
     | .proj _ n e  => return .proj default n (← replace e)
@@ -51,7 +51,7 @@ mutual
     | .sort univ => pure $ .sort default univ
     | .app neu args => do args.foldlM (init := ← readBackNeutral consts neu) fun acc arg => do
       pure $ Expr.app default acc $ ← readBack consts arg.get
-    | .lam name binfo bod env => do
+    | .lam name binfo dom bod env => do
       -- any neutral fvars in the environment are now additionally nested,
       -- and so must have their de bruijn indices incremented
       let lamEnv := shiftEnv env
@@ -59,13 +59,13 @@ mutual
         -- binder types are irrelevant to reduction and so are lost on evaluation;
         -- arbitrarily fill these in with `Sort 0`
         -- TODO double-check ordering here
-        $ Value.app (.fvar name 0) []
-      pure $ .lam default name binfo (.sort default .zero) $ ← replaceFvars consts lamEnv bod
+        $ .mk default $ Value.app (.fvar name 0) []
+      pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts lamEnv bod
     | .pi name binfo dom bod env => do
       let piEnv := shiftEnv env
       let piEnv := piEnv.extendWith
         -- TODO double-check ordering here
-        $ Value.app (.fvar name 0) []
+        $ .mk default $  Value.app (.fvar name 0) []
       pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piEnv bod
     | .lit lit => pure $ .lit default lit
     | .exception _ => none
@@ -74,7 +74,7 @@ mutual
     | .fvar name idx => pure $ .var default name idx
     | .const name idx univs => pure $ .const default name idx univs
     | .proj idx val => do
-      let val ← readBack consts val
+      let val ← readBack consts val.get
       pure $ .proj default idx val
 
 end

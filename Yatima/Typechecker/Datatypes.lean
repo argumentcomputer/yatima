@@ -46,7 +46,7 @@ mutual
   the values themselves. This allows us to extract it without needing to force the thunk.
   -/
   inductive SusValue
-  | mk : Expr.Meta → Thunk Value → SusValue
+  | mk : TypeInfo → Thunk Value → SusValue
 
   /--
   The environment will bind free variables to different things, depending on
@@ -83,8 +83,8 @@ abbrev Args := List SusValue
 instance : Inhabited SusValue where
   default := .mk default {fn := default}
 
-def SusValue.meta : SusValue → Expr.Meta
-| .mk meta _ => meta
+def SusValue.info : SusValue → TypeInfo
+| .mk info _ => info
 
 def SusValue.get : SusValue → Value
 | .mk _ thunk => thunk.get
@@ -126,8 +126,8 @@ def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
   .app (.const name k univs) []
 
 /-- Creates a new variable as a thunk -/
-def mkSusVar (meta : Expr.Meta) (name : Name) (idx : Nat) : SusValue :=
-  .mk meta (.mk fun _ => .app (.fvar name idx) [])
+def mkSusVar (info : TypeInfo) (name : Name) (idx : Nat) : SusValue :=
+  .mk info (.mk fun _ => .app (.fvar name idx) [])
 
 end Yatima.Typechecker
 

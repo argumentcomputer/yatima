@@ -113,7 +113,7 @@ mutual
       | .ok a => a
       | .error e => .exception e,
      }
-    .mk expr.meta thunk
+    .mk expr.info thunk
 
   /--
   Applies `value : Value` to the argument `arg : SusValue`.
@@ -216,13 +216,13 @@ mutual
       throw .impossible
 
   partial def toCtorIfLit : SusValue → TypecheckM Value
-    | .mk meta thunk => match thunk.get with
+    | .mk info thunk => match thunk.get with
       | .lit (.natVal v) => do
         let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
         let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
         if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
         else
-          let thunk := SusValue.mk meta (Value.lit (.natVal (v-1)))
+          let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
           pure $ .app (.const `Nat.succ succIdx []) [thunk]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
       | e => pure e
