@@ -134,6 +134,18 @@ def filterConstants (cs : ConstMap) : ConstMap :=
   Lean.List.toSMap $ cs.toList.filter fun (n, c) =>
     (!openReferences.contains n) && (!hasOpenReferenceInConst openReferences c)
 
+-- def fixUnsafeRecAux (c : ConstantInfo) (cs : ConstMap) : ConstMap := 
+--   match cs.find? c.name, cs.find? (c.name ++ `_unsafe_rec) with 
+--   | some (.opaqueInfo o), some (.defnInfo d) => 
+--     if d.safety == DefinitionSafety.partial then 
+--       _
+--     else 
+--       _
+--   | _, _ => cs 
+
+-- def fixUnsafeRec (cs : ConstMap) : ConstMap := 
+  
+
 end OpenReferences
 
 instance : BEq ReducibilityHints where beq
@@ -212,3 +224,16 @@ instance [Ord α] [Ord β] : Ord $ α × β where
 
 def concatOrds : List Ordering → Ordering :=
   List.foldl (fun x y => x * y) .eq
+
+namespace Std
+namespace PersistentHashMap
+
+def filter {_ : BEq α} {_ : Hashable α} 
+    (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
+  map.foldl (init := .empty) fun acc x y => 
+    match p x y with 
+      | true => acc.insert x y 
+      | false => acc
+
+end PersistentHashMap
+end Std
