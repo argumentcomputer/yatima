@@ -184,14 +184,14 @@ def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
   let hash := Multihash.sha3_256 cbor;
   { version := 0x01, codec, hash }
 
-def univToIpld : (Ipld.Univ k) → Ipld
+def univToIpld : Ipld.Univ k → Ipld
   | .zero     => .array #[.number $ Ipld.UNIV k, .number 0]
   | .succ p   => .array #[.number $ Ipld.UNIV k, .number 1, p]
   | .max a b  => .array #[.number $ Ipld.UNIV k, .number 2, a, b]
   | .imax a b => .array #[.number $ Ipld.UNIV k, .number 3, a, b]
   | .var n    => .array #[.number $ Ipld.UNIV k, .number 4, n]
 
-def exprToIpld : (Ipld.Expr k) → Ipld
+def exprToIpld : Ipld.Expr k → Ipld
   | .var n i ls   => .array #[.number $ Ipld.EXPR k, .number 0, n, i, ls]
   | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
   | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
@@ -202,7 +202,7 @@ def exprToIpld : (Ipld.Expr k) → Ipld
   | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
   | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 8, n, e]
 
-def constToIpld : (Ipld.Const k) → Ipld
+def constToIpld : Ipld.Const k → Ipld
   | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0, n, l, t, s]
   | .theorem ⟨n, l, t, v⟩               => .array #[.number $ Ipld.CONST k, .number 1, n, l, t, v]
   | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ Ipld.CONST k, .number 2, n, l, t, v, s]
