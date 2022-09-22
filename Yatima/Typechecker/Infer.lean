@@ -20,8 +20,8 @@ In this module the two major functions `check` and `infer` are defined.
 namespace Yatima.Typechecker
 
 /-- Reduces the application of a `pi` type to its arguments -/
-def applyType : Value → List (Thunk Value) → TypecheckM Value
-  | .pi _ _ _ _ img imgCtx, arg :: args => do
+def applyType : Value → List (SusValue) → TypecheckM Value
+  | .pi _ _ _ img imgCtx, arg :: args => do
     let res ← withEnv (imgCtx.extendWith arg) (eval img)
     applyType res args
   | type, [] => pure type
@@ -29,7 +29,7 @@ def applyType : Value → List (Thunk Value) → TypecheckM Value
 
 /-- Checks if a type is an unit inductive -/
 def isUnit : Value → TypecheckM Bool
-  | .app _ (.const name i _) _ => do
+  | .app (.const name i _) _ => do
     match ← derefConst name i with
     | .inductive induct => pure induct.unit
     | _ => pure false
@@ -43,13 +43,9 @@ mutual
     match term with
     | .lam _ lamName _ _lamDom bod =>
       match type with
-      | .pi _ _ _ dom img env =>
+      | .pi _ _ dom img env =>
         let lvl := (← read).lvl
-        let var : Thunk Value := {
-          fn := fun _ =>
-            mkVar sorry lamName lvl,
-          repr := "",
-        }
+        let var : SusValue := mkSusVar sorry lamName lvl
         let img ← withNewExtendedEnv env var $ eval img
         -- TODO check that `lamDom` == `dom`
         -- though this is wasteful, since this would force
@@ -61,10 +57,10 @@ mutual
       let expType ← eval expType
       let _ ← check exp expType
       let exp := suspend exp (← read)
-      withExtendedCtx exp expType $ check bod type
+      withExtendedCtx exp (.mk sorry $ .mk fun _ => expType) $ check bod type
     | _ =>
       let (term, inferType) ← infer term
-      if !(← equal (← read).lvl type inferType) then
+      if !(← equal term.meta.info (← read).lvl type inferType) then
         throw $ .valueMismatch (printVal inferType) (printVal type)
       else
         pure term
@@ -78,11 +74,11 @@ mutual
       pure (term, type.get)
     | .sort _ lvl =>
       let lvl := Univ.instBulkReduce (← read).env.univs lvl.succ
-      return (term, Value.sort sorry lvl)
+      return (term, Value.sort lvl)
     | .app _ fnc arg =>
       let (_, fncType) ← infer fnc
       match fncType with
-      | .pi _ _ _ dom img env =>
+      | .pi _ _ dom img env =>
         let term ← check arg dom.get
         let arg := suspend arg (← read)
         let typ ← withNewExtendedEnv env arg $ eval img
@@ -96,18 +92,18 @@ mutual
       let (dom, domLvl) ← isSort dom
       let ctx ← read
       let dom := suspend dom ctx
-      withExtendedCtx (mkVar sorry name ctx.lvl) dom $ do
+      withExtendedCtx (mkSusVar sorry name ctx.lvl) dom $ do
         let (img, imgLvl) ← isSort img
         let lvl := Univ.reduceIMax domLvl imgLvl
-        return (term, Value.sort sorry lvl)
+        return (term, Value.sort lvl)
     | .letE _ _ expType exp bod =>
       let (expType, _) ← isSort expType
       let expType ← eval expType
       let term ← check exp expType
       let exp := suspend exp (← read)
-      withExtendedCtx exp expType $ infer bod
-    | .lit _ (.natVal _) => pure $ (term, mkConst sorry `Nat (← natIndex) [])
-    | .lit _ (.strVal _) => pure $ (term, mkConst sorry `String (← stringIndex) [])
+      withExtendedCtx exp (.mk sorry $ .mk fun _ => expType) $ infer bod
+    | .lit _ (.natVal _) => pure $ (term, mkConst `Nat (← natIndex) [])
+    | .lit _ (.strVal _) => pure $ (term, mkConst `String (← stringIndex) [])
     | .const _ name k constUnivs =>
       let univs := (← read).env.univs
       let const ← derefConst name k
@@ -116,28 +112,30 @@ mutual
     | .proj _ idx expr =>
       let (expr, exprType) ← infer expr
       match exprType with
-      | .app _ (.const name k univs) params =>
+      | .app (.const name k univs) params =>
         match ← derefConst name k with
         | .inductive ind => do
           let ctor ← match ind.struct with
             | some ctor => pure ctor
             | none => throw $ .typNotStructure (printVal exprType)
-          -- Sanity check
+          -- Sanity check TODO: what about ind.indices?
           if ind.params != params.length then throw .impossible else
+          let (ctorType, _) ← infer ctor.type
           let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
           for i in [:idx] do
             match ctorType with
-            | .pi _ _ _ _ img piEnv =>
+            | .pi _ _ _ img piEnv =>
               -- Note: This expression that is generated on the fly is immediately transformed into a value,
               -- which discards the hash, so the value of the hash does not matter here
               let proj := suspend (Expr.proj default i expr) (← read)
               ctorType ← withNewExtendedEnv piEnv proj $ eval img
             | _ => pure ()
           match ctorType with
-          | .pi _ _ _ dom _ _  =>
+          | .pi _ _ dom _ _  =>
             let lvl := (← read).lvl
             let typ := dom.get
-            if exprType.meta.prop? && !(typ.meta.prop?)
+            -- TODO recover `typ.meta.prop?`
+            if expr.meta.info.prop? && !(sorry)
               then throw $ .projEscapesProp (printExpr term)
               else pure (term, typ)
           | _ => throw .impossible
@@ -151,7 +149,7 @@ mutual
   partial def isSort (expr : Expr) : TypecheckM (Expr × Univ) := do
     let (expr, typ) ← infer expr
     match typ with
-    | .sort _ u => pure (expr, u)
+    | .sort u => pure (expr, u)
     | val => throw $ .notTyp (printVal val)
 
 end
