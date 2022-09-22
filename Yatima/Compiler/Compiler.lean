@@ -832,7 +832,8 @@ def compile (filePath : System.FilePath) (log : Bool := false)
   | (some err, _) => return .error $ .errorsOnFile filePathStr err
   | (none, env) =>
     let delta := env.constants.map₂.filter fun n _ => !n.isInternal
-    CompileM.run (.init env.constants log) stt (compileM delta)
+    let constants := patchUnsafeRec env.constants
+    CompileM.run (.init constants log) stt (compileM delta)
 
 /--
 Sets the directories where `olean` files can be found.
