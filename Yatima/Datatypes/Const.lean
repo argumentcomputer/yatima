@@ -42,6 +42,12 @@ structure Opaque (k : Kind) where
   safe  : Boolₐ k
   deriving Repr
 
+structure Quotient (k : Kind) where
+  name : Nameₘ k
+  lvls : NatₐListNameₘ k
+  type : ExprCid k
+  kind : Split QuotKind Unit k
+
 structure Definition (k : Kind) where
   name   : Nameₘ k
   lvls   : NatₐListNameₘ k
@@ -128,12 +134,6 @@ structure RecursorProj (k : Kind) where
   idx     : Natₐ k
   ridx    : Natₐ k
   deriving Repr
-
-structure Quotient (k : Kind) where
-  name : Nameₘ k
-  lvls : NatₐListNameₘ k
-  type : ExprCid k
-  kind : Split QuotKind Unit k
 
 instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
