@@ -225,9 +225,7 @@ def constToIpld : Ipld.Const k → Ipld
   | .mutIndBlock b                      => .array #[.number $ Ipld.CONST k, .number 10, b]
 
 def bothConstCidToIpld (b : Ipld.Both Ipld.ConstCid) : Ipld :=
-  let anonCid := b.anon
-  let metaCid := b.meta
-  .array #[anonCid.data.toString, metaCid.data.toString]
+  .array #[.link b.anon.data, .link b.meta.data]
 
 def univAnonToIpld (univPair : Ipld.UnivCid .anon × Ipld.Univ .anon) : Ipld :=
   let (univCid, univ) := univPair
@@ -254,12 +252,12 @@ def constMetaToIpld (constPair : Ipld.ConstCid .meta × Ipld.Const .meta) : Ipld
   .array #[Ipld.link constCid.data, constToIpld const]
 
 def storeToIpld (store: Ipld.Store) : Ipld :=
-  let constsIpld := Array.mk $ store.consts.toList.map bothConstCidToIpld
-  let univAnonIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
-  let exprAnonIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let constsIpld    := Array.mk $ store.consts.toList.map bothConstCidToIpld
+  let univAnonIpld  := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let exprAnonIpld  := Array.mk $ store.univ_anon.toList.map univAnonToIpld
   let constAnonIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
-  let univMetaIpld:= Array.mk $ store.univ_anon.toList.map univAnonToIpld
-  let exprMetaIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let univMetaIpld  := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let exprMetaIpld  := Array.mk $ store.univ_anon.toList.map univAnonToIpld
   let constMetaIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
   .array #[
     Ipld.number Ipld.STORE,
