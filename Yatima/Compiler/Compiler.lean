@@ -831,8 +831,8 @@ def compile (filePath : System.FilePath) (log : Bool := false)
   match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
   | (some err, _) => return .error $ .errorsOnFile filePathStr err
   | (none, env) =>
-    let delta := env.constants.map₂.filter fun n _ => !n.isInternal
     let constants := patchUnsafeRec env.constants
+    let delta := constants.map₂.filter fun n _ => !n.isInternal
     CompileM.run (.init constants log) stt (compileM delta)
 
 /--
