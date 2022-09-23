@@ -3,15 +3,12 @@ import Yatima.ForLurkRepo.AST
 import Yatima.Compiler.Utils
 
 def Std.RBMap.filterOut [BEq α] [Ord α]
-  (map : Std.RBMap α β compare) (t : Std.RBTree α compare) :
+  (map : Std.RBMap α β compare) (s : Std.RBTree α compare) :
     Std.RBMap α β compare :=
   map.fold (init := default) fun acc n e' =>
-    if t.contains n then acc else acc.insert n e'
+    if s.contains n then acc else acc.insert n e'
 
 namespace Lurk
-
-def mkNumLit (n : Nat) : Literal :=
-  .num (Fin.ofNat n)
 
 namespace Expr
 

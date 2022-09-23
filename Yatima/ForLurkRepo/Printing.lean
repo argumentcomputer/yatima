@@ -16,21 +16,10 @@ instance : ToFormat BinaryOp where format
   | .ge    => ">="
   | .eq    => "eq"
 
-partial def pprintLit (l : Literal) (pretty := true) : Format :=
-  match l with
-  | .nil        => "nil"
-  | .t          => "t"
-  | .num ⟨n, _⟩ => if n < USize.size then toString n else List.asString (Nat.toDigits 16 n)
-  | .str s      => s!"\"{s}\""
-  | .char c     => s!"#\\{c}"
-
-instance : ToFormat Literal where
-  format := pprintLit
-
 open Std.Format Std.ToFormat in
 partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   match e with
-  | .lit l => pprintLit l pretty
+  | .lit l => format l
   | .sym n => fixName n pretty
   | .ifE test con alt =>
     paren <| group ("if" ++ line ++ pprint test pretty) ++ line ++ pprint con pretty ++ line ++ pprint alt pretty
@@ -63,15 +52,15 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   | .currEnv => "current-env"
 where
   fmtNames (xs : List Name) := match xs with
-    | [] => nil
+    | [] => Format.nil
     | [n]  => format $ fixName n pretty
     | n::ns => format (fixName n pretty) ++ line ++ fmtNames ns
   fmtList (xs : List Expr) := match xs with
-    | [] => nil
+    | [] => Format.nil
     | [e]  => pprint e pretty
     | e::es => pprint e pretty ++ line ++ fmtList es
   fmtBinds (xs : List (Name × Expr)) := match xs with
-    | [] => nil
+    | [] => Format.nil
     | [(n, e)]  => paren <| format (fixName n pretty) ++ line ++ pprint e pretty
     | (n, e)::xs =>
       (paren $ format (fixName n pretty) ++ line ++ pprint e pretty)
