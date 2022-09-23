@@ -212,3 +212,52 @@ instance [Ord α] [Ord β] : Ord $ α × β where
 
 def concatOrds : List Ordering → Ordering :=
   List.foldl (fun x y => x * y) .eq
+
+def Std.PersistentHashMap.filter [BEq α] [Hashable α]
+    (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
+  map.foldl (init := .empty) fun acc x y =>
+    match p x y with
+    | true => acc.insert x y
+    | false => acc
+
+section
+
+variable [BEq α] [Hashable α] [Monad m]
+
+def Std.HashMap.mapM (hmap : Std.HashMap α β) (f : β → m σ) :
+    m (Std.HashMap α σ) :=
+  hmap.foldM (init := default) fun acc a b =>
+    return acc.insert a (← f b)
+
+def Std.HashMap.map (hmap : Std.HashMap α β) (f : β → σ) : Std.HashMap α σ :=
+  hmap.fold (init := default) fun acc a b => acc.insert a (f b)
+
+def Std.HashMap.filter (hmap : Std.HashMap α β) (p : α → β → Bool) : Std.HashMap α β :=
+  hmap.fold (init := default) fun acc a b => if p a b then acc.insert a b else acc
+
+def Lean.SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
+  let m₁ := smap.map₁.map f
+  let m₂ := smap.map₂.map f
+  ⟨smap.stage₁, m₁, m₂⟩
+
+def Lean.SMap.filter (smap : Lean.SMap α β) (f : α → β → Bool) : Lean.SMap α β :=
+  ⟨smap.stage₁, smap.map₁.filter f, smap.map₂.filter f⟩
+
+end 
+
+open Lean in
+def patchUnsafeRec (cs : ConstMap) : ConstMap :=
+  let unsafes : Std.HashSet Name :=
+    cs.fold (init := .empty) fun acc n _ => match n with
+    | .str n "_unsafe_rec" => acc.insert n
+    | _ => acc
+  cs.map fun c => match c with
+    | .opaqueInfo o =>
+      if unsafes.contains o.name then
+        .opaqueInfo ⟨
+          o.toConstantVal, mkConst (o.name ++ `_unsafe_rec),
+          o.isUnsafe, o.levelParams
+        ⟩
+      else
+        .opaqueInfo o
+    | c => c
