@@ -10,6 +10,6 @@ def expr : Yatima.Expr :=
 def univ := Yatima.Univ.zero
 def univCtor := univ.ctorName
 
--- def map : Std.RBMap Nat Nat compare :=
---   Std.RBMap.ofList [(0, 0), (1, 1), (2, 2)]
--- def map' := map.insert 3 3
+def map : Std.RBMap Nat Nat compare :=
+  Std.RBMap.ofList [(0, 0), (1, 1), (2, 2)]
+def mapInsert := map.insert 3 3

@@ -71,7 +71,7 @@ def foo : Expr := ⟦
 -- ⟧.pprint.pretty 25
 -- ("s")
 
-def m := 1
+def m : Nat := 1
 def n := [[1, 2], []]
 
 -- #eval IO.print $ ⟦
@@ -85,5 +85,5 @@ def test := [SExpr|
 
 -- #eval IO.print $ ⟦
 --   (quote ($test 1))
--- ⟧.pprint.pretty 25
+-- ⟧.pprint.pretty 35
 -- (quote ((((1 2) ()) 1 "s") 1))

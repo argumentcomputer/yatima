@@ -103,8 +103,8 @@ def NatDiv : Name × Expr := (``Nat.div, ⟦
 def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (<= _x_lurk_1 _x_lurk_2)
-        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) T)
-        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) T)))
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 -- doesn't quite work yet because depends on `Bool`
@@ -134,13 +134,13 @@ def nat := (`nat, ⟦
   ,("Nat" 0 0)
 ⟧)
 
-def zero := (`zero, ⟦
-  (lambda () (append ,(zero 0) nil))
-⟧)
+-- def zero := (`zero, ⟦
+--   (lambda () (append ,(zero 0) nil))
+-- ⟧)
 
-def succ := (`succ, ⟦
-  (lambda (n) (append ,(succ 1) (cons n nil)))
-⟧)
+-- def succ := (`succ, ⟦
+--   (lambda (n) (append ,(succ 1) (cons n nil)))
+-- ⟧)
 
 def mutual_fg := (`f_mutual, ⟦
   (lambda (n) (

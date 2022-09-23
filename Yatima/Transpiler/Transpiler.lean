@@ -282,11 +282,10 @@ mutual
       -- we have params or indices, then `lurkInd` is 
       -- encoded as a lambda
       let lurkInd := if binds.isEmpty then
-        -- TODO: fix back to use `quote`
-        ⟦(cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil)))⟧
+        ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧
       else 
         ⟦(lambda ($binds) 
-            (cons $(toString ind.name) (cons $(ind.params) (cons $(ind.indices) nil))))⟧
+            ,($(toString ind.name) $(ind.params) $(ind.indices)))⟧
       appendBinding (ind.name, lurkInd)
       for erecr in erecrs do
         recrToLurkExpr erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)

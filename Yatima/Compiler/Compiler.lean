@@ -787,9 +787,9 @@ mutual
 end
 
 /-- Iterates over the constants of a `Lean.ConstMap` triggering their compilation -/
-def compileM (constMap : Lean.ConstMap) : CompileM Unit := do
+def compileM (delta : Std.PersistentHashMap Name Lean.ConstantInfo) : CompileM Unit := do
   let log := (← read).log
-  constMap.forM fun _ const => do
+  for (_, const) in delta do
     let (_, c) ← getCompiledConst const
     if log then
       IO.println "\n========================================="
@@ -821,25 +821,9 @@ def compile (filePath : System.FilePath) (log : Bool := false)
   match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
   | (some err, _) => return .error $ .errorsOnFile filePathStr err
   | (none, env) =>
-    -- building an environment `env₀` just with the imports from `filePath`
-    let importFile := env.header.imports.map (·.module) |>.foldl
-      (init := "prelude\n")
-      fun acc m => s!"{acc}import {m}\n"
-    let (_, env₀) ← Lean.runFrontend importFile
-
-    -- filtering out open references
-    let map  := Lean.filterConstants env.constants
-    let map₀ := Lean.filterConstants env₀.constants
-
-    -- computing `delta`, which is what `map` adds in w.r.t. `map₀`
-    let delta : Lean.ConstMap := map.fold
-      (init := Lean.SMap.empty) fun acc n c =>
-        match map₀.find? n with
-        | some c' => if c == c' then acc else acc.insert n c
-        | none    => acc.insert n c
-
-    -- triggering compilation
-    CompileM.run (.init map log) stt (compileM delta)
+    let constants := patchUnsafeRec env.constants
+    let delta := constants.map₂.filter fun n _ => !n.isInternal
+    CompileM.run (.init constants log) stt (compileM delta)
 
 /--
 Sets the directories where `olean` files can be found.
