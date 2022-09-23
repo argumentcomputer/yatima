@@ -213,45 +213,27 @@ instance [Ord α] [Ord β] : Ord $ α × β where
 def concatOrds : List Ordering → Ordering :=
   List.foldl (fun x y => x * y) .eq
 
-namespace Std
-
-namespace PersistentHashMap
-
-def filter {_ : BEq α} {_ : Hashable α} 
+def Std.PersistentHashMap.filter [BEq α] [Hashable α]
     (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
-  map.foldl (init := .empty) fun acc x y => 
-    match p x y with 
-      | true => acc.insert x y 
-      | false => acc
+  map.foldl (init := .empty) fun acc x y =>
+    match p x y with
+    | true => acc.insert x y
+    | false => acc
 
-end PersistentHashMap
-end Std
+section
 
-section 
-variable {α : Type u} {β : Type v} {σ : Type u} {_ : BEq α} {_ : Hashable α} 
-variable {m : Type u → Type w} [Monad m]
+variable [BEq α] [Hashable α] [Monad m]
 
-def Std.HashMap.mapM (hmap : Std.HashMap α β) (f : β → m σ) : m (Std.HashMap α σ) := do 
-  let l := hmap.toList
-  dbg_trace s!"AFTER toList"
-  let thing ← l.mapM fun (a, b) => do 
-    dbg_trace s!"HI?"
-    let out ← f b
-    dbg_trace s!"AFTER out"
-    return (a, out) 
-  dbg_trace s!"AFTER thing"
-  return Std.HashMap.ofList thing 
+def Std.HashMap.mapM (hmap : Std.HashMap α β) (f : β → m σ) :
+    m (Std.HashMap α σ) :=
+  hmap.foldM (init := default) fun acc a b =>
+    return acc.insert a (← f b)
 
-def Std.HashMap.map (hmap : Std.HashMap α β) (f : β → σ) : Std.HashMap α σ := 
-  Std.HashMap.ofList $ hmap.toList.map fun (a, b) => (a, f b)  
+def Std.HashMap.map (hmap : Std.HashMap α β) (f : β → σ) : Std.HashMap α σ :=
+  hmap.fold (init := default) fun acc a b => acc.insert a (f b)
 
 def Std.HashMap.filter (hmap : Std.HashMap α β) (p : α → β → Bool) : Std.HashMap α β :=
-  Std.HashMap.ofList $ hmap.toList.filter fun (a, b) => p a b
-
-def Lean.SMap.mapM (smap : Lean.SMap α β) (f : β → m σ) : m (Lean.SMap α σ) := do 
-  let m₁ ← smap.map₁.mapM f
-  let m₂ ← smap.map₂.mapM f
-  return ⟨smap.stage₁, m₁, m₂⟩
+  hmap.fold (init := default) fun acc a b => if p a b then acc.insert a b else acc
 
 def Lean.SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
   let m₁ := smap.map₁.map f
@@ -263,19 +245,19 @@ def Lean.SMap.filter (smap : Lean.SMap α β) (f : α → β → Bool) : Lean.SM
 
 end 
 
-open Lean in 
-def patchUnsafeRec (cs : ConstMap) : ConstMap := 
-  let unsafes : Std.HashSet Name := 
-    cs.fold (init := .empty) fun acc n _ => match n with 
-    | .str n "_unsafe_rec" => acc.insert n 
+open Lean in
+def patchUnsafeRec (cs : ConstMap) : ConstMap :=
+  let unsafes : Std.HashSet Name :=
+    cs.fold (init := .empty) fun acc n _ => match n with
+    | .str n "_unsafe_rec" => acc.insert n
     | _ => acc
-  cs.map fun c => match c with 
-    | .opaqueInfo o => 
-      if unsafes.contains o.name then 
+  cs.map fun c => match c with
+    | .opaqueInfo o =>
+      if unsafes.contains o.name then
         .opaqueInfo ⟨
-            o.toConstantVal, mkConst (o.name ++ `_unsafe_rec), 
-            o.isUnsafe, o.levelParams
-          ⟩
-      else 
+          o.toConstantVal, mkConst (o.name ++ `_unsafe_rec),
+          o.isUnsafe, o.levelParams
+        ⟩
+      else
         .opaqueInfo o
     | c => c
