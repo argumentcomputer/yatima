@@ -108,7 +108,7 @@ instance : Coe Bool Ipld where
   coe x := .bool x
 
 instance : Coe Name Ipld where
-  coe x := .string (Lean.Name.toString x)
+  coe x := .string (Lean.Name.toString x) -- this is lossy
 
 instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
 instance : Coe (ExprCid k)  Ipld where coe u := .link u.data
@@ -144,12 +144,12 @@ instance : Coe DefinitionSafety Ipld where coe
   | .unsafe  => .number 1
   | .partial => .number 2
 
-instance [Coe A Ipld] [Coe B Ipld] : Coe (Split A B k) Ipld where coe
+instance [Coe α Ipld] [Coe β Ipld] : Coe (Split α β k) Ipld where coe
   | .injₗ a => .array #[.number 0, a]
   | .injᵣ b => .array #[.number 1, b]
 
 instance : Coe Unit Ipld where coe
-  | .unit => .array #[]
+  | .unit => .null
 
 instance : (k : Kind) → Coe (RecursorRule k) Ipld
   | .anon => { coe := fun | .mk c f r => .array #[c, f, r] }
@@ -194,25 +194,25 @@ def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
   let hash := Multihash.sha3_256 cbor;
   { version := 0x01, codec, hash }
 
-def univToIpld : (Ipld.Univ k) → Ipld
+def univToIpld : Ipld.Univ k → Ipld
   | .zero     => .array #[.number $ Ipld.UNIV k, .number 0]
   | .succ p   => .array #[.number $ Ipld.UNIV k, .number 1, p]
   | .max a b  => .array #[.number $ Ipld.UNIV k, .number 2, a, b]
   | .imax a b => .array #[.number $ Ipld.UNIV k, .number 3, a, b]
   | .var n    => .array #[.number $ Ipld.UNIV k, .number 4, n]
 
-def exprToIpld : (Ipld.Expr k) → Ipld
+def exprToIpld : Ipld.Expr k → Ipld
   | .var n i ls   => .array #[.number $ Ipld.EXPR k, .number 0, n, i, ls]
   | .sort u       => .array #[.number $ Ipld.EXPR k, .number 1, u]
   | .const n c ls => .array #[.number $ Ipld.EXPR k, .number 2, n, c, ls]
   | .app f a      => .array #[.number $ Ipld.EXPR k, .number 3, f, a]
   | .lam n i d b  => .array #[.number $ Ipld.EXPR k, .number 4, n, i, d, b]
-  | .pi n i d c   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, c]
+  | .pi n i d b   => .array #[.number $ Ipld.EXPR k, .number 5, n, i, d, b]
   | .letE n t v b => .array #[.number $ Ipld.EXPR k, .number 6, n, t, v, b]
   | .lit l        => .array #[.number $ Ipld.EXPR k, .number 7, l]
   | .proj n e     => .array #[.number $ Ipld.EXPR k, .number 8, n, e]
 
-def constToIpld : (Ipld.Const k) → Ipld
+def constToIpld : Ipld.Const k → Ipld
   | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ Ipld.CONST k, .number 0, n, l, t, s]
   | .theorem ⟨n, l, t, v⟩               => .array #[.number $ Ipld.CONST k, .number 1, n, l, t, v]
   | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ Ipld.CONST k, .number 2, n, l, t, v, s]
