@@ -5,6 +5,7 @@ import Ipld.Multihash
 import Yatima.Datatypes.Univ
 import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Const
+import Yatima.Datatypes.Store
 
 namespace Yatima
 
@@ -175,6 +176,15 @@ instance : Coe QuotKind Ipld where coe
 instance : Coe (Definition k) Ipld where coe
   | .mk n l t v s => .array #[n, l, t, v, s]
 
+--instance : Coe (Ipld.ConstCid) Ipld where coe
+--  | _ => sorry
+--
+--instance [Coe α Ipld] : Coe (Array α) Ipld where coe
+--  | _ => sorry
+--
+--instance : Coe (Ipld.Both Ipld.ConstCid) Ipld where coe
+--  | _ => sorry
+
 end Ipld
 
 namespace ToIpld
@@ -214,6 +224,54 @@ def constToIpld : (Ipld.Const k) → Ipld
   | .mutDefBlock b                      => .array #[.number $ Ipld.CONST k, .number 9, b]
   | .mutIndBlock b                      => .array #[.number $ Ipld.CONST k, .number 10, b]
 
+def bothConstCidToIpld (b : Ipld.Both Ipld.ConstCid) : Ipld :=
+  let anonCid := b.anon
+  let metaCid := b.meta
+  .array #[anonCid.data.toString, metaCid.data.toString]
+
+def univAnonToIpld (univPair : Ipld.UnivCid .anon × Ipld.Univ .anon) : Ipld :=
+  let (univCid, univ) := univPair
+  .array #[Ipld.link univCid.data, univToIpld univ]
+
+def exprAnonToIpld (exprPair : Ipld.ExprCid .anon × Ipld.Expr .anon) : Ipld :=
+  let (exprCid, expr) := exprPair
+  .array #[Ipld.link exprCid.data, exprToIpld expr]
+
+def constAnonToIpld (constPair : Ipld.ConstCid .anon × Ipld.Const .anon) : Ipld :=
+  let (constCid, const) := constPair
+  .array #[Ipld.link constCid.data, constToIpld const]
+
+def univMetaToIpld (univPair : Ipld.UnivCid .meta × Ipld.Univ .meta) : Ipld :=
+  let (univCid, univ) := univPair
+  .array #[Ipld.link univCid.data, univToIpld univ]
+
+def exprMetaToIpld (exprPair : Ipld.ExprCid .meta × Ipld.Expr .meta) : Ipld :=
+  let (exprCid, expr) := exprPair
+  .array #[Ipld.link exprCid.data, exprToIpld expr]
+
+def constMetaToIpld (constPair : Ipld.ConstCid .meta × Ipld.Const .meta) : Ipld :=
+  let (constCid, const) := constPair
+  .array #[Ipld.link constCid.data, constToIpld const]
+
+def storeToIpld (store: Ipld.Store) : Ipld :=
+  let constsIpld := Array.mk $ store.consts.toList.map bothConstCidToIpld
+  let univAnonIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let exprAnonIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let constAnonIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let univMetaIpld:= Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let exprMetaIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  let constMetaIpld := Array.mk $ store.univ_anon.toList.map univAnonToIpld
+  .array #[
+    Ipld.number Ipld.STORE,
+    .array constsIpld,
+    .array univAnonIpld,
+    .array exprAnonIpld,
+    .array constAnonIpld,
+    .array univMetaIpld,
+    .array exprMetaIpld,
+    .array constMetaIpld
+  ]
+
 def univToCid (univ : Ipld.Univ k) : Ipld.UnivCid k :=
   { data := ipldToCid (Ipld.UNIV k).toNat (univToIpld univ) }
 
@@ -222,6 +280,87 @@ def exprToCid (expr : Ipld.Expr k) : Ipld.ExprCid k :=
 
 def constToCid (const : Ipld.Const k) : Ipld.ConstCid k :=
   { data := ipldToCid (Ipld.CONST k).toNat (constToIpld const) }
+
+-- toIpld Tests
+open Std (RBMap RBTree)
+
+def testExprAnon : Ipld.Expr .anon := Ipld.Expr.sort (univToCid Ipld.Univ.zero)
+def testExprMeta : Ipld.Expr .meta := Ipld.Expr.sort (univToCid Ipld.Univ.zero)
+
+def testSplit : (k : Bool) → Split Nat String k
+  | true => .injₗ 0
+  | false => .injᵣ "hi"
+
+def testNameSplit : (k : Bool) → Split Unit Lean.Name k
+  | true => .injₗ ()
+  | false => .injᵣ "hi"
+
+def testNatListNameSplit : (k : Bool) → Split Nat (List Lean.Name) k
+  | true => .injₗ  0
+  | false => .injᵣ ["hi"]
+
+def testBoolSplit : (k : Bool) → Split Bool Unit k
+  | true => .injₗ true
+  | false => .injᵣ ()
+
+def testConstAnon : Ipld.Const .anon :=
+  let testAxiom : Ipld.Axiom .anon := {
+    name := testNameSplit true,
+    lvls := testNatListNameSplit true,
+    type := exprToCid testExprAnon,
+    safe := testBoolSplit true
+  }
+  Ipld.Const.axiom testAxiom
+
+def testConstMeta : Ipld.Const .meta :=
+  let testAxiom : Ipld.Axiom .meta := {
+    name := testNameSplit false,
+    lvls := testNatListNameSplit false,
+    type := exprToCid testExprMeta,
+    safe := testBoolSplit false
+  }
+  Ipld.Const.axiom testAxiom
+
+def myConstCidAnon : Ipld.ConstCid .anon := constToCid testConstAnon
+def myConstCidMeta : Ipld.ConstCid .meta := constToCid testConstMeta
+
+def testConstBoth : Ipld.Both Ipld.ConstCid :=
+  { anon:= myConstCidAnon, meta := myConstCidMeta }
+
+def testConsts : RBTree (Ipld.Both Ipld.ConstCid) compare :=
+  let const : Ipld.Both Ipld.ConstCid := testConstBoth
+  .ofList [const]
+def testUnivAnons : RBMap (Ipld.UnivCid .anon) (Ipld.Univ .anon) compare :=
+  let univ : Ipld.Univ .anon := Ipld.Univ.zero
+  .ofList [(univToCid univ, univ)]
+def testExprAnons : RBMap (Ipld.ExprCid .anon) (Ipld.Expr .anon) compare :=
+  let expr : Ipld.Expr .anon := testExprAnon
+  .ofList [(exprToCid expr, expr)]
+def testConstAnons : RBMap (Ipld.ConstCid .anon) (Ipld.Const .anon) compare :=
+  let const : Ipld.Const .anon := testConstAnon
+  .ofList [(constToCid const, const)]
+def testUnivMetas : RBMap (Ipld.UnivCid .meta) (Ipld.Univ .meta) compare :=
+  let univ : Ipld.Univ .meta := Ipld.Univ.zero
+  .ofList [(univToCid univ, univ)]
+def testExprMetas : RBMap (Ipld.ExprCid .meta) (Ipld.Expr .meta) compare :=
+  let expr : Ipld.Expr .meta := testExprMeta
+  .ofList [(exprToCid expr, expr)]
+def testConstMetas : RBMap (Ipld.ConstCid .meta) (Ipld.Const .meta) compare :=
+  let const : Ipld.Const .meta := testConstMeta
+  .ofList [(constToCid const, const)]
+
+def testStore : Ipld.Store :=
+  {
+    consts := testConsts,
+    univ_anon := testUnivAnons,
+    expr_anon := testExprAnons,
+    const_anon := testConstAnons,
+    univ_meta := testUnivMetas,
+    expr_meta := testExprMetas,
+    const_meta := testConstMetas
+  }
+
+#eval storeToIpld testStore
 
 end ToIpld
 

@@ -1,6 +1,19 @@
 import Cli
+import Yatima.Cli.Utils
+import Yatima.Ipld.ToIpld
 
-def dagPut (_p : Cli.Parsed) : IO UInt32 := do
+def dagPut (p : Cli.Parsed) : IO UInt32 := do
+  let mut cronos ← Cronos.new.clock "IPFS"
+  match ← cliCompile p with
+  | .ok (compileState, cronos') =>
+    cronos ← cronos.clock "IPFS"
+    if p.hasFlag "summary" then
+      IO.println s!"{compileState.summary}"
+      IO.println s!"\n{cronos'.summary}"
+    let store := compileState.store
+    let ipld := Yatima.Ipld.storeToIpld store
+    -- TODO: Store on IPFS using HTTP.lean
+  | .error err => IO.eprintln err; return 1
   return 0
 
 def putCmd : Cli.Cmd := `[Cli|
