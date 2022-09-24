@@ -196,12 +196,22 @@ def constAnonFromIpld : Ipld → Option (Const .anon)
   | .array #[.number $ Ipld.CONST .anon, .number 3, n, l, t, k] =>
     return .quotient ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← splitQuotKindFromIpld .anon k⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 5, n, l, t, b, i] => sorry
-  | .array #[.number $ Ipld.CONST .anon, .number 6, n, l, t, b, i, j] => sorry
-  | .array #[.number $ Ipld.CONST .anon, .number 7, n, l, t, b, i, j] => sorry
-  | .array #[.number $ Ipld.CONST .anon, .number 8, n, l, t, b, i] => sorry
-  | .array #[.number $ Ipld.CONST .anon, .number 9, b] => sorry
-  | .array #[.number $ Ipld.CONST .anon, .number 10, b] => sorry
+  | .array #[.number $ Ipld.CONST .anon, .number 5, n, l, t, b, i] =>
+    return .inductiveProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i⟩
+  | .array #[.number $ Ipld.CONST .anon, .number 6, n, l, t, b, i, j] =>
+    return .constructorProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i, ← splitNatₐFromIpld .anon j⟩
+  | .array #[.number $ Ipld.CONST .anon, .number 7, n, l, t, b, i, j] =>
+    return .recursorProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i, ← splitNatₐFromIpld .anon j⟩
+  | .array #[.number $ Ipld.CONST .anon, .number 8, n, l, t, b, i] =>
+    return .definitionProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
+  | .array #[.number $ Ipld.CONST .anon, .number 9, b] =>
+    return .mutDefBlock sorry
+  | .array #[.number $ Ipld.CONST .anon, .number 10, b] =>
+    return .mutIndBlock sorry
   | _ => none
 
 def constMetaFromIpld : Ipld → Option (Const .meta)
@@ -217,12 +227,22 @@ def constMetaFromIpld : Ipld → Option (Const .meta)
   | .array #[.number $ Ipld.CONST .meta, .number 3, n, l, t, k] =>
     return .quotient ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← splitQuotKindFromIpld .meta k⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 5, n, l, t, b, i] => sorry
-  | .array #[.number $ Ipld.CONST .meta, .number 6, n, l, t, b, i, j] => sorry
-  | .array #[.number $ Ipld.CONST .meta, .number 7, n, l, t, b, i, j] => sorry
-  | .array #[.number $ Ipld.CONST .meta, .number 8, n, l, t, b, i] => sorry
-  | .array #[.number $ Ipld.CONST .meta, .number 9, b] => sorry
-  | .array #[.number $ Ipld.CONST .meta, .number 10, b] => sorry
+  | .array #[.number $ Ipld.CONST .meta, .number 5, n, l, t, b, i] =>
+    return .inductiveProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i⟩
+  | .array #[.number $ Ipld.CONST .meta, .number 6, n, l, t, b, i, j] =>
+    return .constructorProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i, ← splitNatₐFromIpld .meta j⟩
+  | .array #[.number $ Ipld.CONST .meta, .number 7, n, l, t, b, i, j] =>
+    return .recursorProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i, ← splitNatₐFromIpld .meta j⟩
+  | .array #[.number $ Ipld.CONST .meta, .number 8, n, l, t, b, i] =>
+    return .definitionProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
+      ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
+  | .array #[.number $ Ipld.CONST .meta, .number 9, b] =>
+    return .mutDefBlock sorry
+  | .array #[.number $ Ipld.CONST .meta, .number 10, b] =>
+    return .mutIndBlock sorry
   | _ => none
 
 def univFromIpld (anon meta : Ipld) : Option $ Both Univ := do
@@ -242,7 +262,15 @@ def bothConstCidFromIpld : Ipld → Option (Both ConstCid)
   | _ => none
 
 def storeFromIpld : Ipld → Option Store
-  | .array #[.number Ipld.STORE] => sorry
+  | .array #[
+    .number Ipld.STORE,
+    .array constsIpld,
+    .array univAnonIpld,
+    .array exprAnonIpld,
+    .array constAnonIpld,
+    .array univMetaIpld,
+    .array exprMetaIpld,
+    .array constMetaIpld] => sorry
   | _ => none
 
 end Ipld

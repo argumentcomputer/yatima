@@ -94,45 +94,45 @@ structure Recursor (r : RecType) (k : Kind) where
   deriving Repr
 
 structure Inductive (k : Kind) where
-  name     : Nameₘ k
-  lvls     : NatₐListNameₘ k
-  type     : ExprCid k
-  params   : Natₐ k
-  indices  : Natₐ k
-  ctors    : List (Constructor k)
-  recrs    : List (Sigma (Recursor · k))
-  recr     : Boolₐ k
-  safe     : Boolₐ k
-  refl     : Boolₐ k
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
+  type    : ExprCid k
+  params  : Natₐ k
+  indices : Natₐ k
+  ctors   : List (Constructor k)
+  recrs   : List (Sigma (Recursor · k))
+  recr    : Boolₐ k
+  safe    : Boolₐ k
+  refl    : Boolₐ k
   deriving Inhabited
 
 instance : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  block   : ConstCid k
-  idx     : Natₐ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : Natₐ k
   deriving Repr
 
 structure ConstructorProj (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  block   : ConstCid k
-  idx     : Natₐ k
-  cidx    : Natₐ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : Natₐ k
+  cidx  : Natₐ k
   deriving Repr
 
 structure RecursorProj (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  block   : ConstCid k
-  idx     : Natₐ k
-  ridx    : Natₐ k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : Natₐ k
+  ridx  : Natₐ k
   deriving Repr
 
 instance : Repr (Quotient k) where
