@@ -451,12 +451,9 @@ mutual
         let binds : List Name ← binds.mapM fun (n, _) => replaceName n
         appendBinding (← replaceName x.name, ⟦(lambda ($binds) t)⟧)
     | .opaque x =>
-      let unsafeName := x.name ++ `_unsafe_rec
-      match (← read).state.pStore.consts.find? fun c => c.name == unsafeName with
-      | some c => 
-        mkConst c
-        appendBinding (← replaceName x.name, ⟦$(unsafeName)⟧)
-      | none => throw $ .custom s!"cannot transpile opaque {x.name} without `_unsafe_rec` counterpart"
+      if !(← get).visited.contains x.name then
+        visit x.name -- force cache update before `mkLurkExpr` to prevent looping
+        appendBinding (← replaceName x.name, ← mkLurkExpr x.value) false
     | .definition x =>
       if !(← get).visited.contains x.name then
         match ← getMutualDefInfo x with
