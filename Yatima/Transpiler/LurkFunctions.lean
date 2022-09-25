@@ -172,6 +172,20 @@ def ListRec : Name × Expr := (``List.rec, ⟦
      _nil))
 ⟧)
 
+def ListMap : Name × Expr := (``List.map, ⟦
+  (lambda (α β f xs) 
+    (if xs
+        (cons (f (car xs)) ($(``List.map) α β f (cdr xs)))
+        nil))
+⟧)
+
+def ListFoldl : Name × Expr := (``List.foldl, ⟦
+  (lambda (α β f init xs) 
+    (if xs
+        ($(``List.foldl) α β f (f init (car xs)) (cdr xs))
+        init))
+⟧)
+
 def String : Name × Expr := (``String, ⟦
   ,("String" 0 0)
 ⟧)

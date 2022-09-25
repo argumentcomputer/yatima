@@ -86,10 +86,21 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
     | .definition d => pure d
     | _ => throw $ .custom "Invalid constant type"
 
-def descendPi (expr : Expr) (bindAcc : Array Name) : Expr × Array Name :=
+/-- 
+  Telescopes Yatima lambda `fun (x₁ : α₁) (x₂ : α₂) .. => body` into `(body, [(x₁, α₁), (x₂, α₂), ..])`
+  Telescopes pi type `(a₁ : α₁) → (a₂ : α₂) → .. → α` into `(α, [(a₁, α₁), (a₂, α₂), ..])` -/
+def telescope (expr : Expr) : Expr × List (Name × Expr) :=
   match expr with 
-    | .pi _ name _ _ body => descendPi body <| bindAcc.push name
-    | _ => (expr, bindAcc)
+    | .pi .. => telescopeAux expr [] true
+    | .lam .. => telescopeAux expr [] false
+    | _ => (expr, [])
+where 
+  telescopeAux (expr : Expr) (bindAcc : List (Name × Expr)) (pi? : Bool) : 
+      Expr × List (Name × Expr) :=
+    match expr, pi? with 
+    | .pi _ name _ ty body, true => telescopeAux body ((name, ty) :: bindAcc) true
+    | .lam _ name _ ty body, false => telescopeAux body ((name, ty) :: bindAcc) false
+    | _, _ => (expr, bindAcc.reverse)
 
 end Yatima.Transpiler
 
@@ -98,4 +109,13 @@ namespace List
 def last! [Inhabited α] (l : List α) : α :=
   l.reverse.head!
 
+def takeLast (xs : List α) (n : Nat) : List α := 
+  (xs.reverse.take n).reverse
+
 end List 
+
+def Lean.Name.isHygenic : Name → Bool
+  | str p s => if s == "_hyg" then true else p.isHygenic
+  | num p _ => p.isHygenic
+  | _       => false
+

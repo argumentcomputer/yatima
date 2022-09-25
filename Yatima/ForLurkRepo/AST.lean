@@ -57,6 +57,22 @@ def mkApp (f : Expr) : List Expr → Expr
   | a :: as => as.foldl (init := .app f a) fun acc a => .app acc a
   | [] => .app₀ f
 
+def mkListWith (es : List Expr) (tail : Expr) : Expr := 
+  es.foldr (init := tail)
+    fun n acc => .cons n acc
+
+def mkList (es : List Expr) : Expr :=   
+  mkListWith es (.lit .nil)
+
+/--
+Remove all binders from an expression, converting a lambda into
+an "implicit lambda". This is useful for constructing the `rhs` of
+recursor rules.
+-/
+def toImplicitLambda : Expr → Expr
+  | .lam _ body => toImplicitLambda body
+  | x => x
+
 class ToExpr (α : Type u) where 
   toExpr : α → Expr 
 

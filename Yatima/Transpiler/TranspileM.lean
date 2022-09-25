@@ -11,16 +11,29 @@ structure TranspileEnv where
 structure TranspileState where
   appendedBindings  : Array (Name × Lurk.Expr)
   /-- Contains constants that have already been processed -/
-  visited : Std.RBTree Name compare
+  visited : Lean.NameSet
+  ngen : Lean.NameGenerator
+  replaced : Lean.NameMap Name
   deriving Inhabited
 
 abbrev TranspileM := ReaderT TranspileEnv $
   ExceptT TranspileError $ StateT TranspileState Id
 
+instance : Lean.MonadNameGenerator TranspileM where
+  getNGen := return (← get).ngen
+  setNGen ngen := modify fun s => { s with ngen := ngen }
+
 /-- Set `name` as a visited node -/
 def visit (name : Name) : TranspileM Unit := do
   dbg_trace s!">> visit {name}"
-  set $ { (← get) with visited := (← get).visited.insert name }
+  modify fun s => { s with visited := s.visited.insert name }
+
+/-- Create a fresh variable `_x_n` to replace `name` and update `replaced` -/
+def replaceFreshId (name : Name) : TranspileM Name := do
+  let _x ← Lean.mkFreshId
+  dbg_trace s!">> mk fresh name {_x}"
+  set $ { (← get) with replaced := (← get).replaced.insert name _x}
+  return _x
 
 def appendBinding (b : Name × Lurk.Expr) (vst := true) : TranspileM Unit := do
   let s ← get

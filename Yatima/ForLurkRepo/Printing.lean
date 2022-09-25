@@ -20,11 +20,11 @@ open Std.Format Std.ToFormat in
 partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   match e with
   | .lit l => format l
-  | .sym n => fixName n pretty
+  | .sym n => bracket "|" (validate n) "|"
   | .ifE test con alt =>
     paren <| group ("if" ++ line ++ pprint test pretty) ++ line ++ pprint con pretty ++ line ++ pprint alt pretty
   | .lam formals body =>
-    paren <| group ("lambda" ++ line ++ paren (fmtNames formals)) ++ line ++ pprint body pretty
+    paren <| "lambda" ++ line ++ paren (fmtNames formals) ++ indentD (pprint body pretty)
   | .letE bindings body =>
     paren <| "let" ++ line ++ paren (fmtBinds bindings) ++ line ++ pprint body pretty
   | .letRecE bindings body =>
@@ -34,8 +34,8 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
   | .app₀ fn => paren <| pprint fn pretty
   | e@(.app ..) => 
     let (fn, args) := telescopeApp e []
-    let ws := if args.length == 0 then Format.nil else " "
-    paren <| pprint fn pretty ++ ws ++ fmtList args
+    let args := if args.length == 0 then .nil else indentD (fmtList args)
+    paren <| pprint fn pretty ++ args
   | .quote datum =>
     paren <| "quote" ++ line ++ datum.pprint pretty
   | .binaryOp op expr₁ expr₂ =>
@@ -53,17 +53,17 @@ partial def pprint (e : Expr) (pretty := true) : Std.Format :=
 where
   fmtNames (xs : List Name) := match xs with
     | [] => Format.nil
-    | [n]  => format $ fixName n pretty
-    | n::ns => format (fixName n pretty) ++ line ++ fmtNames ns
+    | [n]  => bracket "|" (validate n) "|"
+    | n::ns => bracket "|" (validate n) "|" ++ line ++ fmtNames ns
   fmtList (xs : List Expr) := match xs with
     | [] => Format.nil
     | [e]  => pprint e pretty
     | e::es => pprint e pretty ++ line ++ fmtList es
   fmtBinds (xs : List (Name × Expr)) := match xs with
     | [] => Format.nil
-    | [(n, e)]  => paren <| format (fixName n pretty) ++ line ++ pprint e pretty
+    | [(n, e)]  => paren <| bracket "|" (validate n) "|" ++ line ++ pprint e pretty
     | (n, e)::xs =>
-      (paren $ format (fixName n pretty) ++ line ++ pprint e pretty)
+      (paren $ bracket "|" (validate n) "|" ++ line ++ pprint e pretty)
         ++ line ++ fmtBinds xs
   telescopeApp (e : Expr) (args : List Expr) := match e with 
     | .app fn arg => telescopeApp fn <| arg :: args
