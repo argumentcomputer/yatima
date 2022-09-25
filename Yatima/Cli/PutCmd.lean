@@ -10,8 +10,14 @@ def dagPut (p : Cli.Parsed) : IO UInt32 := do
     if p.hasFlag "summary" then
       IO.println s!"{compileState.summary}"
       IO.println s!"\n{cronos'.summary}"
-    let store := compileState.store
-    let ipld := Yatima.Ipld.storeToIpld store
+    let ipld := Yatima.ToIpld.storeToIpld
+      compileState.constsIpld
+      compileState.univAnonIpld
+      compileState.exprAnonIpld
+      compileState.constAnonIpld
+      compileState.univMetaIpld
+      compileState.exprMetaIpld
+      compileState.constMetaIpld
     -- TODO: Store on IPFS using HTTP.lean
   | .error err => IO.eprintln err; return 1
   return 0
