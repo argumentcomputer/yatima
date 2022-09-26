@@ -163,7 +163,7 @@ def addToStore : StoreEntry A → CompileM A
           consts     := stt.store.consts.insert cid }
         constAnonIpld := stt.constAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
         constMetaIpld := stt.constMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta]
-        constsIpld    := stt.constsIpld.push    $ .array #[ipldAnon, ipldMeta] })
+        constsIpld    := stt.constsIpld.push    $ .array #[.link cidAnon.data, .link cidMeta.data] })
 
 /-- Adds data associated with a name to the cache -/
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do

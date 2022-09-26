@@ -245,7 +245,7 @@ def storeToIpld (
   exprMetaIpld
   constMetaIpld : Array Ipld) : Ipld :=
   .array #[
-    Ipld.number Ipld.STORE,
+    .number Ipld.STORE,
     .array constsIpld,
     .array univAnonIpld,
     .array exprAnonIpld,

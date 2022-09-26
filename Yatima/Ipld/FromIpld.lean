@@ -245,21 +245,54 @@ def constMetaFromIpld : Ipld → Option (Const .meta)
     return .mutIndBlock sorry
   | _ => none
 
-def univFromIpld (anon meta : Ipld) : Option $ Both Univ := do
-  some ⟨← univAnonFromIpld anon, ← univMetaFromIpld meta⟩
+def constsTreeFromIpld (ar : Array Ipld) :
+    Option (Std.RBTree (Both ConstCid) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link anonCid, .link metaCid] => acc.insert ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
+    | _ => none
 
-def exprFromIpld (anon meta : Ipld) : Option $ Both Expr := do
-  some ⟨← exprAnonFromIpld anon, ← exprMetaFromIpld meta⟩
+def univAnonMapFromIpld (ar : Array Ipld) :
+    Option (Std.RBMap (UnivCid .anon) (Univ .anon) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← univAnonFromIpld ipld)
+    | _ => none
 
-def constFromIpld (anon meta : Ipld) : Option $ Both Const := do
-  some ⟨← constAnonFromIpld anon, ← constMetaFromIpld meta⟩
+def univMetaMapFromIpld (ar : Array Ipld) :
+    Option (Std.RBMap (UnivCid .meta) (Univ .meta) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← univMetaFromIpld ipld)
+    | _ => none
 
-def bothConstCidFromIpld : Ipld → Option (Both ConstCid)
-  | .array #[.string anon, .string meta] => do
-    let anon ← Cid.fromString Base.b32.toMultibase anon
-    let meta ← Cid.fromString Base.b32.toMultibase meta
-    some ⟨⟨anon⟩, ⟨meta⟩⟩
-  | _ => none
+def exprAnonMapFromIpld (ar : Array Ipld) :
+    Option (Std.RBMap (ExprCid .anon) (Expr .anon) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← exprAnonFromIpld ipld)
+    | _ => none
+
+def exprMetaMapFromIpld (ar : Array Ipld) :
+    Option (Std.RBMap (ExprCid .meta) (Expr .meta) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← exprMetaFromIpld ipld)
+    | _ => none
+
+def constAnonMapFromIpld (ar : Array Ipld) :
+    Option (Std.RBMap (ConstCid .anon) (Const .anon) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← constAnonFromIpld ipld)
+    | _ => none
+
+def constMetaMapFromIpld (ar : Array Ipld) :
+    Option (Std.RBMap (ConstCid .meta) (Const .meta) compare) :=
+  ar.foldlM (init := default) fun acc pair =>
+    match pair with
+    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← constMetaFromIpld ipld)
+    | _ => none
 
 def storeFromIpld : Ipld → Option Store
   | .array #[
@@ -270,7 +303,15 @@ def storeFromIpld : Ipld → Option Store
     .array constAnonIpld,
     .array univMetaIpld,
     .array exprMetaIpld,
-    .array constMetaIpld] => sorry
+    .array constMetaIpld] =>
+    return ⟨
+      ← constsTreeFromIpld   constsIpld,
+      ← univAnonMapFromIpld  univAnonIpld,
+      ← exprAnonMapFromIpld  exprAnonIpld,
+      ← constAnonMapFromIpld constAnonIpld,
+      ← univMetaMapFromIpld  univMetaIpld,
+      ← exprMetaMapFromIpld  exprMetaIpld,
+      ← constMetaMapFromIpld constMetaIpld⟩
   | _ => none
 
 end Ipld
