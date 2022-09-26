@@ -444,6 +444,9 @@ inductive HEq : {α : Sort u} → α → {β : Sort u} → β → Prop where
 @[matchPattern] protected def HEq.rfl {α : Sort u} {a : α} : HEq a a :=
   HEq.refl a
 
+theorem test (α β : Sort u) (a : α) (b : β) (h₁ : HEq a b) (p : α → Prop) (h : p a) : (h₂ : Eq β α) → p (cast h₂ b) :=
+  h₁.rec fun _ => h
+
 theorem eq_of_heq {α : Sort u} {a a' : α} (h : HEq a a') : Eq a a' :=
   have : (α β : Sort u) → (a : α) → (b : β) → HEq a b → (h : Eq α β) → Eq (cast h a) b :=
     fun _ _ _ _ h₁ =>
