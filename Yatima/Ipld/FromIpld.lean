@@ -106,6 +106,19 @@ def listUnivCidFromIpld : Ipld → Option (List (UnivCid k))
   | .array as => as.data.mapM univCidFromIpld
   | _ => none
 
+def inductiveFromIpld : Ipld → Option (Inductive k)
+  | .array #[n, l, t, p, i, cs, rs, r, s, r'] =>
+    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
+      ← exprCidFromIpld t, ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
+      sorry,
+      sorry,
+      ← splitBoolₐFromIpld k r, ← splitBoolₐFromIpld k s, ← splitBoolₐFromIpld k r'⟩
+  | _ => none
+
+def mutIndBlockFromIpld : Ipld → Option (List (Inductive k))
+  | .array ar => ar.data.mapM inductiveFromIpld
+  | _ => none
+
 def univAnonFromIpld : Ipld → Option (Univ .anon)
   | .array #[.number $ Ipld.UNIV .anon, .number 0] =>
     return .zero
@@ -211,7 +224,7 @@ def constAnonFromIpld : Ipld → Option (Const .anon)
   | .array #[.number $ Ipld.CONST .anon, .number 9, b] =>
     return .mutDefBlock sorry
   | .array #[.number $ Ipld.CONST .anon, .number 10, b] =>
-    return .mutIndBlock sorry
+    return .mutIndBlock (← mutIndBlockFromIpld b)
   | _ => none
 
 def constMetaFromIpld : Ipld → Option (Const .meta)
@@ -242,7 +255,7 @@ def constMetaFromIpld : Ipld → Option (Const .meta)
   | .array #[.number $ Ipld.CONST .meta, .number 9, b] =>
     return .mutDefBlock sorry
   | .array #[.number $ Ipld.CONST .meta, .number 10, b] =>
-    return .mutIndBlock sorry
+    return .mutIndBlock (← mutIndBlockFromIpld b)
   | _ => none
 
 def constsTreeFromIpld (ar : Array Ipld) :
