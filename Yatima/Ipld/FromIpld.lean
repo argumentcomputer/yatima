@@ -141,11 +141,22 @@ def mutDefBlockFromIpld :
   | .meta, .array ar => ar.data.mapM $ mutDefFromIpld .meta
   | _, _ => none
 
+def constructorFromIpld : Ipld → Option (Constructor k)
+  | .array #[n, t, l, i, p, f, r, s] =>
+    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k t,
+      ← exprCidFromIpld l, ← splitNatₐFromIpld k i, ← splitNatₐFromIpld k p,
+      ← splitNatₐFromIpld k f, ← exprCidFromIpld r, ← splitBoolₐFromIpld k s⟩
+  | _ => none
+
+def listConstructorFromIpld : Ipld → Option (List (Constructor k))
+  | .array ar => ar.data.mapM constructorFromIpld
+  | _ => none
+
 def mutIndFromIpld : Ipld → Option (Inductive k)
   | .array #[n, l, t, p, i, cs, rs, r, s, r'] =>
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
       ← exprCidFromIpld t, ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
-      sorry,
+      ← listConstructorFromIpld cs,
       sorry,
       ← splitBoolₐFromIpld k r, ← splitBoolₐFromIpld k s, ← splitBoolₐFromIpld k r'⟩
   | _ => none
