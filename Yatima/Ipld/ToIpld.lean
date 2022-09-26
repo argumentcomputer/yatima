@@ -176,15 +176,6 @@ instance : Coe QuotKind Ipld where coe
 instance : Coe (Definition k) Ipld where coe
   | .mk n l t v s => .array #[n, l, t, v, s]
 
---instance : Coe (Ipld.ConstCid) Ipld where coe
---  | _ => sorry
---
---instance [Coe α Ipld] : Coe (Array α) Ipld where coe
---  | _ => sorry
---
---instance : Coe (Ipld.Both Ipld.ConstCid) Ipld where coe
---  | _ => sorry
-
 end Ipld
 
 namespace ToIpld

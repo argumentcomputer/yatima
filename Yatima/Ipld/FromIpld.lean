@@ -40,6 +40,12 @@ def quotKindFromIpld : Ipld → Option QuotKind
   | .number 4 => return .ind
   | _ => none
 
+def definitionSafetyFromIpld : Ipld → Option DefinitionSafety
+  | .number 0 => return .safe
+  | .number 1 => return .unsafe
+  | .number 3 => return .partial
+  | _ => none
+
 def literalFromIpld : Ipld → Option Literal
   | .string s => return .strVal s
   | .bytes  b => return .natVal $ Nat.fromByteListBE b.data.data
@@ -90,6 +96,12 @@ def splitQuotKindFromIpld : (k : Kind) → Ipld → Option (Split QuotKind Unit 
   | .meta, .array #[.number 1, .null] => return .injᵣ ()
   | _, _ => none
 
+def splitDefinitionSafetyUnitFromIpld :
+    (k : Kind) → Ipld → Option (Split DefinitionSafety Unit k)
+  | .anon, .array #[.number 0, x] => return .injₗ (← definitionSafetyFromIpld x)
+  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+  | _, _ => none
+
 def univCidFromIpld : Ipld → Option (UnivCid k)
   | .link c => return ⟨c⟩
   | _ => none
@@ -103,10 +115,33 @@ def constCidFromIpld : Ipld → Option (ConstCid k)
   | _ => none
 
 def listUnivCidFromIpld : Ipld → Option (List (UnivCid k))
-  | .array as => as.data.mapM univCidFromIpld
+  | .array ar => ar.data.mapM univCidFromIpld
   | _ => none
 
-def inductiveFromIpld : Ipld → Option (Inductive k)
+def definitionFromIpld : Ipld → Option (Definition k)
+  | .array #[n, l, t, v, s] =>
+    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
+      ← exprCidFromIpld t, ← exprCidFromIpld v,
+      ← splitDefinitionSafetyUnitFromIpld k s⟩
+  | _ => none
+
+def listDefinitionFromIpld : Ipld → Option (List (Definition k))
+  | .array ar => ar.data.mapM definitionFromIpld
+  | _ => none
+
+def mutDefFromIpld :
+    (k : Kind) → Ipld → Option (Split (Definition k) (List (Definition k)) k)
+  | .anon, .array #[.number 0, x] => return .injₗ (← definitionFromIpld x)
+  | .meta, .array #[.number 1, x] => return .injᵣ (← listDefinitionFromIpld x)
+  | _, _ => none
+
+def mutDefBlockFromIpld :
+    (k : Kind) → Ipld → Option (List (Split (Definition k) (List (Definition k)) k))
+  | .anon, .array ar => ar.data.mapM $ mutDefFromIpld .anon
+  | .meta, .array ar => ar.data.mapM $ mutDefFromIpld .meta
+  | _, _ => none
+
+def mutIndFromIpld : Ipld → Option (Inductive k)
   | .array #[n, l, t, p, i, cs, rs, r, s, r'] =>
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
       ← exprCidFromIpld t, ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
@@ -116,7 +151,7 @@ def inductiveFromIpld : Ipld → Option (Inductive k)
   | _ => none
 
 def mutIndBlockFromIpld : Ipld → Option (List (Inductive k))
-  | .array ar => ar.data.mapM inductiveFromIpld
+  | .array ar => ar.data.mapM mutIndFromIpld
   | _ => none
 
 def univAnonFromIpld : Ipld → Option (Univ .anon)
@@ -222,7 +257,7 @@ def constAnonFromIpld : Ipld → Option (Const .anon)
     return .definitionProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
   | .array #[.number $ Ipld.CONST .anon, .number 9, b] =>
-    return .mutDefBlock sorry
+    return .mutDefBlock (← mutDefBlockFromIpld .anon b)
   | .array #[.number $ Ipld.CONST .anon, .number 10, b] =>
     return .mutIndBlock (← mutIndBlockFromIpld b)
   | _ => none
@@ -253,7 +288,7 @@ def constMetaFromIpld : Ipld → Option (Const .meta)
     return .definitionProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
   | .array #[.number $ Ipld.CONST .meta, .number 9, b] =>
-    return .mutDefBlock sorry
+    return .mutDefBlock (← mutDefBlockFromIpld .meta b)
   | .array #[.number $ Ipld.CONST .meta, .number 10, b] =>
     return .mutIndBlock (← mutIndBlockFromIpld b)
   | _ => none
