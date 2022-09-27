@@ -108,7 +108,7 @@ instance : Coe Bool Ipld where
   coe x := .bool x
 
 instance : Coe Name Ipld where
-  coe x := .string (Lean.Name.toString x) -- this is lossy
+  coe x := .string s!"{x.toString}"--(Lean.Name.toString x) -- this is lossy
 
 instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
 instance : Coe (ExprCid k)  Ipld where coe u := .link u.data

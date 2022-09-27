@@ -18,6 +18,15 @@ structure Store where
   const_meta : RBMap (ConstCid .meta) (Const .meta) compare
   deriving Inhabited
 
+instance : BEq Store where
+  beq x y := x.consts.toList == y.consts.toList
+    && x.univ_anon.toList  == y.univ_anon.toList
+    && x.expr_anon.toList  == y.expr_anon.toList
+    && x.const_anon.toList == y.const_anon.toList
+    && x.univ_meta.toList  == y.univ_meta.toList
+    && x.univ_meta.toList  == y.univ_meta.toList
+    && x.const_meta.toList == y.const_meta.toList
+
 def Store.union (s s' : Store) : Store := ⟨
   s'.consts.union s.consts,
   s'.univ_anon.fold  (init := s.univ_anon)  fun acc cid x => acc.insert cid x,
