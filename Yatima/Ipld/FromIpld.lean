@@ -152,12 +152,47 @@ def listConstructorFromIpld : Ipld → Option (List (Constructor k))
   | .array ar => ar.data.mapM constructorFromIpld
   | _ => none
 
+def recursorRuleFromIpld : Ipld → Option (RecursorRule k)
+  | .array #[c, f, r] =>
+    return ⟨← constCidFromIpld c, ← splitNatₐFromIpld k f, ← exprCidFromIpld r⟩
+  | _ => none
+
+def listRecursorRuleFromIpld : Ipld → Option (List (RecursorRule k))
+  | .array ar => ar.data.mapM recursorRuleFromIpld
+  | _ => none
+
+def splitUnitListRecursorRuleFromIpld :
+    (r : RecType) → Ipld → Option (Split Unit (List (RecursorRule k)) r)
+  | .intr, .array #[.number 0, .null] => return .injₗ ()
+  | .extr, .array #[.number 1, x] => return .injᵣ (← listRecursorRuleFromIpld x)
+  | _, _ => none
+
+def recTypeFromIpld : Ipld → Option RecType
+  | .bool true  => return .intr
+  | .bool false => return .extr
+  | _ => none
+
+def sigmaRecursorFromIpld : Ipld → Option (Sigma (Recursor · k))
+  | .array #[b, n, l, t, p, i, m, m', rs, k'] => do
+    let recType ← recTypeFromIpld b
+    return ⟨recType,
+      ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l, ← exprCidFromIpld t,
+        ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
+        ← splitNatₐFromIpld k m, ← splitNatₐFromIpld k m',
+        ← splitUnitListRecursorRuleFromIpld recType rs,
+        ← splitBoolₐFromIpld k k'⟩⟩
+  | _ => none
+
+def listSigmaRecursorFromIpld : Ipld → Option (List (Sigma (Recursor · k)))
+  | .array ar => ar.data.mapM sigmaRecursorFromIpld
+  | _ => none
+
 def mutIndFromIpld : Ipld → Option (Inductive k)
   | .array #[n, l, t, p, i, cs, rs, r, s, r'] =>
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
       ← exprCidFromIpld t, ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
       ← listConstructorFromIpld cs,
-      sorry,
+      ← listSigmaRecursorFromIpld rs,
       ← splitBoolₐFromIpld k r, ← splitBoolₐFromIpld k s, ← splitBoolₐFromIpld k r'⟩
   | _ => none
 
