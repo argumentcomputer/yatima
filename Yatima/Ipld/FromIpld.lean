@@ -43,7 +43,7 @@ def quotKindFromIpld : Ipld → Option QuotKind
 def definitionSafetyFromIpld : Ipld → Option DefinitionSafety
   | .number 0 => return .safe
   | .number 1 => return .unsafe
-  | .number 3 => return .partial
+  | .number 2 => return .partial
   | _ => none
 
 def literalFromIpld : Ipld → Option Literal

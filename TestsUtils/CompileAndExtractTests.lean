@@ -189,20 +189,6 @@ def extractIpldTests (stt : CompileState) : TestSeq :=
     stt.univAnonIpld stt.exprAnonIpld stt.constAnonIpld
     stt.univMetaIpld stt.exprMetaIpld stt.constMetaIpld
   withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
-    fun store' =>
-      let x := store.const_meta.toList.zip store'.const_meta.toList
-      let x := x.map fun ((a, b), (_, b')) =>
-        if b != b' then
-          dbg_trace b.name
-          dbg_trace b.ctorName
-          dbg_trace b'.name
-          dbg_trace b'.ctorName
-          dbg_trace "-------------------------"
-          a
-        else
-          a
-      dbg_trace x.map fun x => x.data
-      dbg_trace (store.const_meta.toList == store'.const_meta.toList)
-      test "DeSer roundtrips" (store == store')
+    fun store' => test "DeSer roundtrips" (store == store')
 
 end Ipld

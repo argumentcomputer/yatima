@@ -124,24 +124,23 @@ def extractTcTests := fun pairs stt =>
   withExceptOk "All constants can be found" (getConstPairs stt pairs)
     makeTcTests
 
-def tcExtractor := extractTcTests
-    [
-      (`A, `A'),
-      (`B, `B'),
-      (`C, `C'),
-      (`D, `D'),
-      (`E, `E'),
-      (`F, `F'),
-      (`G, `G'),
-      (`H, `H'),
-      (`I, `I'),
-      (`J, `J'),
-      (`K, `K'),
-      (`L, `L')
-    ]
+def tcExtractor := extractTcTests [
+    (`A, `A'),
+    (`B, `B'),
+    (`C, `C'),
+    (`D, `D'),
+    (`E, `E'),
+    (`F, `F'),
+    (`G, `G'),
+    (`H, `H'),
+    (`I, `I'),
+    (`J, `J'),
+    (`K, `K'),
+    (`L, `L')
+  ]
 
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Typechecker/Reduction.lean"
-    [tcExtractor]
+    [extractIpldTests, tcExtractor]
   lspecIO tSeq

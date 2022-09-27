@@ -5,6 +5,7 @@ def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Transpilation/Demo.lean"
     [
+      extractIpldTests,
       extractIpldRoundtripTests,
       extractTranspilationTests [
         (`listLength, none),
