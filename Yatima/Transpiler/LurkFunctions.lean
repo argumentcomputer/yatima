@@ -66,8 +66,22 @@ def getelem : Name × Expr := (`getelem, ⟦
   ))
 ⟧)
 
+def lurk_string_mk : Name × Expr := (`lurk_string_mk, ⟦
+  (lambda (cs) 
+    (if cs 
+      (strcons (car cs) (lurk_string_mk (cdr cs))) 
+      ""))
+⟧)
+
+def lurk_string_data : Name × Expr := (`lurk_string_data, ⟦
+  (lambda (s) 
+    (if (eq s "") 
+      nil
+      (cons (car s) (lurk_string_data (cdr s)))))
+⟧)
+
 def Nat : Name × Expr := (``Nat, ⟦
-  (cons "Nat" (cons 0 (cons 0 nil)))
+  ,("Nat" 0 0)
 ⟧)
 
 def NatZero : Name × Expr := (``Nat.zero, ⟦
@@ -89,6 +103,13 @@ def NatAdd : Name × Expr := (``Nat.add, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
 ⟧)
 
+def NatSub : Name × Expr := (``Nat.sub, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (< _x_lurk_1 _x_lurk_2)
+        0
+        (- _x_lurk_1 _x_lurk_2)))
+⟧)
+
 def NatMul : Name × Expr := (``Nat.mul, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
 ⟧)
@@ -97,7 +118,20 @@ def NatDiv : Name × Expr := (``Nat.div, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (< _x_lurk_1 _x_lurk_2)
         0
-        (+ (Nat_div (- _x_lurk_1 _x_lurk_2) _x_lurk_2) 1)))
+        -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
+        -- the elaborator is otherwise confused and tries to parse `Nat.div`
+        -- as a `binop`. 
+        (+ 1 (($(``Nat.div) (- _x_lurk_1 _x_lurk_2)) _x_lurk_2))))
+⟧)
+
+def NatMod : Name × Expr := (``Nat.mod, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (< _x_lurk_1 _x_lurk_2)
+        0
+        -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
+        -- the elaborator is otherwise confused and tries to parse `Nat.div`
+        -- as a `binop`. 
+        (+ 1 (($(``Nat.div) (- _x_lurk_1 _x_lurk_2)) _x_lurk_2))))
 ⟧)
 
 def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
@@ -111,10 +145,99 @@ def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
 def NatBeq : Name × Expr := (``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (
     if (= _x_lurk_1 _x_lurk_2) 
-      Bool_true
-      Bool_false
+      $(``true)
+      $(``false)
   ))
 ⟧)
+
+def Char : Name × Expr := (``Char, ⟦
+  ,("Char" 0 0)
+⟧)
+
+def CharMk : Name × Expr := (``Char.mk, ⟦
+  (lambda (val valid) 
+    (char (getelem (getelem val 2) 3)))
+⟧)
+
+def CharVal : Name × Expr := (``Char.val, ⟦
+  (lambda (self) 
+    ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) (num self) t)))
+⟧)
+
+def CharValid : Name × Expr := (``Char.val, ⟦
+  (lambda (self) t)
+⟧)
+
+def CharRec : Name × Expr := (``Char.rec, ⟦
+  (lambda (motive mk _t) 
+    (mk (num ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) n t)))))
+⟧)
+
+def List : Name × Expr := (``List, ⟦
+  (lambda (_lurk_1) (quote ("List" 1 0)))
+⟧)
+
+def ListNil : Name × Expr := (``List.nil, ⟦
+  (lambda (_lurk_1) nil)
+⟧)
+
+def ListCons : Name × Expr := (``List.cons, ⟦
+  (lambda (_lurk_1 head tail) (cons head tail))
+⟧)
+
+def ListRec : Name × Expr := (``List.rec, ⟦
+  (lambda (_lurk_1 motive _nil _cons _t)
+    (if _t
+     (_cons (car _t) (cdr _t) ($(``List.rec) _lurk_1 motive _nil _cons (cdr _t)))
+     _nil))
+⟧)
+
+def ListHasDecEq : Name × Expr := (``List.hasDecEq, ⟦
+  (lambda (α _inst a b) 
+    (if (eq a b)
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+⟧)
+
+def ListMap : Name × Expr := (``List.map, ⟦
+  (lambda (α β f xs) 
+    (if xs
+        (cons (f (car xs)) ($(``List.map) α β f (cdr xs)))
+        nil))
+⟧)
+
+def ListFoldl : Name × Expr := (``List.foldl, ⟦
+  (lambda (α β f init xs) 
+    (if xs
+        ($(``List.foldl) α β f (f init (car xs)) (cdr xs))
+        init))
+⟧)
+
+def String : Name × Expr := (``String, ⟦
+  ,("String" 0 0)
+⟧)
+
+def StringMk : Name × Expr := (``String.mk, ⟦
+  (lambda (data) (lurk_string_mk data))
+⟧)
+
+def StringData : Name × Expr := (``String.data, ⟦
+  (lambda (self) (lurk_string_data self))
+⟧)
+
+def StringRec : Name × Expr := (``String.rec, ⟦
+  (lambda (motive mk _t) 
+    (mk (lurk_string_data _t)))
+⟧)
+
+def StringDecEq : Name × Expr := (``String.decEq, ⟦
+  (lambda (s₁ s₂) 
+    (if (eq s₁ s₂)
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+⟧)
+
+
 
 /-! 
 ## `Nat` Example

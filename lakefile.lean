@@ -33,14 +33,15 @@ lean_lib Fixtures {
   roots := #[`Fixtures.AnonCidGroups.ToBeImported, `Fixtures.AnonCidGroups.ToImport]
 }
 
-lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
-lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
-lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
-lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
-lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.Transpilation.Demo          { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Definitions    { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Inductives     { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.ToImport       { supportInterpreter := true }
+lean_exe Tests.Termination.NastyInductives  { supportInterpreter := true }
+lean_exe Tests.Termination.Prelude          { supportInterpreter := true }
+lean_exe Tests.Roundtrip.Tricky             { supportInterpreter := true }
+lean_exe Tests.Typechecker.Reduction        { supportInterpreter := true }
+lean_exe Tests.Transpilation.Demo           { supportInterpreter := true }
+lean_exe Tests.Transpilation.PrimitiveTests { supportInterpreter := true }
 
 lean_exe Tests.LurkInterpreter.Spec
 

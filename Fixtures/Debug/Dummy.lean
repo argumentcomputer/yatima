@@ -1,4 +1,4 @@
-def nat := Nat
-def natZero := Nat.zero
-def natSucc := Nat.succ
-def strint := String
+set_option hygiene false
+
+def strAppend := "abc" ++ "def"
+#print strAppend._cstage1
