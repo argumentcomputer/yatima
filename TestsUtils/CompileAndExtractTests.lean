@@ -168,15 +168,21 @@ section Transpilation
 
 open Transpiler Lurk
 
-def extractTranspilationTests (expect : List (Lean.Name × Option Value))
+instance [BEq α] [BEq β] : BEq (Except α β) where 
+  beq x y := match x, y with 
+    | .ok x, .ok y => x == y 
+    | .error x, .error y => x == y
+    | _, _ => false
+
+def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
     (stt : CompileState) : TestSeq :=
-  expect.foldl (init := .done) fun tSeq (root, expecVal?) =>
+  expect.foldl (init := .done) fun tSeq (root, expected) =>
     withExceptOk "Transpilation succeeds" (transpile stt root) fun expr =>
-      withExceptOk s!"Evaluation of {root} suceeds" (eval expr) fun val =>
-        match expecVal? with
-        | some expecVal =>
-          tSeq ++ test s!"Evaluation of {root} yields {expecVal}"
-            (expecVal == val)
+      let val := eval expr
+      match expected with
+        | some expected =>
+          let exVal := eval expected
+          tSeq ++ test s!"Evaluation of {root} yields {val}" (val == exVal)
         | none => tSeq
 
 end Transpilation

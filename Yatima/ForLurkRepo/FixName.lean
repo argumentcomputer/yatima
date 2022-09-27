@@ -33,7 +33,7 @@ def charToValidChars (c : Char) : List Char :=
   else s!"{charToHex c}".replace "*" ":" |>.data
 
 -- TODO: "5banonymous5d" is a hack, should be removed
-def invalidNames := ["t", "nil", "_", "cons", "car", "cdr", "strcons", "eq", "quote", "5banonymous5d"]
+def invalidNames := [`t, `nil, `_, `cons, `car, `cdr, `strcons, .anonymous, `quote]
 
 -- TODO: This is a hack; need to talk to lurk team to add case sensitive names
 def invalidCaptureNames : List Name := [
@@ -63,6 +63,13 @@ def invalidCaptureNames : List Name := [
   `seqLeft, `seqRight,
   `monadLift
 ]
+open Std Format in 
+def validate (n : Name) : Std.Format :=
+  if invalidNames.contains n then
+    if n == `_ then format `_x
+    else if n == .anonymous then format `anonymous
+    else "_" ++ format n
+  else format n
 
 /-- Turns a `Name` into a valid variable identifier in Lurk. -/
 def fixName (name : Name) (pretty := true) : String :=
