@@ -1,6 +1,7 @@
 import Cli
 import Yatima.Cli.Utils
 import Yatima.Ipld.ToIpld
+import Ipld.DagCbor
 
 def dagPut (p : Cli.Parsed) : IO UInt32 := do
   let mut cronos ← Cronos.new.clock "IPFS"
@@ -18,7 +19,8 @@ def dagPut (p : Cli.Parsed) : IO UInt32 := do
       compileState.univMetaIpld
       compileState.exprMetaIpld
       compileState.constMetaIpld
-    -- TODO: Store on IPFS using HTTP.lean
+    let body := String.fromUTF8Unchecked (DagCbor.serialize ipld)
+    -- TODO: Store `body` on IPFS using HTTP.lean and print out the CID
   | .error err => IO.eprintln err; return 1
   return 0
 
