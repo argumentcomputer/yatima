@@ -107,7 +107,7 @@ mutual
     | _ =>
       let (term, inferType) ← infer term
       if !(inferType.info == type.info) || !(← equal inferType.info (← read).lvl type.get inferType.get) then
-        throw $ .valueMismatch (toString inferType.get) (toString type.get)
+        throw $ .valueMismatch (toString type.get) (toString inferType.get)
       else
         pure term
 
@@ -170,7 +170,7 @@ mutual
       let (expr, exprType) ← infer expr
       let some (_, ctor, univs, params) ← isStruct exprType.get
         | throw $ .typNotStructure (toString exprType.get)
-      let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params
+      let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params.reverse
       for i in [:idx] do
         match ctorType with
         | .pi _ _ _ img piEnv =>

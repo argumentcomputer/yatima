@@ -165,6 +165,9 @@ mutual
           -- TODO external recursors
           --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
           --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
+          -- sanity check
+          if args.length < (recur.params + recur.motives + 1) then
+            throw .impossible
           let minorIdx := args.length - (recur.params + recur.motives + 1)
           let some minor := args.get? minorIdx | throw .impossible
           pure minor.get
