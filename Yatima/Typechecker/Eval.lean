@@ -159,15 +159,24 @@ mutual
     | .intRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
-       pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
-        match ← toCtorIfLit arg with
-        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-          | .constructor ctor =>
-            let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda
+        if recur.k then
+          -- TODO external recursors
+          --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
+          --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
+          let minorIdx := args.length - (recur.params + recur.motives + 1)
+          let some minor := args.get? minorIdx | throw .impossible
+          pure minor.get
+        else
+          match ← toCtorIfLit arg with
+          | .app (Neutral.const kName k _) args' => 
+            match ← derefConst kName k with
+            | .constructor ctor =>
+              let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
+              withEnv ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda
+            | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
