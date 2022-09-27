@@ -110,7 +110,7 @@ partial def bind (a : Expr) (env : Env) (iter : Nat) :
   | [] => throw "too many arguments"
 
 partial def evalM (env : Env) (e : Expr) (iter := 0) : EvalM Value := do 
-  dbg_trace s!"[iteration {iter}] ....\n{e.pprint}\n"
+  -- dbg_trace s!"[iteration {iter}] ....\n{e.pprint}\n"
   let v : Value ← match e with
   | .lit lit => do 
     return .lit lit
@@ -219,11 +219,11 @@ partial def evalM (env : Env) (e : Expr) (iter := 0) : EvalM Value := do
     | none => return FALSE
   | .currEnv => do
     throw "floating `current-env`, try `(current-env)` instead"
-  let t_val : Format := ← match env.find? `getelem with 
-    | some v => do return (← v).pprint
-    | none => return "not there"
-  dbg_trace s!"[`t] ....\n{t_val}\n"
-  dbg_trace s!"[result of {iter}] ....\n{v.pprint}\n"
+  -- let t_val : Format := ← match env.find? `getelem with 
+  --   | some v => do return (← v).pprint
+  --   | none => return "not there"
+  -- dbg_trace s!"[`t] ....\n{t_val}\n"
+  -- dbg_trace s!"[result of {iter}] ....\n{v.pprint}\n"
   return v
 end
 

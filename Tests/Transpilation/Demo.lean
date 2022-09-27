@@ -11,7 +11,8 @@ def main := do
         (`univCtor, some "zero"),
         (`mapInsert, none),
         (`strAppend, some "abcdef"),
-        (`treeSize, some 7)
+        (`treeSize, some 1),
+        (`nameStr, some "this.is.a.name")
       ]
     ]
   lspecIO tSeq

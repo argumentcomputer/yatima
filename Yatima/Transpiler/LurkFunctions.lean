@@ -103,6 +103,13 @@ def NatAdd : Name × Expr := (``Nat.add, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
 ⟧)
 
+def NatSub : Name × Expr := (``Nat.sub, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (< _x_lurk_1 _x_lurk_2)
+        0
+        (- _x_lurk_1 _x_lurk_2)))
+⟧)
+
 def NatMul : Name × Expr := (``Nat.mul, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
 ⟧)
@@ -111,7 +118,20 @@ def NatDiv : Name × Expr := (``Nat.div, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (< _x_lurk_1 _x_lurk_2)
         0
-        (+ (Nat_div (- _x_lurk_1 _x_lurk_2) _x_lurk_2) 1)))
+        -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
+        -- the elaborator is otherwise confused and tries to parse `Nat.div`
+        -- as a `binop`. 
+        (+ 1 (($(``Nat.div) (- _x_lurk_1 _x_lurk_2)) _x_lurk_2))))
+⟧)
+
+def NatMod : Name × Expr := (``Nat.mod, ⟦
+  (lambda (_x_lurk_1 _x_lurk_2) 
+    (if (< _x_lurk_1 _x_lurk_2)
+        0
+        -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
+        -- the elaborator is otherwise confused and tries to parse `Nat.div`
+        -- as a `binop`. 
+        (+ 1 (($(``Nat.div) (- _x_lurk_1 _x_lurk_2)) _x_lurk_2))))
 ⟧)
 
 def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
@@ -125,8 +145,8 @@ def NatDecLe : Name × Expr := (``Nat.decLe, ⟦
 def NatBeq : Name × Expr := (``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (
     if (= _x_lurk_1 _x_lurk_2) 
-      Bool_true
-      Bool_false
+      $(``true)
+      $(``false)
   ))
 ⟧)
 
@@ -172,6 +192,13 @@ def ListRec : Name × Expr := (``List.rec, ⟦
      _nil))
 ⟧)
 
+def ListHasDecEq : Name × Expr := (``List.hasDecEq, ⟦
+  (lambda (α _inst a b) 
+    (if (eq a b)
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+⟧)
+
 def ListMap : Name × Expr := (``List.map, ⟦
   (lambda (α β f xs) 
     (if xs
@@ -202,6 +229,14 @@ def StringRec : Name × Expr := (``String.rec, ⟦
   (lambda (motive mk _t) 
     (mk (lurk_string_data _t)))
 ⟧)
+
+def StringDecEq : Name × Expr := (``String.decEq, ⟦
+  (lambda (s₁ s₂) 
+    (if (eq s₁ s₂)
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+⟧)
+
 
 
 /-! 
