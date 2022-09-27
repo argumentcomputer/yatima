@@ -215,10 +215,8 @@ namespace Yatima.Transpiler
 
 def replaceName (name : Name) : TranspileM Name := do 
   if name.isHygenic then 
-    dbg_trace s!">> {name} is hygienic"
     match (← get).replaced.find? name with 
       | some n => 
-        dbg_trace s!">> replaced with {n}"
         return n 
       | none   => replaceFreshId name
   else return name
@@ -441,7 +439,7 @@ mutual
   the same block more than once.
   -/
   partial def mkConst (c : Const) : TranspileM Unit := do 
-    dbg_trace s!">> mkConst {c.name}"
+    -- dbg_trace s!">> mkConst {c.name}"
     match c with 
     | .axiom    _
     | .quotient _ => return

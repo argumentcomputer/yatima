@@ -25,13 +25,13 @@ instance : Lean.MonadNameGenerator TranspileM where
 
 /-- Set `name` as a visited node -/
 def visit (name : Name) : TranspileM Unit := do
-  dbg_trace s!">> visit {name}"
+  -- dbg_trace s!">> visit {name}"
   modify fun s => { s with visited := s.visited.insert name }
 
 /-- Create a fresh variable `_x_n` to replace `name` and update `replaced` -/
 def replaceFreshId (name : Name) : TranspileM Name := do
   let _x ← Lean.mkFreshId
-  dbg_trace s!">> mk fresh name {_x}"
+  -- dbg_trace s!">> mk fresh name {_x}"
   set $ { (← get) with replaced := (← get).replaced.insert name _x}
   return _x
 
