@@ -94,12 +94,12 @@ mutual
     | .succ v     => s!"(succ {printUniv v})"
     | .max  v w   => s!"(max {printUniv v} {printUniv w})"
     | .imax v w   => s!"(imax {printUniv v} {printUniv w})"
-    | .var  n idx => s!"({n}.{idx})"
+    | .var  n idx => s!"{n}"
 
   partial def printExpr (e : Expr) : PrintM String := match e with
-    | .var _ name i => return s!"{name}@{i}"
+    | .var _ name i => return s!"{name}"
     | .sort _ u => return s!"Sort {printUniv u}"
-    | .const _ name i us => return s!"{name}@{i}{us.map printUniv}"
+    | .const _ name i us => return s!"{name}"
     | .app _ func body => match func with
       | .app .. => return s!"{← printExpr func} {← paren body}"
       | _ => return s!"{← paren func} {← paren body}"
