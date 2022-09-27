@@ -6,13 +6,10 @@ def main := do
     "Fixtures/Transpilation/Demo.lean"
     [
       extractTranspilationTests [
-        (`listLength, some 6),
         (`expr, none),
-        (`univCtor, some "zero"),
+        (`univCtor, some ⟦"zero"⟧),
         (`mapInsert, none),
-        (`strAppend, some "abcdef"),
-        (`treeSize, some 1),
-        (`nameStr, some "this.is.a.name")
+        (`treeSize, some ⟦1⟧)
       ]
     ]
   lspecIO tSeq
