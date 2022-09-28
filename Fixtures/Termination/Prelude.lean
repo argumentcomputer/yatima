@@ -502,8 +502,6 @@ structure And (a b : Prop) : Prop where
   `h.right`, also notated as `h.2`, is a proof of `b`. -/
   right : b
 
-#exit
-
 /--
 `Or a b`, or `a ∨ b`, is the disjunction of propositions. There are two
 constructors for `Or`, called `Or.inl : a → a ∨ b` and `Or.inr : b → a ∨ b`,
@@ -563,6 +561,8 @@ structure Subtype {α : Sort u} (p : α → Prop) where
   /-- If `s : {x // p x}` then `s.2` or `s.property` is the assertion that
   `p s.1`, that is, that `s` is in fact an element for which `p` holds. -/
   property : p val
+
+#exit
 
 set_option linter.unusedVariables.funArgs false in
 /--

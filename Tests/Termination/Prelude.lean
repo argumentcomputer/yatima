@@ -5,6 +5,6 @@ def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Termination/Prelude.lean"
     [ --extractIpldRoundtripTests,
-      extractPositiveTypecheckTests (.some [`And.left])]
+      extractPositiveTypecheckTests]
     false
   lspecIO tSeq

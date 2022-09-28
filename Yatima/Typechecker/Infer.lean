@@ -191,7 +191,6 @@ mutual
       match ctorType with
       | .pi _ _ dom _ _  =>
         if exprType.info.prop? && !(dom.info.prop?) then 
-          dbg_trace s!"Processing: {dom.get}"
           throw $ .projEscapesProp (toString term)
         else
           let term := .proj (← infoFromType dom) idx expr
