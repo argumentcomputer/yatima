@@ -2,7 +2,6 @@ import Yatima.Cli.CompileCmd
 import Yatima.Cli.Cronos
 import Yatima.Cli.GetCmd
 import Yatima.Cli.IpfsCmd
-import Yatima.Cli.PipeCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.PutCmd
 import Yatima.Cli.TranspileCmd

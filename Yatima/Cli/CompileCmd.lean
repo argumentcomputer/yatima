@@ -9,7 +9,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
     if p.hasFlag "summary" then
       IO.println s!"{compileState.summary}"
       IO.println s!"\n{cronos'.summary}"
-      IO.println s!"\n{cronos.summary}"
+    IO.println s!"\n{cronos.summary}"
     return 0
   | .error err => IO.eprintln err; return 1
 
