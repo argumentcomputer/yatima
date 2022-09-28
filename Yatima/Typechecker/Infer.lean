@@ -104,13 +104,13 @@ mutual
       let expVal := suspend exp (← read)
       let bod ← withExtendedCtx expVal expTypeVal $ check bod type
       pure $ .letE bod.info name expType exp bod
-    | .app _ (.lam _ lamName bind lamDom bod) arg => 
+    | .app _ (.lam _ lamName bind lamDom bod) arg =>
+      let (lamDom, _) ← isSort lamDom
       let lamDomVal := suspend lamDom (← read)
       let arg ← check arg lamDomVal
-        let lvl := (← read).lvl
-      let var := mkSusVar (← infoFromType lamDomVal) lamName lvl
-      let bod ← withExtendedCtx var lamDomVal $ check bod type
-      pure $ .app (← infoFromType type) (.lam (lamInfo bod.info) lamName bind lamDom bod) arg
+      let argVal := suspend arg (← read)
+      let bod ← withExtendedCtx argVal lamDomVal $ check bod type
+      pure $ .app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg
     | _ =>
       let (term, inferType) ← infer term
       if !(inferType.info == type.info) || !(← equal inferType.info (← read).lvl type.get inferType.get) then
@@ -130,6 +130,13 @@ mutual
       let univs := (← read).env.univs
       let typ := .mk sortInfo ⟨ fun _ => .sort $ .instBulkReduce univs lvl.succ ⟩
       return (term, typ)
+    | .app _ (.lam _ lamName bind lamDom bod) arg =>
+      let (lamDom, _) ← isSort lamDom
+      let lamDomVal := suspend lamDom (← read)
+      let arg ← check arg lamDomVal
+      let argVal := suspend arg (← read)
+      let (bod, type) ← withExtendedCtx argVal lamDomVal $ infer bod
+      pure (.app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg, type)
     | .app _ fnc arg =>
       let (fnc, fncType) ← infer fnc
       match fncType.get with
