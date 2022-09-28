@@ -450,8 +450,6 @@ theorem eq_of_heq {α : Sort u} {a a' : α} (h : HEq a a') : Eq a a' :=
       h₁.rec (fun _ => rfl)
   this α α a a' h rfl
 
-#exit
-
 /--
 Product type (aka pair). You can use `α × β` as notation for `Prod α β`.
 Given `a : α` and `b : β`, `Prod.mk a b : Prod α β`. You can use `(a, b)`
@@ -503,6 +501,8 @@ structure And (a b : Prop) : Prop where
   /-- Extract the right conjunct from a conjunction. `h : a ∧ b` then
   `h.right`, also notated as `h.2`, is a proof of `b`. -/
   right : b
+
+#exit
 
 /--
 `Or a b`, or `a ∨ b`, is the disjunction of propositions. There are two

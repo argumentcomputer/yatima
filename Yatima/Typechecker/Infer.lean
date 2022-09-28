@@ -177,7 +177,9 @@ mutual
       let (expr, exprType) ← infer expr
       let some (_, ctor, univs, params) ← isStruct exprType.get
         | throw $ .typNotStructure (toString exprType.get)
-      let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctor.type) params.reverse
+      -- annotate constructor type
+      let (ctorType, _) ← infer ctor.type
+      let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
       for i in [:idx] do
         match ctorType with
         | .pi _ _ _ img piEnv =>
@@ -188,10 +190,12 @@ mutual
         | _ => pure ()
       match ctorType with
       | .pi _ _ dom _ _  =>
-        if exprType.info.prop? && !(dom.info.prop?) then throw $ .projEscapesProp (toString term)
-          else
-            let term := .proj (← infoFromType dom) idx expr
-            pure (term, dom)
+        if exprType.info.prop? && !(dom.info.prop?) then 
+          dbg_trace s!"Processing: {dom.get}"
+          throw $ .projEscapesProp (toString term)
+        else
+          let term := .proj (← infoFromType dom) idx expr
+          pure (term, dom)
       | _ => throw .impossible
 
   /--
