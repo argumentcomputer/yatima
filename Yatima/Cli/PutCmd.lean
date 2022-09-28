@@ -11,6 +11,7 @@ open Http in
 def putRun (p : Cli.Parsed) : IO UInt32 := do
   let mut cronos ← Cronos.new.clock "IPFS"
   match ← cliCompile p with
+  | .error err => IO.eprintln err; return 1
   | .ok (compileState, cronos') =>
     cronos ← cronos.clock "IPFS"
     if p.hasFlag "summary" then
@@ -29,8 +30,7 @@ def putRun (p : Cli.Parsed) : IO UInt32 := do
     let response ← Client.post url body
     println! "headers : {response.headers}"
     println! "body: {response.body}"
-  | .error err => IO.eprintln err; return 1
-  return 0
+    return 0
 
 def putCmd : Cli.Cmd := `[Cli|
   put VIA putRun;
