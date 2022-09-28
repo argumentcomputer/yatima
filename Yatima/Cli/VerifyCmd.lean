@@ -1,23 +1,21 @@
 import Yatima.Cli.Utils
 
-def verifyRun (p : Cli.Parsed) : IO UInt32 := do return 1
-
--- TODO
-def verifyCmd : Cli.Cmd := `[Cli|
-  pipe VIA verifyRun;
-  "Transpile Lean 4 code to Lurk code"
+def verifyRun (p : Cli.Parsed) : IO UInt32 := do 
+  match p.variableArgsAs? String with 
+  | some ⟨[arg]⟩ => 
+    let verify := s!"fcomm verify --proof {arg}"
+    IO.println s!"info: Running {verify}"
+    match ← runCmd verify with
+    | .ok res => IO.println res; return 0
+    | .error err => IO.eprintln err; return 1
+  | _ => 
+    IO.println "Couldn't parse arguments.\nRun `yatima verify -h` for further information."
+    return 1
   
-  FLAGS:
-    p, "prelude"; "Optimizes the compilation of prelude files without imports." ++
-      " All files to be compiled must follow this rule"
-    l, "log";             "Logs compilation progress"
-    s, "summary";         "Prints a compilation summary at the end of the process"
-    ty, "typecheck";      "Typechecks the Yatima IR code"
-    rt, "root" : String;  "Sets the root call for the Lurk evaluation (defaults to `root`)"
-    o, "output" : String; "Specifies the target file name for the Lurk code"
-    r, "run";             "Runs the evaluation of the resulting Lurk expression"
-    "no-erase-types";     "Do not erase types from the Yatima source"
+def verifyCmd : Cli.Cmd := `[Cli|
+  verify VIA verifyRun;
+  "Verify correctness of a Lurk proof"
 
   ARGS:
-    ...sources : String; "List of Lean files or directories"
+    ...sources : String; "Input proof json"
 ]
