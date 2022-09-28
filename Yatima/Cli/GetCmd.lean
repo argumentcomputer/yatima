@@ -2,7 +2,7 @@ import Cli
 import Yatima.Ipld.FromIpld
 import Ipld.DagCbor
 
-def dagGet (_p : Cli.Parsed) : IO UInt32 := do
+def getRun (_p : Cli.Parsed) : IO UInt32 := do
   let body : String := sorry
   let bytes := body.toUTF8
   match DagCbor.deserialize bytes with
@@ -14,7 +14,7 @@ def dagGet (_p : Cli.Parsed) : IO UInt32 := do
   | _ => IO.eprintln "DagCbor deserialization failed"; return 1
 
 def getCmd : Cli.Cmd := `[Cli|
-  get VIA dagGet;
+  get VIA getRun;
   "Retrieve a Yatima data store from IPFS"
 
   --FLAGS:

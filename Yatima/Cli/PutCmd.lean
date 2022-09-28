@@ -2,8 +2,13 @@ import Cli
 import Yatima.Cli.Utils
 import Yatima.Ipld.ToIpld
 import Ipld.DagCbor
+import Http
 
-def dagPut (p : Cli.Parsed) : IO UInt32 := do
+opaque URL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
+  "store-codec=dag-cbor&input-codec=dag-json&hash=sha3-256"
+
+open Http in
+def putRun (p : Cli.Parsed) : IO UInt32 := do
   let mut cronos ← Cronos.new.clock "IPFS"
   match ← cliCompile p with
   | .ok (compileState, cronos') =>
@@ -20,16 +25,23 @@ def dagPut (p : Cli.Parsed) : IO UInt32 := do
       compileState.exprMetaIpld
       compileState.constMetaIpld
     let body := String.fromUTF8Unchecked (DagCbor.serialize ipld)
-    -- TODO: Store `body` on IPFS using HTTP.lean and print out the CID
+    let url ← IO.ofExcept <| URI.parse URL
+    let response ← Client.post url body
+    println! "headers : {response.headers}"
+    println! "body: {response.body}"
   | .error err => IO.eprintln err; return 1
   return 0
 
 def putCmd : Cli.Cmd := `[Cli|
-  put VIA dagPut;
+  put VIA putRun;
   "Store a Yatima data store on IPFS"
 
-  --FLAGS:
-    
+  FLAGS:
+    p, "prelude"; "Optimizes the compilation of prelude files without imports." ++
+      " All files to be compiled must follow this rule"
+    l, "log";     "Logs compilation progress"
+    s, "summary"; "Prints a compilation summary at the end of the process"
+
   ARGS:
     ...sources : String; "File name of Yatima store"
 ]
