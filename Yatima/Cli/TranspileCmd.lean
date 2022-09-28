@@ -14,11 +14,6 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
       IO.println s!"{compileState.summary}"
       IO.println s!"\n{cronos'.summary}"
 
-    cronos ← cronos.clock "Typechecking"
-    match typecheckConsts compileState.pStore with
-    | .ok _       => cronos ← cronos.clock "Typechecking"
-    | .error msg  => IO.eprintln msg; return 1
-
     cronos ← cronos.clock "Transpilation"
     match ← cliTranspile compileState p with
     | .ok exp =>
