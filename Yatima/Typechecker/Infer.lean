@@ -104,6 +104,13 @@ mutual
       let expVal := suspend exp (← read)
       let bod ← withExtendedCtx expVal expTypeVal $ check bod type
       pure $ .letE bod.info name expType exp bod
+    | .app _ (.lam _ lamName bind lamDom bod) arg => 
+      let lamDomVal := suspend lamDom (← read)
+      let arg ← check arg lamDomVal
+        let lvl := (← read).lvl
+      let var := mkSusVar (← infoFromType lamDomVal) lamName lvl
+      let bod ← withExtendedCtx var lamDomVal $ check bod type
+      pure $ .app (← infoFromType type) (.lam (lamInfo bod.info) lamName bind lamDom bod) arg
     | _ =>
       let (term, inferType) ← infer term
       if !(inferType.info == type.info) || !(← equal inferType.info (← read).lvl type.get inferType.get) then
