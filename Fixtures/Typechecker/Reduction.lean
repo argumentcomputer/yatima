@@ -94,5 +94,9 @@ def K' := MyNat.next $ .next $ .next $ .next $ .next $ .next .nope
 def L := 2 + 3
 def L' := nat_lit 5
 
-theorem test (α β : Sort u) (a : α) (b : β) (h₁ : HEq a b) (p : α → Prop) (h : p a) : (h₂ : Eq β α) → p (cast h₂ b) :=
+theorem KTest (α β : Sort u) (a : α) (b : β) (h₁ : HEq a b) (p : α → Prop) (h : p a) : (h₂ : Eq β α) → p (cast h₂ b) :=
   h₁.rec fun _ => h
+
+theorem HaveTest : Bool :=
+  have : Bool → Bool := fun _ => true
+  this false

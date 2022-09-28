@@ -83,7 +83,7 @@ mutual
   Checks if `term : Expr` has type `type : SusValue`. Returns the expression with flags updated
   -/
   partial def check (term : Expr) (type : SusValue) : TypecheckM Expr := do
-    --dbg_trace s!"Checking: {term} : {type.get}"
+    dbg_trace s!"Checking: {term} : {type.get}"
     match term with
     | .lam _ lamName bind lamDom bod =>
       match type.get with
