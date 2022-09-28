@@ -10,6 +10,14 @@ def getToolchain : IO $ Except String String := do
     let version := out.stdout.splitOn "(Lean version " |>.get! 1
     return .ok $ version.splitOn ")" |>.head!
 
+def checkToolChain : IO Unit := do
+  match ← getToolchain with
+  | .error msg => throw $ .otherError 0 msg
+  | .ok toolchain =>
+    if toolchain != Lean.versionString then
+      throw $ .otherError 0 
+        s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
+
 open System in
 partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
     IO $ Array FilePath := do

@@ -1,7 +1,7 @@
 import Yatima.Cli.PipeCmd
 
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler Cli.Parsed in
-def verifyRun (p : Cli.Parsed) : IO UInt32 := do _
+def verifyRun (p : Cli.Parsed) : IO UInt32 := do return 1
 
 -- TODO
 def verifyCmd : Cli.Cmd := `[Cli|

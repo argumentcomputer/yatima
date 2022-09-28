@@ -1,65 +1,48 @@
-import Cli
-import Yatima.Cli.Utils
-import Yatima.Cli.Cronos
-import Yatima.Compiler.Compiler
+import Yatima.Cli.CompileCmd
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
 import Yatima.ForLurkRepo.Eval
-import Lean.Util.Path
 
-open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler Cli.Parsed in
+open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler Cli.Parsed
+ 
+def IOTranspile (stt : CompileState) (root : Lean.Name) (output : String) (run : Bool) : 
+    IO Lurk.Expr := do 
+  match transpile stt root with
+    | .error msg => throw $ .otherError 0 msg
+    | .ok exp =>
+      let cronos ← Cronos.new.clock "Transpilation"
+      IO.println s!"\n{cronos.summary}"
+      let path ← IO.currentDir
+      IO.FS.createDirAll $ path/"lurk_output"
+      let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
+      IO.FS.writeFile fname s!"{(exp.pprint false).pretty 120}"
+      if run then
+        IO.println $ ← Lurk.ppEval exp
+      return exp
+
 def pipeRun (p : Cli.Parsed) : IO UInt32 := do
-  match ← getToolchain with
-  | .error msg => IO.eprintln msg; return 1
-  | .ok toolchain =>
-    if toolchain != Lean.versionString then
-      IO.eprintln
-        s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
-      return 1
+  checkToolChain
   let eraseTypes := p.hasFlag "no-erase-types"
-  let mut cronos := Cronos.new
+
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
-      cronos ← cronos.clock "Compilation"
       if !(p.hasFlag "prelude") then setLibsPaths
-      let mut stt : CompileState := default
       let log := p.hasFlag "log"
-      let mut cronos' := Cronos.new
-      for arg in args do
-        for filePath in ← getLeanFilePathsList ⟨arg⟩ do
-          let filePathStr := filePath.toString
-          cronos' ← cronos'.clock filePathStr
-          match ← compile filePath log stt with
-          | .ok stt' =>
-            stt := stt'
-            cronos' ← cronos'.clock filePathStr
-          | .error msg => IO.eprintln msg; return 1
-      if p.hasFlag "summary" then
-        IO.println s!"{stt.summary}"
-        IO.println s!"\n{cronos'.summary}"
-
-      cronos ← cronos.clock "Compilation"
+      let summary := p.hasFlag "summary"
+      let stt ← IOCompile log summary args
       if p.hasFlag "typecheck" then
-        cronos ← cronos.clock "Typechecking"
+        let mut cronos ← Cronos.new.clock "Typechecking"
         match typecheckConsts stt.pStore with
         | .ok _       => cronos ← cronos.clock "Typechecking"
         | .error msg  => IO.eprintln msg; return 1
-      cronos ← cronos.clock "Transpilation"
+        IO.println cronos.summary
+        
+      let output := p.flag? "output" |>.map (Flag.as! · String) |>.getD "output"
       let root : Lean.Name := .mkSimple $
         p.flag? "root" |>.map (Flag.as! · String) |>.getD "root"
-      match transpile stt root with
-      | .error msg => IO.eprintln msg
-      | .ok exp =>
-        cronos ← cronos.clock "Transpilation"
-        IO.println s!"\n{cronos.summary}"
-        let path ← IO.currentDir
-        let output := p.flag? "output" |>.map (Flag.as! · String) |>.getD "output"
-        IO.FS.createDirAll $ path/"lurk_output"
-        let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
-        IO.FS.writeFile fname s!"{(exp.pprint false).pretty 70}"
-        if p.hasFlag "run" then
-          IO.println $ ← Lurk.ppEval exp
+      let run := p.hasFlag "run"
+      let exp ← IOTranspile stt root output run
       return 0
     else
       IO.eprintln "No store argument was found."
