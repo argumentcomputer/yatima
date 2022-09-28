@@ -1,5 +1,5 @@
 import Yatima.Datatypes.Store
-import Yatima.Transpiler.TranspileM
+import Yatima.Transpiler.Simp
 import Yatima.Transpiler.Utils
 import Yatima.Transpiler.LurkFunctions 
 
@@ -404,8 +404,11 @@ mutual
           mkConst const
       mkName name
     | .app _ fn arg => 
-      -- dbg_trace s!"app"
-      return .app (← mkLurkExpr fn) (← mkLurkExpr arg)
+      let e := .app (← mkLurkExpr fn) (← mkLurkExpr arg)
+      -- TODO: this may be super efficient, need to analyze
+      match Simp.getOfNatLit e with 
+      | some n => return .lit (.num n)
+      | none => return e
     | e@(.lam ..) => 
       -- dbg_trace s!"lam"
       mkLambda e
