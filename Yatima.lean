@@ -1,6 +1,5 @@
 import Yatima.Cli.CompileCmd
 import Yatima.Cli.Cronos
-import Yatima.Cli.PipeCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.TranspileCmd
 import Yatima.Cli.TypecheckCmd
