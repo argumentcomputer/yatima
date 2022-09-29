@@ -6,8 +6,8 @@ import Ipld.DagCbor
 def putURL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
   "store-codec=dag-cbor&input-codec=dag-json&hash=sha3-256"
 
-def dummyString (_ipld : Ipld ) : String :=
-  "[1, null, true, false, \"hello\"]"
+def ipldToString (ipld : Ipld) : String :=
+  String.fromUTF8Unchecked (DagCbor.serialize ipld)
 
 open System in
 def putRun (p : Cli.Parsed) : IO UInt32 := do
@@ -27,8 +27,7 @@ def putRun (p : Cli.Parsed) : IO UInt32 := do
       compileState.univMetaIpld
       compileState.exprMetaIpld
       compileState.constMetaIpld
-    --let data := String.fromUTF8Unchecked (DagCbor.serialize ipld)
-    let body := dummyString ipld
+    let body := ipldToString ipld
     let path ← IO.currentDir
     let fname : FilePath := path/"myfile" |>.withExtension "json"
     IO.FS.writeFile fname body

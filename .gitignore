@@ -4,3 +4,4 @@
 /yatima-rs/target
 /result
 /lurk_output
+*.json
