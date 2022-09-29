@@ -2,12 +2,10 @@ import Cli
 import Yatima.Cli.Utils
 import Yatima.Ipld.ToIpld
 import Ipld.DagCbor
-import Http
 
 opaque URL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
   "store-codec=dag-cbor&input-codec=dag-json&hash=sha3-256"
 
-open Http in
 def putRun (p : Cli.Parsed) : IO UInt32 := do
   let mut cronos ← Cronos.new.clock "IPFS"
   match ← cliCompile p with
@@ -25,11 +23,6 @@ def putRun (p : Cli.Parsed) : IO UInt32 := do
       compileState.univMetaIpld
       compileState.exprMetaIpld
       compileState.constMetaIpld
-    let body := String.fromUTF8Unchecked (DagCbor.serialize ipld)
-    let url ← IO.ofExcept <| URI.parse URL
-    let response ← Client.post url body
-    println! "headers : {response.headers}"
-    println! "body: {response.body}"
     return 0
 
 def putCmd : Cli.Cmd := `[Cli|
