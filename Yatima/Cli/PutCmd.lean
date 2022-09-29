@@ -4,7 +4,7 @@ import Yatima.Ipld.ToIpld
 import Ipld.DagCbor
 
 def putURL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
-  "store-codec=dag-cbor&input-codec=dag-json&hash=sha3-256"
+  "store-codec=dag-cbor&input-codec=dag-cbor&hash=sha3-256&allow-big-block=true"
 
 def ipldToString (ipld : Ipld) : String :=
   String.fromUTF8Unchecked (DagCbor.serialize ipld)
@@ -30,7 +30,7 @@ def putRun (p : Cli.Parsed) : IO UInt32 := do
     let body := ipldToString ipld
     let path ← IO.currentDir
     let fname : FilePath := path/"myfile" |>.withExtension "json"
-    IO.FS.writeFile fname body
+    IO.FS.writeBinFile fname (DagCbor.serialize ipld)
     let putCmdStr := s!"curl -X POST -H 'Content-Type: multipart/form-data' -F file=@{fname} {putURL}"
     IO.println s!"info: Running {putCmdStr}"
     match ← runCmd putCmdStr with
