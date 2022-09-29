@@ -4,10 +4,13 @@ import Yatima.Ipld.ToIpld
 import Ipld.DagCbor
 import Http
 
-opaque URL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
+def putURL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
   "store-codec=dag-cbor&input-codec=dag-json&hash=sha3-256"
 
-open Http in
+def dummyString (_ipld : Ipld ) : String :=
+  "[1, null, true, false, \"hello\"]"
+
+open System in
 def putRun (p : Cli.Parsed) : IO UInt32 := do
   let mut cronos ← Cronos.new.clock "IPFS"
   match ← cliCompile p with
@@ -25,13 +28,17 @@ def putRun (p : Cli.Parsed) : IO UInt32 := do
       compileState.univMetaIpld
       compileState.exprMetaIpld
       compileState.constMetaIpld
-    let body := String.fromUTF8Unchecked (DagCbor.serialize ipld)
-    let url ← IO.ofExcept <| URI.parse URL
-    let response ← Client.post url body
-    println! "headers : {response.headers}"
-    println! "body: {response.body}"
-    return 0
-
+    --let data := String.fromUTF8Unchecked (DagCbor.serialize ipld)
+    let body := dummyString ipld
+    let path ← IO.currentDir
+    let fname : FilePath := path/"myfile" |>.withExtension "json"
+    IO.FS.writeFile fname body
+    let putCmdStr := s!"curl -X POST -H 'Content-Type: multipart/form-data' -F file=@{fname} {putURL}"
+    IO.println s!"info: Running {putCmdStr}"
+    match ← runCmd putCmdStr with
+    | .ok res => IO.println res; return 0
+    | .error err => IO.eprintln err; return 1
+    
 def putCmd : Cli.Cmd := `[Cli|
   put VIA putRun;
   "Store a Yatima data store on IPFS"

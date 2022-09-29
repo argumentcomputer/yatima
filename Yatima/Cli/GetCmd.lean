@@ -1,17 +1,28 @@
 import Cli
+import Yatima.Cli.Utils
 import Yatima.Ipld.FromIpld
 import Ipld.DagCbor
 
-def getRun (_p : Cli.Parsed) : IO UInt32 := do
-  let body : String := sorry
-  let bytes := body.toUTF8
-  match DagCbor.deserialize bytes with
-  | .ok ipld =>
-    match Yatima.Ipld.storeFromIpld ipld with
-    | some _ => IO.println "IPLD deserialization succeeded"
-    | none => IO.println "IPLD deserialization failed"
-    return 0
-  | _ => IO.eprintln "DagCbor deserialization failed"; return 1
+def getURL : String := "http://127.0.0.1:5001/api/v0/dag/get?arg="
+
+def dummyIpld (_s : String) : Option Ipld :=
+  some (Ipld.number 1)
+
+open System in
+def getRun (p : Cli.Parsed) : IO UInt32 := do
+  let cid : String := p.positionalArg! "cid" |>.as! String
+  let getCmdStr := s!"curl -X POST {getURL}" ++ cid
+  IO.println s!"info: Running {getCmdStr}"
+  match ← runCmd getCmdStr with
+  | .ok res =>
+      IO.println s!"IPFS output: {res}"
+      let path ← IO.currentDir
+      let fname : FilePath := path/"ipfs_output" |>.withExtension "txt"
+      IO.FS.writeFile fname (res ++"\n")
+      IO.println s!"Wrote output to {fname}"
+      let _ipld := dummyIpld res
+      return 0
+  | .error err => IO.eprintln err; return 1
 
 def getCmd : Cli.Cmd := `[Cli|
   get VIA getRun;
@@ -20,5 +31,5 @@ def getCmd : Cli.Cmd := `[Cli|
   --FLAGS:
     
   ARGS:
-    ...sources : String; "CID of stored Yatima data"
+    cid : String; "CID of stored Yatima data"
 ]
