@@ -83,7 +83,7 @@ mutual
   Checks if `term : Expr` has type `type : SusValue`. Returns the expression with flags updated
   -/
   partial def check (term : Expr) (type : SusValue) : TypecheckM Expr := do
-    dbg_trace s!"Checking: {term} : {type.get}"
+    --dbg_trace s!"Checking: {term} : {type.get}"
     match term with
     | .lam _ lamName bind lamDom bod =>
       let (lamDom, _) ← isSort lamDom
@@ -94,18 +94,7 @@ mutual
           throw $ .custom "Lambda annotation does not match with its type"
         let var := mkSusVar (← infoFromType dom) lamName lvl
         let env := env.extendWith var 
-        match img with
-        | .app _ _ (.app _ _ val) =>
-          dbg_trace s!"before eval: {val.info.struct?}"
-        | _ => pure ()
         let img := suspend img { ← read with env }
-        match img.get with
-        | .app _ [sus] =>
-          match sus.get with
-          | .app (.proj _ val) _ =>
-            dbg_trace s!"after eval: {val.info.struct?}"
-          | _ => pure ()
-        | _ => pure ()
         let bod ← withExtendedCtx var dom $ check bod img
         pure $ .lam (lamInfo bod.info) lamName bind lamDom bod
       | val => throw $ .notPi (toString val)
@@ -190,8 +179,20 @@ mutual
       let const ← derefConst name k
       let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
       let typ := suspend const.type { ← read with env := env }
-      let term := .const (← infoFromType typ) name k constUnivs
-      pure (term, typ)
+      let val ← match const with
+        | .theorem    struct
+        | .opaque     struct
+        | .definition struct => do
+          let (type, _) ← isSort struct.type
+          let type := suspend type (← read)
+          check struct.value type
+        | .axiom       _
+        | .inductive   _
+        | .constructor _
+        | .extRecursor _
+        | .intRecursor _
+        | .quotient    _ => pure $ .const (← infoFromType typ) name k constUnivs
+      pure (val, typ)
     | .proj _ idx expr =>
       let (expr, exprType) ← infer expr
       let some (_, ctor, univs, params) ← isStruct exprType.get
