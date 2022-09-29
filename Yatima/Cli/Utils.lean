@@ -32,13 +32,14 @@ partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
 def List.pop : (l : List α) → l ≠ [] → α × Array α
   | a :: as, _ => (a, ⟨as⟩)
 
-def runCmd (cmd : String) : IO (Except String String) := do
+def runCmd (cmd : String) (cwd : Option System.FilePath := none) : IO (Except String String) := do
   let cmd := cmd.splitOn " "
   if h : cmd ≠ [] then
     let (cmd, args) := cmd.pop h
     let out ← IO.Process.output {
       cmd := cmd
       args := args
+      cwd := cwd
     }
     return if out.exitCode != 0 then .error out.stderr
       else .ok out.stdout
