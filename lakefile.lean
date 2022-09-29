@@ -22,11 +22,11 @@ require LSpec from git
 require YatimaStdLib from git
   "https://github.com/yatima-inc/YatimaStdLib.lean" @ "dd565ffec739f9ee0a79a3bf47ab5e1e0db0d8e2"
 
-require Http from git
-  "https://github.com/yatima-inc/Http.lean" @ "59c270c597162d0bf67d2e4ce98c15627a8c07e3"
-
 require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "1f844d9d3c31908588f507dfa3f3b4c764bdcdf6"
+
+-- require Http from git
+--   "https://github.com/yatima-inc/Http.lean" @ "59c270c597162d0bf67d2e4ce98c15627a8c07e3"
 
 section Testing
 

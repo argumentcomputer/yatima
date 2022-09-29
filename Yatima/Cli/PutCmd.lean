@@ -2,7 +2,6 @@ import Cli
 import Yatima.Cli.Utils
 import Yatima.Ipld.ToIpld
 import Ipld.DagCbor
-import Http
 
 def putURL : String := "http://127.0.0.1:5001/api/v0/dag/put?" ++
   "store-codec=dag-cbor&input-codec=dag-json&hash=sha3-256"
