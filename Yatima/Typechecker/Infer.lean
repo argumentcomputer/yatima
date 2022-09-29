@@ -86,14 +86,26 @@ mutual
     dbg_trace s!"Checking: {term} : {type.get}"
     match term with
     | .lam _ lamName bind lamDom bod =>
+      let (lamDom, _) ← isSort lamDom
       match type.get with
       | .pi _ _ dom img env =>
         let lvl := (← read).lvl
-        let (lamDom, _) ← isSort lamDom
         if !(dom.info == lamDom.info) || !(← equal dom.info lvl (← eval lamDom) dom.get) then
           throw $ .custom "Lambda annotation does not match with its type"
         let var := mkSusVar (← infoFromType dom) lamName lvl
-        let img := suspend img { ← read with env := env.extendWith var }
+        let env := env.extendWith var 
+        match img with
+        | .app _ _ (.app _ _ val) =>
+          dbg_trace s!"before eval: {val.info.struct?}"
+        | _ => pure ()
+        let img := suspend img { ← read with env }
+        match img.get with
+        | .app _ [sus] =>
+          match sus.get with
+          | .app (.proj _ val) _ =>
+            dbg_trace s!"after eval: {val.info.struct?}"
+          | _ => pure ()
+        | _ => pure ()
         let bod ← withExtendedCtx var dom $ check bod img
         pure $ .lam (lamInfo bod.info) lamName bind lamDom bod
       | val => throw $ .notPi (toString val)

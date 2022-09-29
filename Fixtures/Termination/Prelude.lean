@@ -562,6 +562,8 @@ structure Subtype {α : Sort u} (p : α → Prop) where
   `p s.1`, that is, that `s` is in fact an element for which `p` holds. -/
   property : p val
 
+#print Subtype.property
+
 #exit
 
 set_option linter.unusedVariables.funArgs false in
