@@ -1,17 +1,14 @@
-import Cli
 import Yatima.Cli.Utils
-import Yatima.Cli.Cronos
-import Yatima.Compiler.Compiler
+import Yatima.Ipld.ToIpld
+import Ipld.DagCbor
 
-open Yatima.Compiler in
+open System Yatima.Compiler in
 def compileRun (p : Cli.Parsed) : IO UInt32 := do
   match ← getToolchain with
   | .error msg => IO.eprintln msg; return 1
   | .ok toolchain =>
     if toolchain != Lean.versionString then
-      IO.eprintln
-        s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
-      return 1
+      IO.eprintln s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
@@ -24,29 +21,37 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
           let filePathStr := filePath.toString
           cronos ← cronos.clock filePathStr
           match ← compile filePath log stt with
-          | .ok stt' =>
-            stt := stt'
-            cronos ← cronos.clock filePathStr
-          | .error msg => IO.eprintln msg; return 1
+          | .ok stt' => cronos ← cronos.clock filePathStr; stt := stt'
+          | .error err => IO.eprintln err; return 1
       if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
-      -- TODO: write `stt.store` on disk
+      let ipld := Yatima.ToIpld.storeToIpld
+        stt.constsIpld
+        stt.univAnonIpld
+        stt.exprAnonIpld
+        stt.constAnonIpld
+        stt.univMetaIpld
+        stt.exprMetaIpld
+        stt.constMetaIpld
+      IO.FS.writeBinFile (p.getD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
     else
-      IO.eprintln "No store argument was found."
-      IO.eprintln "Run `yatima store -h` for further information."
+      IO.eprintln $ "No store argument was found.\n" ++
+        "Run `yatima store -h` for further information."
       return 1
   | none =>
-    IO.eprintln "Couldn't parse store arguments."
-    IO.eprintln "Run `yatima store -h` for further information."
+    IO.eprintln $ "Couldn't parse store arguments.\n" ++
+      "Run `yatima store -h` for further information."
     return 1
 
 def compileCmd : Cli.Cmd := `[Cli|
   compile VIA compileRun;
-  "Compile Lean 4 code to content-addressed IPLD"
+  "Compiles Lean 4 code to Yatima IR"
 
   FLAGS:
+    o, "output" : String; "The name of the output binary file." ++
+      " Defaults to \"output.ir\""
     p, "prelude"; "Optimizes the compilation of prelude files without imports." ++
       " All files to be compiled must follow this rule"
     l, "log";     "Logs compilation progress"

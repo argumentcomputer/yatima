@@ -25,6 +25,9 @@ require YatimaStdLib from git
 require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "1f844d9d3c31908588f507dfa3f3b4c764bdcdf6"
 
+-- require Http from git
+--   "https://github.com/yatima-inc/Http.lean" @ "59c270c597162d0bf67d2e4ce98c15627a8c07e3"
+
 section Testing
 
 lean_lib TestsUtils
@@ -33,14 +36,15 @@ lean_lib Fixtures {
   roots := #[`Fixtures.AnonCidGroups.ToBeImported, `Fixtures.AnonCidGroups.ToImport]
 }
 
-lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
-lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
-lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
-lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
-lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.Transpilation.Demo          { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Definitions    { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Inductives     { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.ToImport       { supportInterpreter := true }
+lean_exe Tests.Termination.NastyInductives  { supportInterpreter := true }
+lean_exe Tests.Termination.Prelude          { supportInterpreter := true }
+lean_exe Tests.Roundtrip.Tricky             { supportInterpreter := true }
+lean_exe Tests.Typechecker.Reduction        { supportInterpreter := true }
+lean_exe Tests.Transpilation.Demo           { supportInterpreter := true }
+lean_exe Tests.Transpilation.PrimitiveTests { supportInterpreter := true }
 
 lean_exe Tests.LurkInterpreter.Spec
 

@@ -7,10 +7,10 @@ inductive PrimConst
 
 open Std (RBMap) in
 def primCidsMap : RBMap String PrimConst compare := .ofList [
-  ("bagcyb6egbqlcbvcn3yk3eojuobxafm2yn42oyux6im7vkcwrx7zykci56kwbt6pm", .nat),
-  ("bagcyb6egbqlcbtdf56fiqql3sk3ei2nt4zwsudg4z5tcdehqqvrw4duozqjbp4ao", .natZero),
-  ("bagcyb6egbqlcbop4tscfzg2s3eb7cfprycbn2r2oufqqmcg4uf5vcsqcp75fkeuh", .natSucc),
-  ("bagcyb6egbqlcba4ftu73ay23wjzrrrf5t3uycgkjftlubwgakbty2k4t4jer5ydf", .string)
+  ("bagcyb6egbqlcb6gxj3eegunexxnq6awr3aehcux3tvax5f6uxh5l6c2ntjibn7xr", .nat),
+  ("bagcyb6egbqlcav6xokynafp5fsz4a2ybhq2octuhvcsrnplpb76fkr4bxpnq7tmy", .natZero),
+  ("bagcyb6egbqlcbs4ntyq3z35j6hpj5pelkv3xwo2s5737yapedutfqfgd3bzaco5b", .natSucc),
+  ("bagcyb6egbqlcbwowc6i4nuyyusv4fcuqbwgukyuuuro7m7gn6rtx77u25r2typaj", .string)
 ]
 
 end Yatima.Ipld

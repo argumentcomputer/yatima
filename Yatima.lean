@@ -1,7 +1,9 @@
 import Yatima.Cli.CompileCmd
 import Yatima.Cli.Cronos
-import Yatima.Cli.PipeCmd
+import Yatima.Cli.GetCmd
+import Yatima.Cli.IpfsCmd
 import Yatima.Cli.ProveCmd
+import Yatima.Cli.PutCmd
 import Yatima.Cli.TranspileCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.Utils
@@ -33,9 +35,11 @@ import Yatima.ForLurkRepo.Printing
 import Yatima.ForLurkRepo.SExpr
 import Yatima.ForLurkRepo.Tests
 import Yatima.ForLurkRepo.Utils
+import Yatima.Ipld.FromIpld
 import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld
 import Yatima.Transpiler.LurkFunctions
+import Yatima.Transpiler.Simp
 import Yatima.Transpiler.TranspileError
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Transpiler

@@ -6,6 +6,7 @@ import Yatima.Converter.Converter
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
 import Yatima.ForLurkRepo.Eval
+import Yatima.Ipld.FromIpld
 
 open LSpec Yatima Compiler
 
@@ -178,15 +179,33 @@ section Transpilation
 
 open Transpiler Lurk
 
-def extractTranspilationTests (expect : List (Lean.Name × Option Value))
+instance [BEq α] [BEq β] : BEq (Except α β) where 
+  beq x y := match x, y with 
+    | .ok x, .ok y => x == y 
+    | .error x, .error y => x == y
+    | _, _ => false
+
+def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
     (stt : CompileState) : TestSeq :=
-  expect.foldl (init := .done) fun tSeq (root, expecVal?) =>
-    withExceptOk "Transpilation succeeds" (transpile stt root) fun expr =>
-      withExceptOk s!"Evaluation of {root} suceeds" (eval expr) fun val =>
-        match expecVal? with
-        | some expecVal =>
-          tSeq ++ test s!"Evaluation of {root} yields {expecVal}"
-            (expecVal == val)
+  expect.foldl (init := .done) fun tSeq (root, expected) =>
+    withExceptOk "Transpilation succeeds" (transpile stt.store root) fun expr =>
+      let val := eval expr
+      match expected with
+        | some expected =>
+          let exVal := eval expected
+          tSeq ++ test s!"Evaluation of {root} yields {val}" (val == exVal)
         | none => tSeq
 
 end Transpilation
+
+section Ipld
+
+def extractIpldTests (stt : CompileState) : TestSeq :=
+  let store := stt.store
+  let ipld := ToIpld.storeToIpld stt.constsIpld
+    stt.univAnonIpld stt.exprAnonIpld stt.constAnonIpld
+    stt.univMetaIpld stt.exprMetaIpld stt.constMetaIpld
+  withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
+    fun store' => test "DeSer roundtrips" (store == store')
+
+end Ipld

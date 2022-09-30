@@ -6,21 +6,21 @@ namespace Yatima
 namespace Ipld
 
 /-- Constants to encode universe levels in IPLD -/
-def UNIV : Kind → UInt64
+@[matchPattern] def UNIV : Kind → UInt64
   | .anon => 0xC0DE0001
   | .meta => 0xC0DE0002
 
 /-- Constants to encode expressions in IPLD -/
-def EXPR : Kind → UInt64
+@[matchPattern] def EXPR : Kind → UInt64
   | .anon => 0xC0DE0003
   | .meta => 0xC0DE0004
 
 /-- Constants to encode constants in IPLD -/
-def CONST : Kind → UInt64
+@[matchPattern] def CONST : Kind → UInt64
   | .anon => 0xC0DE0005
   | .meta => 0xC0DE0006
 
-def STORE : UInt64 := 0xC0DE0007
+@[matchPattern] def STORE : UInt64 := 0xC0DE0007
 
 structure UnivCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr
 structure ExprCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr

@@ -786,10 +786,10 @@ mutual
 
 end
 
-/-- Iterates over the constants of a `Lean.ConstMap` triggering their compilation -/
-def compileM (delta : Std.PersistentHashMap Name Lean.ConstantInfo) : CompileM Unit := do
+/-- Iterates over a list of `Lean.ConstantInfo`, triggering their compilation -/
+def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
   let log := (← read).log
-  for (_, const) in delta do
+  for const in delta do
     let (_, c) ← getCompiledConst const
     if log then
       IO.println "\n========================================="
@@ -823,7 +823,7 @@ def compile (filePath : System.FilePath) (log : Bool := false)
   | (none, env) =>
     let constants := patchUnsafeRec env.constants
     let delta := constants.map₂.filter fun n _ => !n.isInternal
-    CompileM.run (.init constants log) stt (compileM delta)
+    CompileM.run (.init constants log) stt (compileM $ delta.toList.map Prod.snd)
 
 /--
 Sets the directories where `olean` files can be found.

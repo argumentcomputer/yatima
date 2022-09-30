@@ -14,12 +14,13 @@ You can choose a directory that's already in your path, for example.
 ## Usage
 
 The subcommands planned to be available for the `yatima` CLI are:
-* `compile`: compile Lean 4 code to Yatima IR
-* `typecheck`: typecheck Yatima IR
-* `transpile`: transpile Yatima IR to Lurk code
-* `pipe`: chain the three subcommands above without writing Yatima IR to disk
+* `compile`: compiles Lean 4 code to Yatima IR
+* `typecheck`: typechecks Yatima IR
+* `transpile`: transpiles Yatima IR to Lurk code
 * `prove`: generates a Lurk proof that a certain Lean 4 declaration typechecks
-* `verify`: verify the correctness of a Lurk proof
+* `verify`: verifies the correctness of a Lurk proof
+* `ipfs put`: sends Yatima IR to IPFS
+* `ipfs get`: retrieves Yatima IR from IPFS
 
 Constraints:
 * The `compile` subcommand must be triggered from within a Lean project that uses Lake
