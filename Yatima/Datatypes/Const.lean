@@ -20,12 +20,6 @@ scoped notation "NatₐListNameₘ" => Split Nat (List Name)
 -- Boolean flags for anon
 scoped notation "Boolₐ" => Split Bool Unit
 
-scoped instance : BEq Name where
-  beq x y :=
-    let x := x.toString.replace "«" "" |>.replace "»" ""
-    let y := y.toString.replace "«" "" |>.replace "»" ""
-    x == y
-
 structure Axiom (k : Kind) where
   name : Nameₘ k
   lvls : NatₐListNameₘ k

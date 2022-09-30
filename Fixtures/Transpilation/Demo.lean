@@ -18,5 +18,3 @@ def treeSize := tree.size
 
 def name : Lean.Name := `this.is.a.name
 def nameStr := toString name
-
-#print ite

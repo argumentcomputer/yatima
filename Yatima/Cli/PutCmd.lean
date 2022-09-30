@@ -14,10 +14,10 @@ def extractCid (s : String) : String :=
   split[1]!.splitOn "\"}}" |>.head!
 
 def putRun (p : Cli.Parsed) : IO UInt32 := do
-    let fileName : String := p.positionalArg! "input" |>.as! String
-    match ← runCmd (buildPutCurlCommand fileName) with
-    | .error err => IO.eprintln err; return 1
-    | .ok res => IO.println (extractCid res); return 0
+  let fileName : String := p.positionalArg! "input" |>.as! String
+  match ← runCmd (buildPutCurlCommand fileName) with
+  | .error err => IO.eprintln err; return 1
+  | .ok res => IO.println (extractCid res); return 0
     
 def putCmd : Cli.Cmd := `[Cli|
   put VIA putRun;

@@ -107,8 +107,18 @@ instance : Coe Nat Ipld where
 instance : Coe Bool Ipld where
   coe x := .bool x
 
+def partitionName (name : Name) : List (String ⊕ Nat) :=
+  let rec aux (acc : List (String ⊕ Nat)) : Name → List (String ⊕ Nat)
+    | .str name s => aux ((.inl s) :: acc) name
+    | .num name n => aux ((.inr n) :: acc) name
+    | .anonymous  => acc
+  aux [] name
+
 instance : Coe Name Ipld where
-  coe x := .string (Lean.Name.toString x) -- this is lossy
+  coe x := .array $ (partitionName x).foldl (init := #[]) fun acc y =>
+    match y with
+    | .inl s => acc.push (.string s)
+    | .inr n => acc.push (.bytes n.toByteArrayBE)
 
 instance : Coe (UnivCid k)  Ipld where coe u := .link u.data
 instance : Coe (ExprCid k)  Ipld where coe u := .link u.data

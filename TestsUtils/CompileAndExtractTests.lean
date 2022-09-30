@@ -177,7 +177,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where
 def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk "Transpilation succeeds" (transpile stt root) fun expr =>
+    withExceptOk "Transpilation succeeds" (transpile stt.store root) fun expr =>
       let val := eval expr
       match expected with
         | some expected =>

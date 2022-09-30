@@ -18,7 +18,11 @@ def nat?FromIpld : Ipld → Option (Option Nat)
   | _ => none
 
 def nameFromIpld : Ipld → Option Name
-  | .string s => return .mkSimple s -- this is lossy
+  | .array ar => ar.foldlM (init := .anonymous) fun acc i =>
+    match i with
+    | .bytes  b => pure $ acc.mkNum (Nat.fromByteListBE b.data.data)
+    | .string s => pure $ acc.mkStr s
+    | _ => none
   | _ => none
 
 def listNameFromIpld : Ipld → Option (List Name)
