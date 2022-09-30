@@ -34,7 +34,6 @@ def id' (x : MyNat) : MyNat := match x with
   | .nope   => .nope
   | .next x => .next $ id' x
 
-#print id'
 
 def three : MyNat := .next $ .next $ .next .nope
 

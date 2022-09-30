@@ -131,6 +131,5 @@ def tcExtractor := extractTcTests
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Typechecker/Reduction.lean"
-    [--tcExtractor,
-    extractPositiveTypecheckTests $ .some [`HaveTest]]
+    [tcExtractor, extractPositiveTypecheckTests]
   lspecIO tSeq
