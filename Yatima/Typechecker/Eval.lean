@@ -37,7 +37,7 @@ mutual
   /--
   Evaluates a `Yatima.Expr` into a `Typechecker.Value`.
 
-  Evaluation here means applying functions to arguments, resuming evaluation of suspended Thunks,
+  Evaluation here means applying functions to arguments, resuming evaluation of suspended thunks,
   evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
   and evaluating a projection.
   -/
@@ -45,15 +45,17 @@ mutual
     | .app _ fnc arg => do
       let ctx ← read
       let argThunk := suspend arg ctx
-      let fnc := (← eval fnc)
+      let fnc ← eval fnc
+      -- dbg_trace s!"evaluating {fnc}... {arg.info.struct?}"
       apply fnc argThunk
-    | .lam _ name info _ bod => do
-      let env := (← read).env
-      pure $ Value.lam name info bod env
+    | .lam _ name info dom bod => do
+      let ctx ← read
+      let dom' := suspend dom ctx
+      pure $ Value.lam name info dom' bod ctx.env
     | .var _ name idx => do
       let exprs := (← read).env.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
-      pure thunk.get
+      pure $ thunk.get
     | .const _ name k const_univs => do
       let env := (← read).env
       evalConst name k (const_univs.map (Univ.instBulkReduce env.univs))
@@ -67,10 +69,11 @@ mutual
     | .sort _ univ => do
       let env := (← read).env
       pure $ Value.sort (Univ.instBulkReduce env.univs univ)
-    | .lit _ lit => pure $ Value.lit lit
+    | .lit _ lit =>
+      pure $ Value.lit lit
     | .proj _ idx expr => do
-      let val ← eval expr
-      match val with
+      let val := suspend expr (← read)
+      match val.get with
       | .app (.const name k _) args =>
         match ← derefConst name k with
         | .constructor ctor =>
@@ -80,11 +83,8 @@ mutual
           let some arg := args.reverse.get? idx
             | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        | _ =>
-          pure $ .app (.proj idx val) []
-      | .app (.fvar ..) ..
-      | .app (.proj ..) .. =>
-        pure $ .app (.proj idx val) []
+        | _ => pure $ .app (.proj idx val) []
+      | .app .. => pure $ .app (.proj idx val) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
@@ -97,24 +97,27 @@ mutual
     | .definition x =>
       match x.safety with
       | .safe    => withEnv ⟨[], univs⟩ $ eval x.value
-      | .partial => pure $ mkConst name const univs
+      | .partial =>
+        pure $ mkConst name const univs
       | .unsafe  => throw .unsafeDefinition
-    | _ => pure $ mkConst name const univs
+    | _ =>
+      pure $ mkConst name const univs
 
   /--
   Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `ctx : TypecheckCtx`
 
   Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
   -/
-  partial def suspend (expr : Expr) (ctx : TypecheckCtx) : Thunk Value :=
-    {fn := fun _ =>
+  partial def suspend (expr : Expr) (ctx : TypecheckCtx) : SusValue :=
+    let thunk := { fn := fun _ =>
       match TypecheckM.run ctx (eval expr) with
       | .ok a => a
       | .error e => .exception e,
-     repr := toString expr}
+     }
+    .mk expr.info thunk
 
   /--
-  Applies `value : Value` to the argument `arg : Thunk Value`.
+  Applies `value : Value` to the argument `arg : SusValue`.
 
   Applications are split into cases on whether `value` is a `Value.lam`, the application of a constant
   or the application of a free variable.
@@ -123,10 +126,9 @@ mutual
   * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
   * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
   -/
-  partial def apply (value : Value) (arg : Thunk Value) : TypecheckM Value :=
+  partial def apply (value : Value) (arg : SusValue) : TypecheckM Value :=
     match value with
-    -- bod : fun y => x^1 + y^0
-    | .lam _ _ bod lamEnv =>
+    | .lam _ _ _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
     | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
@@ -142,7 +144,7 @@ mutual
   a quotient, or any other constant (which returns an unreduced application)
    -/
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
-      (arg : Thunk Value) (args : Args) : TypecheckM Value := do
+      (arg : SusValue) (args : Args) : TypecheckM Value := do
 
     let succ? ← succIndexWith (pure false) (fun succIdx => pure $ k == succIdx)
     if succ? then
@@ -158,23 +160,33 @@ mutual
     | .intRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
-       pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
-        let arg ← toCtorIfLit arg.get
-        match arg with
-        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-          | .constructor ctor =>
-            let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-            withEnv ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda 
+        if recur.k then
+          -- TODO external recursors
+          --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
+          --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
+          -- sanity check
+          if args.length < (recur.params + recur.motives + 1) then
+            throw .impossible
+          let minorIdx := args.length - (recur.params + recur.motives + 1)
+          let some minor := args.get? minorIdx | throw .impossible
+          pure minor.get
+        else
+          match ← toCtorIfLit arg with
+          | .app (Neutral.const kName k _) args' => 
+            match ← derefConst kName k with
+            | .constructor ctor =>
+              let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
+              withEnv ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda
+            | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
           | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
-        let arg ← toCtorIfLit arg.get
-        match arg with
+        match ← toCtorIfLit arg with
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
           | .constructor ctor =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
@@ -196,7 +208,7 @@ mutual
   /--
   Applies a quotient to a value. It might reduce if enough arguments are applied to it
   -/
-  partial def applyQuot (major? : Thunk Value) (args : Args)
+  partial def applyQuot (major? : SusValue) (args : Args)
       (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
@@ -216,14 +228,17 @@ mutual
     else
       throw .impossible
 
-  partial def toCtorIfLit : Value → TypecheckM Value
-    | .lit (.natVal v) => do
-      let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
-      let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
-      if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
-      else pure $ .app (.const `Nat.succ succIdx []) [Value.lit (.natVal (v-1))]
-    | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
-    | e => pure e
+  partial def toCtorIfLit : SusValue → TypecheckM Value
+    | .mk info thunk => match thunk.get with
+      | .lit (.natVal v) => do
+        let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
+        let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
+        if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
+        else
+          let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
+          pure $ .app (.const `Nat.succ succIdx []) [thunk]
+      | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
+      | e => pure e
 end
 
 end Yatima.Typechecker

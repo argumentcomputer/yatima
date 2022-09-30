@@ -50,51 +50,51 @@ end Ipld
 abbrev ConstIdx := Nat
 
 /--
-Hashes are optional values. All "static" expressions will have hashes, but the
-dynamic expressions, i.e., the ones generated on the fly, won't have hashes
--/
-structure Expr.Hash where
-  data : Option (Ipld.Both Ipld.ExprCid)
-  deriving BEq, Inhabited
-instance : Coe (Ipld.Both Ipld.ExprCid) Expr.Hash where coe x := ⟨ .some x ⟩
+  The type info is a simplified form of the value's type, with only relevant
+  information for conversion checking, in order to get proof irrelevance and equality
+  of unit-like values. Expressions starts with default values in all nodes until they
+  are correctly populated by the typechecker.
 
-/--
-Hashes of expressions and some flags that are populated after typechecking
+  - `struct? idx` gives the structure index of the expression's type
+     in case it is a structure
+  - `unit?` tells us if the expression's type is unit-like
+  - `proof?` tells us if the expression's type is a proposition (belong to `Prop`)
+  - `prop?` tells us if the expression's type is `Prop` itself
 -/
-structure Expr.Meta where
-  hash   : Expr.Hash
-  prop? : Bool
+structure TypeInfo where
+  struct? : Option Nat
+  unit? : Bool
   proof? : Bool
-  unit?  : Bool
-  erase? : Bool
+  prop? : Bool
   deriving Inhabited
-instance : BEq Expr.Meta where beq _ _ := true
+instance : BEq TypeInfo where beq _ _ := true
+
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
-  | var   : Expr.Meta → Name → Nat → Expr
-  | sort  : Expr.Meta → Univ → Expr
-  | const : Expr.Meta → Name → ConstIdx → List Univ → Expr
-  | app   : Expr.Meta → Expr → Expr → Expr
-  | lam   : Expr.Meta → Name → BinderInfo → Expr → Expr → Expr
-  | pi    : Expr.Meta → Name → BinderInfo → Expr → Expr → Expr
-  | letE  : Expr.Meta → Name → Expr → Expr → Expr → Expr
-  | lit   : Expr.Meta → Literal → Expr
-  | proj  : Expr.Meta → Nat → Expr → Expr
+  | var   : TypeInfo → Name → Nat → Expr
+  | sort  : TypeInfo → Univ → Expr
+  | const : TypeInfo → Name → ConstIdx → List Univ → Expr
+  | app   : TypeInfo → Expr → Expr → Expr
+  | lam   : TypeInfo → Name → BinderInfo → Expr → Expr → Expr
+  | pi    : TypeInfo → Name → BinderInfo → Expr → Expr → Expr
+  | letE  : TypeInfo → Name → Expr → Expr → Expr → Expr
+  | lit   : TypeInfo → Literal → Expr
+  | proj  : TypeInfo → Nat → Expr → Expr
   deriving BEq, Inhabited
 
 namespace Expr
 
-def meta : Expr → Meta
-  | var   m ..
-  | sort  m ..
-  | const m ..
-  | app   m ..
-  | lam   m ..
-  | pi    m ..
-  | letE  m ..
-  | lit   m ..
-  | proj  m .. => m
+def info : Expr → TypeInfo
+  | var   info ..
+  | sort  info ..
+  | const info ..
+  | app   info ..
+  | lam   info ..
+  | pi    info ..
+  | letE  info ..
+  | lit   info ..
+  | proj  info .. => info
 
 def name : Expr → Option Name
   | var   _ n _

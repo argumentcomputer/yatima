@@ -157,6 +157,11 @@ def typecheckConst (pStore : PureStore) (name : Name) : Except String Unit :=
   | .ok u => .ok u
   | .error err => throw $ toString err
 
+inductive FoundConstFailure (constName : String) : Prop
+
+instance : Testable (FoundConstFailure constName) :=
+  .isFailure $ .some s!"Could not find constant {constName}"
+
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.pStore.consts.foldl (init := .done) fun tSeq const =>
     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
