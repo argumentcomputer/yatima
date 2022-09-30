@@ -39,6 +39,7 @@ import Yatima.Ipld.FromIpld
 import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld
 import Yatima.Transpiler.LurkFunctions
+import Yatima.Transpiler.Simp
 import Yatima.Transpiler.TranspileError
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.Transpiler
