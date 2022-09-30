@@ -162,16 +162,10 @@ inductive FoundConstFailure (constName : String) : Prop
 instance : Testable (FoundConstFailure constName) :=
   .isFailure $ .some s!"Could not find constant {constName}"
 
-def extractPositiveTypecheckTests (consts : Option (List Name) := none) (stt : CompileState) : TestSeq :=
-  match consts with
-  | some names => names.foldl (init := .done) fun tSeq constName =>
-                    match stt.pStore.consts.find? fun const => const.name == constName with
-                    | some const => tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-                      (typecheckConst stt.pStore const.name) fun _ => .done
-                    | none => tSeq ++ test s!"{constName} typechecks" (FoundConstFailure constName.toString)
-  | none       => stt.pStore.consts.foldl (init := .done) fun tSeq const =>
-                    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-                      (typecheckConst stt.pStore const.name) fun _ => .done
+def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
+  stt.pStore.consts.foldl (init := .done) fun tSeq const =>
+    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+      (typecheckConst stt.pStore const.name) fun _ => .done
 
 end Typechecking
 
