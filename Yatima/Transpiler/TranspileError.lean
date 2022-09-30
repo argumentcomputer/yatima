@@ -4,12 +4,14 @@ import Yatima.Compiler.Compiler
 namespace Yatima.Transpiler 
 
 inductive TranspileError where 
-  | notFoundInCache (const : Name) : TranspileError
+  | notFoundInMap (name : Name) : TranspileError
+  | notFoundInStore (name : Name) : TranspileError
   | invalidConstantKind (const : Const) (ex : String) : TranspileError
   | custom (msg : String) : TranspileError
 
 instance : ToString TranspileError where toString 
-  | .notFoundInCache const => s!"{const} not found in cache"
+  | .notFoundInMap name => s!"{name} not found in map"
+  | .notFoundInStore name => s!"{name} not found in store"
   | .invalidConstantKind const ex => 
     s!"expected {const.name} to be {ex}, but got {const.ctorName}"
   | .custom msg => msg

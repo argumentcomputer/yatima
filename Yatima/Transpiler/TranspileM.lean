@@ -4,8 +4,10 @@ namespace Yatima.Transpiler
 
 open Yatima.Compiler
 
-structure TranspileEnv where 
-  state : CompileState
+structure TranspileEnv where
+  store : Ipld.Store
+  pStore : PureStore
+  map : Std.RBMap Name Const compare
   builtins : List (Name × Lurk.Expr)
 
 structure TranspileState where
@@ -30,10 +32,10 @@ def visit (name : Name) : TranspileM Unit := do
 
 /-- Create a fresh variable `_x_n` to replace `name` and update `replaced` -/
 def replaceFreshId (name : Name) : TranspileM Name := do
-  let _x ← Lean.mkFreshId
-  -- dbg_trace s!">> mk fresh name {_x}"
-  set $ { (← get) with replaced := (← get).replaced.insert name _x}
-  return _x
+  let name' ← Lean.mkFreshId
+  -- dbg_trace s!">> mk fresh name {name'}"
+  set $ { (← get) with replaced := (← get).replaced.insert name name'}
+  return name'
 
 def appendBinding (b : Name × Lurk.Expr) (vst := true) : TranspileM Unit := do
   let s ← get

@@ -18,6 +18,13 @@ structure CompileState where
   store  : Ipld.Store
   pStore : PureStore
   cache  : RBMap Name (ConstCid × ConstIdx) compare
+  constsIpld    : Array Ipld
+  univAnonIpld  : Array Ipld
+  exprAnonIpld  : Array Ipld
+  constAnonIpld : Array Ipld
+  univMetaIpld  : Array Ipld
+  exprMetaIpld  : Array Ipld
+  constMetaIpld : Array Ipld
   deriving Inhabited
 
 /-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
@@ -117,29 +124,46 @@ inductive StoreEntry : Type → Type
 /-- Adds CID data to the store, but also returns it for practical reasons -/
 def addToStore : StoreEntry A → CompileM A
   | .univ  obj =>
-    let cid := ⟨ ToIpld.univToCid obj.anon, ToIpld.univToCid obj.meta ⟩
-    modifyGet (fun stt => (cid, { stt with store :=
-          { stt.store with univ_anon := stt.store.univ_anon.insert cid.anon obj.anon,
-                           univ_meta := stt.store.univ_meta.insert cid.meta obj.meta, } }))
+    let (ipldAnon, cidAnon) := ToIpld.univToCid obj.anon
+    let (ipldMeta, cidMeta) := ToIpld.univToCid obj.meta
+    modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
+      store := { stt.store with
+        univ_anon := stt.store.univ_anon.insert cidAnon obj.anon,
+        univ_meta := stt.store.univ_meta.insert cidMeta obj.meta }
+      univAnonIpld := stt.univAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
+      univMetaIpld := stt.univMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
   | .expr  obj =>
-    let cid := ⟨ ToIpld.exprToCid obj.anon, ToIpld.exprToCid obj.meta ⟩
-    modifyGet (fun stt => (cid, { stt with store :=
-          { stt.store with expr_anon := stt.store.expr_anon.insert cid.anon obj.anon,
-                           expr_meta := stt.store.expr_meta.insert cid.meta obj.meta, } }))
+    let (ipldAnon, cidAnon) := ToIpld.exprToCid obj.anon
+    let (ipldMeta, cidMeta) := ToIpld.exprToCid obj.meta
+    modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
+      store := { stt.store with
+        expr_anon := stt.store.expr_anon.insert cidAnon obj.anon,
+        expr_meta := stt.store.expr_meta.insert cidMeta obj.meta }
+      exprAnonIpld := stt.exprAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
+      exprMetaIpld := stt.exprMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
   | .const obj =>
-    let cid := ⟨ ToIpld.constToCid obj.anon, ToIpld.constToCid obj.meta ⟩
+    let (ipldAnon, cidAnon) := ToIpld.constToCid obj.anon
+    let (ipldMeta, cidMeta) := ToIpld.constToCid obj.meta
+    let cid := ⟨cidAnon, cidMeta⟩
     match obj.anon, obj.meta with
     -- Mutual definition/inductive blocks do not get added to the set of constants
     | .mutDefBlock .., .mutDefBlock ..
     | .mutIndBlock .., .mutIndBlock .. =>
-      modifyGet fun stt => (cid, { stt with store :=
-        { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                         const_meta := stt.store.const_meta.insert cid.meta obj.meta } })
+      modifyGet fun stt => (cid, { stt with
+        store := { stt.store with
+          const_anon := stt.store.const_anon.insert cidAnon obj.anon,
+          const_meta := stt.store.const_meta.insert cidMeta obj.meta }
+        constAnonIpld := stt.constAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
+        constMetaIpld := stt.constMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
     | _, _ =>
-      modifyGet fun stt => (cid, { stt with store :=
-        { stt.store with const_anon := stt.store.const_anon.insert cid.anon obj.anon,
-                         const_meta := stt.store.const_meta.insert cid.meta obj.meta,
-                         consts     := stt.store.consts.insert cid } })
+      modifyGet fun stt => (cid, { stt with
+        store := { stt.store with
+          const_anon := stt.store.const_anon.insert cidAnon obj.anon,
+          const_meta := stt.store.const_meta.insert cidMeta obj.meta,
+          consts     := stt.store.consts.insert cid }
+        constAnonIpld := stt.constAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
+        constMetaIpld := stt.constMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta]
+        constsIpld    := stt.constsIpld.push    $ .array #[.link cidAnon.data, .link cidMeta.data] })
 
 /-- Adds data associated with a name to the cache -/
 def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do

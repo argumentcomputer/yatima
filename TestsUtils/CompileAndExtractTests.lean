@@ -6,6 +6,7 @@ import Yatima.Converter.Converter
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
 import Yatima.ForLurkRepo.Eval
+import Yatima.Ipld.FromIpld
 
 open LSpec Yatima Compiler
 
@@ -176,7 +177,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where
 def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk "Transpilation succeeds" (transpile stt root) fun expr =>
+    withExceptOk "Transpilation succeeds" (transpile stt.store root) fun expr =>
       let val := eval expr
       match expected with
         | some expected =>
@@ -185,3 +186,15 @@ def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
         | none => tSeq
 
 end Transpilation
+
+section Ipld
+
+def extractIpldTests (stt : CompileState) : TestSeq :=
+  let store := stt.store
+  let ipld := ToIpld.storeToIpld stt.constsIpld
+    stt.univAnonIpld stt.exprAnonIpld stt.constAnonIpld
+    stt.univMetaIpld stt.exprMetaIpld stt.constMetaIpld
+  withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
+    fun store' => test "DeSer roundtrips" (store == store')
+
+end Ipld

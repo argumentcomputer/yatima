@@ -3,6 +3,7 @@ import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.TranspileCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.VerifyCmd
+import Yatima.Cli.IpfsCmd
 
 opaque VERSION : String :=
   s!"{Lean.versionString}|0.0.1"
@@ -16,7 +17,8 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     typecheckCmd;
     transpileCmd;
     proveCmd;
-    verifyCmd
+    verifyCmd;
+    ipfsCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

@@ -6,7 +6,7 @@ namespace Yatima
 inductive RecType where
   | intr : RecType
   | extr : RecType
-  deriving BEq, Inhabited
+  deriving BEq, Inhabited, DecidableEq
 
 instance : Coe RecType Bool where coe
   | .intr => true
@@ -25,14 +25,14 @@ structure Axiom (k : Kind) where
   lvls : NatₐListNameₘ k
   type : ExprCid k
   safe : Boolₐ k
-  deriving Repr
+  deriving Repr, BEq
 
 structure Theorem (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
-  deriving Repr
+  deriving Repr, BEq
 
 structure Opaque (k : Kind) where
   name  : Nameₘ k
@@ -40,7 +40,14 @@ structure Opaque (k : Kind) where
   type  : ExprCid k
   value : ExprCid k
   safe  : Boolₐ k
-  deriving Repr
+  deriving Repr, BEq
+
+structure Quotient (k : Kind) where
+  name : Nameₘ k
+  lvls : NatₐListNameₘ k
+  type : ExprCid k
+  kind : Split QuotKind Unit k
+  deriving BEq
 
 structure Definition (k : Kind) where
   name   : Nameₘ k
@@ -48,7 +55,7 @@ structure Definition (k : Kind) where
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 structure DefinitionProj (k : Kind) where
   name  : Nameₘ k
@@ -56,7 +63,7 @@ structure DefinitionProj (k : Kind) where
   type  : ExprCid k
   block : ConstCid k
   idx   : Nat
-  deriving Repr
+  deriving Repr, BEq
 
 structure Constructor (k : Kind) where
   name   : Nameₘ k
@@ -67,13 +74,13 @@ structure Constructor (k : Kind) where
   fields : Natₐ k
   rhs    : ExprCid k
   safe   : Boolₐ k
-  deriving Repr
+  deriving Repr, BEq
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
   fields : Natₐ k
   rhs    : ExprCid k
-  deriving Repr
+  deriving Repr, BEq
 
 structure Recursor (r : RecType) (k : Kind) where
   name    : Nameₘ k
@@ -85,55 +92,59 @@ structure Recursor (r : RecType) (k : Kind) where
   minors  : Natₐ k
   rules   : Split Unit (List (RecursorRule k)) r
   k       : Boolₐ k
-  deriving Repr
+  deriving Repr, BEq
+
+instance : BEq (Sigma (Recursor · k)) where
+  beq x y :=
+    if h : x.1 = y.1 then
+      let x₂ := x.2
+      by
+        rw [h] at x₂
+        exact x₂ == y.2
+    else
+      false
 
 structure Inductive (k : Kind) where
-  name     : Nameₘ k
-  lvls     : NatₐListNameₘ k
-  type     : ExprCid k
-  params   : Natₐ k
-  indices  : Natₐ k
-  ctors    : List (Constructor k)
-  recrs    : List (Sigma (Recursor · k))
-  recr     : Boolₐ k
-  safe     : Boolₐ k
-  refl     : Boolₐ k
-  deriving Inhabited
+  name    : Nameₘ k
+  lvls    : NatₐListNameₘ k
+  type    : ExprCid k
+  params  : Natₐ k
+  indices : Natₐ k
+  ctors   : List (Constructor k)
+  recrs   : List (Sigma (Recursor · k))
+  recr    : Boolₐ k
+  safe    : Boolₐ k
+  refl    : Boolₐ k
+  deriving Inhabited, BEq
 
 instance : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
 
 structure InductiveProj (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  block   : ConstCid k
-  idx     : Natₐ k
-  deriving Repr
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : Natₐ k
+  deriving Repr, BEq
 
 structure ConstructorProj (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  block   : ConstCid k
-  idx     : Natₐ k
-  cidx    : Natₐ k
-  deriving Repr
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : Natₐ k
+  cidx  : Natₐ k
+  deriving Repr, BEq
 
 structure RecursorProj (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  block   : ConstCid k
-  idx     : Natₐ k
-  ridx    : Natₐ k
-  deriving Repr
-
-structure Quotient (k : Kind) where
-  name : Nameₘ k
-  lvls : NatₐListNameₘ k
-  type : ExprCid k
-  kind : Split QuotKind Unit k
+  name  : Nameₘ k
+  lvls  : NatₐListNameₘ k
+  type  : ExprCid k
+  block : ConstCid k
+  idx   : Natₐ k
+  ridx  : Natₐ k
+  deriving Repr, BEq
 
 instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
@@ -153,6 +164,12 @@ inductive Const (k : Kind) where
   -- constants to represent mutual blocks
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
+  deriving BEq
+
+def Const.isNotMutBlock : Ipld.Const k → Bool
+  | .mutDefBlock _
+  | .mutIndBlock _ => false
+  | _ => true
 
 def Const.ctorName : Ipld.Const k → String
   | .axiom           _ => "axiom"

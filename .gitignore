@@ -3,4 +3,6 @@
 !/lean_packages/manifest.json
 /yatima-rs/target
 /result
-/lurk_output
+*.ir
+*.lurk
+*.json
