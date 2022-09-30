@@ -46,7 +46,7 @@ mutual
       let ctx ← read
       let argThunk := suspend arg ctx
       let fnc ← eval fnc
-      dbg_trace s!"evaluating {fnc}... {arg.info.struct?}"
+      -- dbg_trace s!"evaluating {fnc}... {arg.info.struct?}"
       apply fnc argThunk
     | .lam _ name info dom bod => do
       let ctx ← read

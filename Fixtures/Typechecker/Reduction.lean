@@ -34,7 +34,6 @@ def id' (x : MyNat) : MyNat := match x with
   | .nope   => .nope
   | .next x => .next $ id' x
 
-
 def three : MyNat := .next $ .next $ .next .nope
 
 def add' (x y : MyNat) : MyNat := match x with
