@@ -3,38 +3,29 @@ import Yatima.Cli.Utils
 import Yatima.Ipld.FromIpld
 import Ipld.DagCbor
 
-def getURL : String := "http://127.0.0.1:5001/api/v0/dag/get?output-codec=dag-cbor&arg="
-
-def stringToIpld (s : String) : Option Ipld :=
-  match DagCbor.deserialize s.toUTF8 with
-  | .ok ipld => some ipld
-  | _ => none
+def buildGetCurlCommand (cid fileName : String) : String :=
+  "curl -X POST http://127.0.0.1:5001/api/v0/dag/get?arg=" ++
+  cid ++
+  "&output-codec=dag-cbor --output " ++
+  fileName
 
 open System in
 def getRun (p : Cli.Parsed) : IO UInt32 := do
   let cid : String := p.positionalArg! "cid" |>.as! String
-  let getCmdStr := s!"curl -X POST {getURL}" ++ cid
-  IO.println s!"info: Running {getCmdStr}"
-  match ← runCmd getCmdStr with
+  let fileName := p.getD "output" "output.bin"
+  match ← runCmd (buildGetCurlCommand cid fileName) with
   | .error err => IO.eprintln err; return 1
-  | .ok res =>
-    IO.println s!"IPFS output: {res}"
-    let path ← IO.currentDir
-    let fname : FilePath := path/"ipfs_output" |>.withExtension "txt"
-    IO.FS.writeFile fname (res ++ "\n")
-    IO.println s!"Wrote output to {fname}"
-    match stringToIpld res with
-    | none => IO.eprintln "Error deserializing string"; return 1
-    | some ipld =>
-      match Yatima.Ipld.storeFromIpld ipld with
-      | none => IO.eprintln "Error deserializing IPLD"; return 1
-      | some _ => IO.println "Store retrieval succeeded"; return 0
+  | .ok _ => match ← readStoreFromFile fileName with
+    | .error err => IO.eprintln err; return 1
+    | .ok _ => IO.println "Store retrieval succeeded"; return 0
 
 def getCmd : Cli.Cmd := `[Cli|
   get VIA getRun;
   "Retrieve a Yatima data store from IPFS"
 
-  --FLAGS:
+  FLAGS:
+    o, "output" : String; "The name of the output binary file." ++
+      " Defaults to \"output.bin\""
     
   ARGS:
     cid : String; "CID of stored Yatima data"

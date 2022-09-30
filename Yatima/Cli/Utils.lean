@@ -1,6 +1,7 @@
 import Yatima.Compiler.Compiler
 import Yatima.Transpiler.Transpiler
 import Yatima.Cli.Cronos
+import Yatima.Ipld.FromIpld
 import Cli
 
 def getToolchain : IO $ Except String String := do
@@ -79,17 +80,22 @@ open Cli.Parsed in
 def Cli.Parsed.getD (p : Cli.Parsed) (flag : String) (default : String) : String :=
   p.flag? flag |>.map (Flag.as! · String) |>.getD default
 
+open Yatima.Ipld
+def readStoreFromFile (fileName : String) : IO $ Except String Store :=
+  return match DagCbor.deserialize (← IO.FS.readBinFile fileName) with
+  | .error err => .error (toString err)
+  | .ok ipld => match Yatima.Ipld.storeFromIpld ipld with
+    | none => .error "Error deserializing IPLD"
+    | some store => .ok store
+
 open System Yatima.Transpiler in
 def cliTranspile (compileState : CompileState) (p : Cli.Parsed) :
     IO $ Except String Lurk.Expr := do
   let noEraseTypes := p.hasFlag "no-erase-types" -- TODO
-  let root : Lean.Name := .mkSimple $ p.getD "declaration" "root"
-  match transpile compileState root with
+  let declaration : Lean.Name := .mkSimple $ p.getD "declaration" "root"
+  match transpile compileState declaration with
   | .error msg => return .error msg
   | .ok exp =>
-    let path ← IO.currentDir
-    let output := p.getD "output" "output"
-    let fname : FilePath := path/"lurk_output"/output |>.withExtension "lurk"
-    IO.FS.createDirAll $ path/"lurk_output"
-    IO.FS.writeFile fname s!"{(exp.pprint false).pretty 70}"
+    IO.FS.writeFile (p.getD "output" "output.lurk")
+      ((exp.pprint false).pretty 70)
     return .ok exp

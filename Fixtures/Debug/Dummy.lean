@@ -1,4 +1,4 @@
-set_option hygiene false
+prelude
 
-def strAppend := "abc" ++ "def"
-#print strAppend._cstage1
+inductive AAA
+  | aaa
