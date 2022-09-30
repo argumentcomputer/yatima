@@ -3,7 +3,7 @@ import Yatima.Cli.GetCmd
 
 def ipfsCmd : Cli.Cmd := `[Cli|
   ipfs NOOP;
-  "Store or retrieve a Yatima data store from IPFS"
+  "Stores or retrieves a Yatima data store from IPFS"
 
   SUBCOMMANDS:
     putCmd;

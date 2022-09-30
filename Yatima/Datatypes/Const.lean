@@ -172,6 +172,11 @@ inductive Const (k : Kind) where
   | mutIndBlock : List (Inductive k) → Const k
   deriving BEq
 
+def Const.isNotMutBlock : Ipld.Const k → Bool
+  | .mutDefBlock _
+  | .mutIndBlock _ => false
+  | _ => true
+
 def Const.ctorName : Ipld.Const k → String
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"

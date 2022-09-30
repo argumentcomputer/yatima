@@ -30,7 +30,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
 
 def transpileCmd : Cli.Cmd := `[Cli|
   transpile VIA transpileRun;
-  "Transpile Lean 4 code to Lurk code"
+  "Transpiles Lean 4 code to Lurk code"
   
   FLAGS:
     p, "prelude"; "Optimizes the compilation of prelude files without imports." ++

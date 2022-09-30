@@ -11,7 +11,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
 
 def proveCmd : Cli.Cmd := `[Cli|
   prove VIA proveRun;
-  "Generate a Lurk proof from a Lean declaration"
+  "Generates a Lurk proof from a Lean declaration"
 
   FLAGS:
     o, "output" : String; "Name of the JSON output file. Defaults to \"output.json\""

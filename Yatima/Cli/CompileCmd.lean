@@ -34,7 +34,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
         stt.univMetaIpld
         stt.exprMetaIpld
         stt.constMetaIpld
-      IO.FS.writeBinFile (p.getD "output" "output.bin") (DagCbor.serialize ipld)
+      IO.FS.writeBinFile (p.getD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
     else
       IO.eprintln $ "No store argument was found.\n" ++
@@ -47,11 +47,11 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
 
 def compileCmd : Cli.Cmd := `[Cli|
   compile VIA compileRun;
-  "Compile Lean 4 code to content-addressed IPLD"
+  "Compiles Lean 4 code to Yatima IR"
 
   FLAGS:
     o, "output" : String; "The name of the output binary file." ++
-      " Defaults to \"output.bin\""
+      " Defaults to \"output.ir\""
     p, "prelude"; "Optimizes the compilation of prelude files without imports." ++
       " All files to be compiled must follow this rule"
     l, "log";     "Logs compilation progress"

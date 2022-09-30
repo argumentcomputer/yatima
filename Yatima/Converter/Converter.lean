@@ -384,7 +384,9 @@ then calls `constFromIpld` for each constant to be converted from the store
 -/
 def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
-    (← read).store.const_meta.toList.enum.forM fun (idx, (_, meta)) => do
+    let relevantMetas := (← read).store.const_meta.toList.filter
+      fun (_, a) => a.isNotMutBlock
+    relevantMetas.enum.forM fun (idx, (_, meta)) => do
       modifyGet fun state => (default, { state with
         pStore := { state.pStore with consts := state.pStore.consts.push default },
         constsIdx := state.constsIdx.insert meta.name idx })
