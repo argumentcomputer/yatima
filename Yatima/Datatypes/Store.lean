@@ -63,7 +63,6 @@ structure Store where
   univMeta  : Array Ipld
   exprMeta  : Array Ipld
   constMeta : Array Ipld
-  deriving Inhabited
 
 end Ipld
 
