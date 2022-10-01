@@ -9,6 +9,8 @@ the typechecker.
 
 namespace Yatima.Typechecker
 
+open TC
+
 mutual
   /-- Printer of universe levels -/
   def printUniv (u : Univ) : String :=

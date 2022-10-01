@@ -15,32 +15,26 @@ The state for the `Yatima.Compiler.CompileM` monad.
 * `cache` is just for optimization purposes
 -/
 structure CompileState where
-  store  : Ipld.Store
-  pStore : PureStore
-  cache  : RBMap Name (ConstCid × ConstIdx) compare
-  constsIpld    : Array Ipld
-  univAnonIpld  : Array Ipld
-  exprAnonIpld  : Array Ipld
-  constAnonIpld : Array Ipld
-  univMetaIpld  : Array Ipld
-  exprMetaIpld  : Array Ipld
-  constMetaIpld : Array Ipld
+  irStore   : IR.Store
+  tcStore   : TC.Store
+  ipldStore : Ipld.Store
+  cache     : RBMap Name (IR.BothConstCid × TC.ConstIdx) compare
   deriving Inhabited
 
 /-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
 def CompileState.summary (s : CompileState) : String :=
-  let consts := ", ".intercalate $ s.pStore.consts.toList.map
+  let consts := ", ".intercalate $ s.tcStore.consts.toList.map
     fun c => s!"{c.name} : {c.ctorName}"
   "Compilation summary:\n" ++
   s!"-----------Constants-----------\n" ++
   s!"{consts}\n" ++
   s!"-------------Sizes-------------\n" ++
-  s!"  univ_anon  size: {s.store.univ_anon.size}\n" ++
-  s!"  univ_meta  size: {s.store.univ_meta.size}\n" ++
-  s!"  expr_anon  size: {s.store.expr_anon.size}\n" ++
-  s!"  expr_meta  size: {s.store.expr_meta.size}\n" ++
-  s!"  const_anon size: {s.store.const_anon.size}\n" ++
-  s!"  const_meta size: {s.store.const_meta.size}\n" ++
+  s!"  univ_anon  size: {s.irStore.univAnon.size}\n" ++
+  s!"  univ_meta  size: {s.irStore.univMeta.size}\n" ++
+  s!"  expr_anon  size: {s.irStore.exprAnon.size}\n" ++
+  s!"  expr_meta  size: {s.irStore.exprMeta.size}\n" ++
+  s!"  const_anon size: {s.irStore.constAnon.size}\n" ++
+  s!"  const_meta size: {s.irStore.constMeta.size}\n" ++
   s!"  cache      size: {s.cache.size}"
 
 /--
@@ -49,7 +43,7 @@ The type of entries for the `recrCtx`. It contains:
 2. The index in the list of weakly equal mutual definitions (N/A inductives)
 3. The constant index in array of constants
 -/
-abbrev RecrCtxEntry := (Nat × Option Nat × ConstIdx)
+abbrev RecrCtxEntry := (Nat × Option Nat × TC.ConstIdx)
 
 /--
 The read-only environment for the `Yatima.Compiler.CompileM` monad.
@@ -117,64 +111,70 @@ def getFromRecrCtx! (name : Name) : CompileM $ RecrCtxEntry := do
 
 /-- Auxiliary type to standardize additions of CIDs to the store -/
 inductive StoreEntry : Type → Type
-  | univ  : Ipld.Both Ipld.Univ  → StoreEntry (Ipld.Both Ipld.UnivCid)
-  | expr  : Ipld.Both Ipld.Expr  → StoreEntry (Ipld.Both Ipld.ExprCid)
-  | const : Ipld.Both Ipld.Const → StoreEntry (Ipld.Both Ipld.ConstCid)
+  | univ  : IR.Both IR.Univ  → StoreEntry (IR.BothUnivCid)
+  | expr  : IR.Both IR.Expr  → StoreEntry (IR.BothExprCid)
+  | const : IR.Both IR.Const → StoreEntry (IR.BothConstCid)
 
+open Ipld in
 /-- Adds CID data to the store, but also returns it for practical reasons -/
 def addToStore : StoreEntry A → CompileM A
-  | .univ  obj =>
-    let (ipldAnon, cidAnon) := ToIpld.univToCid obj.anon
-    let (ipldMeta, cidMeta) := ToIpld.univToCid obj.meta
+  | .univ obj =>
+    let (ipldAnon, cidAnon) := univToCid obj.anon
+    let (ipldMeta, cidMeta) := univToCid obj.meta
     modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
-      store := { stt.store with
-        univ_anon := stt.store.univ_anon.insert cidAnon obj.anon,
-        univ_meta := stt.store.univ_meta.insert cidMeta obj.meta }
-      univAnonIpld := stt.univAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
-      univMetaIpld := stt.univMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
-  | .expr  obj =>
-    let (ipldAnon, cidAnon) := ToIpld.exprToCid obj.anon
-    let (ipldMeta, cidMeta) := ToIpld.exprToCid obj.meta
+      irStore := { stt.irStore with
+        univAnon := stt.irStore.univAnon.insert cidAnon obj.anon,
+        univMeta := stt.irStore.univMeta.insert cidMeta obj.meta }
+      ipldStore := { stt.ipldStore with
+        univAnon := stt.ipldStore.univAnon.push $ .array #[.link cidAnon.data, ipldAnon]
+        univMeta := stt.ipldStore.univMeta.push $ .array #[.link cidMeta.data, ipldMeta] } })
+  | .expr obj =>
+    let (ipldAnon, cidAnon) := exprToCid obj.anon
+    let (ipldMeta, cidMeta) := exprToCid obj.meta
     modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
-      store := { stt.store with
-        expr_anon := stt.store.expr_anon.insert cidAnon obj.anon,
-        expr_meta := stt.store.expr_meta.insert cidMeta obj.meta }
-      exprAnonIpld := stt.exprAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
-      exprMetaIpld := stt.exprMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
+      irStore := { stt.irStore with
+        exprAnon := stt.irStore.exprAnon.insert cidAnon obj.anon,
+        exprMeta := stt.irStore.exprMeta.insert cidMeta obj.meta }
+      ipldStore := { stt.ipldStore with
+        exprAnon := stt.ipldStore.exprAnon.push $ .array #[.link cidAnon.data, ipldAnon]
+        exprMeta := stt.ipldStore.exprMeta.push $ .array #[.link cidMeta.data, ipldMeta] } })
   | .const obj =>
-    let (ipldAnon, cidAnon) := ToIpld.constToCid obj.anon
-    let (ipldMeta, cidMeta) := ToIpld.constToCid obj.meta
+    let (ipldAnon, cidAnon) := constToCid obj.anon
+    let (ipldMeta, cidMeta) := constToCid obj.meta
     let cid := ⟨cidAnon, cidMeta⟩
     match obj.anon, obj.meta with
     -- Mutual definition/inductive blocks do not get added to the set of constants
     | .mutDefBlock .., .mutDefBlock ..
     | .mutIndBlock .., .mutIndBlock .. =>
       modifyGet fun stt => (cid, { stt with
-        store := { stt.store with
-          const_anon := stt.store.const_anon.insert cidAnon obj.anon,
-          const_meta := stt.store.const_meta.insert cidMeta obj.meta }
-        constAnonIpld := stt.constAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
-        constMetaIpld := stt.constMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
+        irStore := { stt.irStore with
+          constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
+          constMeta := stt.irStore.constMeta.insert cidMeta obj.meta }
+        ipldStore := { stt.ipldStore with
+          constAnon := stt.ipldStore.constAnon.push $ .array #[.link cidAnon.data, ipldAnon]
+          constMeta := stt.ipldStore.constMeta.push $ .array #[.link cidMeta.data, ipldMeta] } })
     | _, _ =>
       modifyGet fun stt => (cid, { stt with
-        store := { stt.store with
-          const_anon := stt.store.const_anon.insert cidAnon obj.anon,
-          const_meta := stt.store.const_meta.insert cidMeta obj.meta,
-          consts     := stt.store.consts.insert cid }
-        constAnonIpld := stt.constAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
-        constMetaIpld := stt.constMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta]
-        constsIpld    := stt.constsIpld.push    $ .array #[.link cidAnon.data, .link cidMeta.data] })
+        irStore := { stt.irStore with
+          constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
+          constMeta := stt.irStore.constMeta.insert cidMeta obj.meta,
+          consts    := stt.irStore.consts.insert cid }
+        ipldStore := { stt.ipldStore with
+          constAnon := stt.ipldStore.constAnon.push $ .array #[.link cidAnon.data, ipldAnon]
+          constMeta := stt.ipldStore.constMeta.push $ .array #[.link cidMeta.data, ipldMeta]
+          consts    := stt.ipldStore.consts.push    $ .array #[.link cidAnon.data, .link cidMeta.data] } })
 
 /-- Adds data associated with a name to the cache -/
-def addToCache (name : Name) (c : ConstCid × ConstIdx) : CompileM Unit := do
+def addToCache (name : Name) (c : IR.BothConstCid × TC.ConstIdx) : CompileM Unit :=
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
 /-- Adds a constant to the array of constants at a given index -/
-def addToConsts (idx : ConstIdx) (c : Const) : CompileM Unit := do
-  let pStore := (← get).pStore
-  let consts := pStore.consts
+def addToConsts (idx : TC.ConstIdx) (c : TC.Const) : CompileM Unit := do
+  let tcStore := (← get).tcStore
+  let consts := tcStore.consts
   if h : idx < consts.size then
-    modify fun stt => { stt with pStore := {pStore with consts := consts.set ⟨idx, h⟩ c} }
+    modify fun stt =>
+      { stt with tcStore := { tcStore with consts := consts.set ⟨idx, h⟩ c } }
   else
     throw $ .invalidConstantIndex idx consts.size
 

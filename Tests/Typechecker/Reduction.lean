@@ -2,9 +2,7 @@ import LSpec
 import Yatima.Typechecker.Eval
 import TestsUtils.CompileAndExtractTests
 
-open Yatima LSpec
-
-open Typechecker
+open Yatima LSpec TC Typechecker
 
 local instance : Coe (Except ε α) (Option α) where coe
   | .ok a => some a
@@ -90,12 +88,12 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       match state.cache.find? rconstName with
       | none            => notFound := notFound.push rconstName
       | some (_, ridx)  =>
-        let some (.definition const) ← pure state.pStore.consts[idx]? | throw "invalid definition index"
-        let some (.definition rconst) ← pure state.pStore.consts[ridx]? | throw "invalid definition index"
-        match TypecheckM.run (.init state.pStore) $ eval const.value with
+        let some (.definition const) ← pure state.tcStore.consts[idx]? | throw "invalid definition index"
+        let some (.definition rconst) ← pure state.tcStore.consts[ridx]? | throw "invalid definition index"
+        match TypecheckM.run (.init state.tcStore) $ eval const.value with
         | .ok value =>
           -- dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
-          let some expr ← pure $ readBack state.pStore.consts value | throw s!"failed to read back value {value}"
+          let some expr ← pure $ readBack state.tcStore.consts value | throw s!"failed to read back value {value}"
           pairList := pairList.push ((constName, expr), (rconstName, rconst.value))
         | _ => .error "failed to evaluate value"
   if notFound.isEmpty then

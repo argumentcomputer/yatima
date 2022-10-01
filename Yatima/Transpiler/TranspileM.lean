@@ -5,9 +5,9 @@ namespace Yatima.Transpiler
 open Yatima.Compiler
 
 structure TranspileEnv where
-  store : Ipld.Store
-  pStore : PureStore
-  map : Std.RBMap Name Const compare
+  irStore : IR.Store
+  tcStore : TC.Store
+  map : Std.RBMap Name TC.Const compare
   builtins : List (Name × Lurk.Expr)
 
 structure TranspileState where

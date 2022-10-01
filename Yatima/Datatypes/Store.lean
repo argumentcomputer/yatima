@@ -1,51 +1,70 @@
+import Ipld.Ipld
 import Yatima.Datatypes.Const
 
 namespace Yatima
 
-namespace Ipld
+namespace IR
 
 open Std (RBMap RBTree) in
 /-- The end result of the compilation process -/
 structure Store where
   consts : RBTree (Both ConstCid) compare
 
-  univ_anon  : RBMap (UnivCid  .anon) (Univ  .anon) compare
-  expr_anon  : RBMap (ExprCid  .anon) (Expr  .anon) compare
-  const_anon : RBMap (ConstCid .anon) (Const .anon) compare
+  univAnon  : RBMap (UnivCid  .anon) (Univ  .anon) compare
+  exprAnon  : RBMap (ExprCid  .anon) (Expr  .anon) compare
+  constAnon : RBMap (ConstCid .anon) (Const .anon) compare
 
-  univ_meta  : RBMap (UnivCid  .meta) (Univ  .meta) compare
-  expr_meta  : RBMap (ExprCid  .meta) (Expr  .meta) compare
-  const_meta : RBMap (ConstCid .meta) (Const .meta) compare
+  univMeta  : RBMap (UnivCid  .meta) (Univ  .meta) compare
+  exprMeta  : RBMap (ExprCid  .meta) (Expr  .meta) compare
+  constMeta : RBMap (ConstCid .meta) (Const .meta) compare
   deriving Inhabited
 
 instance : BEq Store where
   beq x y := x.consts.toList == y.consts.toList
-    && x.univ_anon.toList  == y.univ_anon.toList
-    && x.expr_anon.toList  == y.expr_anon.toList
-    && x.const_anon.toList == y.const_anon.toList
-    && x.univ_meta.toList  == y.univ_meta.toList
-    && x.univ_meta.toList  == y.univ_meta.toList
-    && x.const_meta.toList == y.const_meta.toList
+    && x.univAnon.toList  == y.univAnon.toList
+    && x.exprAnon.toList  == y.exprAnon.toList
+    && x.constAnon.toList == y.constAnon.toList
+    && x.univMeta.toList  == y.univMeta.toList
+    && x.univMeta.toList  == y.univMeta.toList
+    && x.constMeta.toList == y.constMeta.toList
 
 def Store.union (s s' : Store) : Store := ⟨
   s'.consts.union s.consts,
-  s'.univ_anon.fold  (init := s.univ_anon)  fun acc cid x => acc.insert cid x,
-  s'.expr_anon.fold  (init := s.expr_anon)  fun acc cid x => acc.insert cid x,
-  s'.const_anon.fold (init := s.const_anon) fun acc cid x => acc.insert cid x,
-  s'.univ_meta.fold  (init := s.univ_meta)  fun acc cid x => acc.insert cid x,
-  s'.expr_meta.fold  (init := s.expr_meta)  fun acc cid x => acc.insert cid x,
-  s'.const_meta.fold (init := s.const_meta) fun acc cid x => acc.insert cid x
+  s'.univAnon.fold  (init := s.univAnon)  fun acc cid x => acc.insert cid x,
+  s'.exprAnon.fold  (init := s.exprAnon)  fun acc cid x => acc.insert cid x,
+  s'.constAnon.fold (init := s.constAnon) fun acc cid x => acc.insert cid x,
+  s'.univMeta.fold  (init := s.univMeta)  fun acc cid x => acc.insert cid x,
+  s'.exprMeta.fold  (init := s.exprMeta)  fun acc cid x => acc.insert cid x,
+  s'.constMeta.fold (init := s.constMeta) fun acc cid x => acc.insert cid x
 ⟩
 
-end Ipld
+end IR
+
+namespace TC
 
 /-- Keeps track of the data used for typechecking -/
-structure PureStore where
+structure Store where
   consts     : Array Const
   natIdx     : Option Nat
   natZeroIdx : Option Nat
   natSuccIdx : Option Nat
   stringIdx  : Option Nat
   deriving Inhabited
+
+end TC
+
+namespace Ipld
+
+structure Store where
+  consts    : Array Ipld
+  univAnon  : Array Ipld
+  exprAnon  : Array Ipld
+  constAnon : Array Ipld
+  univMeta  : Array Ipld
+  exprMeta  : Array Ipld
+  constMeta : Array Ipld
+  deriving Inhabited
+
+end Ipld
 
 end Yatima

@@ -11,36 +11,36 @@ namespace Converter
 
 /-- Represents information used to retrieve data from the cache or from store -/
 inductive Key : Type → Type
-  | univ_cache  : UnivCid  → Key Univ
-  | const_cache : ConstCid → Key ConstIdx
-  | univ_store  : UnivCid  → Key (Ipld.Both Ipld.Univ)
-  | expr_store  : ExprCid  → Key (Ipld.Both Ipld.Expr)
-  | const_store : ConstCid → Key (Ipld.Both Ipld.Const)
+  | univCache  : IR.BothUnivCid  → Key TC.Univ
+  | constCache : IR.BothConstCid → Key TC.ConstIdx
+  | univStore  : IR.BothUnivCid  → Key (IR.Both IR.Univ)
+  | exprStore  : IR.BothExprCid  → Key (IR.Both IR.Expr)
+  | constStore : IR.BothConstCid → Key (IR.Both IR.Const)
 
 namespace Key
 
 /-- Tries to retrieve data from the cache or store given a `Key` -/
 def find? : (key : Key A) → ConvertM (Option A)
-  | univ_cache  univ  => return (← get).univ_cache.find? univ
-  | const_cache const => return (← get).const_cache.find? const
-  | univ_store  univ  => do
+  | univCache  univ  => return (← get).univCache.find? univ
+  | constCache const => return (← get).constCache.find? const
+  | univStore  univ  => do
     let store := (← read).store
-    let anon? := store.univ_anon.find? univ.anon
-    let meta? := store.univ_meta.find? univ.meta
+    let anon? := store.univAnon.find? univ.anon
+    let meta? := store.univMeta.find? univ.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
-  | expr_store  expr  => do
+  | exprStore  expr  => do
     let store := (← read).store
-    let anon? := store.expr_anon.find? expr.anon
-    let meta? := store.expr_meta.find? expr.meta
+    let anon? := store.exprAnon.find? expr.anon
+    let meta? := store.exprMeta.find? expr.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
-  | const_store const => do
+  | constStore const => do
     let store := (← read).store
-    let anon? := store.const_anon.find? const.anon
-    let meta? := store.const_meta.find? const.meta
+    let anon? := store.constAnon.find? const.anon
+    let meta? := store.constMeta.find? const.meta
     match anon?, meta? with
     | some anon, some meta => pure $ some ⟨anon, meta⟩
     | _, _ => pure none
@@ -54,16 +54,16 @@ def find (key : Key A) : ConvertM A := do
 
 /-- Adds data to cache -/
 def cache : (Key A) → A → ConvertM Unit
-  | univ_cache  univ,  a => modify fun stt =>
-    { stt with univ_cache  := stt.univ_cache.insert  univ  a }
-  | const_cache const, a => modify fun stt =>
-    { stt with const_cache := stt.const_cache.insert const a }
+  | univCache  univ,  a => modify fun stt =>
+    { stt with univCache  := stt.univCache.insert  univ  a }
+  | constCache const, a => modify fun stt =>
+    { stt with constCache := stt.constCache.insert const a }
   | _, _ => throw .cannotStoreValue
 
 end Key
 
 /-- Retrieves an inductive from a mutual block by its index -/
-def getInductive : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Inductive)
+def getInductive : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Inductive)
   | ⟨.mutIndBlock indsAnon, .mutIndBlock indsMeta⟩, idx =>
     if h : idx < indsAnon.length ∧ idx < indsMeta.length then
       pure ⟨indsAnon[idx]'(h.1), indsMeta[idx]'(h.2)⟩
@@ -71,7 +71,7 @@ def getInductive : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Ind
   | _, _ => throw .ipldError
 
 /-- Retrieves a definition from a mutual block by its index -/
-def getDefinition : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.Definition)
+def getDefinition : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Definition)
   | ⟨.mutDefBlock defsAnon, .mutDefBlock defsMeta⟩, idx => do
     let defsMeta' := (defsMeta.map (·.projᵣ)).join
     let defsAnon' := (← defsMeta.enum.mapM fun (i, defMeta) =>
@@ -84,8 +84,8 @@ def getDefinition : Ipld.Both Ipld.Const → Nat → ConvertM (Ipld.Both Ipld.De
   | _, _ => throw .ipldError
 
 /-- Applies a function to each element of the list in `Ipld.Both (List $ A ·)` -/
-def Ipld.zipWith (f : Ipld.Both A → ConvertM B) :
-    (as : Ipld.Both (List $ A ·)) → ConvertM (List B)
+def Ipld.zipWith (f : IR.Both A → ConvertM B) :
+    (as : IR.Both (List $ A ·)) → ConvertM (List B)
   | ⟨anon::anons, meta::metas⟩ => do
     let b  ← f ⟨anon, meta⟩
     let bs ← Ipld.zipWith f ⟨anons, metas⟩
@@ -97,11 +97,11 @@ instance : Coe (Split A B .true)  A := ⟨Split.projₗ⟩
 instance : Coe (Split A B .false) B := ⟨Split.projᵣ⟩
 
 /-- Extracts an `Univ` from an `UnivCid` -/
-partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
-  match ← Key.find? $ .univ_cache $ cid with
+partial def univFromIpld (cid : IR.BothUnivCid) : ConvertM TC.Univ := do
+  match ← Key.find? $ .univCache $ cid with
   | some univ => pure univ
   | none =>
-    let ⟨anon, meta⟩ ← Key.find $ .univ_store cid
+    let ⟨anon, meta⟩ ← Key.find $ .univStore cid
     let univ ← match anon, meta with
       | .zero, .zero => pure .zero
       | .succ univAnon, .succ univMeta =>
@@ -114,11 +114,11 @@ partial def univFromIpld (cid : UnivCid) : ConvertM Univ := do
           (← univFromIpld ⟨univAnon₂, univMeta₂⟩)
       | .var idx, .var nam => pure $ .var nam idx
       | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
-    Key.cache (.univ_cache cid) univ
+    Key.cache (.univCache cid) univ
     pure univ
 
 /-- Whether an inductive is an unit inductive or not -/
-def inductiveIsUnit (ind : Ipld.Inductive .anon) : Bool :=
+def inductiveIsUnit (ind : IR.Inductive .anon) : Bool :=
   if ind.recr || ind.indices.projₗ != 0 then false
   else match ind.ctors with
     | [ctor] => ctor.fields.projₗ == 0
@@ -131,7 +131,7 @@ def getConstIdx (n : Name) : ConvertM Nat := do
   | none => throw $ .constIdxNotFound $ n.toString
 
 /-- Builds the `RecrCtx` for mutual inductives -/
-def getIndRecrCtx (indBlock : Ipld.Both Ipld.Const) : ConvertM RecrCtx := do
+def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM RecrCtx := do
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
@@ -157,8 +157,8 @@ mutual
 
   /-- Extracts the structure (constructor) from an inductive if it is a structure-like
   inductive, returns `none` otherwise. -/
-  partial def getStructure (ind : Ipld.Both Ipld.Inductive) :
-      ConvertM (Option Constructor) :=
+  partial def getStructure (ind : IR.Both IR.Inductive) :
+      ConvertM (Option TC.Constructor) :=
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
       | [ctorAnon], [ctorMeta] => do
@@ -169,9 +169,8 @@ mutual
   Extracts an `Expr` from IPLD CIDs representing an expression with the caveat
   that the `.var` case may represent a recursive reference.
   -/
-  partial def exprFromIpld (cid : Ipld.Both Ipld.ExprCid) : ConvertM Expr := do
-    
-    match ← Key.find $ .expr_store cid with
+  partial def exprFromIpld (cid : IR.Both IR.ExprCid) : ConvertM TC.Expr := do
+    match ← Key.find $ .exprStore cid with
     | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
       let depth := (← read).bindDepth
       if depth > idx.projₗ then
@@ -220,13 +219,13 @@ mutual
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
   /-- Converts IPLD CIDs for a constant and return its constant index -/
-  partial def constFromIpld (cid : Ipld.Both Ipld.ConstCid) :
-      ConvertM ConstIdx := do
-    match ← Key.find? (.const_cache cid) with
+  partial def constFromIpld (cid : IR.Both IR.ConstCid) :
+      ConvertM TC.ConstIdx := do
+    match ← Key.find? (.constCache cid) with
     | some constIdx => pure constIdx
     | none =>
       withResetBindDepth do
-        let ⟨anon, meta⟩ := ← Key.find $ .const_store cid
+        let ⟨anon, meta⟩ := ← Key.find $ .constStore cid
         let some constIdx := (← get).constsIdx.find? meta.name
           | throw $ .cannotFindNameIdx $ toString meta.name
         let const ← match anon, meta with
@@ -243,7 +242,7 @@ mutual
           let value ← exprFromIpld ⟨theoremAnon.value, theoremMeta.value⟩
           pure $ .theorem { name, lvls, type, value }
         | .inductiveProj anon, .inductiveProj meta =>
-          let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+          let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
           let name := induct.meta.name
           let lvls := induct.meta.lvls
@@ -269,8 +268,8 @@ mutual
           let safe := opaqueAnon.safe
           pure $ .opaque { name, lvls, type, value, safe }
         | .definitionProj definitionAnon, .definitionProj definitionMeta =>
-          let defn ← getDefinition (← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩) definitionMeta.idx
-          match ← Key.find $ .const_store ⟨definitionAnon.block, definitionMeta.block⟩ with
+          let defn ← getDefinition (← Key.find $ .constStore ⟨definitionAnon.block, definitionMeta.block⟩) definitionMeta.idx
+          match ← Key.find $ .constStore ⟨definitionAnon.block, definitionMeta.block⟩ with
           | ⟨.mutDefBlock _, .mutDefBlock metas⟩ =>
             let metas := metas.map (·.projᵣ)
             let name := defn.meta.name
@@ -287,7 +286,7 @@ mutual
               pure $ .definition { name, lvls, type, value, safety, all }
           | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
         | .constructorProj anon, .constructorProj meta =>
-          let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+          let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
           let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
           let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
@@ -305,7 +304,7 @@ mutual
             let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
             pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
         | .recursorProj anon, .recursorProj meta =>
-          let indBlock ← Key.find $ .const_store ⟨anon.block, meta.block⟩
+          let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
           let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
           let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
@@ -323,7 +322,7 @@ mutual
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIpld ⟨recursorAnon.type, recursorMeta.type⟩
-            let casesExtInt : (t₁ : RecType) → (t₂ : RecType) → (Ipld.Recursor t₁ .anon) → (Ipld.Recursor t₂ .meta) → ConvertM Const
+            let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) → (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
             | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
             | .extr, .extr, recAnon, recMeta => do
               let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
@@ -339,18 +338,18 @@ mutual
         | .mutDefBlock .., .mutDefBlock .. => throw .mutDefBlockFound
         | .mutIndBlock .., .mutIndBlock .. => throw .mutIndBlockFound
         | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
-        Key.cache (.const_cache cid) constIdx
-        let pStore := (← get).pStore
-        let consts := pStore.consts
+        Key.cache (.constCache cid) constIdx
+        let tcStore := (← get).tcStore
+        let consts := tcStore.consts
         let maxSize := consts.size
         if h : constIdx < maxSize then
-          set { ← get with pStore := { pStore with consts := consts.set ⟨constIdx, h⟩ const } }
+          set { ← get with tcStore := { tcStore with consts := consts.set ⟨constIdx, h⟩ const } }
         else
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
 
   /-- Converts constructor IPLD CIDs into a `Constructor` -/
-  partial def ctorFromIpld (ctor : Ipld.Both Ipld.Constructor) : ConvertM Constructor := do
+  partial def ctorFromIpld (ctor : IR.Both IR.Constructor) : ConvertM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
     let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
@@ -362,10 +361,10 @@ mutual
     pure { name, lvls, type, idx, params, fields, rhs, safe }
 
   /-- Converts recursor rule IPLD CIDs into a `RecursorRule` -/
-  partial def ruleFromIpld (rule : Ipld.Both Ipld.RecursorRule) : ConvertM RecursorRule := do
+  partial def ruleFromIpld (rule : IR.Both IR.RecursorRule) : ConvertM TC.RecursorRule := do
     let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let consts := (← get).pStore.consts
+    let consts := (← get).tcStore.consts
     let maxSize := consts.size
     if h : ctorIdx < maxSize then
       let ctor ← match consts[ctorIdx]'h with
@@ -381,30 +380,30 @@ end
 Creates an initial array of constants full of dummy values to be replaced and
 then calls `constFromIpld` for each constant to be converted from the store
 -/
-def convertStore (store : Ipld.Store) : Except ConvertError ConvertState :=
+def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
-    let relevantMetas := (← read).store.const_meta.toList.filter
+    let relevantMetas := (← read).store.constMeta.toList.filter
       fun (_, a) => a.isNotMutBlock
     relevantMetas.enum.forM fun (idx, (_, meta)) => do
       modifyGet fun state => (default, { state with
-        pStore := { state.pStore with consts := state.pStore.consts.push default },
+        tcStore := { state.tcStore with consts := state.tcStore.consts.push default },
         constsIdx := state.constsIdx.insert meta.name idx })
     (← read).store.consts.forM fun cid => discard $ constFromIpld cid
-    (← get).const_cache.forM fun cid idx => do
+    (← get).constCache.forM fun cid idx => do
       match Ipld.primCidsMap.find? cid.anon.data.toString with
-      | some .nat     => modify fun stt => { stt with pStore := { stt.pStore with natIdx     := some idx } }
-      | some .natZero => modify fun stt => { stt with pStore := { stt.pStore with natZeroIdx := some idx } }
-      | some .natSucc => modify fun stt => { stt with pStore := { stt.pStore with natSuccIdx := some idx } }
-      | some .string  => modify fun stt => { stt with pStore := { stt.pStore with stringIdx  := some idx } }
+      | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := some idx } }
+      | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := some idx } }
+      | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := some idx } }
+      | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := some idx } }
       | none => pure ()
 
 /--
 Main function in the converter API. Extracts the final array of constants from
 an `Ipld.Store`
 -/
-def extractPureStore (store : Ipld.Store) : Except String PureStore :=
+def extractPureStore (store : IR.Store) : Except String TC.Store :=
   match convertStore store with
-  | .ok stt => pure stt.pStore
+  | .ok stt => pure stt.tcStore
   | .error err => .error $ toString err
 
 end Converter

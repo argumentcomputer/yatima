@@ -15,6 +15,8 @@ When we talk about "unevaluated expressions", you should think of these
 expression/environment pairs. They are also called *closures*
 -/
 
+open TC
+
 mutual
   /--
   Values are the final result of the evaluation of well-typed expressions under a well-typed

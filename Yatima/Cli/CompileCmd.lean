@@ -26,14 +26,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
       if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
-      let ipld := Yatima.ToIpld.storeToIpld
-        stt.constsIpld
-        stt.univAnonIpld
-        stt.exprAnonIpld
-        stt.constAnonIpld
-        stt.univMetaIpld
-        stt.exprMetaIpld
-        stt.constMetaIpld
+      let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
       IO.FS.writeBinFile (p.getD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
     else

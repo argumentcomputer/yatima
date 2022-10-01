@@ -21,6 +21,8 @@ to evaluate further.
 
 namespace Yatima.Typechecker
 
+open TC
+
 /--
 Looks for a constant by its index `constIdx` in the `TypecheckCtx` store and
 returns it if it is found. If the constant is not found it throws an error.
@@ -28,7 +30,7 @@ returns it if it is found. If the constant is not found it throws an error.
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
-  let consts := (← read).pStore.consts
+  let consts := (← read).store.consts
   match consts.get? constIdx with
   | some const => pure const
   | none => throw $ .outOfConstsRange name constIdx consts.size

@@ -17,11 +17,10 @@ inductive CompileError
   | metaVariableExpr : Lean.Expr → CompileError
   | metaDataExpr : Lean.Expr → CompileError
   | levelNotFound : Name → List Name → CompileError
-  | invalidConstantKind : Lean.ConstantInfo → String → CompileError
-  | invalidConstantKind' : Const → String → CompileError
-  | constantNotCompiled : Lean.Name → CompileError
-  | nonRecursorExtractedFromChildren : Lean.Name → CompileError
-  | cantFindMutDefIndex : Lean.Name → CompileError
+  | invalidConstantKind : Name → String → String → CompileError
+  | constantNotCompiled : Name → CompileError
+  | nonRecursorExtractedFromChildren : Name → CompileError
+  | cantFindMutDefIndex : Name → CompileError
   | errorsOnFile : String → String → CompileError
   | custom : String → CompileError
   deriving Inhabited
@@ -39,10 +38,8 @@ instance : ToString CompileError where toString
   | .metaVariableExpr e => s!"Meta variable in expression '{e}'"
   | .metaDataExpr e => s!"Meta data in expression '{e}'"
   | .levelNotFound n ns => s!"'{n}' not found in '{ns}'"
-  | .invalidConstantKind c ex =>
-    s!"Invalid constant kind for '{c.name}'. Expected '{ex}' but got '{c.ctorName}'"
-  | .invalidConstantKind' c ex =>
-    s!"Invalid constant kind for '{c.name}'. Expected '{ex}' but got '{c.ctorName}'"
+  | .invalidConstantKind n ex gt =>
+    s!"Invalid constant kind for '{n}'. Expected '{ex}' but got '{gt}'"
   | .constantNotCompiled n => s!"Constant '{n}' wasn't compiled"
   | .nonRecursorExtractedFromChildren n =>
     s!"Non-recursor '{n}' extracted from children"

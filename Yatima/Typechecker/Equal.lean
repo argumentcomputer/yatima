@@ -25,6 +25,8 @@ Note: Generally the values are assumed to already have the same type in the func
 
 namespace Yatima.Typechecker
 
+open TC
+
 mutual
 
   /--

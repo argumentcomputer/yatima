@@ -50,7 +50,7 @@ open Cli.Parsed in
 def Cli.Parsed.getD (p : Cli.Parsed) (flag : String) (default : String) : String :=
   p.flag? flag |>.map (Flag.as! · String) |>.getD default
 
-open Yatima.Ipld
+open Yatima.IR in
 def readStoreFromFile (fileName : String) : IO $ Except String Store :=
   return match DagCbor.deserialize (← IO.FS.readBinFile fileName) with
   | .error err => .error (toString err)

@@ -55,6 +55,8 @@ def literalFromIpld : Ipld → Option Literal
   | .bytes  b => return .natVal $ Nat.fromByteListBE b.data.data
   | _ => none
 
+open IR
+
 def splitNatₐFromIpld : (k : Kind) → Ipld → Option (Natₐ k)
   | .anon, .array #[.number 0, x] => return .injₗ (← natFromIpld  x)
   | .meta, .array #[.number 1, .null] => return .injᵣ ()
@@ -205,141 +207,141 @@ def mutIndBlockFromIpld : Ipld → Option (List (Inductive k))
   | _ => none
 
 def univAnonFromIpld : Ipld → Option (Univ .anon)
-  | .array #[.number $ Ipld.UNIV .anon, .number 0] =>
+  | .array #[.number $ UNIV .anon, .number 0] =>
     return .zero
-  | .array #[.number $ Ipld.UNIV .anon, .number 1, p] =>
+  | .array #[.number $ UNIV .anon, .number 1, p] =>
     return .succ (← univCidFromIpld p)
-  | .array #[.number $ Ipld.UNIV .anon, .number 2, a, b] =>
+  | .array #[.number $ UNIV .anon, .number 2, a, b] =>
     return .max (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ Ipld.UNIV .anon, .number 3, a, b] =>
+  | .array #[.number $ UNIV .anon, .number 3, a, b] =>
     return .imax (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ Ipld.UNIV .anon, .number 4, n] =>
+  | .array #[.number $ UNIV .anon, .number 4, n] =>
     return .var (← splitNatₐNameₘFromIpld .anon n)
   | _ => none
 
 def univMetaFromIpld : Ipld → Option (Univ .meta)
-  | .array #[.number $ Ipld.UNIV .meta, .number 0] => some .zero
-  | .array #[.number $ Ipld.UNIV .meta, .number 1, p] =>
+  | .array #[.number $ UNIV .meta, .number 0] => some .zero
+  | .array #[.number $ UNIV .meta, .number 1, p] =>
     return .succ (← univCidFromIpld p)
-  | .array #[.number $ Ipld.UNIV .meta, .number 2, a, b] =>
+  | .array #[.number $ UNIV .meta, .number 2, a, b] =>
     return .max (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ Ipld.UNIV .meta, .number 3, a, b] =>
+  | .array #[.number $ UNIV .meta, .number 3, a, b] =>
     return .imax (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ Ipld.UNIV .meta, .number 4, n] =>
+  | .array #[.number $ UNIV .meta, .number 4, n] =>
     return .var (← splitNatₐNameₘFromIpld .meta n)
   | _ => none
 
 def exprAnonFromIpld : Ipld → Option (Expr .anon)
-  | .array #[.number $ Ipld.EXPR .anon, .number 0, n, i, ls] =>
+  | .array #[.number $ EXPR .anon, .number 0, n, i, ls] =>
     return .var (← splitNatₐNameₘFromIpld .anon n) (← splitNat?ₘFromIpld .anon i)
       (← listUnivCidFromIpld ls)
-  | .array #[.number $ Ipld.EXPR .anon, .number 1, u] =>
+  | .array #[.number $ EXPR .anon, .number 1, u] =>
     return .sort (← univCidFromIpld u)
-  | .array #[.number $ Ipld.EXPR .anon, .number 2, n, c, ls] =>
+  | .array #[.number $ EXPR .anon, .number 2, n, c, ls] =>
     return .const (← splitNameₘFromIpld .anon n) (← constCidFromIpld c)
       (← listUnivCidFromIpld ls)
-  | .array #[.number $ Ipld.EXPR .anon, .number 3, f, a] =>
+  | .array #[.number $ EXPR .anon, .number 3, f, a] =>
     return .app (← exprCidFromIpld f) (← exprCidFromIpld a)
-  | .array #[.number $ Ipld.EXPR .anon, .number 4, n, i, d, b] =>
+  | .array #[.number $ EXPR .anon, .number 4, n, i, d, b] =>
     return .lam (← splitNameₘFromIpld .anon n) (← splitBinderInfoₐFromIpld .anon i)
       (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ Ipld.EXPR .anon, .number 5, n, i, d, b] =>
+  | .array #[.number $ EXPR .anon, .number 5, n, i, d, b] =>
     return .pi (← splitNameₘFromIpld .anon n) (← splitBinderInfoₐFromIpld .anon i)
       (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ Ipld.EXPR .anon, .number 6, n, t, v, b] =>
+  | .array #[.number $ EXPR .anon, .number 6, n, t, v, b] =>
     return .letE (← splitNameₘFromIpld .anon n) (← exprCidFromIpld t)
       (← exprCidFromIpld v) (← exprCidFromIpld b)
-  | .array #[.number $ Ipld.EXPR .anon, .number 7, l] =>
+  | .array #[.number $ EXPR .anon, .number 7, l] =>
     return .lit (← splitLiteralUnitFromIpld .anon l)
-  | .array #[.number $ Ipld.EXPR .anon, .number 8, n, e] =>
+  | .array #[.number $ EXPR .anon, .number 8, n, e] =>
     return .proj (← splitNatₐFromIpld .anon n) (← exprCidFromIpld e)
   | _ => none
 
 def exprMetaFromIpld : Ipld → Option (Expr .meta)
-  | .array #[.number $ Ipld.EXPR .meta, .number 0, n, i, ls] =>
+  | .array #[.number $ EXPR .meta, .number 0, n, i, ls] =>
     return .var (← splitNatₐNameₘFromIpld .meta n) (← splitNat?ₘFromIpld .meta i)
       (← listUnivCidFromIpld ls)
-  | .array #[.number $ Ipld.EXPR .meta, .number 1, u] =>
+  | .array #[.number $ EXPR .meta, .number 1, u] =>
     return .sort (← univCidFromIpld u)
-  | .array #[.number $ Ipld.EXPR .meta, .number 2, n, c, ls] =>
+  | .array #[.number $ EXPR .meta, .number 2, n, c, ls] =>
     return .const (← splitNameₘFromIpld .meta n) (← constCidFromIpld c)
       (← listUnivCidFromIpld ls)
-  | .array #[.number $ Ipld.EXPR .meta, .number 3, f, a] =>
+  | .array #[.number $ EXPR .meta, .number 3, f, a] =>
     return .app (← exprCidFromIpld f) (← exprCidFromIpld a)
-  | .array #[.number $ Ipld.EXPR .meta, .number 4, n, i, d, b] =>
+  | .array #[.number $ EXPR .meta, .number 4, n, i, d, b] =>
     return .lam (← splitNameₘFromIpld .meta n) (← splitBinderInfoₐFromIpld .meta i)
       (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ Ipld.EXPR .meta, .number 5, n, i, d, b] =>
+  | .array #[.number $ EXPR .meta, .number 5, n, i, d, b] =>
     return .pi (← splitNameₘFromIpld .meta n) (← splitBinderInfoₐFromIpld .meta i)
       (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ Ipld.EXPR .meta, .number 6, n, t, v, b] =>
+  | .array #[.number $ EXPR .meta, .number 6, n, t, v, b] =>
     return .letE (← splitNameₘFromIpld .meta n) (← exprCidFromIpld t)
       (← exprCidFromIpld v) (← exprCidFromIpld b)
-  | .array #[.number $ Ipld.EXPR .meta, .number 7, l] =>
+  | .array #[.number $ EXPR .meta, .number 7, l] =>
     return .lit (← splitLiteralUnitFromIpld .meta l)
-  | .array #[.number $ Ipld.EXPR .meta, .number 8, n, e] =>
+  | .array #[.number $ EXPR .meta, .number 8, n, e] =>
     return .proj (← splitNatₐFromIpld .meta n) (← exprCidFromIpld e)
   | _ => none
 
 def constAnonFromIpld : Ipld → Option (Const .anon)
-  | .array #[.number $ Ipld.CONST .anon, .number 0, n, l, t, s] =>
+  | .array #[.number $ CONST .anon, .number 0, n, l, t, s] =>
     return .axiom ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← splitBoolₐFromIpld .anon s⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 1, n, l, t, v] =>
+  | .array #[.number $ CONST .anon, .number 1, n, l, t, v] =>
     return .theorem ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← exprCidFromIpld v⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 2, n, l, t, v, s] =>
+  | .array #[.number $ CONST .anon, .number 2, n, l, t, v, s] =>
     return .opaque ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← exprCidFromIpld v, ← splitBoolₐFromIpld .anon s⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 3, n, l, t, k] =>
+  | .array #[.number $ CONST .anon, .number 3, n, l, t, k] =>
     return .quotient ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← splitQuotKindFromIpld .anon k⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 5, n, l, t, b, i] =>
+  | .array #[.number $ CONST .anon, .number 5, n, l, t, b, i] =>
     return .inductiveProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 6, n, l, t, b, i, j] =>
+  | .array #[.number $ CONST .anon, .number 6, n, l, t, b, i, j] =>
     return .constructorProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i, ← splitNatₐFromIpld .anon j⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 7, n, l, t, b, i, j] =>
+  | .array #[.number $ CONST .anon, .number 7, n, l, t, b, i, j] =>
     return .recursorProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i, ← splitNatₐFromIpld .anon j⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 8, n, l, t, b, i] =>
+  | .array #[.number $ CONST .anon, .number 8, n, l, t, b, i] =>
     return .definitionProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
-  | .array #[.number $ Ipld.CONST .anon, .number 9, b] =>
+  | .array #[.number $ CONST .anon, .number 9, b] =>
     return .mutDefBlock (← mutDefBlockFromIpld .anon b)
-  | .array #[.number $ Ipld.CONST .anon, .number 10, b] =>
+  | .array #[.number $ CONST .anon, .number 10, b] =>
     return .mutIndBlock (← mutIndBlockFromIpld b)
   | _ => none
 
 def constMetaFromIpld : Ipld → Option (Const .meta)
-  | .array #[.number $ Ipld.CONST .meta, .number 0, n, l, t, s] =>
+  | .array #[.number $ CONST .meta, .number 0, n, l, t, s] =>
     return .axiom ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← splitBoolₐFromIpld .meta s⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 1, n, l, t, v] =>
+  | .array #[.number $ CONST .meta, .number 1, n, l, t, v] =>
     return .theorem ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← exprCidFromIpld v⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 2, n, l, t, v, s] =>
+  | .array #[.number $ CONST .meta, .number 2, n, l, t, v, s] =>
     return .opaque ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← exprCidFromIpld v, ← splitBoolₐFromIpld .meta s⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 3, n, l, t, k] =>
+  | .array #[.number $ CONST .meta, .number 3, n, l, t, k] =>
     return .quotient ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← splitQuotKindFromIpld .meta k⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 5, n, l, t, b, i] =>
+  | .array #[.number $ CONST .meta, .number 5, n, l, t, b, i] =>
     return .inductiveProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 6, n, l, t, b, i, j] =>
+  | .array #[.number $ CONST .meta, .number 6, n, l, t, b, i, j] =>
     return .constructorProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i, ← splitNatₐFromIpld .meta j⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 7, n, l, t, b, i, j] =>
+  | .array #[.number $ CONST .meta, .number 7, n, l, t, b, i, j] =>
     return .recursorProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i, ← splitNatₐFromIpld .meta j⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 8, n, l, t, b, i] =>
+  | .array #[.number $ CONST .meta, .number 8, n, l, t, b, i] =>
     return .definitionProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
       ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
-  | .array #[.number $ Ipld.CONST .meta, .number 9, b] =>
+  | .array #[.number $ CONST .meta, .number 9, b] =>
     return .mutDefBlock (← mutDefBlockFromIpld .meta b)
-  | .array #[.number $ Ipld.CONST .meta, .number 10, b] =>
+  | .array #[.number $ CONST .meta, .number 10, b] =>
     return .mutIndBlock (← mutIndBlockFromIpld b)
   | _ => none
 
@@ -392,9 +394,9 @@ def constMetaMapFromIpld (ar : Array Ipld) :
     | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← constMetaFromIpld ipld)
     | _ => none
 
-def storeFromIpld : Ipld → Option Store
+def storeFromIpld : Ipld → Option IR.Store
   | .array #[
-    .number Ipld.STORE,
+    .number STORE,
     .array constsIpld,
     .array univAnonIpld,
     .array exprAnonIpld,
