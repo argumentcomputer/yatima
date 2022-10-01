@@ -1,8 +1,11 @@
 import Yatima.Transpiler.TranspileError
+import Yatima.Datatypes.Store
+import Yatima.Compiler.Utils
+import Yatima.ForLurkRepo.AST
 
 namespace Yatima.Transpiler
 
-open Yatima.Compiler
+-- open Yatima.Compiler
 
 structure TranspileEnv where
   irStore : IR.Store

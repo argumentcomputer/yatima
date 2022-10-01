@@ -84,11 +84,11 @@ def getDefinition : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Definition
   | _, _ => throw .ipldError
 
 /-- Applies a function to each element of the list in `Ipld.Both (List $ A ·)` -/
-def Ipld.zipWith (f : IR.Both A → ConvertM B) :
+def zipWith (f : IR.Both A → ConvertM B) :
     (as : IR.Both (List $ A ·)) → ConvertM (List B)
   | ⟨anon::anons, meta::metas⟩ => do
     let b  ← f ⟨anon, meta⟩
-    let bs ← Ipld.zipWith f ⟨anons, metas⟩
+    let bs ← zipWith f ⟨anons, metas⟩
     pure $ b :: bs
   | ⟨[], []⟩ => pure []
   | _ => throw .ipldError
@@ -96,8 +96,8 @@ def Ipld.zipWith (f : IR.Both A → ConvertM B) :
 instance : Coe (Split A B .true)  A := ⟨Split.projₗ⟩
 instance : Coe (Split A B .false) B := ⟨Split.projᵣ⟩
 
-/-- Extracts an `Univ` from an `UnivCid` -/
-partial def univFromIpld (cid : IR.BothUnivCid) : ConvertM TC.Univ := do
+/-- Extracts an `Univ` from an `IR.BothUnivCid` -/
+partial def univFromIR (cid : IR.BothUnivCid) : ConvertM TC.Univ := do
   match ← Key.find? $ .univCache $ cid with
   | some univ => pure univ
   | none =>
@@ -105,13 +105,13 @@ partial def univFromIpld (cid : IR.BothUnivCid) : ConvertM TC.Univ := do
     let univ ← match anon, meta with
       | .zero, .zero => pure .zero
       | .succ univAnon, .succ univMeta =>
-        pure $ .succ (← univFromIpld ⟨univAnon, univMeta⟩)
+        pure $ .succ (← univFromIR ⟨univAnon, univMeta⟩)
       | .max univAnon₁ univAnon₂, .max univMeta₁ univMeta₂ =>
-        pure $ .max (← univFromIpld ⟨univAnon₁, univMeta₁⟩)
-          (← univFromIpld ⟨univAnon₂, univMeta₂⟩)
+        pure $ .max (← univFromIR ⟨univAnon₁, univMeta₁⟩)
+          (← univFromIR ⟨univAnon₂, univMeta₂⟩)
       | .imax univAnon₁ univAnon₂, .imax univMeta₁ univMeta₂ =>
-        pure $ .imax (← univFromIpld ⟨univAnon₁, univMeta₁⟩)
-          (← univFromIpld ⟨univAnon₂, univMeta₂⟩)
+        pure $ .imax (← univFromIR ⟨univAnon₁, univMeta₁⟩)
+          (← univFromIR ⟨univAnon₂, univMeta₂⟩)
       | .var idx, .var nam => pure $ .var nam idx
       | a, b => throw $ .anonMetaMismatch a.ctorName b.ctorName
     Key.cache (.univCache cid) univ
@@ -162,14 +162,14 @@ mutual
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
       | [ctorAnon], [ctorMeta] => do
-        pure $ some (← ctorFromIpld ⟨ctorAnon, ctorMeta⟩)
+        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩)
       | _, _ => pure none
 
   /--
   Extracts an `Expr` from IPLD CIDs representing an expression with the caveat
   that the `.var` case may represent a recursive reference.
   -/
-  partial def exprFromIpld (cid : IR.Both IR.ExprCid) : ConvertM TC.Expr := do
+  partial def exprFromIR (cid : IR.Both IR.ExprCid) : ConvertM TC.Expr := do
     match ← Key.find $ .exprStore cid with
     | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
       let depth := (← read).bindDepth
@@ -182,44 +182,44 @@ mutual
       else
         -- this free variable came from recrCtx, and thus represents a mutual reference
         let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
-          fun (anon, meta) => univFromIpld ⟨anon, meta⟩
+          fun (anon, meta) => univFromIR ⟨anon, meta⟩
         match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
         | some (constIdx, name) => pure $ .const default name constIdx lvls
         | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
     | ⟨.sort uAnonCid, .sort uMetaCid⟩ =>
-      pure $ .sort default (← univFromIpld ⟨uAnonCid, uMetaCid⟩)
+      pure $ .sort default (← univFromIR ⟨uAnonCid, uMetaCid⟩)
     | ⟨.const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids⟩ =>
-      let const ← constFromIpld ⟨cAnonCid, cMetaCid⟩
-      let univs ← Ipld.zipWith univFromIpld ⟨uAnonCids, uMetaCids⟩
+      let const ← constFromIR ⟨cAnonCid, cMetaCid⟩
+      let univs ← zipWith univFromIR ⟨uAnonCids, uMetaCids⟩
       pure $ .const default name const univs
     | ⟨.app fncAnon argAnon, .app fncMeta argMeta⟩ =>
-      let fnc ← exprFromIpld ⟨fncAnon, fncMeta⟩
-      let arg ← exprFromIpld ⟨argAnon, argMeta⟩
+      let fnc ← exprFromIR ⟨fncAnon, fncMeta⟩
+      let arg ← exprFromIR ⟨argAnon, argMeta⟩
       pure $ .app default fnc arg
     | ⟨.lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta⟩ =>
-      let dom ← exprFromIpld ⟨domAnon, domMeta⟩
+      let dom ← exprFromIR ⟨domAnon, domMeta⟩
       withNewBind do
-        let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+        let bod ← exprFromIR ⟨bodAnon, bodMeta⟩
         pure $ .lam default name binfo dom bod
     | ⟨.pi () binfo domAnon codAnon, .pi name () domMeta codMeta⟩ =>
-      let dom ← exprFromIpld ⟨domAnon, domMeta⟩
+      let dom ← exprFromIR ⟨domAnon, domMeta⟩
       withNewBind do
-        let cod ← exprFromIpld ⟨codAnon, codMeta⟩
+        let cod ← exprFromIR ⟨codAnon, codMeta⟩
         pure $ .pi default name binfo dom cod
     | ⟨.letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta⟩ =>
-      let typ ← exprFromIpld ⟨typAnon, typMeta⟩
-      let val ← exprFromIpld ⟨valAnon, valMeta⟩
+      let typ ← exprFromIR ⟨typAnon, typMeta⟩
+      let val ← exprFromIR ⟨valAnon, valMeta⟩
       withNewBind do
-        let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+        let bod ← exprFromIR ⟨bodAnon, bodMeta⟩
         pure $ .letE default name typ val bod
     | ⟨.lit lit, .lit ()⟩ => pure $ .lit default lit
     | ⟨.proj idx bodAnon, .proj () bodMeta⟩ =>
-      let bod ← exprFromIpld ⟨bodAnon, bodMeta⟩
+      let bod ← exprFromIR ⟨bodAnon, bodMeta⟩
       pure $ .proj default idx bod
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
-  /-- Converts IPLD CIDs for a constant and return its constant index -/
-  partial def constFromIpld (cid : IR.Both IR.ConstCid) :
+  /-- Converts a `IR.BothConstCid` and return its constant index -/
+  partial def constFromIR (cid : IR.BothConstCid) :
       ConvertM TC.ConstIdx := do
     match ← Key.find? (.constCache cid) with
     | some constIdx => pure constIdx
@@ -232,21 +232,21 @@ mutual
         | .axiom axiomAnon, .axiom axiomMeta =>
           let name := axiomMeta.name
           let lvls := axiomMeta.lvls
-          let type ← exprFromIpld ⟨axiomAnon.type, axiomMeta.type⟩
+          let type ← exprFromIR ⟨axiomAnon.type, axiomMeta.type⟩
           let safe := axiomAnon.safe
           pure $ .axiom { name, lvls, type, safe }
         | .theorem theoremAnon, .theorem theoremMeta =>
           let name := theoremMeta.name
           let lvls := theoremMeta.lvls
-          let type ← exprFromIpld ⟨theoremAnon.type, theoremMeta.type⟩
-          let value ← exprFromIpld ⟨theoremAnon.value, theoremMeta.value⟩
+          let type ← exprFromIR ⟨theoremAnon.type, theoremMeta.type⟩
+          let value ← exprFromIR ⟨theoremAnon.value, theoremMeta.value⟩
           pure $ .theorem { name, lvls, type, value }
         | .inductiveProj anon, .inductiveProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
           let name := induct.meta.name
           let lvls := induct.meta.lvls
-          let type ← exprFromIpld ⟨induct.anon.type, induct.meta.type⟩
+          let type ← exprFromIR ⟨induct.anon.type, induct.meta.type⟩
           let params := induct.anon.params
           let indices := induct.anon.indices
           let recr := induct.anon.recr
@@ -263,8 +263,8 @@ mutual
         | .opaque opaqueAnon, .opaque opaqueMeta =>
           let name := opaqueMeta.name
           let lvls := opaqueMeta.lvls
-          let type ← exprFromIpld ⟨opaqueAnon.type, opaqueMeta.type⟩
-          let value ← exprFromIpld ⟨opaqueAnon.value, opaqueMeta.value⟩
+          let type ← exprFromIR ⟨opaqueAnon.type, opaqueMeta.type⟩
+          let value ← exprFromIR ⟨opaqueAnon.value, opaqueMeta.value⟩
           let safe := opaqueAnon.safe
           pure $ .opaque { name, lvls, type, value, safe }
         | .definitionProj definitionAnon, .definitionProj definitionMeta =>
@@ -279,10 +279,10 @@ mutual
             for (i, ms) in metas.enum do
               for (j, m) in ms.enum do
                 recrCtx := recrCtx.insert (i, some j) (← getConstIdx m.name, m.name)
-            let type ← exprFromIpld ⟨defn.anon.type, defn.meta.type⟩
+            let type ← exprFromIR ⟨defn.anon.type, defn.meta.type⟩
             let all := recrCtx.toList.map fun (_, x, _) => x
             withRecrs recrCtx do
-              let value ← exprFromIpld ⟨defn.anon.value, defn.meta.value⟩
+              let value ← exprFromIR ⟨defn.anon.value, defn.meta.value⟩
               pure $ .definition { name, lvls, type, value, safety, all }
           | _ => throw $ .unexpectedConst meta.ctorName "mutDefBlock"
         | .constructorProj anon, .constructorProj meta =>
@@ -300,8 +300,8 @@ mutual
           let recrCtx ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
-            let type ← exprFromIpld ⟨constructorAnon.type, constructorMeta.type⟩
-            let rhs ← exprFromIpld ⟨constructorAnon.rhs, constructorMeta.rhs⟩
+            let type ← exprFromIR ⟨constructorAnon.type, constructorMeta.type⟩
+            let rhs ← exprFromIR ⟨constructorAnon.rhs, constructorMeta.rhs⟩
             pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
@@ -321,18 +321,19 @@ mutual
           let recrCtx ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
-            let type ← exprFromIpld ⟨recursorAnon.type, recursorMeta.type⟩
-            let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) → (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
+            let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
+            let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) →
+              (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
             | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
             | .extr, .extr, recAnon, recMeta => do
-              let rules ← Ipld.zipWith ruleFromIpld ⟨recAnon.rules, recMeta.rules⟩
+              let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
               pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k }
             | _, _, _, _ => throw .ipldError
             casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
         | .quotient quotientAnon, .quotient quotientMeta =>
           let name := quotientMeta.name
           let lvls := quotientMeta.lvls
-          let type ← exprFromIpld ⟨quotientAnon.type, quotientMeta.type⟩
+          let type ← exprFromIR ⟨quotientAnon.type, quotientMeta.type⟩
           let kind := quotientAnon.kind
           pure $ .quotient { name, lvls, type, kind }
         | .mutDefBlock .., .mutDefBlock .. => throw .mutDefBlockFound
@@ -348,22 +349,24 @@ mutual
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
 
-  /-- Converts constructor IPLD CIDs into a `Constructor` -/
-  partial def ctorFromIpld (ctor : IR.Both IR.Constructor) : ConvertM TC.Constructor := do
+  /-- Converts a `IR.Both IR.Constructor` into a `Constructor` -/
+  partial def ctorFromIR (ctor : IR.Both IR.Constructor) :
+      ConvertM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
-    let type ← exprFromIpld ⟨ctor.anon.type, ctor.meta.type⟩
-    let rhs ← exprFromIpld ⟨ctor.anon.rhs, ctor.meta.rhs⟩
+    let type ← exprFromIR ⟨ctor.anon.type, ctor.meta.type⟩
+    let rhs ← exprFromIR ⟨ctor.anon.rhs, ctor.meta.rhs⟩
     let idx := ctor.anon.idx
     let params := ctor.anon.params
     let fields := ctor.anon.fields
     let safe := ctor.anon.safe
     pure { name, lvls, type, idx, params, fields, rhs, safe }
 
-  /-- Converts recursor rule IPLD CIDs into a `RecursorRule` -/
-  partial def ruleFromIpld (rule : IR.Both IR.RecursorRule) : ConvertM TC.RecursorRule := do
-    let rhs ← exprFromIpld ⟨rule.anon.rhs, rule.meta.rhs⟩
-    let ctorIdx ← constFromIpld ⟨rule.anon.ctor, rule.meta.ctor⟩
+  /-- Converts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
+  partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :
+      ConvertM TC.RecursorRule := do
+    let rhs ← exprFromIR ⟨rule.anon.rhs, rule.meta.rhs⟩
+    let ctorIdx ← constFromIR ⟨rule.anon.ctor, rule.meta.ctor⟩
     let consts := (← get).tcStore.consts
     let maxSize := consts.size
     if h : ctorIdx < maxSize then
@@ -378,7 +381,7 @@ end
 
 /--
 Creates an initial array of constants full of dummy values to be replaced and
-then calls `constFromIpld` for each constant to be converted from the store
+then calls `constFromIR` for each constant to be converted from the store
 -/
 def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
   ConvertM.run (ConvertEnv.init store) default do
@@ -388,7 +391,7 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
       modifyGet fun state => (default, { state with
         tcStore := { state.tcStore with consts := state.tcStore.consts.push default },
         constsIdx := state.constsIdx.insert meta.name idx })
-    (← read).store.consts.forM fun cid => discard $ constFromIpld cid
+    (← read).store.consts.forM fun cid => discard $ constFromIR cid
     (← get).constCache.forM fun cid idx => do
       match Ipld.primCidsMap.find? cid.anon.data.toString with
       | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := some idx } }
@@ -399,7 +402,7 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
 
 /--
 Main function in the converter API. Extracts the final array of constants from
-an `Ipld.Store`
+an `IR.Store`
 -/
 def extractPureStore (store : IR.Store) : Except String TC.Store :=
   match convertStore store with

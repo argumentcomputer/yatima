@@ -1,5 +1,4 @@
-import Yatima.ForLurkRepo.DSL 
-import Yatima.Compiler.Compiler
+import Yatima.Datatypes.Lean
 
 namespace Yatima.Transpiler 
 
