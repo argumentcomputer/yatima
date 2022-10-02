@@ -143,7 +143,7 @@ mutual
     let constIdx ← modifyGet fun stt =>
       (stt.tcStore.consts.size,
         { stt with tcStore := { stt.tcStore with consts := stt.tcStore.consts.push default } })
-    let values : Ipld.Both Ipld.Const × Const ← match const with
+    let values : IR.Both IR.Const × Const ← match const with
       | .axiomInfo struct =>
         let (typeCid, type) ← compileExpr struct.type
         let ax := {
@@ -307,16 +307,15 @@ mutual
 
     -- This part will build the inductive block and add all inductives,
     -- constructors and recursors to `consts`
-    let ipldInds : List (IR.Both IR.Inductive) ← initInd.all.foldrM (init := [])
+    let irInds : List (IR.Both IR.Inductive) ← initInd.all.foldrM (init := [])
       fun name acc => do
         match ← getLeanConstant name with
-        | .inductInfo ind => do
+        | .inductInfo ind =>
           withRecrs recrCtx do
-            let ipldInd ← toYatimaIpldInductive ind
-            pure $ ipldInd :: acc
+            pure $ (← inductiveToIR ind) :: acc
         | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
     let indBlockCid ← addToStore $ .const
-      ⟨.mutIndBlock $ ipldInds.map (·.anon), .mutIndBlock $ ipldInds.map (·.meta)⟩
+      ⟨.mutIndBlock $ irInds.map (·.anon), .mutIndBlock $ irInds.map (·.meta)⟩
 
     -- While iterating on the inductives from the mutual block, we need to track
     -- the correct objects to return
@@ -325,7 +324,7 @@ mutual
     -- `constIdx` keeps track of the constant index for the next addition to cache
     let mut constIdx := firstIdx
 
-    for (indIdx, ⟨indAnon, indMeta⟩) in ipldInds.enum do
+    for (indIdx, ⟨indAnon, indMeta⟩) in irInds.enum do
       -- Store and cache inductive projections
       let name := indMeta.name.projᵣ
       let indProj :=
@@ -360,8 +359,8 @@ mutual
     | some ret => return ret
     | none => throw $ .constantNotCompiled initInd.name
 
-  /-- Encodes a Lean inductive to IPLD -/
-  partial def toYatimaIpldInductive (ind : Lean.InductiveVal) :
+  /-- Encodes a Lean inductive to IR -/
+  partial def inductiveToIR (ind : Lean.InductiveVal) :
       CompileM $ IR.Both IR.Inductive := do
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
@@ -371,11 +370,11 @@ mutual
         match r with
         | .recInfo rv =>
           if isInternalRec rv.type ind.name then
-            let (thisRec, thisCtors) := ← toYatimaIpldInternalRec ind.ctors r
+            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors r
             let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else
-            let thisRec ← toYatimaIpldExternalRec r
+            let thisRec ← externalRecToIR r
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
@@ -429,8 +428,8 @@ mutual
         , () , () , () ⟩
     }
 
-  /-- Encodes an internal recursor to to IPLD -/
-  partial def toYatimaIpldInternalRec (ctors : List Lean.Name) :
+  /-- Encodes an internal recursor to IR -/
+  partial def internalRecToIR (ctors : List Lean.Name) :
     Lean.ConstantInfo → CompileM
       (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
     | .recInfo rec => do
@@ -439,7 +438,7 @@ mutual
         let ctorMap : RBMap Name (IR.Both IR.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             if ctors.contains r.ctor then
-              let ctor ← toYatimaIpldConstructor r
+              let ctor ← constructorToIR r
               return ctorMap.insert ctor.meta.name.projᵣ ctor
             -- this is an external recursor rule
             else return ctorMap
@@ -480,8 +479,8 @@ mutual
         return (recr, retCtors)
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-  /-- Encodes a Lean constructor to IPLD -/
-  partial def toYatimaIpldConstructor (rule : Lean.RecursorRule) :
+  /-- Encodes a Lean constructor to IR -/
+  partial def constructorToIR (rule : Lean.RecursorRule) :
       CompileM $ IR.Both IR.Constructor := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
     match ← getLeanConstant rule.ctor with
@@ -519,14 +518,14 @@ mutual
           safe   := () } ⟩
     | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
-  /-- Encodes an external recursor to IPLD -/
-  partial def toYatimaIpldExternalRec :
+  /-- Encodes an external recursor to IR -/
+  partial def externalRecToIR :
       Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
     | .recInfo rec => withLevels rec.levelParams do
       let (typeCid, type) ← compileExpr rec.type
       let (rules, tcRules) : IR.Both (fun k => List $ IR.RecursorRule k) × List TC.RecursorRule := ← rec.rules.foldlM
         (init := (⟨[], []⟩, [])) fun rules r => do
-          let (recrRule, tcRecrRule) ← toYatimaIpldExternalRecRule r
+          let (recrRule, tcRecrRule) ← externalRecRuleToIR r
           return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
       let tcRecr := .extRecursor {
         name    := rec.name
@@ -563,7 +562,7 @@ mutual
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
   /-- Encodes an external recursor rule to IPLD -/
-  partial def toYatimaIpldExternalRecRule (rule : Lean.RecursorRule) :
+  partial def externalRecRuleToIR (rule : Lean.RecursorRule) :
       CompileM (IR.Both IR.RecursorRule × TC.RecursorRule) := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
     let const ← getLeanConstant rule.ctor
@@ -613,7 +612,7 @@ mutual
         mutIdx := mutIdx + 1
 
     let all := recrCtx.toList.map fun (_, _, _, x) => x
-    let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM (toYatimaIpldDefinition all))
+    let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM (definitionToIR all))
 
     -- Building and storing the block
     let definitionsAnon := (definitions.map fun ds => match ds.head? with | some d => [d.1.anon] | none => []).join
@@ -643,8 +642,8 @@ mutual
     | some ret => return ret
     | none => throw $ .constantNotCompiled struct.name
 
-  /-- Encodes a definition to IPLD -/
-  partial def toYatimaIpldDefinition
+  /-- Encodes a definition to IR -/
+  partial def definitionToIR
     (all : List TC.ConstIdx) (defn : Lean.DefinitionVal) :
       CompileM (IR.Both IR.Definition × TC.Definition) := do
     let (typeCid, type) ← compileExpr defn.type

@@ -21,7 +21,17 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
           let filePathStr := filePath.toString
           cronos ← cronos.clock filePathStr
           match ← compile filePath log stt with
-          | .ok stt' => cronos ← cronos.clock filePathStr; stt := stt'
+          | .ok stt' =>
+            -- making sure that constants with the same name are the very same
+            for (name, (cid', _)) in stt'.cache.toList do
+              match stt.cache.find? name with
+              | some (cid, _) =>
+                if cid != cid' then
+                  IO.println s!"Conflicting constants for {name}"
+                  return 1
+              | none => pure ()
+            cronos ← cronos.clock filePathStr
+            stt := stt'
           | .error err => IO.eprintln err; return 1
       if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"

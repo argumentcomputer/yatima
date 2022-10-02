@@ -67,8 +67,8 @@ def getInductive : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Inductive)
   | ⟨.mutIndBlock indsAnon, .mutIndBlock indsMeta⟩, idx =>
     if h : idx < indsAnon.length ∧ idx < indsMeta.length then
       pure ⟨indsAnon[idx]'(h.1), indsMeta[idx]'(h.2)⟩
-    else throw .ipldError
-  | _, _ => throw .ipldError
+    else throw .irError
+  | _, _ => throw .irError
 
 /-- Retrieves a definition from a mutual block by its index -/
 def getDefinition : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Definition)
@@ -77,13 +77,13 @@ def getDefinition : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Definition
     let defsAnon' := (← defsMeta.enum.mapM fun (i, defMeta) =>
       if h : i < defsAnon.length then
         return List.replicate defMeta.projᵣ.length (defsAnon[i]'h).projₗ
-      else throw .ipldError).join
+      else throw .irError).join
     match defsAnon'.get? idx, defsMeta'.get? idx with
     | some defAnon, some defMeta => pure ⟨defAnon, defMeta⟩
-    | _,            _            => throw .ipldError
-  | _, _ => throw .ipldError
+    | _,            _            => throw .irError
+  | _, _ => throw .irError
 
-/-- Applies a function to each element of the list in `Ipld.Both (List $ A ·)` -/
+/-- Applies a function to each element of the list in `IR.Both (List $ A ·)` -/
 def zipWith (f : IR.Both A → ConvertM B) :
     (as : IR.Both (List $ A ·)) → ConvertM (List B)
   | ⟨anon::anons, meta::metas⟩ => do
@@ -91,7 +91,7 @@ def zipWith (f : IR.Both A → ConvertM B) :
     let bs ← zipWith f ⟨anons, metas⟩
     pure $ b :: bs
   | ⟨[], []⟩ => pure []
-  | _ => throw .ipldError
+  | _ => throw .irError
 
 instance : Coe (Split A B .true)  A := ⟨Split.projₗ⟩
 instance : Coe (Split A B .false) B := ⟨Split.projᵣ⟩
@@ -155,8 +155,10 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM RecrCtx := do
 
 mutual
 
-  /-- Extracts the structure (constructor) from an inductive if it is a structure-like
-  inductive, returns `none` otherwise. -/
+  /--
+  Extracts the structure (constructor) from an inductive if it is a structure-like
+  inductive, returns `none` otherwise.
+  -/
   partial def getStructure (ind : IR.Both IR.Inductive) :
       ConvertM (Option TC.Constructor) :=
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
@@ -166,10 +168,10 @@ mutual
       | _, _ => pure none
 
   /--
-  Extracts an `Expr` from IPLD CIDs representing an expression with the caveat
-  that the `.var` case may represent a recursive reference.
+  Extracts an `Expr` given a `IR.BothExprCid` representing an expression with
+  the caveat that the `.var` case may represent a recursive reference.
   -/
-  partial def exprFromIR (cid : IR.Both IR.ExprCid) : ConvertM TC.Expr := do
+  partial def exprFromIR (cid : IR.BothExprCid) : ConvertM TC.Expr := do
     match ← Key.find $ .exprStore cid with
     | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
       let depth := (← read).bindDepth
@@ -328,7 +330,7 @@ mutual
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
               pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k }
-            | _, _, _, _ => throw .ipldError
+            | _, _, _, _ => throw .irError
             casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
         | .quotient quotientAnon, .quotient quotientMeta =>
           let name := quotientMeta.name
@@ -372,7 +374,7 @@ mutual
     if h : ctorIdx < maxSize then
       let ctor ← match consts[ctorIdx]'h with
         | .constructor ctor => pure ctor
-        | _ => throw .ipldError
+        | _ => throw .irError
       return { rhs, ctor, fields := rule.anon.fields }
     else
       throw $ .constIdxOutOfRange ctorIdx maxSize

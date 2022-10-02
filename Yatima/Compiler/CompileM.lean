@@ -10,14 +10,16 @@ open Std (RBMap)
 /--
 The state for the `Yatima.Compiler.CompileM` monad.
 
-* `store` contains the resulting set of objects in the IPLD format
-* `consts` is the "pure" array of constants, without CIDs
-* `cache` is just for optimization purposes
+* `irStore` contains the resulting objects encoded in IR
+* `tcStore` contains the resulting objects for typechecking
+* `cache` has compiled data of constants, accessed by name
+
+The IPLD arrays are used for the later encoding of the IR store in IPLD
 -/
 structure CompileState where
-  irStore   : IR.Store
-  tcStore   : TC.Store
-  cache     : RBMap Name (IR.BothConstCid × TC.ConstIdx) compare
+  irStore : IR.Store
+  tcStore : TC.Store
+  cache   : RBMap Name (IR.BothConstCid × TC.ConstIdx) compare
   constsIpld    : Array Ipld
   univAnonIpld  : Array Ipld
   exprAnonIpld  : Array Ipld

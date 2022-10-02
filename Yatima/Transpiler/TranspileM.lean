@@ -5,12 +5,11 @@ import Yatima.ForLurkRepo.AST
 
 namespace Yatima.Transpiler
 
--- open Yatima.Compiler
-
 structure TranspileEnv where
-  irStore : IR.Store
-  tcStore : TC.Store
-  map : Std.RBMap Name TC.Const compare
+  irStore  : IR.Store
+  tcStore  : TC.Store
+  /-- Used to speed up lookup by name -/
+  map      : Std.RBMap Name TC.Const compare
   builtins : List (Name × Lurk.Expr)
 
 structure TranspileState where
