@@ -46,9 +46,13 @@ def runCmd (cmd : String) (cwd : Option System.FilePath := none) : IO (Except St
       else .ok out.stdout
   else return .ok ""
 
-open Cli.Parsed in
-def Cli.Parsed.getD (p : Cli.Parsed) (flag : String) (default : String) : String :=
+open Cli.Parsed
+
+def Cli.Parsed.getFlagD (p : Cli.Parsed) (flag : String) (default : String) : String :=
   p.flag? flag |>.map (Flag.as! · String) |>.getD default
+
+def Cli.Parsed.getArg! (p : Cli.Parsed) (arg : String) : String :=
+  p.positionalArg! arg |>.as! String
 
 open Yatima.IR in
 def readStoreFromFile (fileName : String) : IO $ Except String Store :=

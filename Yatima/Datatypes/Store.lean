@@ -55,6 +55,7 @@ end TC
 
 namespace Ipld
 
+/-- Contains `IR.Store` data encoded in IPLD -/
 structure Store where
   consts    : Array Ipld
   univAnon  : Array Ipld

@@ -1,6 +1,5 @@
 import Yatima.Transpiler.TranspileError
 import Yatima.Datatypes.Store
-import Yatima.Compiler.Utils
 import Yatima.ForLurkRepo.AST
 
 namespace Yatima.Transpiler

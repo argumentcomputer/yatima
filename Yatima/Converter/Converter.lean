@@ -1,6 +1,5 @@
 import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
-import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
 import Yatima.Ipld.PrimCids

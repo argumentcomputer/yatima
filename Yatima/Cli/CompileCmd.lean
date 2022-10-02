@@ -27,7 +27,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
               match stt.cache.find? name with
               | some (cid, _) =>
                 if cid != cid' then
-                  IO.println s!"Conflicting constants for {name}"
+                  IO.eprintln s!"Conflicting constants for {name}"
                   return 1
               | none => pure ()
             cronos ← cronos.clock filePathStr
@@ -37,7 +37,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
       let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
-      IO.FS.writeBinFile (p.getD "output" "output.ir") (DagCbor.serialize ipld)
+      IO.FS.writeBinFile (p.getFlagD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
     else
       IO.eprintln $ "No store argument was found.\n" ++
@@ -50,7 +50,8 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
 
 def compileCmd : Cli.Cmd := `[Cli|
   compile VIA compileRun;
-  "Compiles Lean 4 code to Yatima IR"
+  "Compiles Lean 4 code to Yatima IR and writes the resulting IPLD data" ++
+    " encoded with DagCbor to the file system"
 
   FLAGS:
     o, "output" : String; "The name of the output binary file." ++

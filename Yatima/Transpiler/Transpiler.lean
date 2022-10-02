@@ -1,4 +1,3 @@
-import Yatima.Datatypes.Store
 import Yatima.Converter.Converter
 import Yatima.Transpiler.Simp
 import Yatima.Transpiler.Utils

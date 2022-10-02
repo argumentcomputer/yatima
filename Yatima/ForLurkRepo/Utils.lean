@@ -1,6 +1,5 @@
-import Lean
 import Yatima.ForLurkRepo.AST
-import Yatima.Compiler.Utils
+import Yatima.Datatypes.Lean
 
 def Std.RBMap.filterOut [BEq α] [Ord α]
   (map : Std.RBMap α β compare) (s : Std.RBTree α compare) :

@@ -1,4 +1,3 @@
-import Yatima.Transpiler.TranspileM
 import Yatima.ForLurkRepo.DSL
 
 /-!
