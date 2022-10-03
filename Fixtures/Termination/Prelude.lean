@@ -804,6 +804,8 @@ abbrev DecidablePred {α : Sort u} (r : α → Prop) :=
 /-- A decidable relation. See `Decidable`. -/
 abbrev DecidableRel {α : Sort u} (r : α → α → Prop) :=
   (a b : α) → Decidable (r a b)
+                                                                      
+#exit
 
 /--
 Asserts that `α` has decidable equality, that is, `a = b` is decidable

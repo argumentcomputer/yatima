@@ -19,14 +19,6 @@ In this module the two major functions `check` and `infer` are defined.
 
 namespace Yatima.Typechecker
 
-/-- Reduces the application of a `pi` type to its arguments -/
-def applyType : Value → List SusValue → TypecheckM Value
-  | .pi _ _ _ img imgCtx, arg :: args => do
-    let res ← withEnv (imgCtx.extendWith arg) (eval img)
-    applyType res args
-  | type, [] => pure type
-  | _, _ => throw .cannotApply
-
 /-- Checks if a type is an unit inductive -/
 def isUnit : Value → TypecheckM Bool
   | .app (.const name i _) _ => do
