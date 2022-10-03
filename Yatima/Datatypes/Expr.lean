@@ -2,7 +2,7 @@ import Yatima.Datatypes.Univ
 
 namespace Yatima
 
-namespace Ipld
+namespace IR
 
 -- Carries a `Lean.Name` for meta
 scoped notation "Nameₘ" => Split Unit Name
@@ -44,7 +44,9 @@ def Expr.ctorName : Expr k → String
   | .lit   .. => "lit"
   | .proj  .. => "proj"
 
-end Ipld
+end IR
+
+namespace TC
 
 /-- Points to a constant in an array of constants -/
 abbrev ConstIdx := Nat
@@ -63,12 +65,12 @@ abbrev ConstIdx := Nat
 -/
 structure TypeInfo where
   struct? : Option Nat
-  unit? : Bool
-  proof? : Bool
-  prop? : Bool
+  unit?   : Bool
+  proof?  : Bool
+  prop?   : Bool
   deriving Inhabited
-instance : BEq TypeInfo where beq _ _ := true
 
+instance : BEq TypeInfo where beq _ _ := true
 
 /-- Representation of expressions for typechecking and transpilation -/
 inductive Expr
@@ -172,75 +174,6 @@ def numBinders : Expr → Nat
   | letE _ _ _ _ body => 1 + numBinders body
   | _ => 0
 
--- TODO Modifying expressions on the fly are difficult when we need to compute the hashes. But are these functions really necessary?
--- /--
--- Shift the de Bruijn indices of all variables at depth > `cutoff` in expression
--- `expr` by an increment `inc`.
-
--- `shiftFreeVars` and `subst` implementations are variation on those for untyped
--- λ-expressions from `ExprGen.lean`.
--- -/
--- def shiftFreeVars (expr : Expr) (inc : Int) (cutoff : Nat) : Expr :=
---   let rec walk (cutoff : Nat) (expr : Expr) : Expr := match expr with
---     | var name idx => match inc with
---       | .ofNat inc   => if idx < cutoff then var name idx else var name <| idx + inc
---       | .negSucc inc => if idx < cutoff then var name idx else var name <| idx - inc.succ -- 0 - 1 = 0
---     | app func input            => app (walk cutoff func) (walk cutoff input)
---     | lam name bind type body   => lam name bind (walk cutoff type) (walk cutoff.succ body)
---     | pi name bind type body    => pi name bind (walk cutoff type) (walk cutoff.succ body)
---     | letE name type value body =>
---       letE name (walk cutoff type) (walk cutoff value) (walk cutoff.succ body)
---     | other                     => other -- All the rest of the cases are treated at once
---   walk cutoff expr
-
--- /--
--- Shift the de Bruijn indices of all variables in expression `expr` by increment
--- `inc`.
--- -/
--- def shiftVars (expr : Expr) (inc : Int) : Expr :=
---   let rec walk (expr : Expr) : Expr := match expr with
---     | var name idx              =>
---       let idx : Nat := idx
---       match inc with
---         | .ofNat inc   => var name <| idx + inc
---         | .negSucc inc => var name <| idx - inc.succ -- 0 - 1 = 0
---     | app func input            => app (walk func) (walk input)
---     | lam name bind type body   => lam name bind (walk type) (walk body)
---     | pi name bind type body    => pi name bind (walk type) (walk body)
---     | letE name type value body =>
---       letE name (walk type) (walk value) (walk body)
---     | other => other -- All the rest of the cases are treated at once
---   walk expr
-
--- /--
--- Substitute the expression `term` for any bound variable with de Bruijn index
--- `dep` in the expression `expr`
--- -/
--- def subst (expr term : Expr) (dep : Nat) : Expr :=
---   let rec walk (acc : Nat) : Expr → Expr
---     | var name idx => match compare idx (dep + acc) with
---       | .eq => term.shiftFreeVars acc 0
---       | .gt => var name (idx - 1)
---       | .lt => var name idx
---     | app func input => app (walk acc func) (walk acc input)
---     | lam name bind type body =>
---       lam name bind (walk acc type) (walk acc.succ body)
---     | pi name bind type body =>
---       pi name bind (walk acc type) (walk acc.succ body)
---     | letE name type value body =>
---       letE name (walk acc type) (walk acc value) (walk acc.succ body)
---     | other => other -- All the rest of the cases are treated at once
---   walk 0 expr
-
--- /--
--- Substitute the expression `term` for the top level bound variable of the
--- expression `expr`.
-
--- (essentially just `(λ. M) N`)
--- -/
--- def substTop (expr term : Expr) : Expr :=
---   expr.subst (term.shiftFreeVars 1 0) 0 |>.shiftFreeVars (-1) 0
-
 /--
 Remove all binders from an expression, converting a lambda into
 an "implicit lambda". This is useful for constructing the `rhs` of
@@ -251,5 +184,7 @@ def toImplicitLambda : Expr → Expr
   | x => x
 
 end Expr
+
+end TC
 
 end Yatima

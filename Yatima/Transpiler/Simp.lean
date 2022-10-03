@@ -1,4 +1,4 @@
-import Yatima.Transpiler.TranspileM
+import Yatima.ForLurkRepo.DSL
 
 /-!
 # Simp
@@ -10,9 +10,10 @@ A rudimentary simplifier for lurk expressions.
   so this file should be taken as a hack and not 
   built upon heavily.
 -/
-open Lurk 
-namespace Yatima.Transpiler 
-namespace Simp 
+open Lurk
+
+namespace Yatima.Transpiler
+namespace Simp
 
 def getOfNatLit (e : Lurk.Expr) : Option (Fin N) := 
   match e with 

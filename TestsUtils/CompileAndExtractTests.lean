@@ -28,11 +28,11 @@ creates tests that assert that:
 -/
 
 def extractCidGroups (groups : List (List Lean.Name)) (stt : CompileState) :
-    Except String (Array (Array (Lean.Name × Ipld.ConstCid .anon))) := Id.run do
+    Except String (Array (Array (Lean.Name × IR.ConstCid .anon))) := Id.run do
   let mut notFound : Array Lean.Name := #[]
-  let mut cidGroups : Array (Array (Lean.Name × Ipld.ConstCid .anon)) := #[]
+  let mut cidGroups : Array (Array (Lean.Name × IR.ConstCid .anon)) := #[]
   for group in groups do
-    let mut cidGroup : Array (Lean.Name × Ipld.ConstCid .anon) := #[]
+    let mut cidGroup : Array (Lean.Name × IR.ConstCid .anon) := #[]
     for name in group do
       match stt.cache.find? name with
       | none          => notFound := notFound.push name
@@ -72,6 +72,8 @@ def find? [BEq α] (as : List α) (f : α → Bool) : Option (Nat × α) := Id.r
   return none
 
 abbrev NatNatMap := Std.RBMap Nat Nat compare
+
+open TC
 
 instance : Ord Const where
   compare x y := compare x.name y.name
@@ -131,8 +133,8 @@ def reindexConst (map : NatNatMap) : Const → Const
 
 def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
   withExceptOk "`FromIpld.extractPureStore` succeeds"
-    (extractPureStore stt.store) fun pStore =>
-      withExceptOk "Pairing succeeds" (pairConstants stt.pStore.consts pStore.consts) $
+    (extractPureStore stt.irStore) fun pStore =>
+      withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
@@ -150,10 +152,10 @@ also be accepted by our implementation
 -/
 
 def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).pStore.consts.filter (·.name == name)).forM checkConst
+  ((← read).store.consts.filter (·.name == name)).forM checkConst
 
-def typecheckConst (pStore : PureStore) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init pStore) (typecheckConstM name) with
+def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
+  match TypecheckM.run (.init store) (typecheckConstM name) with
   | .ok u => .ok u
   | .error err => throw $ toString err
 
@@ -163,9 +165,9 @@ instance : Testable (FoundConstFailure constName) :=
   .isFailure $ .some s!"Could not find constant {constName}"
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  stt.pStore.consts.foldl (init := .done) fun tSeq const =>
+  stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConst stt.pStore const.name) fun _ => .done
+      (typecheckConst stt.tcStore const.name) fun _ => .done
 
 end Typechecking
 
@@ -182,7 +184,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where
 def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk "Transpilation succeeds" (transpile stt.store root) fun expr =>
+    withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun expr =>
       let val := eval expr
       match expected with
         | some expected =>
@@ -195,10 +197,8 @@ end Transpilation
 section Ipld
 
 def extractIpldTests (stt : CompileState) : TestSeq :=
-  let store := stt.store
-  let ipld := ToIpld.storeToIpld stt.constsIpld
-    stt.univAnonIpld stt.exprAnonIpld stt.constAnonIpld
-    stt.univMetaIpld stt.exprMetaIpld stt.constMetaIpld
+  let store := stt.irStore
+  let ipld := Ipld.storeToIpld stt.ipldStore
   withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
     fun store' => test "DeSer roundtrips" (store == store')
 

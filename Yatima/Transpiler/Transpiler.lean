@@ -1,4 +1,3 @@
-import Yatima.Datatypes.Store
 import Yatima.Converter.Converter
 import Yatima.Transpiler.Simp
 import Yatima.Transpiler.Utils
@@ -214,6 +213,8 @@ else if `v`.cidx == 1
 
 namespace Yatima.Transpiler
 
+open TC
+
 def replaceName (name : Name) : TranspileM Name := do
   if name.isHygenic then
     match (← get).replaced.find? name with
@@ -398,7 +399,7 @@ mutual
         | some (n, e) =>
           builtinInitialize n e
         | none =>
-          let const := (← read).pStore.consts[idx]! -- TODO: Add proof later
+          let const := (← read).tcStore.consts[idx]! -- TODO: Add proof later
           mkConst const
       mkName name
     | .app _ fn arg =>
@@ -476,7 +477,7 @@ mutual
       let indName := name.getPrefix
       match (← read).map.find? indName with
       | some (.inductive i) => return i
-      | some x => throw $ .invalidConstantKind x "inductive"
+      | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
       | none => dbg_trace name; throw $ .notFoundInMap indName
     processInductive (name : Name) : TranspileM Unit := do
       let i ← getInductive name
@@ -524,7 +525,7 @@ def initializePrimitives : TranspileM Unit := do
 /-- Main translation function -/
 def transpileM (root : Name) : TranspileM Unit := do
   initializePrimitives
-  match (← read).pStore.consts.find? fun c => c.name == root with
+  match (← read).tcStore.consts.find? fun c => c.name == root with
   | some c => mkConst c
   | none => throw $ .custom s!"Unknown const {root}"
 
@@ -533,7 +534,7 @@ Constructs a `Lurk.Expr.letRecE` whose body is the call to a `root` constant in
 a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
-def transpile (store : Ipld.Store) (root : Name := `root) :
+def transpile (store : IR.Store) (root : Name := `root) :
     Except String Lurk.Expr :=
   match Converter.extractPureStore store with
   | .error err => .error err

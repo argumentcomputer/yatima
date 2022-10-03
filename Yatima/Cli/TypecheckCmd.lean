@@ -5,7 +5,7 @@ import Yatima.ForLurkRepo.Eval
 
 open System Yatima.Compiler Yatima.Typechecker in
 def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
-  let fileName : String := p.positionalArg! "input" |>.as! String
+  let fileName := p.getArg! "input"
   match ← readStoreFromFile fileName with
   | .error err => IO.eprintln err; return 1
   | .ok store => match typecheck store with
@@ -14,7 +14,7 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
 
 def typecheckCmd : Cli.Cmd := `[Cli|
   typecheck VIA typecheckRun;
-  "Typechecks Yatima IR"
+  "Typechecks a Yatima IR store written in a binary file"
 
   ARGS:
     input : String; "Input DagCbor binary file"

@@ -24,7 +24,7 @@ def printDefSafety : DefinitionSafety → String
   | .safe    => ""
   | .partial => "partial "
 
-def getCid (name : Name) : PrintM ConstCid := do
+def getCid (name : Name) : PrintM IR.BothConstCid := do
   match (← read).cache.find? name with
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache name
@@ -45,8 +45,10 @@ instance : ToString Ordering where toString
   | .gt => "gt"
   | .eq => "eq"
 
+open TC
+
 def isProp : Expr → Bool
-  | .sort _ Univ.zero => true
+  | .sort _ .zero => true
   | _ => false
 
 def isAtomAux : Expr → Bool
@@ -63,8 +65,7 @@ def isBinder : Expr → Bool
   | _ => false
 
 def isArrow : Expr → Bool
-  | .pi _ name bInfo _ body =>
-    !(Expr.isVarFree name body) && bInfo == .default
+  | .pi _ name bInfo _ body => !(body.isVarFree name) && bInfo == .default
   | _ => false
 
 def printBinder (name : Name) (bInfo : BinderInfo) (type : String) : String :=
@@ -131,7 +132,7 @@ partial def printExtRecursor (cid : String) (recr : ExtRecursor) : PrintM String
 
 partial def printIntRecursor (cid : String) (recr : IntRecursor) : PrintM String := do
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
-          s!"internal\n"
+           "internal\n"
 
 partial def printConstructors (ctors : List Constructor) : PrintM String := do
   let ctors ← ctors.mapM fun ctor => do

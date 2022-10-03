@@ -19,6 +19,8 @@ In this module the two major functions `check` and `infer` are defined.
 
 namespace Yatima.Typechecker
 
+open TC
+
 /-- Reduces the application of a `pi` type to its arguments -/
 def applyType : Value → List SusValue → TypecheckM Value
   | .pi _ _ _ img imgCtx, arg :: args => do

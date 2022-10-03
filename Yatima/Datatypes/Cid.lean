@@ -1,9 +1,7 @@
 import Ipld.Cid
 import Yatima.Datatypes.Kind
 
-namespace Yatima
-
-namespace Ipld
+namespace Yatima.IR
 
 /-- Constants to encode universe levels in IPLD -/
 @[matchPattern] def UNIV : Kind → UInt64
@@ -33,12 +31,8 @@ structure AnonMeta (A : Type) (B : Type) : Type where
 
 abbrev Both (A : Kind → Type) := AnonMeta (A .anon) (A .meta)
 
-end Ipld
+abbrev BothUnivCid  := Both UnivCid
+abbrev BothExprCid  := Both ExprCid
+abbrev BothConstCid := Both ConstCid
 
-abbrev UnivCid  := Ipld.Both Ipld.UnivCid
-abbrev ExprCid  := Ipld.Both Ipld.ExprCid
-abbrev ConstCid := Ipld.Both Ipld.ConstCid
-
-structure StoreCid where data : Cid deriving BEq, Ord, Inhabited
-
-end Yatima
+end Yatima.IR

@@ -4,7 +4,7 @@ import Yatima.Datatypes.Split
 
 namespace Yatima
 
-namespace Ipld
+namespace IR
 
 -- Holds a `Nat` for anon and a `Yatima.Name` for meta
 scoped notation "NatₐNameₘ" => Split Nat Name
@@ -25,7 +25,9 @@ def Univ.ctorName : Univ k → String
   | .imax .. => "imax"
   | .var  .. => "var"
 
-end Ipld
+end IR
+
+namespace TC
 
 /-- Representation of universe levels for typechecking and transpilation -/
 inductive Univ where
@@ -212,5 +214,7 @@ def isZero : Univ → Bool
   | _ => false
 
 end Univ
+
+end TC
 
 end Yatima
