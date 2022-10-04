@@ -804,8 +804,6 @@ abbrev DecidablePred {α : Sort u} (r : α → Prop) :=
 /-- A decidable relation. See `Decidable`. -/
 abbrev DecidableRel {α : Sort u} (r : α → α → Prop) :=
   (a b : α) → Decidable (r a b)
-                                                                      
-#exit
 
 /--
 Asserts that `α` has decidable equality, that is, `a = b` is decidable
@@ -826,6 +824,8 @@ theorem decide_eq_true : [inst : Decidable p] → p → Eq (decide p) true
 theorem decide_eq_false : [Decidable p] → Not p → Eq (decide p) false
   | isTrue  h₁, h₂ => absurd h₁ h₂
   | isFalse _, _   => rfl
+
+#exit
 
 theorem of_decide_eq_true [inst : Decidable p] : Eq (decide p) true → p := fun h =>
   match (generalizing := false) inst with
