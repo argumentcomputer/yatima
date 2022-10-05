@@ -1,4 +1,4 @@
-import Yatima.ForLurkRepo.DSL
+import Lurk.DSL
 
 /-!
 # Simp
@@ -12,19 +12,17 @@ A rudimentary simplifier for lurk expressions.
 -/
 open Lurk
 
-namespace Yatima.Transpiler
-namespace Simp
+namespace Yatima.Transpiler.Simp
 
-def getOfNatLit (e : Lurk.Expr) : Option (Fin N) := 
-  match e with 
-  | .app (.app (.app f nat?) n) (.app inst m) => 
-    if f == ⟦$(``OfNat.ofNat)⟧ && nat? == ⟦$(``Nat)⟧ && n == m && inst == ⟦$(``instOfNatNat)⟧ then 
-      match n with 
+def getOfNatLit : Lurk.Expr → Option (Fin N)
+  | .app (.app (.app f nat?) n) (.app inst m) =>
+    if f == ⟦$(``OfNat.ofNat)⟧ && nat? == ⟦$(``Nat)⟧ && n == m &&
+        inst == ⟦$(``instOfNatNat)⟧ then
+      match n with
       | .lit (.num n) => some n
       | _ => none
-    else 
+    else
       none
   | _ => none
 
-end Simp
-end Yatima.Transpiler
+end Yatima.Transpiler.Simp
