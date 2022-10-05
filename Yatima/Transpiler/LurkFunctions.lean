@@ -1,4 +1,4 @@
-import Yatima.ForLurkRepo.DSL 
+import Lurk.DSL 
 
 /-!
 

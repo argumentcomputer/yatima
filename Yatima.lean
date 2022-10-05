@@ -24,17 +24,6 @@ import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Split
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Univ
-import Yatima.ForLurkRepo.AST
-import Yatima.ForLurkRepo.DSL
-import Yatima.ForLurkRepo.DSLTesting
-import Yatima.ForLurkRepo.Eval
-import Yatima.ForLurkRepo.FixName
-import Yatima.ForLurkRepo.Literal
-import Yatima.ForLurkRepo.PreUtils
-import Yatima.ForLurkRepo.Printing
-import Yatima.ForLurkRepo.SExpr
-import Yatima.ForLurkRepo.Tests
-import Yatima.ForLurkRepo.Utils
 import Yatima.Ipld.FromIpld
 import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld

@@ -1,11 +1,11 @@
 import LSpec
+import Lurk.Eval
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
 import Yatima.Converter.Converter
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
-import Yatima.ForLurkRepo.Eval
 import Yatima.Ipld.FromIpld
 
 open LSpec Yatima Compiler

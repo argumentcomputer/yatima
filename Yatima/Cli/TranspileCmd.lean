@@ -1,7 +1,7 @@
 import Yatima.Cli.Utils
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
-import Yatima.ForLurkRepo.Eval
+import Lurk.Eval
 
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler in
 def transpileRun (p : Cli.Parsed) : IO UInt32 := do
