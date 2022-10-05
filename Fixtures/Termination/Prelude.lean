@@ -825,12 +825,10 @@ theorem decide_eq_false : [Decidable p] → Not p → Eq (decide p) false
   | isTrue  h₁, h₂ => absurd h₁ h₂
   | isFalse _, _   => rfl
 
-#exit
-
 theorem of_decide_eq_true [inst : Decidable p] : Eq (decide p) true → p := fun h =>
-  match (generalizing := false) inst with
-  | isTrue  h₁ => h₁
-  | isFalse h₁ => absurd h (ne_true_of_eq_false (decide_eq_false h₁))
+  inst.casesOn (fun h₁ => absurd h (ne_true_of_eq_false (decide_eq_false h₁))) (fun h₁ => h₁)
+
+#exit
 
 theorem of_decide_eq_false [inst : Decidable p] : Eq (decide p) false → Not p := fun h =>
   match (generalizing := false) inst with

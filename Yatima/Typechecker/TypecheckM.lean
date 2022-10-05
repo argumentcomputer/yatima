@@ -18,15 +18,30 @@ The context available to the typechecker monad. The available fields are
 * `store : Array Const` : An array of known constants in the context that can be referred to by their index.
 -/
 structure TypecheckCtx where
-  lvl    : Nat
-  env    : Env
-  types  : List SusValue
-  pStore : PureStore
+  lvl      : Nat
+  env      : Env
+  types    : List SusValue
+  pStore   : PureStore
+  deriving Inhabited
+
+/--
+The state available to the typechecker monad. The available fields are
+* `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their fields and values annotated
+-/
+structure TypecheckState where
+  tcConsts : Array (Option Const)
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular `store : Array Const` -/
 def TypecheckCtx.init (pStore : PureStore) : TypecheckCtx :=
   { (default : TypecheckCtx) with pStore }
+
+/-- An initialization of the typchecker context with a particular `store : Array Const` -/
+def TypecheckState.init (pStore : PureStore) : TypecheckState := Id.run $ do
+  let mut tcConsts := .mk []
+  for _ in [:pStore.consts.size] do
+    tcConsts := .mk $ none :: tcConsts.toList
+  pure {tcConsts}
 
 /-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
 def TypecheckCtx.initEnv (env : Env) (pStore : PureStore) : TypecheckCtx :=
@@ -36,11 +51,13 @@ def TypecheckCtx.initEnv (env : Env) (pStore : PureStore) : TypecheckCtx :=
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
 and can throw exceptions of the form `TypecheckError`
 -/
-abbrev TypecheckM := ReaderT TypecheckCtx $ ExceptT TypecheckError Id
+abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState  $ ExceptT TypecheckError Id
 
-/-- Basic runner for the typchecker monad -/
-def TypecheckM.run (ctx : TypecheckCtx) (m : TypecheckM α) : Except TypecheckError α :=
-  ExceptT.run (ReaderT.run m ctx)
+/-- Basic runner for the typechecker monad -/
+def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except TypecheckError α :=
+  match ExceptT.run $ (StateT.run (ReaderT.run m ctx) stt) with
+  | .error e => .error e
+  | .ok (a, _) => .ok a
 
 /-- Evaluates a `TypecheckM` computation with an `TypecheckCtx` whose environment is fixed by `env` -/
 def withEnv (env : Env) : TypecheckM α → TypecheckM α :=

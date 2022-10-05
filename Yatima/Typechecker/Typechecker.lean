@@ -13,11 +13,11 @@ namespace Yatima.Typechecker
 
 /-- Typechecks all the constants in the `TypecheckEnv.store` -/
 def typecheckM : TypecheckM Unit := do
-  (← read).pStore.consts.forM checkConst
+  (← read).pStore.consts.toList.enum.forM (fun (i, const) => checkConst const i)
 
 /-- Typechecks an array of constants -/
 def typecheckConsts (pStore : PureStore) : Except String Unit :=
-  match TypecheckM.run (.init pStore) typecheckM with
+  match TypecheckM.run (.init pStore) (.init pStore) typecheckM with
   | .ok u => .ok u
   | .error err => throw $ toString err
 

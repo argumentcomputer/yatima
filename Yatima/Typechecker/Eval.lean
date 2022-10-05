@@ -28,10 +28,16 @@ returns it if it is found. If the constant is not found it throws an error.
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
-  let consts := (← read).pStore.consts
-  match consts.get? constIdx with
-  | some const => pure const
-  | none => throw $ .outOfConstsRange name constIdx consts.size
+  let tcConsts := (← get).tcConsts
+  -- use typechecked version if available
+  match tcConsts.get? constIdx with
+  | some (some const) => pure const
+  | some none =>
+    let consts := (← read).pStore.consts
+    match consts.get? constIdx with
+    | some const => pure const
+    | none => throw $ .outOfConstsRange name constIdx consts.size
+  | none => throw $ .outOfConstsRange name constIdx tcConsts.size
 
 mutual
   /--
@@ -44,13 +50,13 @@ mutual
   partial def eval : Expr → TypecheckM Value
     | .app _ fnc arg => do
       let ctx ← read
-      let argThunk := suspend arg ctx
+      let argThunk := suspend arg ctx (← get)
       let fnc ← eval fnc
       -- dbg_trace s!"evaluating {fnc}... {arg.info.struct?}"
       apply fnc argThunk
     | .lam _ name info dom bod => do
       let ctx ← read
-      let dom' := suspend dom ctx
+      let dom' := suspend dom ctx (← get)
       pure $ Value.lam name info dom' bod ctx.env
     | .var _ name idx => do
       let exprs := (← read).env.exprs
@@ -60,11 +66,11 @@ mutual
       let env := (← read).env
       evalConst name k (const_univs.map (Univ.instBulkReduce env.univs))
     | .letE _ _ _ val bod => do
-      let thunk := suspend val (← read)
+      let thunk := suspend val (← read) (← get)
       withExtendedEnv thunk (eval bod)
     | .pi _ name info dom img => do
       let ctx ← read
-      let dom' := suspend dom ctx
+      let dom' := suspend dom ctx (← get)
       pure $ Value.pi name info dom' img ctx.env
     | .sort _ univ => do
       let env := (← read).env
@@ -72,7 +78,7 @@ mutual
     | .lit _ lit =>
       pure $ Value.lit lit
     | .proj _ idx expr => do
-      let val := suspend expr (← read)
+      let val := suspend expr (← read) (← get)
       match val.get with
       | .app (.const name k _) args =>
         match ← derefConst name k with
@@ -108,9 +114,9 @@ mutual
 
   Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
   -/
-  partial def suspend (expr : Expr) (ctx : TypecheckCtx) : SusValue :=
+  partial def suspend (expr : Expr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
     let thunk := { fn := fun _ =>
-      match TypecheckM.run ctx (eval expr) with
+      match TypecheckM.run ctx stt (eval expr) with
       | .ok a => a
       | .error e => .exception e,
      }
@@ -163,7 +169,6 @@ mutual
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         if recur.k then
-          -- TODO external recursors
           --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
           --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
           -- sanity check
