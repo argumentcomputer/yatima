@@ -36,7 +36,7 @@ inductive Univ where
   | max   : Univ → Univ → Univ
   | imax  : Univ → Univ → Univ
   | var   : Name → Nat → Univ
-  deriving BEq, Inhabited
+  deriving BEq, Inhabited, Repr
 
 namespace Univ
 
@@ -62,24 +62,32 @@ def reduceMax (a b : Univ) : Univ :=
   | .var _ idx, .var _ idx' => if idx == idx' then a else .max a b
   | _, _ => .max a b
 
+def isNotZero : Univ → Bool
+  | .max a b => isNotZero a || isNotZero b
+  | .imax _ b => isNotZero b
+  | .succ _ => true
+  | _ => false
+
 /--
 Reduces as an `imax` applied to two values.
 
 It is assumed that `a` and `b` are already reduced
 -/
 def reduceIMax (a b : Univ) : Univ :=
-  match b with
-  -- IMax(a, b) will reduce to 0 if b == 0
-  | .zero => .zero
-  -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..)
-  | .succ _ => reduceMax a b
-  | .var _ idx => match a with
-    | .var _ idx' => if idx == idx' then a else .imax a b
+  if isNotZero b then reduceMax a b
+  else
+    match b with
+    -- IMax(a, b) will reduce to 0 if b == 0
+    | .zero => .zero
+    -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..) (impossible case)
+    | .succ _ => reduceMax a b
+    | .var _ idx => match a with
+      | .var _ idx' => if idx == idx' then a else .imax a b
+      | _ => .imax a b
+    -- IMax(a, b) will reduce as Max(IMax(a, x), IMax(a, y)) if b == Max(x, y)
+    | .max x y => reduceMax (reduceIMax a x) (reduceIMax a y)
+    -- Otherwise, IMax(a, b) is stuck, with a and b reduced
     | _ => .imax a b
-  -- IMax(a, b) will reduce as Max(IMax(a, x), IMax(a, y)) if b == Max(x, y)
-  | .max x y => reduceMax (reduceIMax a x) (reduceIMax a y)
-  -- Otherwise, IMax(a, b) is stuck, with a and b reduced
-  | _ => .imax a b
 
 /--
 Reduce, or simplify, the universe levels to a normal form. Notice that universe
@@ -193,10 +201,12 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
   | _, Univ.imax c (Univ.imax e f) =>
     let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
     leq a new_max diff
-  | _, _ => false -- Impossible cases
+  | _, _ => dbg_trace s!"impossible case arrived: {repr a}, {repr b}"
+           false -- Impossible cases
 
 /-- The equality algorithm. Assumes `a` and `b` are already reduced -/
 def equalUniv (a b : Univ) : Bool :=
+  dbg_trace s!"checking: {repr a} == {repr b}"
   leq a b 0 && leq b a 0
 
 /--
