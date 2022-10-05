@@ -2,8 +2,8 @@ import Yatima.Cli.Utils
 
 open Cli.Parsed in
 def proveRun (p : Cli.Parsed) : IO UInt32 := do
-  let input : String := p.positionalArg! "input" |>.as! String
-  let output := p.getD "output" "output.json"
+  let input := p.getArg! "input"
+  let output := p.getFlagD "output" "output.json"
   let proveCmd := s!"fcomm prove --expression {input} --proof {output} --lurk"
   match ← runCmd proveCmd with
   | .ok res => IO.println res; return 0

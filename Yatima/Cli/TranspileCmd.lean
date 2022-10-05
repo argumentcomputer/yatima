@@ -5,16 +5,16 @@ import Yatima.ForLurkRepo.Eval
 
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler in
 def transpileRun (p : Cli.Parsed) : IO UInt32 := do
-  let fileName : String := p.positionalArg! "input" |>.as! String
+  let fileName := p.getArg! "input"
   match ← readStoreFromFile fileName with
   | .error err => IO.eprintln err; return 1
   | .ok store =>
     let noEraseTypes := p.hasFlag "no-erase-types" -- TODO
-    let declaration : Lean.Name := .mkSimple $ p.getD "declaration" "root"
+    let declaration : Lean.Name := .mkSimple $ p.getFlagD "declaration" "root"
     match transpile store declaration with
     | .error msg => IO.eprintln msg; return 1
     | .ok exp =>
-      IO.FS.writeFile (p.getD "output" "output.lurk")
+      IO.FS.writeFile (p.getFlagD "output" "output.lurk")
         ((exp.pprint false).pretty 70)
       if p.hasFlag "run" then
         IO.println $ ← Lurk.ppEval exp
@@ -22,7 +22,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
 
 def transpileCmd : Cli.Cmd := `[Cli|
   transpile VIA transpileRun;
-  "Transpiles Lean 4 code to Lurk code"
+  "Transpiles a Yatima IR store (from a file) to Lurk code"
   
   FLAGS:
     d, "declaration" : String; "Sets the root call for the Lurk evaluation (defaults to \"root\")"

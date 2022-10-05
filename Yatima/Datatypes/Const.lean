@@ -2,6 +2,8 @@ import Yatima.Datatypes.Expr
 
 namespace Yatima
 
+namespace IR
+
 /-- The kind of recursor: internal or external -/
 inductive RecType where
   | intr : RecType
@@ -11,8 +13,6 @@ inductive RecType where
 instance : Coe RecType Bool where coe
   | .intr => true
   | .extr => false
-
-namespace Ipld
 
 -- The number of universes for anon or their names for meta
 scoped notation "NatₐListNameₘ" => Split Nat (List Name)
@@ -166,12 +166,14 @@ inductive Const (k : Kind) where
   | mutIndBlock : List (Inductive k) → Const k
   deriving BEq
 
-def Const.isNotMutBlock : Ipld.Const k → Bool
+namespace Const
+
+def isNotMutBlock : Const k → Bool
   | .mutDefBlock _
   | .mutIndBlock _ => false
   | _ => true
 
-def Const.ctorName : Ipld.Const k → String
+def ctorName : Const k → String
   | .axiom           _ => "axiom"
   | .theorem         _ => "theorem"
   | .opaque          _ => "opaque"
@@ -183,7 +185,7 @@ def Const.ctorName : Ipld.Const k → String
   | .mutDefBlock     _ => "mutual definition block"
   | .mutIndBlock     _ => "mutual inductive block"
 
-def Const.name : Ipld.Const .meta → Name
+def name : Const .meta → Name
   | .axiom           x 
   | .theorem         x 
   | .opaque          x 
@@ -195,7 +197,11 @@ def Const.name : Ipld.Const .meta → Name
   | .mutDefBlock     _
   | .mutIndBlock     _ => .anonymous
 
-end Ipld
+end Const
+
+end IR
+
+namespace TC
 
 structure Axiom where
   name : Name
@@ -301,7 +307,9 @@ inductive Const
   | quotient    : Quotient → Const
   deriving Inhabited, BEq
 
-def Const.name : Const → Name
+namespace Const
+
+def name : Const → Name
   | .axiom       x
   | .theorem     x
   | .opaque      x
@@ -312,7 +320,7 @@ def Const.name : Const → Name
   | .intRecursor x
   | .quotient    x => x.name
 
-def Const.type : Const → Expr
+def type : Const → Expr
   | .axiom       x
   | .theorem     x
   | .inductive   x
@@ -323,7 +331,7 @@ def Const.type : Const → Expr
   | .extRecursor x
   | .quotient    x => x.type
 
-def Const.levels : Const → List Name
+def levels : Const → List Name
   | .axiom       x
   | .theorem     x
   | .inductive   x
@@ -334,7 +342,7 @@ def Const.levels : Const → List Name
   | .extRecursor x
   | .quotient    x => x.lvls
 
-def Const.ctorName : Const → String
+def ctorName : Const → String
   | .axiom       _ => "axiom"
   | .theorem     _ => "theorem"
   | .opaque      _ => "opaque"
@@ -344,5 +352,64 @@ def Const.ctorName : Const → String
   | .extRecursor _ => "external recursor"
   | .intRecursor _ => "internal recursor"
   | .quotient    _ => "quotient"
+
+end Const
+
+def Opaque.toIR (d : Opaque) (typeCid valueCid: IR.BothExprCid) : IR.Opaque k :=
+  match k with
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+
+def Quotient.toIR (d : Quotient) (typeCid : IR.BothExprCid) : IR.Quotient k :=
+  match k with
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+
+def Axiom.toIR (d : Axiom) (typeCid : IR.BothExprCid) : IR.Axiom k :=
+  match k with
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+
+def Theorem.toIR (d : Theorem) (typeCid valueCid : IR.BothExprCid) : IR.Theorem k :=
+  match k with
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
+
+def Definition.toIR (d : Definition) (typeCid valueCid : IR.BothExprCid) : IR.Definition k :=
+  match k with
+  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
+  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+
+def Constructor.toIR (c : Constructor) (typeCid rhsCid : IR.BothExprCid) : IR.Constructor k :=
+  match k with
+  | .anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
+  | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
+
+def RecursorRule.toIR (r : RecursorRule) (ctorCid : IR.BothConstCid) (rhsCid : IR.BothExprCid) : IR.RecursorRule k :=
+  match k with
+  | .anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
+  | .meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
+
+def ExtRecursor.toIR {k : IR.Kind} (r : ExtRecursor) (typeCid : IR.BothExprCid)
+    (rulesCids : List $ IR.RecursorRule k) : IR.Recursor .extr k :=
+  match k with 
+  | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
+    r.minors, rulesCids, r.k⟩
+  | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), rulesCids, ()⟩
+
+def IntRecursor.toIR {k : IR.Kind} (r : IntRecursor) (typeCid : IR.BothExprCid) :
+    IR.Recursor .intr k :=
+  match k with 
+  | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
+    r.minors, (), r.k⟩
+  | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), (), ()⟩
+
+def Inductive.toIR (i : Inductive) (idx : Nat)
+    (typeCid : IR.BothExprCid) (blockCid : IR.BothConstCid) : IR.InductiveProj k :=
+  match k with
+  | .anon => ⟨(), i.lvls.length, typeCid.anon, blockCid.anon, idx⟩
+  | .meta => ⟨i.name, i.lvls, typeCid.meta, blockCid.meta, ()⟩
+
+end TC
 
 end Yatima

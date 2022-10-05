@@ -1,10 +1,10 @@
 import Yatima.Datatypes.Lean
 
-namespace Yatima.Ipld
+namespace Yatima.IR
 
 /--
 Used to indicate whether a `Yatima.Split` refers to an attribute of an anon or
-meta `Ipld.Univ`/`Ipld.Expr`/`Ipld.Const`.
+meta `IR.Univ`/`IR.Expr`/`IR.Const`.
 -/
 inductive Kind where
   | anon : Kind
@@ -15,4 +15,4 @@ instance : Coe Kind Bool where coe
   | .anon => true
   | .meta => false
 
-end Yatima.Ipld
+end Yatima.IR

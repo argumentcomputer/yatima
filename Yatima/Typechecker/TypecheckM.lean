@@ -10,6 +10,8 @@ initialize its context.
 
 namespace Yatima.Typechecker
 
+open TC
+
 /--
 The context available to the typechecker monad. The available fields are
 * `lvl : Nat` : Depth of the subterm. Coincides with the length of the list of types
@@ -18,10 +20,10 @@ The context available to the typechecker monad. The available fields are
 * `store : Array Const` : An array of known constants in the context that can be referred to by their index.
 -/
 structure TypecheckCtx where
-  lvl      : Nat
-  env      : Env
-  types    : List SusValue
-  pStore   : PureStore
+  lvl    : Nat
+  env    : Env
+  types  : List SusValue
+  store  : Store
   deriving Inhabited
 
 /--
@@ -33,20 +35,20 @@ structure TypecheckState where
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular `store : Array Const` -/
-def TypecheckCtx.init (pStore : PureStore) : TypecheckCtx :=
-  { (default : TypecheckCtx) with pStore }
+def TypecheckCtx.init (store : Store) : TypecheckCtx :=
+  { (default : TypecheckCtx) with store }
 
 /-- An initialization of the typechecker state with a particular `store : Array Const` -/
-def TypecheckState.init (pStore : PureStore) : TypecheckState := Id.run $ do
+def TypecheckState.init (store : Store) : TypecheckState := Id.run $ do
   let mut tcConsts := .mk []
   -- FIXME there's gotta be a better way...
-  for _ in [:pStore.consts.size] do
+  for _ in [:store.consts.size] do
     tcConsts := .mk $ none :: tcConsts.toList
   pure {tcConsts}
 
 /-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
-def TypecheckCtx.initEnv (env : Env) (pStore : PureStore) : TypecheckCtx :=
-  { (default : TypecheckCtx) with pStore, env }
+def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=
+  { (default : TypecheckCtx) with store, env }
 
 /--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
@@ -93,12 +95,12 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
 def natIndex : TypecheckM Nat := do
-  match (← read).pStore.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
+  match (← read).store.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
 def stringIndex : TypecheckM Nat := do
-  match (← read).pStore.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
+  match (← read).store.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
 def zeroIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
-  match (← read).pStore.natZeroIdx with | none => noneHandle | some a => someHandle a
+  match (← read).store.natZeroIdx with | none => noneHandle | some a => someHandle a
 def succIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
-  match (← read).pStore.natSuccIdx with | none => noneHandle | some a => someHandle a
+  match (← read).store.natSuccIdx with | none => noneHandle | some a => someHandle a
 
 end Yatima.Typechecker

@@ -19,6 +19,8 @@ In this module the two major functions `check` and `infer` are defined.
 
 namespace Yatima.Typechecker
 
+open TC
+
 /-- Checks if a type is an unit inductive -/
 def isUnit : Value → TypecheckM Bool
   | .app (.const name i _) _ => do

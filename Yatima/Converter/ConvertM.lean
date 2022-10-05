@@ -26,27 +26,27 @@ The reader structure for the `ConvertM` monad contains:
 through recursively; used to implement constant replacement of free variables
 -/
 structure ConvertEnv where
-  store     : Ipld.Store
+  store     : IR.Store
   recrCtx   : RecrCtx
   bindDepth : Nat
   deriving Inhabited
 
-/-- Starts a new `ConvertEnv` with a given `Yatima.Ipld.Store` -/
-def ConvertEnv.init (store : Ipld.Store) : ConvertEnv :=
+/-- Starts a new `ConvertEnv` with a given `Yatima.IR.Store` -/
+def ConvertEnv.init (store : IR.Store) : ConvertEnv :=
   ⟨store, default, 0⟩
 
 /--
 Contains the progress of the conversion process.
 
-* `univ_cache` and `const_cache` are optimization means
-* `consts` is the actual output of the conversion, whose order is pre-encoded based on the store
+* `univCache` and `constCache` are optimization means
+* `tcStore` is the actual output of the conversion, whose order is pre-encoded based on the store
 * `constsIdx` contains auxiliary data to recover a constant index by its name using the order in `consts`
 -/
 structure ConvertState where
-  univ_cache  : RBMap UnivCid Univ compare
-  const_cache : RBMap ConstCid ConstIdx compare
-  pStore      : PureStore
-  constsIdx   : RBMap Name ConstIdx compare
+  univCache  : RBMap IR.BothUnivCid TC.Univ compare
+  constCache : RBMap IR.BothConstCid TC.ConstIdx compare
+  tcStore    : TC.Store
+  constsIdx  : RBMap Name TC.ConstIdx compare
   deriving Inhabited
 
 /-- The monad in which conversion takes place -/
@@ -61,7 +61,7 @@ def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
 
 /-- Extracts `x` from `some x` and throws an error otherwise -/
 def ConvertM.unwrap : Option α → ConvertM α :=
-  Option.option (throw .ipldError) pure
+  Option.option (throw .irError) pure
 
 /-- Runs a computation with `bindDepth` reset to `0` -/
 def withResetBindDepth : ConvertM α → ConvertM α :=

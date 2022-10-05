@@ -1,6 +1,6 @@
 /-- The errors that can be thrown in the `Yatima.Converter.ConvertM` monad -/
 inductive ConvertError where
-  | ipldError : ConvertError
+  | irError : ConvertError
   | cannotStoreValue : ConvertError
   | mutDefBlockFound : ConvertError
   | mutIndBlockFound : ConvertError
@@ -16,7 +16,7 @@ inductive ConvertError where
 
 instance : ToString ConvertError where toString
   | .anonMetaMismatch anon meta => s!"Anon/Meta mismatch: Anon is of kind {anon} but Meta is of kind {meta}"
-  | .ipldError => "IPLD broken"
+  | .irError => "IR broken"
   | .cannotStoreValue => "Cannot store value"
   | .mutDefBlockFound => "Found a mutual definition block inside an expression"
   | .mutIndBlockFound => "Found a mutual inductive block inside an expression"

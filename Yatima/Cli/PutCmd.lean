@@ -14,14 +14,14 @@ def extractCid (s : String) : String :=
   split[1]!.splitOn "\"}}" |>.head!
 
 def putRun (p : Cli.Parsed) : IO UInt32 := do
-  let fileName : String := p.positionalArg! "input" |>.as! String
+  let fileName := p.getArg! "input"
   match ← runCmd (buildPutCurlCommand fileName) with
   | .error err => IO.eprintln err; return 1
   | .ok res => IO.println (extractCid res); return 0
     
 def putCmd : Cli.Cmd := `[Cli|
   put VIA putRun;
-  "Stores a Yatima data store on IPFS"
+  "Uses `curl` to send a Yatima IR store from a file to IPFS"
 
   ARGS:
     input : String; "Input DagCbor binary file"

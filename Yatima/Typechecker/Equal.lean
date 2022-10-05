@@ -25,6 +25,8 @@ Note: Generally the values are assumed to already have the same type in the func
 
 namespace Yatima.Typechecker
 
+open TC
+
 /-- Reduces the application of a `pi` type to its arguments -/
 def applyType : Value → List SusValue → TypecheckM Value
   | .pi _ _ _ img imgCtx, arg :: args => do

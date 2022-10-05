@@ -11,8 +11,8 @@ def buildGetCurlCommand (cid fileName : String) : String :=
 
 open System in
 def getRun (p : Cli.Parsed) : IO UInt32 := do
-  let cid : String := p.positionalArg! "cid" |>.as! String
-  let fileName := p.getD "output" "output.ir"
+  let cid := p.getArg! "cid"
+  let fileName := p.getFlagD "output" "output.ir"
   match ← runCmd (buildGetCurlCommand cid fileName) with
   | .error err => IO.eprintln err; return 1
   | .ok _ => match ← readStoreFromFile fileName with
@@ -21,7 +21,8 @@ def getRun (p : Cli.Parsed) : IO UInt32 := do
 
 def getCmd : Cli.Cmd := `[Cli|
   get VIA getRun;
-  "Retrieves a Yatima data store from IPFS"
+  "Uses `curl` to retrieve a Yatima data store from IPFS and writes it to" ++
+    "file system"
 
   FLAGS:
     o, "output" : String; "The name of the output binary file." ++
