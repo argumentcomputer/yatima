@@ -828,8 +828,6 @@ theorem decide_eq_false : [Decidable p] → Not p → Eq (decide p) false
 theorem of_decide_eq_true [inst : Decidable p] : Eq (decide p) true → p := fun h =>
   inst.casesOn (fun h₁ => absurd h (ne_true_of_eq_false (decide_eq_false h₁))) (fun h₁ => h₁)
 
-#exit
-
 theorem of_decide_eq_false [inst : Decidable p] : Eq (decide p) false → Not p := fun h =>
   match (generalizing := false) inst with
   | isTrue  h₁ => absurd h (ne_false_of_eq_true (decide_eq_true h₁))
@@ -864,6 +862,7 @@ open BEq (beq)
 instance [DecidableEq α] : BEq α where
   beq a b := decide (Eq a b)
 
+#exit
 
 /--
 "Dependent" if-then-else, normally written via the notation `if h : c then t(h) else e(h)`,

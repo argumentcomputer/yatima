@@ -26,7 +26,7 @@ structure TypecheckCtx where
 
 /--
 The state available to the typechecker monad. The available fields are
-* `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their fields and values annotated
+* `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their types and values annotated
 -/
 structure TypecheckState where
   tcConsts : Array (Option Const)
@@ -36,9 +36,10 @@ structure TypecheckState where
 def TypecheckCtx.init (pStore : PureStore) : TypecheckCtx :=
   { (default : TypecheckCtx) with pStore }
 
-/-- An initialization of the typchecker context with a particular `store : Array Const` -/
+/-- An initialization of the typechecker state with a particular `store : Array Const` -/
 def TypecheckState.init (pStore : PureStore) : TypecheckState := Id.run $ do
   let mut tcConsts := .mk []
+  -- FIXME there's gotta be a better way...
   for _ in [:pStore.consts.size] do
     tcConsts := .mk $ none :: tcConsts.toList
   pure {tcConsts}
@@ -51,7 +52,7 @@ def TypecheckCtx.initEnv (env : Env) (pStore : PureStore) : TypecheckCtx :=
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
 and can throw exceptions of the form `TypecheckError`
 -/
-abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState  $ ExceptT TypecheckError Id
+abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT TypecheckError Id
 
 /-- Basic runner for the typechecker monad -/
 def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except TypecheckError α :=
