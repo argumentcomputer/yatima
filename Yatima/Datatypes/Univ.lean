@@ -84,8 +84,6 @@ def reduceIMax (a b : Univ) : Univ :=
     | .var _ idx => match a with
       | .var _ idx' => if idx == idx' then a else .imax a b
       | _ => .imax a b
-    -- IMax(a, b) will reduce as Max(IMax(a, x), IMax(a, y)) if b == Max(x, y)
-    | .max x y => reduceMax (reduceIMax a x) (reduceIMax a y)
     -- Otherwise, IMax(a, b) is stuck, with a and b reduced
     | _ => .imax a b
 
