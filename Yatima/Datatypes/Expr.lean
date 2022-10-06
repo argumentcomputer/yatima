@@ -112,9 +112,9 @@ def bInfo : Expr → Option BinderInfo
   | _ => none
 
 def type : Expr → Option Expr
-  | lam  _ _ _ t _
-  | pi   _ _ _ t _
-  | letE _ _ t _ _ => some t
+  | lam  _ _ _ ty _
+  | pi   _ _ _ ty _
+  | letE _ _ ty _ _ => some ty
   | _ => none
 
 def body : Expr → Option Expr

@@ -1,4 +1,4 @@
-import Ipld.Ipld
+-- import Ipld.Ipld
 import Yatima.Datatypes.Const
 
 namespace Yatima
@@ -53,18 +53,18 @@ structure Store where
 
 end TC
 
-namespace Ipld
+-- namespace Ipld
 
-/-- Contains `IR.Store` data encoded in IPLD -/
-structure Store where
-  consts    : Array Ipld
-  univAnon  : Array Ipld
-  exprAnon  : Array Ipld
-  constAnon : Array Ipld
-  univMeta  : Array Ipld
-  exprMeta  : Array Ipld
-  constMeta : Array Ipld
+-- /-- Contains `IR.Store` data encoded in IPLD -/
+-- structure Store where
+--   consts    : Array Ipld
+--   univAnon  : Array Ipld
+--   exprAnon  : Array Ipld
+--   constAnon : Array Ipld
+--   univMeta  : Array Ipld
+--   exprMeta  : Array Ipld
+--   constMeta : Array Ipld
 
-end Ipld
+-- end Ipld
 
 end Yatima
