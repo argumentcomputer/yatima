@@ -1,7 +1,7 @@
 import Yatima.Compiler.Printing
-import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
 import Yatima.Ipld.PrimCids
+import YatimaStdLib.List
 
 namespace Yatima.Compiler
 
@@ -83,10 +83,10 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : CompileM Ordering :=
 
 def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
   match expr with
-  | .forallE _ t e _  => match e with
+  | .forallE _ ty e _  => match e with
     | .forallE ..  => isInternalRec e name
     -- t is the major premise
-    | _ => isInternalRec t name
+    | _ => isInternalRec ty name
   | .app e .. => isInternalRec e name
   | .const n .. => n == name
   | _ => false
@@ -800,13 +800,14 @@ def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
       IO.println   "========================================="
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
-  (← get).cache.forM fun _ (cid, idx) =>
-    match Ipld.primCidsMap.find? cid.anon.data.toString with
-    | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := idx } }
-    | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := idx } }
-    | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := idx } }
-    | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := idx } }
-    | none => pure ()
+  -- TODO: fix @Arthur
+  -- (← get).cache.forM fun _ (cid, idx) =>
+  --   match Ipld.primCidsMap.find? cid.anon.data with
+  --   | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := idx } }
+  --   | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := idx } }
+  --   | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := idx } }
+  --   | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := idx } }
+  --   | none => pure ()
 
 /--
 Compiles the "delta" of a file, that is, the content that is added on top of

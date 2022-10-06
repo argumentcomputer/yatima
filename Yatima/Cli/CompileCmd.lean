@@ -1,5 +1,5 @@
 import Yatima.Cli.Utils
-import Yatima.Ipld.ToIpld
+import Yatima.LurkData.ToLurkData
 import Ipld.DagCbor
 
 open System Yatima.Compiler in

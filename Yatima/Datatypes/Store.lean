@@ -53,18 +53,14 @@ structure Store where
 
 end TC
 
--- namespace Ipld
-
--- /-- Contains `IR.Store` data encoded in IPLD -/
--- structure Store where
---   consts    : Array Ipld
---   univAnon  : Array Ipld
---   exprAnon  : Array Ipld
---   constAnon : Array Ipld
---   univMeta  : Array Ipld
---   exprMeta  : Array Ipld
---   constMeta : Array Ipld
-
--- end Ipld
+/-- Contains `IR.Store` data encoded in `Lurk.Expr` -/
+structure LurkStore where
+  consts    : Array Lurk.Expr
+  univAnon  : Array Lurk.Expr
+  exprAnon  : Array Lurk.Expr
+  constAnon : Array Lurk.Expr
+  univMeta  : Array Lurk.Expr
+  exprMeta  : Array Lurk.Expr
+  constMeta : Array Lurk.Expr
 
 end Yatima
