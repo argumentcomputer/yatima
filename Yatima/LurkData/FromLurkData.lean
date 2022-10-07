@@ -1,4 +1,5 @@
 import Yatima.Datatypes.Store
+import Yatima.LurkData.Move
 
 /-! 
 We follow the convention `LurkData.to<object>`
@@ -23,38 +24,41 @@ def toName : Lurk.Expr → Option Name
   | .sym name => return name
   | _ => none
 
-def toListName (ns : Lurk.Expr) : Option (List Name) :=
-  let rec aux (acc : List Name) : Lurk.Expr → Option (List Name)
-    | .cons (.sym n) ns => aux (n :: acc) ns
-    | .sym n => n :: acc
+def toList (es : Lurk.Expr) : Option $ List Lurk.Expr :=
+  let rec aux (acc : List Lurk.Expr) : Lurk.Expr → Option (List Lurk.Expr)
+    | .cons e e'@(.cons ..) => aux (e :: acc) e'
+    | .cons e (.lit .nil) => e :: acc
     | _ => none
-  (aux [] ns).map List.reverse
+  aux [] es |>.map List.reverse
 
-instance : OfNat (Fin Lurk.N) 0 := ⟨0, by simp⟩
-instance : OfNat (Fin Lurk.N) 1 := ⟨1, by simp⟩
-instance : OfNat (Fin Lurk.N) 2 := ⟨2, by simp⟩
-instance : OfNat (Fin Lurk.N) 3 := ⟨3, by simp⟩
-instance : OfNat (Fin Lurk.N) 4 := ⟨4, by simp⟩
+def toListName (es : Lurk.Expr) : Option (List Name) := do
+  (← toList es).mapM toName
+
+-- instance : OfNat (Fin Lurk.N) 0 := ⟨0, by simp⟩
+-- instance : OfNat (Fin Lurk.N) 1 := ⟨1, by simp⟩
+-- instance : OfNat (Fin Lurk.N) 2 := ⟨2, by simp⟩
+-- instance : OfNat (Fin Lurk.N) 3 := ⟨3, by simp⟩
+-- instance : OfNat (Fin Lurk.N) 4 := ⟨4, by simp⟩
 
 def toBinderInfo : Lurk.Expr → Option BinderInfo
-  | .lit $ .num 0 => return .default
-  | .lit $ .num 1 => return .implicit
-  | .lit $ .num 2 => return .strictImplicit
-  | .lit $ .num 3 => return .instImplicit
-  | .lit $ .num 4 => return .auxDecl
+  | .nat 0 => return .default
+  | .nat 1 => return .implicit
+  | .nat 2 => return .strictImplicit
+  | .nat 3 => return .instImplicit
+  | .nat 4 => return .auxDecl
   | _ => none
 
 def toQuotKind : Lurk.Expr → Option QuotKind
-  | .lit $ .num 0 => return .type
-  | .lit $ .num 1 => return .ctor
-  | .lit $ .num 2 => return .lift
-  | .lit $ .num 3 => return .ind
+  | .nat 0 => return .type
+  | .nat 1 => return .ctor
+  | .nat 2 => return .lift
+  | .nat 3 => return .ind
   | _ => none
 
 def toDefinitionSafety : Lurk.Expr → Option DefinitionSafety
-  | .lit $ .num 0 => return .safe
-  | .lit $ .num 1 => return .unsafe
-  | .lit $ .num 2 => return .partial
+  | .nat 0 => return .safe
+  | .nat 1 => return .unsafe
+  | .nat 2 => return .partial
   | _ => none
 
 def toLiteral : Lurk.Expr → Option Literal
@@ -65,291 +69,283 @@ def toLiteral : Lurk.Expr → Option Literal
 open IR
 
 def toNatₐ : (k : Kind) → Lurk.Expr → Option (Natₐ k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toNat x)
-  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
+  | .anon, .cons (.nat 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
 def toBoolₐ : (k : Kind) → Lurk.Expr → Option (Boolₐ k)
-  | .anon, .cons (.lit $ .num 0) b => return .injₗ (← toBool b)
-  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
+  | .anon, .cons (.nat 0) b => return .injₗ (← toBool b)
+  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitNatₐNameₘFromIpld : (k : Kind) → Lurk.Expr → Option (NatₐNameₘ k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toNat x)
-  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toName x)
+def toSplitNatₐNameₘ : (k : Kind) → Lurk.Expr → Option (NatₐNameₘ k)
+  | .anon, .cons (.nat 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.nat 1) x => return .injᵣ (← toName x)
   | _, _ => none
 
 def toNat?ₘ : (k : Kind) → Lurk.Expr → Option (Nat?ₘ k)
-  | .anon, .cons (.lit $ .num 0) (.lit .nil) => return .injₗ ()
-  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toNat? x)
+  | .anon, .cons (.nat 0) (.lit .nil) => return .injₗ ()
+  | .meta, .cons (.nat 1) x => return .injᵣ (← toNat? x)
   | _, _ => none
 
 def toNameₘ : (k : Kind) → Lurk.Expr → Option (Nameₘ k)
-  | .anon, .cons (.lit $ .num 0) (.lit .nil) => return .injₗ ()
-  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toName x)
+  | .anon, .cons (.nat 0) (.lit .nil) => return .injₗ ()
+  | .meta, .cons (.nat 1) x => return .injᵣ (← toName x)
   | _, _ => none
 
 def toNatₐListNameₘ : (k : Kind) → Lurk.Expr → Option (NatₐListNameₘ k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toNat x)
-  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toListName x)
+  | .anon, .cons (.nat 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.nat 1) x => return .injᵣ (← toListName x)
   | _, _ => none
 
 def toBinderInfoₐ : (k : Kind) → Lurk.Expr → Option (BinderInfoₐ k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toBinderInfo x)
-  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
+  | .anon, .cons (.nat 0) x => return .injₗ (← toBinderInfo x)
+  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
 def toSplitLiteralUnit : (k : Kind) → Lurk.Expr → Option (Split Literal Unit k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toLiteral x)
-  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
+  | .anon, .cons (.nat 0) x => return .injₗ (← toLiteral x)
+  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitQuotKindFromIpld : (k : Kind) → Lurk.Expr → Option (Split QuotKind Unit k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toQuotKind x)
-  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
+def toSplitQuotKind : (k : Kind) → Lurk.Expr → Option (Split QuotKind Unit k)
+  | .anon, .cons (.nat 0) x => return .injₗ (← toQuotKind x)
+  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitDefinitionSafetyUnitFromIpld :
+def toSplitDefinitionSafetyUnit :
     (k : Kind) → Lurk.Expr → Option (Split DefinitionSafety Unit k)
-  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toDefinitionSafety x)
-  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
+  | .anon, .cons (.nat 0) x => return .injₗ (← toDefinitionSafety x)
+  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def univCidFromIpld : Lurk.Expr → Option (UnivCid k)
-  | .comm c => return ⟨c⟩
+def toUnivCid : Lurk.Expr → Option (UnivCid k)
+  | .comm (.lit $ .num c) => return ⟨c⟩
   | _ => none
 
-def exprCidFromIpld : Lurk.Expr → Option (ExprCid k)
-  | .link c => return ⟨c⟩
+def toExprCid : Lurk.Expr → Option (ExprCid k)
+  | .comm (.lit $ .num c) => return ⟨c⟩
   | _ => none
 
-def constCidFromIpld : Lurk.Expr → Option (ConstCid k)
-  | .link c => return ⟨c⟩
+def toConstCid : Lurk.Expr → Option (ConstCid k)
+  | .comm (.lit $ .num c) => return ⟨c⟩
   | _ => none
 
-def listUnivCidFromIpld : Ipld → Option (List (UnivCid k))
-  | .array ar => ar.data.mapM univCidFromIpld
+def toListUnivCid (es : Lurk.Expr) : Option (List (UnivCid k)) := do
+  (← toList es).mapM toUnivCid
+
+def toDefinition : Lurk.Expr → Option (Definition k)
+  | .mkList [n, l, ty, v, s] =>
+    return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprCid ty, ← toExprCid v,
+      ← toSplitDefinitionSafetyUnit k s⟩
   | _ => none
 
-def definitionFromIpld : Ipld → Option (Definition k)
-  | .array #[n, l, t, v, s] =>
-    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
-      ← exprCidFromIpld t, ← exprCidFromIpld v,
-      ← splitDefinitionSafetyUnitFromIpld k s⟩
-  | _ => none
+def toListDefinition (es : Lurk.Expr) : Option (List (Definition k)) := do
+  (← toList es).mapM toDefinition
 
-def listDefinitionFromIpld : Ipld → Option (List (Definition k))
-  | .array ar => ar.data.mapM definitionFromIpld
-  | _ => none
-
-def mutDefFromIpld :
-    (k : Kind) → Ipld → Option (Split (Definition k) (List (Definition k)) k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← definitionFromIpld x)
-  | .meta, .array #[.number 1, x] => return .injᵣ (← listDefinitionFromIpld x)
+def toMutDef :
+    (k : Kind) → Lurk.Expr → Option (Split (Definition k) (List (Definition k)) k)
+  | .anon, .cons (.nat 0) x => return .injₗ (← toDefinition x)
+  | .meta, .cons (.nat 1) x => return .injᵣ (← toListDefinition x)
   | _, _ => none
 
-def mutDefBlockFromIpld :
-    (k : Kind) → Ipld → Option (List (Split (Definition k) (List (Definition k)) k))
-  | .anon, .array ar => ar.data.mapM $ mutDefFromIpld .anon
-  | .meta, .array ar => ar.data.mapM $ mutDefFromIpld .meta
+def toMutDefBlock :
+    (k : Kind) → Lurk.Expr → Option (List (Split (Definition k) (List (Definition k)) k))
+  | .anon, es => do (← toList es).mapM $ toMutDef .anon
+  | .meta, es => do (← toList es).mapM $ toMutDef .meta
+
+def toConstructor : Lurk.Expr → Option (Constructor k)
+  | .mkList [n, ty, l, i, p, f, r, s] =>
+    return ⟨← toNameₘ k n, ← toNatₐListNameₘ k ty,
+      ← toExprCid l, ← toNatₐ k i, ← toNatₐ k p,
+      ← toNatₐ k f, ← toExprCid r, ← toBoolₐ k s⟩
+  | _ => none
+
+def toListConstructor (es : Lurk.Expr) : Option (List (Constructor k)) := do
+  (← toList es).mapM toConstructor
+
+def toRecursorRule : Lurk.Expr → Option (RecursorRule k)
+  | .mkList [c, f, r] => return ⟨← toConstCid c, ← toNatₐ k f, ← toExprCid r⟩
+  | _ => none
+
+def toListRecursorRule (es : Lurk.Expr) : Option (List (RecursorRule k)) := do
+  (← toList es).mapM toRecursorRule
+
+def toSplitUnitListRecursorRule :
+    (r : RecType) → Lurk.Expr → Option (Split Unit (List (RecursorRule k)) r)
+  | .intr, .cons (.nat 0) (.lit .nil) => return .injₗ ()
+  | .extr, .cons (.nat 1) x => return .injᵣ (← toListRecursorRule x)
   | _, _ => none
 
-def constructorFromIpld : Ipld → Option (Constructor k)
-  | .array #[n, t, l, i, p, f, r, s] =>
-    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k t,
-      ← exprCidFromIpld l, ← splitNatₐFromIpld k i, ← splitNatₐFromIpld k p,
-      ← splitNatₐFromIpld k f, ← exprCidFromIpld r, ← splitBoolₐFromIpld k s⟩
+def toRecType : Lurk.Expr → Option RecType
+  | .lit .t   => return .intr
+  | .lit .nil => return .extr
   | _ => none
 
-def listConstructorFromIpld : Ipld → Option (List (Constructor k))
-  | .array ar => ar.data.mapM constructorFromIpld
-  | _ => none
-
-def recursorRuleFromIpld : Ipld → Option (RecursorRule k)
-  | .array #[c, f, r] =>
-    return ⟨← constCidFromIpld c, ← splitNatₐFromIpld k f, ← exprCidFromIpld r⟩
-  | _ => none
-
-def listRecursorRuleFromIpld : Ipld → Option (List (RecursorRule k))
-  | .array ar => ar.data.mapM recursorRuleFromIpld
-  | _ => none
-
-def splitUnitListRecursorRuleFromIpld :
-    (r : RecType) → Ipld → Option (Split Unit (List (RecursorRule k)) r)
-  | .intr, .array #[.number 0, .null] => return .injₗ ()
-  | .extr, .array #[.number 1, x] => return .injᵣ (← listRecursorRuleFromIpld x)
-  | _, _ => none
-
-def recTypeFromIpld : Ipld → Option RecType
-  | .bool true  => return .intr
-  | .bool false => return .extr
-  | _ => none
-
-def sigmaRecursorFromIpld : Ipld → Option (Sigma (Recursor · k))
-  | .array #[b, n, l, t, p, i, m, m', rs, k'] => do
-    let recType ← recTypeFromIpld b
+def toSigmaRecursor : Lurk.Expr → Option (Sigma (Recursor · k))
+  | .mkList [b, n, l, ty, p, i, m, m', rs, k'] => do
+    let recType ← toRecType b
     return ⟨recType,
-      ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l, ← exprCidFromIpld t,
-        ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
-        ← splitNatₐFromIpld k m, ← splitNatₐFromIpld k m',
-        ← splitUnitListRecursorRuleFromIpld recType rs,
-        ← splitBoolₐFromIpld k k'⟩⟩
+      ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprCid ty,
+        ← toNatₐ k p, ← toNatₐ k i,
+        ← toNatₐ k m, ← toNatₐ k m',
+        ← toSplitUnitListRecursorRule recType rs,
+        ← toBoolₐ k k'⟩⟩
   | _ => none
 
-def listSigmaRecursorFromIpld : Ipld → Option (List (Sigma (Recursor · k)))
-  | .array ar => ar.data.mapM sigmaRecursorFromIpld
+def toListSigmaRecursor (es : Lurk.Expr) : Option (List (Sigma (Recursor · k))) := do
+  (← toList es).mapM toSigmaRecursor
+
+def mutIndFromIpld : Lurk.Expr → Option (Inductive k)
+  | .mkList [n, l, ty, p, i, cs, rs, r, s, r'] =>
+    return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l,
+      ← toExprCid ty, ← toNatₐ k p, ← toNatₐ k i,
+      ← toListConstructor cs,
+      ← toListSigmaRecursor rs,
+      ← toBoolₐ k r, ← toBoolₐ k s, ← toBoolₐ k r'⟩
   | _ => none
 
-def mutIndFromIpld : Ipld → Option (Inductive k)
-  | .array #[n, l, t, p, i, cs, rs, r, s, r'] =>
-    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
-      ← exprCidFromIpld t, ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
-      ← listConstructorFromIpld cs,
-      ← listSigmaRecursorFromIpld rs,
-      ← splitBoolₐFromIpld k r, ← splitBoolₐFromIpld k s, ← splitBoolₐFromIpld k r'⟩
-  | _ => none
+def toMutIndBlock (es : Lurk.Expr) : Option (List (Inductive k)) := do
+  (← toList es).mapM mutIndFromIpld
 
-def mutIndBlockFromIpld : Ipld → Option (List (Inductive k))
-  | .array ar => ar.data.mapM mutIndFromIpld
-  | _ => none
-
-def univAnonFromIpld : Ipld → Option (Univ .anon)
-  | .array #[.number $ UNIV .anon, .number 0] =>
+def univAnonFromIpld : Lurk.Expr → Option (Univ .anon)
+  | .mkList [.u64 $ UNIV .anon, .nat 0] =>
     return .zero
-  | .array #[.number $ UNIV .anon, .number 1, p] =>
-    return .succ (← univCidFromIpld p)
-  | .array #[.number $ UNIV .anon, .number 2, a, b] =>
-    return .max (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ UNIV .anon, .number 3, a, b] =>
-    return .imax (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ UNIV .anon, .number 4, n] =>
-    return .var (← splitNatₐNameₘFromIpld .anon n)
+  | .mkList [.u64 $ UNIV .anon, .nat 1, p] =>
+    return .succ (← toUnivCid p)
+  | .mkList [.u64 $ UNIV .anon, .nat 2, a, b] =>
+    return .max (← toUnivCid a) (← toUnivCid b)
+  | .mkList [.u64 $ UNIV .anon, .nat 3, a, b] =>
+    return .imax (← toUnivCid a) (← toUnivCid b)
+  | .mkList [.u64 $ UNIV .anon, .nat 4, n] =>
+    return .var (← toSplitNatₐNameₘ .anon n)
   | _ => none
 
-def univMetaFromIpld : Ipld → Option (Univ .meta)
-  | .array #[.number $ UNIV .meta, .number 0] => some .zero
-  | .array #[.number $ UNIV .meta, .number 1, p] =>
-    return .succ (← univCidFromIpld p)
-  | .array #[.number $ UNIV .meta, .number 2, a, b] =>
-    return .max (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ UNIV .meta, .number 3, a, b] =>
-    return .imax (← univCidFromIpld a) (← univCidFromIpld b)
-  | .array #[.number $ UNIV .meta, .number 4, n] =>
-    return .var (← splitNatₐNameₘFromIpld .meta n)
+def univMetaFromIpld : Lurk.Expr → Option (Univ .meta)
+  | .mkList [.u64 $ UNIV .meta, .nat 0] =>
+    return .zero
+  | .mkList [.u64 $ UNIV .meta, .nat 1, p] =>
+    return .succ (← toUnivCid p)
+  | .mkList [.u64 $ UNIV .meta, .nat 2, a, b] =>
+    return .max (← toUnivCid a) (← toUnivCid b)
+  | .mkList [.u64 $ UNIV .meta, .nat 3, a, b] =>
+    return .imax (← toUnivCid a) (← toUnivCid b)
+  | .mkList [.u64 $ UNIV .meta, .nat 4, n] =>
+    return .var (← toSplitNatₐNameₘ .meta n)
   | _ => none
 
-def exprAnonFromIpld : Ipld → Option (Expr .anon)
-  | .array #[.number $ EXPR .anon, .number 0, n, i, ls] =>
-    return .var (← splitNatₐNameₘFromIpld .anon n) (← splitNat?ₘFromIpld .anon i)
-      (← listUnivCidFromIpld ls)
-  | .array #[.number $ EXPR .anon, .number 1, u] =>
-    return .sort (← univCidFromIpld u)
-  | .array #[.number $ EXPR .anon, .number 2, n, c, ls] =>
-    return .const (← splitNameₘFromIpld .anon n) (← constCidFromIpld c)
-      (← listUnivCidFromIpld ls)
-  | .array #[.number $ EXPR .anon, .number 3, f, a] =>
-    return .app (← exprCidFromIpld f) (← exprCidFromIpld a)
-  | .array #[.number $ EXPR .anon, .number 4, n, i, d, b] =>
-    return .lam (← splitNameₘFromIpld .anon n) (← splitBinderInfoₐFromIpld .anon i)
-      (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ EXPR .anon, .number 5, n, i, d, b] =>
-    return .pi (← splitNameₘFromIpld .anon n) (← splitBinderInfoₐFromIpld .anon i)
-      (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ EXPR .anon, .number 6, n, t, v, b] =>
-    return .letE (← splitNameₘFromIpld .anon n) (← exprCidFromIpld t)
-      (← exprCidFromIpld v) (← exprCidFromIpld b)
-  | .array #[.number $ EXPR .anon, .number 7, l] =>
-    return .lit (← splitLiteralUnitFromIpld .anon l)
-  | .array #[.number $ EXPR .anon, .number 8, n, e] =>
-    return .proj (← splitNatₐFromIpld .anon n) (← exprCidFromIpld e)
+def exprAnonFromIpld : Lurk.Expr → Option (Expr .anon)
+  | .mkList [.u64 $ EXPR .anon, .nat 0, n, i, ls] =>
+    return .var (← toSplitNatₐNameₘ .anon n) (← toNat?ₘ .anon i)
+      (← toListUnivCid ls)
+  | .mkList [.u64 $ EXPR .anon, .nat 1, u] =>
+    return .sort (← toUnivCid u)
+  | .mkList [.u64 $ EXPR .anon, .nat 2, n, c, ls] =>
+    return .const (← toNameₘ .anon n) (← toConstCid c)
+      (← toListUnivCid ls)
+  | .mkList [.u64 $ EXPR .anon, .nat 3, f, a] =>
+    return .app (← toExprCid f) (← toExprCid a)
+  | .mkList [.u64 $ EXPR .anon, .nat 4, n, i, d, b] =>
+    return .lam (← toNameₘ .anon n) (← toBinderInfoₐ .anon i)
+      (← toExprCid d) (← toExprCid b)
+  | .mkList [.u64 $ EXPR .anon, .nat 5, n, i, d, b] =>
+    return .pi (← toNameₘ .anon n) (← toBinderInfoₐ .anon i)
+      (← toExprCid d) (← toExprCid b)
+  | .mkList [.u64 $ EXPR .anon, .nat 6, n, ty, v, b] =>
+    return .letE (← toNameₘ .anon n) (← toExprCid ty)
+      (← toExprCid v) (← toExprCid b)
+  | .mkList [.u64 $ EXPR .anon, .nat 7, l] =>
+    return .lit (← toSplitLiteralUnit .anon l)
+  | .mkList [.u64 $ EXPR .anon, .nat 8, n, e] =>
+    return .proj (← toNatₐ .anon n) (← toExprCid e)
   | _ => none
 
-def exprMetaFromIpld : Ipld → Option (Expr .meta)
-  | .array #[.number $ EXPR .meta, .number 0, n, i, ls] =>
-    return .var (← splitNatₐNameₘFromIpld .meta n) (← splitNat?ₘFromIpld .meta i)
-      (← listUnivCidFromIpld ls)
-  | .array #[.number $ EXPR .meta, .number 1, u] =>
-    return .sort (← univCidFromIpld u)
-  | .array #[.number $ EXPR .meta, .number 2, n, c, ls] =>
-    return .const (← splitNameₘFromIpld .meta n) (← constCidFromIpld c)
-      (← listUnivCidFromIpld ls)
-  | .array #[.number $ EXPR .meta, .number 3, f, a] =>
-    return .app (← exprCidFromIpld f) (← exprCidFromIpld a)
-  | .array #[.number $ EXPR .meta, .number 4, n, i, d, b] =>
-    return .lam (← splitNameₘFromIpld .meta n) (← splitBinderInfoₐFromIpld .meta i)
-      (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ EXPR .meta, .number 5, n, i, d, b] =>
-    return .pi (← splitNameₘFromIpld .meta n) (← splitBinderInfoₐFromIpld .meta i)
-      (← exprCidFromIpld d) (← exprCidFromIpld b)
-  | .array #[.number $ EXPR .meta, .number 6, n, t, v, b] =>
-    return .letE (← splitNameₘFromIpld .meta n) (← exprCidFromIpld t)
-      (← exprCidFromIpld v) (← exprCidFromIpld b)
-  | .array #[.number $ EXPR .meta, .number 7, l] =>
-    return .lit (← splitLiteralUnitFromIpld .meta l)
-  | .array #[.number $ EXPR .meta, .number 8, n, e] =>
-    return .proj (← splitNatₐFromIpld .meta n) (← exprCidFromIpld e)
+def exprMetaFromIpld : Lurk.Expr → Option (Expr .meta)
+  | .mkList [.u64 $ EXPR .meta, .nat 0, n, i, ls] =>
+    return .var (← toSplitNatₐNameₘ .meta n) (← toNat?ₘ .meta i)
+      (← toListUnivCid ls)
+  | .mkList [.u64 $ EXPR .meta, .nat 1, u] =>
+    return .sort (← toUnivCid u)
+  | .mkList [.u64 $ EXPR .meta, .nat 2, n, c, ls] =>
+    return .const (← toNameₘ .meta n) (← toConstCid c)
+      (← toListUnivCid ls)
+  | .mkList [.u64 $ EXPR .meta, .nat 3, f, a] =>
+    return .app (← toExprCid f) (← toExprCid a)
+  | .mkList [.u64 $ EXPR .meta, .nat 4, n, i, d, b] =>
+    return .lam (← toNameₘ .meta n) (← toBinderInfoₐ .meta i)
+      (← toExprCid d) (← toExprCid b)
+  | .mkList [.u64 $ EXPR .meta, .nat 5, n, i, d, b] =>
+    return .pi (← toNameₘ .meta n) (← toBinderInfoₐ .meta i)
+      (← toExprCid d) (← toExprCid b)
+  | .mkList [.u64 $ EXPR .meta, .nat 6, n, ty, v, b] =>
+    return .letE (← toNameₘ .meta n) (← toExprCid ty)
+      (← toExprCid v) (← toExprCid b)
+  | .mkList [.u64 $ EXPR .meta, .nat 7, l] =>
+    return .lit (← toSplitLiteralUnit .meta l)
+  | .mkList [.u64 $ EXPR .meta, .nat 8, n, e] =>
+    return .proj (← toNatₐ .meta n) (← toExprCid e)
   | _ => none
 
-def constAnonFromIpld : Ipld → Option (Const .anon)
-  | .array #[.number $ CONST .anon, .number 0, n, l, t, s] =>
-    return .axiom ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← splitBoolₐFromIpld .anon s⟩
-  | .array #[.number $ CONST .anon, .number 1, n, l, t, v] =>
-    return .theorem ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← exprCidFromIpld v⟩
-  | .array #[.number $ CONST .anon, .number 2, n, l, t, v, s] =>
-    return .opaque ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← exprCidFromIpld v, ← splitBoolₐFromIpld .anon s⟩
-  | .array #[.number $ CONST .anon, .number 3, n, l, t, k] =>
-    return .quotient ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← splitQuotKindFromIpld .anon k⟩
-  | .array #[.number $ CONST .anon, .number 5, n, l, t, b, i] =>
-    return .inductiveProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i⟩
-  | .array #[.number $ CONST .anon, .number 6, n, l, t, b, i, j] =>
-    return .constructorProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i, ← splitNatₐFromIpld .anon j⟩
-  | .array #[.number $ CONST .anon, .number 7, n, l, t, b, i, j] =>
-    return .recursorProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .anon i, ← splitNatₐFromIpld .anon j⟩
-  | .array #[.number $ CONST .anon, .number 8, n, l, t, b, i] =>
-    return .definitionProj ⟨← splitNameₘFromIpld .anon n, ← splitNatₐListNameₘFromIpld .anon l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
-  | .array #[.number $ CONST .anon, .number 9, b] =>
-    return .mutDefBlock (← mutDefBlockFromIpld .anon b)
-  | .array #[.number $ CONST .anon, .number 10, b] =>
-    return .mutIndBlock (← mutIndBlockFromIpld b)
+def constAnonFromIpld : Lurk.Expr → Option (Const .anon)
+  | .mkList [.u64 $ CONST .anon, .nat 0, n, l, ty, s] =>
+    return .axiom ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toBoolₐ .anon s⟩
+  | .mkList [.u64 $ CONST .anon, .nat 1, n, l, ty, v] =>
+    return .theorem ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toExprCid v⟩
+  | .mkList [.u64 $ CONST .anon, .nat 2, n, l, ty, v, s] =>
+    return .opaque ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toExprCid v, ← toBoolₐ .anon s⟩
+  | .mkList [.u64 $ CONST .anon, .nat 3, n, l, ty, k] =>
+    return .quotient ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toSplitQuotKind .anon k⟩
+  | .mkList [.u64 $ CONST .anon, .nat 5, n, l, ty, b, i] =>
+    return .inductiveProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i⟩
+  | .mkList [.u64 $ CONST .anon, .nat 6, n, l, ty, b, i, j] =>
+    return .constructorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
+  | .mkList [.u64 $ CONST .anon, .nat 7, n, l, ty, b, i, j] =>
+    return .recursorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
+  | .mkList [.u64 $ CONST .anon, .nat 8, n, l, ty, b, i] =>
+    return .definitionProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
+      ← toExprCid ty, ← toConstCid b, ← toNat i⟩
+  | .mkList [.u64 $ CONST .anon, .nat 9, b] =>
+    return .mutDefBlock (← toMutDefBlock .anon b)
+  | .mkList [.u64 $ CONST .anon, .nat 10, b] =>
+    return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
-def constMetaFromIpld : Ipld → Option (Const .meta)
-  | .array #[.number $ CONST .meta, .number 0, n, l, t, s] =>
-    return .axiom ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← splitBoolₐFromIpld .meta s⟩
-  | .array #[.number $ CONST .meta, .number 1, n, l, t, v] =>
-    return .theorem ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← exprCidFromIpld v⟩
-  | .array #[.number $ CONST .meta, .number 2, n, l, t, v, s] =>
-    return .opaque ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← exprCidFromIpld v, ← splitBoolₐFromIpld .meta s⟩
-  | .array #[.number $ CONST .meta, .number 3, n, l, t, k] =>
-    return .quotient ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← splitQuotKindFromIpld .meta k⟩
-  | .array #[.number $ CONST .meta, .number 5, n, l, t, b, i] =>
-    return .inductiveProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i⟩
-  | .array #[.number $ CONST .meta, .number 6, n, l, t, b, i, j] =>
-    return .constructorProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i, ← splitNatₐFromIpld .meta j⟩
-  | .array #[.number $ CONST .meta, .number 7, n, l, t, b, i, j] =>
-    return .recursorProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← splitNatₐFromIpld .meta i, ← splitNatₐFromIpld .meta j⟩
-  | .array #[.number $ CONST .meta, .number 8, n, l, t, b, i] =>
-    return .definitionProj ⟨← splitNameₘFromIpld .meta n, ← splitNatₐListNameₘFromIpld .meta l,
-      ← exprCidFromIpld t, ← constCidFromIpld b, ← natFromIpld i⟩
-  | .array #[.number $ CONST .meta, .number 9, b] =>
-    return .mutDefBlock (← mutDefBlockFromIpld .meta b)
-  | .array #[.number $ CONST .meta, .number 10, b] =>
-    return .mutIndBlock (← mutIndBlockFromIpld b)
+def constMetaFromIpld : Lurk.Expr → Option (Const .meta)
+  | .mkList [.u64 $ CONST .meta, .nat 0, n, l, ty, s] =>
+    return .axiom ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toBoolₐ .meta s⟩
+  | .mkList [.u64 $ CONST .meta, .nat 1, n, l, ty, v] =>
+    return .theorem ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toExprCid v⟩
+  | .mkList [.u64 $ CONST .meta, .nat 2, n, l, ty, v, s] =>
+    return .opaque ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toExprCid v, ← toBoolₐ .meta s⟩
+  | .mkList [.u64 $ CONST .meta, .nat 3, n, l, ty, k] =>
+    return .quotient ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toSplitQuotKind .meta k⟩
+  | .mkList [.u64 $ CONST .meta, .nat 5, n, l, ty, b, i] =>
+    return .inductiveProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i⟩
+  | .mkList [.u64 $ CONST .meta, .nat 6, n, l, ty, b, i, j] =>
+    return .constructorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
+  | .mkList [.u64 $ CONST .meta, .nat 7, n, l, ty, b, i, j] =>
+    return .recursorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
+  | .mkList [.u64 $ CONST .meta, .nat 8, n, l, ty, b, i] =>
+    return .definitionProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
+      ← toExprCid ty, ← toConstCid b, ← toNat i⟩
+  | .mkList [.u64 $ CONST .meta, .nat 9, b] =>
+    return .mutDefBlock (← toMutDefBlock .meta b)
+  | .mkList [.u64 $ CONST .meta, .nat 10, b] =>
+    return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
 def constsTreeFromIpld (ar : Array Ipld) :
@@ -401,9 +397,9 @@ def constMetaMapFromIpld (ar : Array Ipld) :
     | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← constMetaFromIpld ipld)
     | _ => none
 
-def storeFromIpld : Ipld → Option IR.Store
-  | .array #[
-    .number STORE,
+def storeFromIpld : Lurk.Expr → Option IR.Store
+  | .mkList [
+    .u64 STORE,
     .array constsIpld,
     .array univAnonIpld,
     .array exprAnonIpld,
