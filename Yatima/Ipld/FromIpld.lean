@@ -37,8 +37,8 @@ def binderInfoFromIpld : Ipld → Option BinderInfo
 def quotKindFromIpld : Ipld → Option QuotKind
   | .number 0 => return .type
   | .number 1 => return .ctor
-  | .number 3 => return .lift
-  | .number 4 => return .ind
+  | .number 2 => return .lift
+  | .number 3 => return .ind
   | _ => none
 
 def definitionSafetyFromIpld : Ipld → Option DefinitionSafety

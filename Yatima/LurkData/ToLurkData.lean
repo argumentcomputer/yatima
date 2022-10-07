@@ -19,10 +19,9 @@ def u32   (n : UInt32) : Lurk.Expr := nat n.val
 def u64   (n : UInt64) : Lurk.Expr := nat n.val
 def usize (n : USize)  : Lurk.Expr := nat n.val
 
-instance : ToExpr Bool where
-  toExpr b := match b with 
-    | false => .lit .nil 
-    | true  => .lit .t
+instance : ToExpr Bool where toExpr
+  | false => .lit .nil
+  | true  => .lit .t
 
 instance [ToExpr α] [ToExpr β] : ToExpr (α ⊕ β) where toExpr
   | .inl a => toExpr a
@@ -142,9 +141,8 @@ instance : ToExpr (Inductive k) where toExpr
 instance : ToExpr QuotKind where toExpr
   | .type => toExpr 0
   | .ctor => toExpr 1
-  | .lift => toExpr 3
-  | .ind  => toExpr 4
-
+  | .lift => toExpr 2
+  | .ind  => toExpr 3
 
 instance : ToExpr (Definition k) where toExpr
   | .mk n l ty v s => 

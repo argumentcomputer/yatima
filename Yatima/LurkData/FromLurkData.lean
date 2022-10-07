@@ -1,121 +1,129 @@
--- import Ipld.Ipld
 import Yatima.Datatypes.Store
-import Yatima.LurkData.Def
 
 /-! 
 We follow the convention `LurkData.to<object>`
 -/
 namespace Yatima.LurkData
 
-def toNat : Ipld → Option Nat
-  | .bytes b => return Nat.fromByteListBE b.data.data
+def toNat : Lurk.Expr → Option Nat
+  | .lit $ .num n => return n.val
   | _ => none
 
-def toNat? : Ipld → Option (Option Nat)
-  | .bytes b => return some $ Nat.fromByteListBE b.data.data
-  | .null => return none
+def toBool : Lurk.Expr → Option Bool
+  | .lit .t => return true
+  | .lit .nil => return false
   | _ => none
 
-def toNameFromIpld : Ipld → Option Name
-  | .array ar => ar.foldlM (init := .anonymous) fun acc i =>
-    match i with
-    | .bytes  b => pure $ acc.mkNum (Nat.fromByteListBE b.data.data)
-    | .string s => pure $ acc.mkStr s
+def toNat? : Lurk.Expr → Option (Option Nat)
+  | .lit $ .num n => return some n.val
+  | .lit .nil => return none
+  | _ => none
+
+def toName : Lurk.Expr → Option Name
+  | .sym name => return name
+  | _ => none
+
+def toListName (ns : Lurk.Expr) : Option (List Name) :=
+  let rec aux (acc : List Name) : Lurk.Expr → Option (List Name)
+    | .cons (.sym n) ns => aux (n :: acc) ns
+    | .sym n => n :: acc
     | _ => none
+  (aux [] ns).map List.reverse
+
+instance : OfNat (Fin Lurk.N) 0 := ⟨0, by simp⟩
+instance : OfNat (Fin Lurk.N) 1 := ⟨1, by simp⟩
+instance : OfNat (Fin Lurk.N) 2 := ⟨2, by simp⟩
+instance : OfNat (Fin Lurk.N) 3 := ⟨3, by simp⟩
+instance : OfNat (Fin Lurk.N) 4 := ⟨4, by simp⟩
+
+def toBinderInfo : Lurk.Expr → Option BinderInfo
+  | .lit $ .num 0 => return .default
+  | .lit $ .num 1 => return .implicit
+  | .lit $ .num 2 => return .strictImplicit
+  | .lit $ .num 3 => return .instImplicit
+  | .lit $ .num 4 => return .auxDecl
   | _ => none
 
-def listNameFromIpld : Ipld → Option (List Name)
-  | .array ns => ns.data.mapM nameFromIpld
+def toQuotKind : Lurk.Expr → Option QuotKind
+  | .lit $ .num 0 => return .type
+  | .lit $ .num 1 => return .ctor
+  | .lit $ .num 2 => return .lift
+  | .lit $ .num 3 => return .ind
   | _ => none
 
-def binderInfoFromIpld : Ipld → Option BinderInfo
-  | .number 0 => return .default
-  | .number 1 => return .implicit
-  | .number 2 => return .strictImplicit
-  | .number 3 => return .instImplicit
-  | .number 4 => return .auxDecl
+def toDefinitionSafety : Lurk.Expr → Option DefinitionSafety
+  | .lit $ .num 0 => return .safe
+  | .lit $ .num 1 => return .unsafe
+  | .lit $ .num 2 => return .partial
   | _ => none
 
-def quotKindFromIpld : Ipld → Option QuotKind
-  | .number 0 => return .type
-  | .number 1 => return .ctor
-  | .number 3 => return .lift
-  | .number 4 => return .ind
-  | _ => none
-
-def definitionSafetyFromIpld : Ipld → Option DefinitionSafety
-  | .number 0 => return .safe
-  | .number 1 => return .unsafe
-  | .number 2 => return .partial
-  | _ => none
-
-def literalFromIpld : Ipld → Option Literal
-  | .string s => return .strVal s
-  | .bytes  b => return .natVal $ Nat.fromByteListBE b.data.data
+def toLiteral : Lurk.Expr → Option Literal
+  | .lit $ .str s => return .strVal s
+  | .lit $ .num n => return .natVal n.val
   | _ => none
 
 open IR
 
-def splitNatₐFromIpld : (k : Kind) → Ipld → Option (Natₐ k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← natFromIpld  x)
-  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+def toNatₐ : (k : Kind) → Lurk.Expr → Option (Natₐ k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitBoolₐFromIpld : (k : Kind) → Ipld → Option (Boolₐ k)
-  | .anon, .array #[.number 0, .bool b] => return .injₗ b
-  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+def toBoolₐ : (k : Kind) → Lurk.Expr → Option (Boolₐ k)
+  | .anon, .cons (.lit $ .num 0) b => return .injₗ (← toBool b)
+  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitNatₐNameₘFromIpld : (k : Kind) → Ipld → Option (NatₐNameₘ k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← natFromIpld  x)
-  | .meta, .array #[.number 1, x] => return .injᵣ (← nameFromIpld x)
+def splitNatₐNameₘFromIpld : (k : Kind) → Lurk.Expr → Option (NatₐNameₘ k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toName x)
   | _, _ => none
 
-def splitNat?ₘFromIpld : (k : Kind) → Ipld → Option (Nat?ₘ k)
-  | .anon, .array #[.number 0, .null] => return .injₗ ()
-  | .meta, .array #[.number 1, x] => return .injᵣ (← nat?FromIpld x)
+def toNat?ₘ : (k : Kind) → Lurk.Expr → Option (Nat?ₘ k)
+  | .anon, .cons (.lit $ .num 0) (.lit .nil) => return .injₗ ()
+  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toNat? x)
   | _, _ => none
 
-def splitNameₘFromIpld : (k : Kind) → Ipld → Option (Nameₘ k)
-  | .anon, .array #[.number 0, .null] => return .injₗ ()
-  | .meta, .array #[.number 1, x] => return .injᵣ (← nameFromIpld x)
+def toNameₘ : (k : Kind) → Lurk.Expr → Option (Nameₘ k)
+  | .anon, .cons (.lit $ .num 0) (.lit .nil) => return .injₗ ()
+  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toName x)
   | _, _ => none
 
-def splitNatₐListNameₘFromIpld : (k : Kind) → Ipld → Option (NatₐListNameₘ k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← natFromIpld x)
-  | .meta, .array #[.number 1, x] => return .injᵣ (← listNameFromIpld x)
+def toNatₐListNameₘ : (k : Kind) → Lurk.Expr → Option (NatₐListNameₘ k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.lit $ .num 1) x => return .injᵣ (← toListName x)
   | _, _ => none
 
-def splitBinderInfoₐFromIpld : (k : Kind) → Ipld → Option (BinderInfoₐ k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← binderInfoFromIpld x)
-  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+def toBinderInfoₐ : (k : Kind) → Lurk.Expr → Option (BinderInfoₐ k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toBinderInfo x)
+  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitLiteralUnitFromIpld : (k : Kind) → Ipld → Option (Split Literal Unit k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← literalFromIpld x)
-  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+def toSplitLiteralUnit : (k : Kind) → Lurk.Expr → Option (Split Literal Unit k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toLiteral x)
+  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def splitQuotKindFromIpld : (k : Kind) → Ipld → Option (Split QuotKind Unit k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← quotKindFromIpld x)
-  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+def splitQuotKindFromIpld : (k : Kind) → Lurk.Expr → Option (Split QuotKind Unit k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toQuotKind x)
+  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
 def splitDefinitionSafetyUnitFromIpld :
-    (k : Kind) → Ipld → Option (Split DefinitionSafety Unit k)
-  | .anon, .array #[.number 0, x] => return .injₗ (← definitionSafetyFromIpld x)
-  | .meta, .array #[.number 1, .null] => return .injᵣ ()
+    (k : Kind) → Lurk.Expr → Option (Split DefinitionSafety Unit k)
+  | .anon, .cons (.lit $ .num 0) x => return .injₗ (← toDefinitionSafety x)
+  | .meta, .cons (.lit $ .num 1) (.lit .nil) => return .injᵣ ()
   | _, _ => none
 
-def univCidFromIpld : Ipld → Option (UnivCid k)
+def univCidFromIpld : Lurk.Expr → Option (UnivCid k)
+  | .comm c => return ⟨c⟩
+  | _ => none
+
+def exprCidFromIpld : Lurk.Expr → Option (ExprCid k)
   | .link c => return ⟨c⟩
   | _ => none
 
-def exprCidFromIpld : Ipld → Option (ExprCid k)
-  | .link c => return ⟨c⟩
-  | _ => none
-
-def constCidFromIpld : Ipld → Option (ConstCid k)
+def constCidFromIpld : Lurk.Expr → Option (ConstCid k)
   | .link c => return ⟨c⟩
   | _ => none
 
