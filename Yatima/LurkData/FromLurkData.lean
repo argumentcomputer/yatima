@@ -34,12 +34,6 @@ def toList (es : Lurk.Expr) : Option $ List Lurk.Expr :=
 def toListName (es : Lurk.Expr) : Option (List Name) := do
   (← toList es).mapM toName
 
--- instance : OfNat (Fin Lurk.N) 0 := ⟨0, by simp⟩
--- instance : OfNat (Fin Lurk.N) 1 := ⟨1, by simp⟩
--- instance : OfNat (Fin Lurk.N) 2 := ⟨2, by simp⟩
--- instance : OfNat (Fin Lurk.N) 3 := ⟨3, by simp⟩
--- instance : OfNat (Fin Lurk.N) 4 := ⟨4, by simp⟩
-
 def toBinderInfo : Lurk.Expr → Option BinderInfo
   | .nat 0 => return .default
   | .nat 1 => return .implicit
@@ -208,7 +202,7 @@ def mutIndFromIpld : Lurk.Expr → Option (Inductive k)
 def toMutIndBlock (es : Lurk.Expr) : Option (List (Inductive k)) := do
   (← toList es).mapM mutIndFromIpld
 
-def univAnonFromIpld : Lurk.Expr → Option (Univ .anon)
+def toUnivAnon : Lurk.Expr → Option (Univ .anon)
   | .mkList [.u64 $ UNIV .anon, .nat 0] =>
     return .zero
   | .mkList [.u64 $ UNIV .anon, .nat 1, p] =>
@@ -221,7 +215,7 @@ def univAnonFromIpld : Lurk.Expr → Option (Univ .anon)
     return .var (← toSplitNatₐNameₘ .anon n)
   | _ => none
 
-def univMetaFromIpld : Lurk.Expr → Option (Univ .meta)
+def toUnivMeta : Lurk.Expr → Option (Univ .meta)
   | .mkList [.u64 $ UNIV .meta, .nat 0] =>
     return .zero
   | .mkList [.u64 $ UNIV .meta, .nat 1, p] =>
@@ -234,7 +228,7 @@ def univMetaFromIpld : Lurk.Expr → Option (Univ .meta)
     return .var (← toSplitNatₐNameₘ .meta n)
   | _ => none
 
-def exprAnonFromIpld : Lurk.Expr → Option (Expr .anon)
+def toExprAnon : Lurk.Expr → Option (Expr .anon)
   | .mkList [.u64 $ EXPR .anon, .nat 0, n, i, ls] =>
     return .var (← toSplitNatₐNameₘ .anon n) (← toNat?ₘ .anon i)
       (← toListUnivCid ls)
@@ -260,7 +254,7 @@ def exprAnonFromIpld : Lurk.Expr → Option (Expr .anon)
     return .proj (← toNatₐ .anon n) (← toExprCid e)
   | _ => none
 
-def exprMetaFromIpld : Lurk.Expr → Option (Expr .meta)
+def toExprMeta : Lurk.Expr → Option (Expr .meta)
   | .mkList [.u64 $ EXPR .meta, .nat 0, n, i, ls] =>
     return .var (← toSplitNatₐNameₘ .meta n) (← toNat?ₘ .meta i)
       (← toListUnivCid ls)
@@ -286,7 +280,7 @@ def exprMetaFromIpld : Lurk.Expr → Option (Expr .meta)
     return .proj (← toNatₐ .meta n) (← toExprCid e)
   | _ => none
 
-def constAnonFromIpld : Lurk.Expr → Option (Const .anon)
+def toConstAnon : Lurk.Expr → Option (Const .anon)
   | .mkList [.u64 $ CONST .anon, .nat 0, n, l, ty, s] =>
     return .axiom ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toBoolₐ .anon s⟩
@@ -317,7 +311,7 @@ def constAnonFromIpld : Lurk.Expr → Option (Const .anon)
     return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
-def constMetaFromIpld : Lurk.Expr → Option (Const .meta)
+def toConstMeta : Lurk.Expr → Option (Const .meta)
   | .mkList [.u64 $ CONST .meta, .nat 0, n, l, ty, s] =>
     return .axiom ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toBoolₐ .meta s⟩
@@ -348,73 +342,69 @@ def constMetaFromIpld : Lurk.Expr → Option (Const .meta)
     return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
-def constsTreeFromIpld (ar : Array Ipld) :
-    Option (Std.RBTree (Both ConstCid) compare) :=
+def toConstsTree (ar : List Lurk.Expr) : Option (Std.RBTree BothConstCid compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link anonCid, .link metaCid] => acc.insert ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
+    | .mkList [.comm $ .lit $ .num anonCid, .comm $ .lit $ .num metaCid] =>
+      acc.insert ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
     | _ => none
 
-def univAnonMapFromIpld (ar : Array Ipld) :
+def toUnivAnonMap (ar : List Lurk.Expr) :
     Option (Std.RBMap (UnivCid .anon) (Univ .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← univAnonFromIpld ipld)
+    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toUnivAnon e)
     | _ => none
 
-def univMetaMapFromIpld (ar : Array Ipld) :
+def toUnivMetaMap (ar : List Lurk.Expr) :
     Option (Std.RBMap (UnivCid .meta) (Univ .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← univMetaFromIpld ipld)
+    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toUnivMeta e)
     | _ => none
 
-def exprAnonMapFromIpld (ar : Array Ipld) :
+def toExprAnonMap (ar : List Lurk.Expr) :
     Option (Std.RBMap (ExprCid .anon) (Expr .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← exprAnonFromIpld ipld)
+    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toExprAnon e)
     | _ => none
 
-def exprMetaMapFromIpld (ar : Array Ipld) :
+def toExprMetaMap (ar : List Lurk.Expr) :
     Option (Std.RBMap (ExprCid .meta) (Expr .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← exprMetaFromIpld ipld)
+    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toExprMeta e)
     | _ => none
 
-def constAnonMapFromIpld (ar : Array Ipld) :
+def toConstAnonMap (ar : List Lurk.Expr) :
     Option (Std.RBMap (ConstCid .anon) (Const .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← constAnonFromIpld ipld)
+    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toConstAnon e)
     | _ => none
 
-def constMetaMapFromIpld (ar : Array Ipld) :
+def toConstMetaMap (ar : List Lurk.Expr) :
     Option (Std.RBMap (ConstCid .meta) (Const .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .array #[.link cid, ipld] => do acc.insert ⟨cid⟩ (← constMetaFromIpld ipld)
+    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toConstMeta e)
     | _ => none
 
 def storeFromIpld : Lurk.Expr → Option IR.Store
   | .mkList [
     .u64 STORE,
-    .array constsIpld,
-    .array univAnonIpld,
-    .array exprAnonIpld,
-    .array constAnonIpld,
-    .array univMetaIpld,
-    .array exprMetaIpld,
-    .array constMetaIpld] =>
+    consts,
+    univAnon, exprAnon, constAnon,
+    univMeta, exprMeta, constMeta] =>
     return ⟨
-      ← constsTreeFromIpld   constsIpld,
-      ← univAnonMapFromIpld  univAnonIpld,
-      ← exprAnonMapFromIpld  exprAnonIpld,
-      ← constAnonMapFromIpld constAnonIpld,
-      ← univMetaMapFromIpld  univMetaIpld,
-      ← exprMetaMapFromIpld  exprMetaIpld,
-      ← constMetaMapFromIpld constMetaIpld⟩
+      ← toConstsTree   (← toList consts),
+      ← toUnivAnonMap  (← toList univAnon),
+      ← toExprAnonMap  (← toList exprAnon),
+      ← toConstAnonMap (← toList constAnon),
+      ← toUnivMetaMap  (← toList univMeta),
+      ← toExprMetaMap  (← toList exprMeta),
+      ← toConstMetaMap (← toList constMeta)⟩
   | _ => none
 
 end Yatima.LurkData
