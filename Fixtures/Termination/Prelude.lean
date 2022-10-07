@@ -986,8 +986,6 @@ class LT (α : Type u) where lt : α → α → Prop
 class Trans (r : α → β → Sort u) (s : β → γ → Sort v) (t : outParam (α → γ → Sort w)) where
   trans : r a b → s b c → t a c
 
-#exit
-
 export Trans (trans)
 
 instance (r : α → γ → Sort u) : Trans Eq r r where
@@ -1539,6 +1537,8 @@ instance : Inhabited UInt64 where
   default := UInt64.ofNatCore 0 (by decide)
 
 def USize.size : Nat := hPow 2 System.Platform.numBits
+
+#exit
 
 theorem usize_size_eq : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073709551616) :=
   show Or (Eq (hPow 2 System.Platform.numBits) 4294967296) (Eq (hPow 2 System.Platform.numBits) 18446744073709551616) from

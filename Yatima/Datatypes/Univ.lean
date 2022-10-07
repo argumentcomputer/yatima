@@ -115,11 +115,12 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
   | .succ u => .succ (instReduce u idx subst)
   | .max a b => reduceMax (instReduce a idx subst) (instReduce b idx subst)
   | .imax a b =>
+    let a' := instReduce a idx subst
     let b' := instReduce b idx subst
     match b' with
     | .zero => .zero
-    | .succ _ => reduceMax (instReduce a idx subst) b'
-    | _ => .imax (instReduce a idx subst) b'
+    | .succ _ => reduceMax a' b'
+    | _ => .imax a' b'
   | .var _ idx' => if idx' == idx then subst else u
   | .zero => u
 
@@ -181,12 +182,12 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
   | Univ.imax c (Univ.max e f), _ =>
     -- Here we use the relationship
     -- imax c (max e f) = max (imax c e) (imax c f)
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
+    let new_max := Univ.max (reduceIMax c e) (reduceIMax c f)
     leq new_max b diff
   | Univ.imax c (Univ.imax e f), _ =>
     -- Here we use the relationship
-    -- imax c (imax e f) = max (imax c e) (imax e f)
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
+    -- imax c (imax e f) = imax (max c e) f
+    let new_max := Univ.imax (Univ.max c e) f
     leq new_max b diff
   -- Analogous to previous case
   | _, Univ.imax _ (Univ.var nam idx) =>
@@ -194,17 +195,15 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
     let succ := Univ.succ (Univ.var nam idx)
     leq (instReduce a idx succ) (instReduce b idx succ) diff
   | _, Univ.imax c (Univ.max e f) =>
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
+    let new_max := Univ.max (reduceIMax c e) (reduceIMax c f)
     leq a new_max diff
   | _, Univ.imax c (Univ.imax e f) =>
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
+    let new_max := Univ.imax (Univ.max c e) f
     leq a new_max diff
-  | _, _ => dbg_trace s!"impossible case arrived: {repr a}, {repr b}"
-           false -- Impossible cases
+  | _, _ => false -- Impossible cases
 
 /-- The equality algorithm. Assumes `a` and `b` are already reduced -/
 def equalUniv (a b : Univ) : Bool :=
-  dbg_trace s!"checking: {repr a} == {repr b}"
   leq a b 0 && leq b a 0
 
 /--
