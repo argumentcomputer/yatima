@@ -40,11 +40,7 @@ def TypecheckCtx.init (store : Store) : TypecheckCtx :=
 
 /-- An initialization of the typechecker state with a particular `store : Array Const` -/
 def TypecheckState.init (store : Store) : TypecheckState := Id.run $ do
-  let mut tcConsts := .mk []
-  -- FIXME there's gotta be a better way...
-  for _ in [:store.consts.size] do
-    tcConsts := .mk $ none :: tcConsts.toList
-  pure {tcConsts}
+  pure {tcConsts := mkArray store.consts.size none}
 
 /-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
 def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=
