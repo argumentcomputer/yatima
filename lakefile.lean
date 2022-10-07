@@ -26,7 +26,7 @@ require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "1f844d9d3c31908588f507dfa3f3b4c764bdcdf6"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "47f0241d065c297842e573b2a234d147ab13329e"
+  "https://github.com/yatima-inc/Lurk.lean" @ "c3642a6e07a38d8fbfe31192b494e7732ed81592"
 
 section Testing
 

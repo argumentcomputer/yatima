@@ -1,13 +1,11 @@
 import Yatima.Compiler.Printing
 import YatimaStdLib.RBMap
-import Yatima.Ipld.PrimCids
+import Yatima.LurkData.PrimConsts
 import YatimaStdLib.List
 
 namespace Yatima.Compiler
 
 open Std (RBMap)
-
-open Ipld
 
 /-- Gets a constant from the array of constants -/
 def derefConst (idx : TC.ConstIdx) : CompileM TC.Const := do
@@ -800,14 +798,13 @@ def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
       IO.println   "========================================="
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
-  -- TODO: fix @Arthur
-  -- (← get).cache.forM fun _ (cid, idx) =>
-  --   match Ipld.primCidsMap.find? cid.anon.data with
-  --   | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := idx } }
-  --   | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := idx } }
-  --   | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := idx } }
-  --   | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := idx } }
-  --   | none => pure ()
+  (← get).cache.forM fun _ (cid, idx) =>
+    match IR.primCidsMap.find? cid.anon.data with
+    | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := idx } }
+    | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := idx } }
+    | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := idx } }
+    | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := idx } }
+    | none => pure ()
 
 /--
 Compiles the "delta" of a file, that is, the content that is added on top of

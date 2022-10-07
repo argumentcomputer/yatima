@@ -138,8 +138,8 @@ def addToStore : StoreEntry A → CompileM A
       irStore := { stt.irStore with
         univAnon := stt.irStore.univAnon.insert cidAnon obj.anon,
         univMeta := stt.irStore.univMeta.insert cidMeta obj.meta }
-      univAnon := stt.univAnon.push $ .mkList [.comm cidAnon.data, ipldAnon]
-      univMeta := stt.univMeta.push $ .mkList [.comm cidMeta.data, ipldMeta] })
+      univAnon := stt.univAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
+      univMeta := stt.univMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta] })
   | .expr obj =>
     let (ipldAnon, cidAnon) := obj.anon.toCid
     let (ipldMeta, cidMeta) := obj.meta.toCid
@@ -147,8 +147,8 @@ def addToStore : StoreEntry A → CompileM A
       irStore := { stt.irStore with
         exprAnon := stt.irStore.exprAnon.insert cidAnon obj.anon,
         exprMeta := stt.irStore.exprMeta.insert cidMeta obj.meta }
-      exprAnon := stt.exprAnon.push $ .mkList [.comm cidAnon.data, ipldAnon]
-      exprMeta := stt.exprMeta.push $ .mkList [.comm cidMeta.data, ipldMeta] })
+      exprAnon := stt.exprAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
+      exprMeta := stt.exprMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta] })
   | .const obj =>
     let (ipldAnon, cidAnon) := obj.anon.toCid
     let (ipldMeta, cidMeta) := obj.meta.toCid
@@ -161,17 +161,18 @@ def addToStore : StoreEntry A → CompileM A
         irStore := { stt.irStore with
           constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
           constMeta := stt.irStore.constMeta.insert cidMeta obj.meta }
-        constAnon := stt.constAnon.push $ .mkList [.comm cidAnon.data, ipldAnon]
-        constMeta := stt.constMeta.push $ .mkList [.comm cidMeta.data, ipldMeta] })
+        constAnon := stt.constAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
+        constMeta := stt.constMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta] })
     | _, _ =>
       modifyGet fun stt => (cid, { stt with
         irStore := { stt.irStore with
           constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
           constMeta := stt.irStore.constMeta.insert cidMeta obj.meta,
           consts    := stt.irStore.consts.insert cid }
-        constAnon := stt.constAnon.push $ .mkList [.comm cidAnon.data, ipldAnon]
-        constMeta := stt.constMeta.push $ .mkList [.comm cidMeta.data, ipldMeta]
-        consts    := stt.consts.push    $ .mkList [.comm cidAnon.data, .comm cidMeta.data] })
+        constAnon := stt.constAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
+        constMeta := stt.constMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta]
+        consts    := stt.consts.push    $
+          .mkList [.comm $ .num cidAnon.data, .comm $ .num cidMeta.data] })
 
 /-- Adds data associated with a name to the cache -/
 def addToCache (name : Name) (c : IR.BothConstCid × TC.ConstIdx) : CompileM Unit :=

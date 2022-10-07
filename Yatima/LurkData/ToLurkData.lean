@@ -1,12 +1,13 @@
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Cid
-import Yatima.LurkData.Def
+import Yatima.LurkData.Move
 
 /-!
-We follow the convention of `Yatima.IR.<object>.toLurkData`
+We follow the convention of `Yatima.IR.<object>.toLurk.Expr`
 -/
 
 open Lurk Expr ToExpr
+
 namespace Lurk.Expr 
 
 def num   (n : Fin N)  : Lurk.Expr := .lit $ .num n
@@ -45,11 +46,6 @@ instance [Ord α] [ToExpr α] [ToExpr β] : ToExpr (Std.RBMap α β compare) whe
   
 instance [Ord α] [ToExpr α] : ToExpr (Std.RBTree α compare) where
   toExpr es := .mkList $ es.toList.map toExpr
-  
--- TODO: implement as constructor
-def comm (n : Fin N) : Lurk.Expr := .num n
--- TODO: implement poseidon as constructor
-def commit (e : Lurk.Expr) : Fin N := Fin.ofNat 0
 
 end Lurk.Expr 
 
@@ -59,9 +55,9 @@ namespace IR
 -- TODO: this seems wrong
 
 -- TODO: after `.comm` gets bumped
-instance : ToExpr (UnivCid  k) where toExpr u := .comm u.data
-instance : ToExpr (ExprCid  k) where toExpr u := .comm u.data
-instance : ToExpr (ConstCid k) where toExpr u := .comm u.data
+instance : ToExpr (UnivCid  k) where toExpr u := .comm $ .num u.data
+instance : ToExpr (ExprCid  k) where toExpr u := .comm $ .num u.data
+instance : ToExpr (ConstCid k) where toExpr u := .comm $ .num u.data
 
 instance : ToExpr BinderInfo where toExpr
   | .default        => toExpr 0
@@ -159,14 +155,14 @@ instance : ToExpr (Definition k) where toExpr
       toExpr v, 
       toExpr s ]
 
-def Univ.toLurkData : Univ k → LurkData
+def Univ.toLurk : Univ k → Lurk.Expr
   | .zero     => .mkList [.u64 $ UNIV k, .nat 0]
   | .succ p   => .mkList [.u64 $ UNIV k, .nat 1, toExpr p]
   | .max a b  => .mkList [.u64 $ UNIV k, .nat 2, toExpr a, toExpr b]
   | .imax a b => .mkList [.u64 $ UNIV k, .nat 3, toExpr a, toExpr b]
   | .var n    => .mkList [.u64 $ UNIV k, .nat 4, toExpr n]
 
-def Expr.toLurkData : Expr k → LurkData
+def Expr.toLurk : Expr k → Lurk.Expr
   | .var n i ls    => .mkList [.u64 $ EXPR k, .nat 0, toExpr n, toExpr i, toExpr ls]
   | .sort u        => .mkList [.u64 $ EXPR k, .nat 1, toExpr u]
   | .const n c ls  => .mkList [.u64 $ EXPR k, .nat 2, toExpr n, toExpr c, toExpr ls]
@@ -177,7 +173,7 @@ def Expr.toLurkData : Expr k → LurkData
   | .lit l         => .mkList [.u64 $ EXPR k, .nat 7, toExpr l]
   | .proj n e      => .mkList [.u64 $ EXPR k, .nat 8, toExpr n, toExpr e]
 
-def Const.toLurkData : Const k → LurkData
+def Const.toLurk : Const k → Lurk.Expr
   | .axiom ⟨n, l, ty, s⟩                 => .mkList [.u64 $ CONST k, .nat 0, toExpr n, toExpr l, toExpr ty, toExpr s]
   | .theorem ⟨n, l, ty, v⟩               => .mkList [.u64 $ CONST k, .nat 1, toExpr n, toExpr l, toExpr ty, toExpr v]
   | .opaque ⟨n, l, ty, v, s⟩             => .mkList [.u64 $ CONST k, .nat 2, toExpr n, toExpr l, toExpr ty, toExpr v, toExpr s]
@@ -186,27 +182,22 @@ def Const.toLurkData : Const k → LurkData
   | .constructorProj ⟨n, l, ty, b, i, j⟩ => .mkList [.u64 $ CONST k, .nat 6, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i, toExpr j]
   | .recursorProj ⟨n, l, ty, b, i, j⟩    => .mkList [.u64 $ CONST k, .nat 7, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i, toExpr j]
   | .definitionProj ⟨n, l, ty, b, i⟩     => .mkList [.u64 $ CONST k, .nat 8, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i]
-  | .mutDefBlock b                      => .mkList [.u64 $ CONST k, .nat 9, toExpr b]
-  | .mutIndBlock b                      => .mkList [.u64 $ CONST k, .nat 10, toExpr b]
+  | .mutDefBlock b                       => .mkList [.u64 $ CONST k, .nat 9, toExpr b]
+  | .mutIndBlock b                       => .mkList [.u64 $ CONST k, .nat 10, toExpr b]
 
--- def ipldToCid (e : LurkData) : Cid :=
---   let cbor := DagCbor.serialize ipld;
---   let hash := Multihash.sha3_256 cbor;
---   { version := 0x01, codec, hash }
+def Univ.toCid (univ : Univ k) : Lurk.Expr × UnivCid k :=
+  let data := univ.toLurk
+  (data, ⟨hash data⟩)
 
-def Univ.toCid (univ : Univ k) : LurkData × UnivCid k :=
-  let data := univ.toLurkData
-  (data, ⟨data.commit⟩)
+def Expr.toCid (expr : Expr k) : Lurk.Expr × ExprCid k :=
+  let data := expr.toLurk
+  (data, ⟨hash data⟩)
 
-def Expr.toCid (expr : Expr k) : LurkData × ExprCid k :=
-  let data := expr.toLurkData
-  (data, ⟨data.commit⟩)
+def Const.toCid (const : Const k) : Lurk.Expr × ConstCid k :=
+  let data := const.toLurk
+  (data, ⟨hash data⟩)
 
-def Const.toCid (const : Const k) : LurkData × ConstCid k :=
-  let data := const.toLurkData
-  (data, ⟨data.commit⟩)
-
-def LurkStore.toLurkData (store : LurkStore) : LurkData :=
+def LurkStore.toLurk.Expr (store : LurkStore) : Lurk.Expr :=
   .mkList [
     .u64 STORE,
     toExpr store.consts,
@@ -217,5 +208,6 @@ def LurkStore.toLurkData (store : LurkStore) : LurkData :=
     toExpr store.exprMeta,
     toExpr store.constMeta]
 
-end IR 
+end IR
+
 end Yatima
