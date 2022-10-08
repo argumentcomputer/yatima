@@ -2,10 +2,6 @@ import Yatima.Datatypes.Store
 import Yatima.Datatypes.Cid
 import Yatima.LurkData.Move
 
-/-!
-We follow the convention of `Yatima.IR.<object>.toLurk.Expr`
--/
-
 open Lurk Expr ToExpr
 
 namespace Lurk.Expr
@@ -21,30 +17,17 @@ instance [ToExpr α] [ToExpr β] : ToExpr (α ⊕ β) where toExpr
 instance [ToExpr α] : ToExpr (Option α) where toExpr
   | none   => .lit .nil
   | some a => toExpr a
-
-instance [ToExpr α] [ToExpr β] : ToExpr (α × β) where
-  toExpr x := mkList [toExpr x.1, toExpr x.2]
   
 instance [ToExpr α] : ToExpr (List α) where
   toExpr es := .mkList $ es.map toExpr
   
 instance [ToExpr α] : ToExpr (Array α) where
-  toExpr es := .mkList $ es.toList.map toExpr
-  
-instance [Ord α] [ToExpr α] [ToExpr β] : ToExpr (Std.RBMap α β compare) where
-  toExpr es := .mkList $ es.toList.map toExpr
-  
-instance [Ord α] [ToExpr α] : ToExpr (Std.RBTree α compare) where
-  toExpr es := .mkList $ es.toList.map toExpr
+  toExpr es := .mkList $ es.data.map toExpr
 
 end Lurk.Expr 
 
-namespace Yatima
-namespace IR 
+namespace Yatima.IR
 
--- TODO: this seems wrong
-
--- TODO: after `.comm` gets bumped
 instance : ToExpr (UnivCid  k) where toExpr u := .comm $ .num u.data
 instance : ToExpr (ExprCid  k) where toExpr u := .comm $ .num u.data
 instance : ToExpr (ConstCid k) where toExpr u := .comm $ .num u.data
@@ -66,8 +49,8 @@ instance : ToExpr DefinitionSafety where toExpr
   | .partial => toExpr 2
 
 instance [ToExpr α] [ToExpr β] : ToExpr (Split α β k) where toExpr
-  | .injₗ a => .mkList [toExpr 0, toExpr a]
-  | .injᵣ b => .mkList [toExpr 1, toExpr b]
+  | .injₗ a => .cons (toExpr 0) (toExpr a)
+  | .injᵣ b => .cons (toExpr 1) (toExpr b)
 
 instance : ToExpr Unit where toExpr
   | .unit => .lit .nil
@@ -197,6 +180,4 @@ def LurkStore.toLurk.Expr (store : LurkStore) : Lurk.Expr :=
     toExpr store.exprMeta,
     toExpr store.constMeta]
 
-end IR
-
-end Yatima
+end Yatima.IR
