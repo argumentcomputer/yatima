@@ -178,11 +178,11 @@ mutual
         let some arg' := args.get? 0 | throw .impossible
         match arg'.get with
         | .lit (.natVal v') => 
-          if add? then pure $ .lit (.natVal (v+v'))
-          else if mul? then pure $ .lit (.natVal (v*v'))
-          else pure $ .lit (.natVal (Nat.pow v v'))
-        | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg
-      | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg
+          if add? then pure $ .lit (.natVal (v'+v))
+          else if mul? then pure $ .lit (.natVal (v'*v))
+          else pure $ .lit (.natVal (Nat.pow v' v))
+        | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg --FIXME unsafe get
+      | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg --FIXME unsafe get
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with

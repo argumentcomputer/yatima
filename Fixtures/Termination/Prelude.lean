@@ -1538,6 +1538,12 @@ instance : Inhabited UInt64 where
 
 def USize.size : Nat := hPow 2 System.Platform.numBits
 
+theorem test1 : (Eq (Nat.add 10000 10000) 20000) := rfl
+
+theorem test2 : (Eq (Nat.mul 10000 10000) 100000000) := rfl
+
+theorem test3 : (Eq (Nat.pow 2 32) 4294967296) := rfl
+
 #exit
 
 theorem usize_size_eq : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073709551616) :=
