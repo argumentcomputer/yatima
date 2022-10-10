@@ -1544,9 +1544,15 @@ theorem test2 : (Eq (Nat.mul 10000 10000) 100000000) := rfl
 
 theorem test3 : (Eq (Nat.pow 2 32) 4294967296) := rfl
 
+theorem usize_size_eq : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073709551616) :=
+  show Or (Eq (hPow 2 System.Platform.numBits) 4294967296) (Eq (hPow 2 System.Platform.numBits) 18446744073709551616) from
+  match System.Platform.numBits, System.Platform.numBits_eq with
+  | _, Or.inl rfl => Or.inl rfl
+  | _, Or.inr rfl => Or.inr rfl
+
 #exit
 
-theorem usize_size_eq : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073709551616) :=
+theorem usize_size_eq' : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073709551616) :=
   show Or (Eq (hPow 2 System.Platform.numBits) 4294967296) (Eq (hPow 2 System.Platform.numBits) 18446744073709551616) from
   match System.Platform.numBits, System.Platform.numBits_eq with
   | _, Or.inl rfl => Or.inl (by decide)
