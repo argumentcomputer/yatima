@@ -46,6 +46,9 @@ namespace TC
 structure Store where
   consts     : Array Const
   natIdx     : Option Nat
+  natAddIdx  : Option Nat
+  natMulIdx  : Option Nat
+  natPowIdx  : Option Nat
   natZeroIdx : Option Nat
   natSuccIdx : Option Nat
   stringIdx  : Option Nat

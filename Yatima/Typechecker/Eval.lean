@@ -95,12 +95,9 @@ mutual
       | .app .. => pure $ .app (.proj idx val) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
-  /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
-  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+  partial def evalConst' (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    let zero? ← zeroIndexWith (pure false) (fun zeroIdx => pure $ const == zeroIdx)
-    if zero? then pure $ .lit (.natVal 0)
-    else match ← derefConst name const with
+    match ← derefConst name const with
     | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
@@ -110,6 +107,17 @@ mutual
       | .unsafe  => throw .unsafeDefinition
     | _ =>
       pure $ mkConst name const univs
+
+  /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
+  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+      TypecheckM Value := do
+    let zero? ← zeroIndexWith (pure false) (fun zeroIdx => pure $ const == zeroIdx)
+    let add? ← addIndexWith (pure false) (fun addIdx => pure $ const == addIdx)
+    let mul? ← mulIndexWith (pure false) (fun mulIdx => pure $ const == mulIdx)
+    let pow? ← powIndexWith (pure false) (fun powIdx => pure $ const == powIdx)
+    if zero? then pure $ .lit (.natVal 0)
+    else if add? || mul? || pow? then pure $ mkConst name const univs
+    else evalConst' name const univs
 
   /--
   Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `ctx : TypecheckCtx`
@@ -153,15 +161,28 @@ mutual
    -/
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : SusValue) (args : Args) : TypecheckM Value := do
-
     let succ? ← succIndexWith (pure false) (fun succIdx => pure $ k == succIdx)
+    let add? ← addIndexWith (pure false) (fun addIdx => pure $ k == addIdx)
+    let mul? ← mulIndexWith (pure false) (fun mulIdx => pure $ k == mulIdx)
+    let pow? ← powIndexWith (pure false) (fun powIdx => pure $ k == powIdx)
     if succ? then
       -- Sanity check
       if !args.isEmpty then throw $ .custom "args should be empty"
       else match arg.get with
       | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
       | _ => pure $ .app (.const name k univs) [arg]
-
+    else if add? || mul? || pow? then
+      if args.length < 1 then pure $ .app (.const name k univs) [arg]
+      else match arg.get with
+      | .lit (.natVal v) => 
+        let some arg' := args.get? 0 | throw .impossible
+        match arg'.get with
+        | .lit (.natVal v') => 
+          if add? then pure $ .lit (.natVal (v+v'))
+          else if mul? then pure $ .lit (.natVal (v*v'))
+          else pure $ .lit (.natVal (Nat.pow v v'))
+        | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg
+      | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with

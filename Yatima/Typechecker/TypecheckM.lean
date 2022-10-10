@@ -92,6 +92,12 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
 
 def natIndex : TypecheckM Nat := do
   match (← read).store.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
+def addIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.natAddIdx with | none => noneHandle | some a => someHandle a
+def mulIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.natMulIdx with | none => noneHandle | some a => someHandle a
+def powIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.natPowIdx with | none => noneHandle | some a => someHandle a
 def stringIndex : TypecheckM Nat := do
   match (← read).store.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
 def zeroIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
