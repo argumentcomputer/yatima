@@ -9,14 +9,14 @@
    "name": "LSpec",
    "inputRev": "a8dc2f38fc38f16efcc877ca8a4c7b37d3965db0"},
   {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
-   "rev": "23b4926a7ab6b86f2051dc60e77646d977ace8bc",
+   "rev": "9aedefe96478a6033c1ffa030a800f4d3e0c7681",
    "name": "YatimaStdLib",
-   "inputRev": "23b4926a7ab6b86f2051dc60e77646d977ace8bc"},
+   "inputRev": "9aedefe96478a6033c1ffa030a800f4d3e0c7681"},
   {"url": "https://github.com/yatima-inc/Lurk.lean",
    "rev": "fd45f1c33e8248322d9f97b6ef321eb8f007c259",
    "name": "Lurk",
    "inputRev": "fd45f1c33e8248322d9f97b6ef321eb8f007c259"},
   {"url": "https://github.com/yatima-inc/Ipld.lean",
-   "rev": "f7d77f12c3003cb8d096cdb2a500a937e63f7e5a",
+   "rev": "d50cb274e4a763e577976198fbc38ecceea9d3ee",
    "name": "Ipld",
-   "inputRev": "f7d77f12c3003cb8d096cdb2a500a937e63f7e5a"}]}
+   "inputRev": "d50cb274e4a763e577976198fbc38ecceea9d3ee"}]}
