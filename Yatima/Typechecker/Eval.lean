@@ -115,8 +115,9 @@ mutual
     let add? ← addIndexWith (pure false) (fun addIdx => pure $ const == addIdx)
     let mul? ← mulIndexWith (pure false) (fun mulIdx => pure $ const == mulIdx)
     let pow? ← powIndexWith (pure false) (fun powIdx => pure $ const == powIdx)
+    let decEq? ← decEqIndexWith (pure false) (fun decEqIdx => pure $ const == decEqIdx)
     if zero? then pure $ .lit (.natVal 0)
-    else if add? || mul? || pow? then pure $ mkConst name const univs
+    else if add? || mul? || pow? || decEq? then pure $ mkConst name const univs
     else evalConst' name const univs
 
   /--
@@ -165,13 +166,14 @@ mutual
     let add? ← addIndexWith (pure false) (fun addIdx => pure $ k == addIdx)
     let mul? ← mulIndexWith (pure false) (fun mulIdx => pure $ k == mulIdx)
     let pow? ← powIndexWith (pure false) (fun powIdx => pure $ k == powIdx)
+    let decEq? ← decEqIndexWith (pure false) (fun decEqIdx => pure $ k == decEqIdx)
     if succ? then
       -- Sanity check
       if !args.isEmpty then throw $ .custom "args should be empty"
       else match arg.get with
       | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
       | _ => pure $ .app (.const name k univs) [arg]
-    else if add? || mul? || pow? then
+    else if add? || mul? || pow? || decEq? then
       if args.length < 1 then pure $ .app (.const name k univs) [arg]
       else match arg.get with
       | .lit (.natVal v) => 
@@ -180,6 +182,13 @@ mutual
         | .lit (.natVal v') => 
           if add? then pure $ .lit (.natVal (v'+v))
           else if mul? then pure $ .lit (.natVal (v'*v))
+          else if decEq? then
+            if h : v' = v then
+              pure $ .app (.const `Decidable.isTrue (← decTIndexWith (throw .impossible) pure) []) $
+                [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
+            else
+              pure $ .app (.const `Decidable.isFalse (← decFIndexWith (throw .impossible) pure) []) $
+                [.mk {proof? := true} $ .mk fun _ => .litProp $ .natNEq v' v h]
           else pure $ .lit (.natVal (Nat.pow v' v))
         | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg --FIXME unsafe get
       | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg --FIXME unsafe get

@@ -3,7 +3,7 @@ import Lean
 namespace Yatima.Ipld
 
 inductive PrimConst
-  | nat | natAdd | natMul | natPow | natZero | natSucc | string
+  | nat | natAdd | natMul | natPow | natDecEq | natDecT | natDecF | natZero | natSucc | string
 
 open Std (RBMap) in
 def primCidsMap : RBMap String PrimConst compare := .ofList [
@@ -11,6 +11,9 @@ def primCidsMap : RBMap String PrimConst compare := .ofList [
   ("bagcyb6egbqlcaepbwn7l424zmkewcgcouep6pdfftmougquq3l4elfvviuhxmqjn", .natAdd),
   ("bagcyb6egbqlcacycdglvdr774v2izr4ezzzvdpzs2pjasmkht6fdho4j7mnecn3t", .natMul),
   ("bagcyb6egbqlcbycyhbsq72njmymsmrdrj7e6b6znlxvhipo2cbv7kigrqtu5xhzu", .natPow),
+  ("bagcyb6egbqlcb2lqevfndcfelyki2edccpxvobldmj24j6maun7mghs4ylbrsw6x", .natDecEq),
+  ("bagcyb6egbqlcbl2aoqykz65ocaamdlnkpvevymxnfa45koftxu2sbpz4xspk62im", .natDecT),
+  ("bagcyb6egbqlcbhccl4jn32q3kyguwzpohldvsxe5wlyvcbmsmu7mrqgt5byyt6ft", .natDecF),
   ("bagcyb6egbqlcav6xokynafp5fsz4a2ybhq2octuhvcsrnplpb76fkr4bxpnq7tmy", .natZero),
   ("bagcyb6egbqlcbs4ntyq3z35j6hpj5pelkv3xwo2s5737yapedutfqfgd3bzaco5b", .natSucc),
   ("bagcyb6egbqlcbwowc6i4nuyyusv4fcuqbwgukyuuuro7m7gn6rtx77u25r2typaj", .string)

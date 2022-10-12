@@ -44,14 +44,17 @@ namespace TC
 
 /-- Keeps track of the data used for typechecking -/
 structure Store where
-  consts     : Array Const
-  natIdx     : Option Nat
-  natAddIdx  : Option Nat
-  natMulIdx  : Option Nat
-  natPowIdx  : Option Nat
-  natZeroIdx : Option Nat
-  natSuccIdx : Option Nat
-  stringIdx  : Option Nat
+  consts       : Array Const
+  natIdx       : Option Nat
+  natAddIdx    : Option Nat
+  natMulIdx    : Option Nat
+  natPowIdx    : Option Nat
+  natDecEqIdx  : Option Nat
+  natDecTIdx   : Option Nat
+  natDecFIdx   : Option Nat
+  natZeroIdx   : Option Nat
+  natSuccIdx   : Option Nat
+  stringIdx    : Option Nat
   deriving Inhabited
 
 end TC

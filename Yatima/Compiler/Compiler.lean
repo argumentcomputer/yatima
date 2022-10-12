@@ -802,13 +802,16 @@ def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
       IO.println   "=========================================\n"
   (← get).cache.forM fun _ (cid, idx) =>
     match Ipld.primCidsMap.find? cid.anon.data.toString with
-    | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := idx } }
-    | some .natAdd  => modify fun stt => { stt with tcStore := { stt.tcStore with natAddIdx  := idx } }
-    | some .natMul  => modify fun stt => { stt with tcStore := { stt.tcStore with natMulIdx  := idx } }
-    | some .natPow  => modify fun stt => { stt with tcStore := { stt.tcStore with natPowIdx  := idx } }
-    | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := idx } }
-    | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := idx } }
-    | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := idx } }
+    | some .nat      => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx      := idx } }
+    | some .natAdd   => modify fun stt => { stt with tcStore := { stt.tcStore with natAddIdx   := idx } }
+    | some .natMul   => modify fun stt => { stt with tcStore := { stt.tcStore with natMulIdx   := idx } }
+    | some .natPow   => modify fun stt => { stt with tcStore := { stt.tcStore with natPowIdx   := idx } }
+    | some .natDecEq => modify fun stt => { stt with tcStore := { stt.tcStore with natDecEqIdx := idx } }
+    | some .natDecT  => modify fun stt => { stt with tcStore := { stt.tcStore with natDecTIdx := idx } }
+    | some .natDecF  => modify fun stt => { stt with tcStore := { stt.tcStore with natDecFIdx := idx } }
+    | some .natZero  => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx  := idx } }
+    | some .natSucc  => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx  := idx } }
+    | some .string   => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx   := idx } }
     | none => pure ()
 
 /--

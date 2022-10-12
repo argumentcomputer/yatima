@@ -395,13 +395,16 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
     (← read).store.consts.forM fun cid => discard $ constFromIR cid
     (← get).constCache.forM fun cid idx => do
       match Ipld.primCidsMap.find? cid.anon.data.toString with
-      | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := some idx } }
-      | some .natAdd  => modify fun stt => { stt with tcStore := { stt.tcStore with natAddIdx  := some idx } }
-      | some .natMul  => modify fun stt => { stt with tcStore := { stt.tcStore with natMulIdx  := some idx } }
-      | some .natPow  => modify fun stt => { stt with tcStore := { stt.tcStore with natPowIdx  := some idx } }
-      | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := some idx } }
-      | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := some idx } }
-      | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := some idx } }
+      | some .nat      => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx      := some idx } }
+      | some .natAdd   => modify fun stt => { stt with tcStore := { stt.tcStore with natAddIdx   := some idx } }
+      | some .natMul   => modify fun stt => { stt with tcStore := { stt.tcStore with natMulIdx   := some idx } }
+      | some .natPow   => modify fun stt => { stt with tcStore := { stt.tcStore with natPowIdx   := some idx } }
+      | some .natDecEq => modify fun stt => { stt with tcStore := { stt.tcStore with natDecEqIdx := some idx } }
+      | some .natDecT  => modify fun stt => { stt with tcStore := { stt.tcStore with natDecTIdx  := some idx } }
+      | some .natDecF  => modify fun stt => { stt with tcStore := { stt.tcStore with natDecFIdx  := some idx } }
+      | some .natZero  => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx  := some idx } }
+      | some .natSucc  => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx  := some idx } }
+      | some .string   => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx   := some idx } }
       | none => pure ()
 
 /--

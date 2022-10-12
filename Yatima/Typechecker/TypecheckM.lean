@@ -98,6 +98,12 @@ def mulIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A)
   match (← read).store.natMulIdx with | none => noneHandle | some a => someHandle a
 def powIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
   match (← read).store.natPowIdx with | none => noneHandle | some a => someHandle a
+def decEqIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.natDecEqIdx with | none => noneHandle | some a => someHandle a
+def decTIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.natDecTIdx with | none => noneHandle | some a => someHandle a
+def decFIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.natDecTIdx with | none => noneHandle | some a => someHandle a
 def stringIndex : TypecheckM Nat := do
   match (← read).store.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
 def zeroIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do

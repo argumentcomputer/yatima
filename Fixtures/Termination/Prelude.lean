@@ -1538,7 +1538,7 @@ instance : Inhabited UInt64 where
 
 def USize.size : Nat := hPow 2 System.Platform.numBits
 
-theorem test1 : (Eq (Nat.add 10000 10000) 20000) := rfl
+theorem test1 : (Eq (Nat.add 10000 10000) 20000) := (by decide)
 
 theorem test2 : (Eq (Nat.mul 10000 10000) 100000000) := rfl
 
@@ -1550,13 +1550,13 @@ theorem usize_size_eq : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073
   | _, Or.inl rfl => Or.inl rfl
   | _, Or.inr rfl => Or.inr rfl
 
-#exit
-
 theorem usize_size_eq' : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073709551616) :=
   show Or (Eq (hPow 2 System.Platform.numBits) 4294967296) (Eq (hPow 2 System.Platform.numBits) 18446744073709551616) from
   match System.Platform.numBits, System.Platform.numBits_eq with
   | _, Or.inl rfl => Or.inl (by decide)
   | _, Or.inr rfl => Or.inr (by decide)
+
+#exit
 
 /-- A USize is an unsigned integer with the size of a word
 for the platform's architecture.

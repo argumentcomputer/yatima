@@ -17,6 +17,19 @@ expression/environment pairs. They are also called *closures*
 
 open TC
 
+/-- 
+Representation of propositions involving primitives. These populate the `Value.litProp` variant,
+where normal evaluation would otherwise result in an amount of computation proportional to
+the size of the primitives involved. The evaluator must *only* produce such values after
+the correctness of the statement has been checked. This is enforced by making each variant
+also take a proof of the statement (which is not used for any other purpose).
+-/
+inductive LiteralProp where
+  -- Natural number inequality
+  | natNEq (v1 v2 : Nat) (h : v1 ≠ v2)
+  -- Natural number equality
+  | natEq (v1 v2 : Nat) (h : v1 = v2)
+
 mutual
   /--
   Values are the final result of the evaluation of well-typed expressions under a well-typed
@@ -37,6 +50,7 @@ mutual
     -- analogous to lambda bodies for their codomains
     | pi : Name → BinderInfo → SusValue → Expr → Env → Value
     | lit : Literal → Value
+    | litProp : LiteralProp → Value
     -- An exception constructor is used to catch bugs in the evaluator/typechecker
     | exception : TypecheckError → Value
     deriving Inhabited
@@ -102,6 +116,7 @@ def Value.ctorName : Value → String
   | .lam ..  => "lam"
   | .pi  ..  => "pi"
   | .lit ..  => "lit"
+  | .litProp ..  => "litProp"
   | .exception .. => "exception"
 
 namespace Env
