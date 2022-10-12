@@ -175,23 +175,24 @@ mutual
       | _ => pure $ .app (.const name k univs) [arg]
     else if add? || mul? || pow? || decEq? then
       if args.length < 1 then pure $ .app (.const name k univs) [arg]
-      else match arg.get with
-      | .lit (.natVal v) => 
+      else
         let some arg' := args.get? 0 | throw .impossible
-        match arg'.get with
-        | .lit (.natVal v') => 
-          if add? then pure $ .lit (.natVal (v'+v))
-          else if mul? then pure $ .lit (.natVal (v'*v))
-          else if decEq? then
-            if h : v' = v then
-              pure $ .app (.const `Decidable.isTrue (← decTIndexWith (throw .impossible) pure) []) $
-                [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
-            else
-              pure $ .app (.const `Decidable.isFalse (← decFIndexWith (throw .impossible) pure) []) $
-                [.mk {proof? := true} $ .mk fun _ => .litProp $ .natNEq v' v h]
-          else pure $ .lit (.natVal (Nat.pow v' v))
-        | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg --FIXME unsafe get
-      | _ => apply (← apply (← evalConst' name k univs) (args.get! 0) ) arg --FIXME unsafe get
+        match arg.get with
+        | .lit (.natVal v) => 
+          match arg'.get with
+          | .lit (.natVal v') => 
+            if add? then pure $ .lit (.natVal (v'+v))
+            else if mul? then pure $ .lit (.natVal (v'*v))
+            else if decEq? then
+              if h : v' = v then
+                pure $ .app (.const `Decidable.isTrue (← decTIndexWith (throw .impossible) pure) []) $
+                  [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
+              else
+                pure $ .app (.const `Decidable.isFalse (← decFIndexWith (throw .impossible) pure) []) $
+                  [.mk {proof? := true} $ .mk fun _ => .litProp $ .natNEq v' v h]
+            else pure $ .lit (.natVal (Nat.pow v' v))
+          | _ => apply (← apply (← evalConst' name k univs) arg' ) arg
+        | _ => apply (← apply (← evalConst' name k univs) arg' ) arg
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with
