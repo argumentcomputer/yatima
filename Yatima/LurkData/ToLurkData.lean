@@ -1,6 +1,7 @@
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Cid
 import Yatima.LurkData.Move
+import Lurk.Utils
 
 open Lurk Expr ToExpr
 
@@ -17,14 +18,29 @@ instance [ToExpr α] [ToExpr β] : ToExpr (α ⊕ β) where toExpr
 instance [ToExpr α] : ToExpr (Option α) where toExpr
   | none   => .lit .nil
   | some a => toExpr a
-  
+
 instance [ToExpr α] : ToExpr (List α) where
   toExpr es := .mkList $ es.map toExpr
-  
+
 instance [ToExpr α] : ToExpr (Array α) where
   toExpr es := .mkList $ es.data.map toExpr
 
-end Lurk.Expr 
+def partitionName (name : Name) : List (String ⊕ Nat) :=
+  let rec aux (acc : List (String ⊕ Nat)) : Name → List (String ⊕ Nat)
+    | .str name s => aux ((.inl s) :: acc) name
+    | .num name n => aux ((.inr n) :: acc) name
+    | .anonymous  => acc
+  aux [] name
+
+instance : ToExpr Name where
+  toExpr x :=
+    let parts := (partitionName x).foldl (init := #[]) fun acc y =>
+      match y with
+      | .inl s => acc.push (mkStr s)
+      | .inr n => acc.push (mkNum n)
+    mkList parts.data
+
+end Lurk.Expr
 
 namespace Yatima.IR
 
@@ -60,56 +76,56 @@ instance : (k : Kind) → ToExpr (RecursorRule k)
   | .meta => { toExpr := fun | .mk c f r => .mkList [toExpr c, toExpr f, toExpr r] }
 
 instance : ToExpr (Recursor b k) where toExpr
-  | .mk n l ty p i m m' rs k => 
+  | .mk n l ty p i m m' rs k =>
     .mkList [
-      toExpr n, 
-      toExpr l, 
-      toExpr ty, 
-      toExpr p, 
-      toExpr i, 
-      toExpr m, 
-      toExpr m', 
-      toExpr rs, 
+      toExpr n,
+      toExpr l,
+      toExpr ty,
+      toExpr p,
+      toExpr i,
+      toExpr m,
+      toExpr m',
+      toExpr rs,
       toExpr k ]
 
 instance : ToExpr (Sigma (Recursor · k)) where toExpr
-  | .mk b (.mk n l ty p i m m' rs k) => 
+  | .mk b (.mk n l ty p i m m' rs k) =>
     .mkList [
-      toExpr (b : Bool), 
-      toExpr n, 
-      toExpr l, 
-      toExpr ty, 
-      toExpr p, 
-      toExpr i, 
-      toExpr m, 
-      toExpr m', 
-      toExpr rs, 
+      toExpr (b : Bool),
+      toExpr n,
+      toExpr l,
+      toExpr ty,
+      toExpr p,
+      toExpr i,
+      toExpr m,
+      toExpr m',
+      toExpr rs,
       toExpr k ]
 
 instance : ToExpr (Constructor k) where toExpr
-  | .mk n ty l i p f r s => 
+  | .mk n ty l i p f r s =>
     .mkList [
-      toExpr n, 
-      toExpr ty, 
-      toExpr l, 
-      toExpr i, 
-      toExpr p, 
-      toExpr f, 
-      toExpr r, 
+      toExpr n,
+      toExpr ty,
+      toExpr l,
+      toExpr i,
+      toExpr p,
+      toExpr f,
+      toExpr r,
       toExpr s ]
 
 instance : ToExpr (Inductive k) where toExpr
-  | .mk n l ty p i cs rs r s r' => 
+  | .mk n l ty p i cs rs r s r' =>
     .mkList [
-      toExpr n, 
-      toExpr l, 
-      toExpr ty, 
-      toExpr p, 
-      toExpr i, 
-      toExpr cs, 
-      toExpr rs, 
-      toExpr r, 
-      toExpr s, 
+      toExpr n,
+      toExpr l,
+      toExpr ty,
+      toExpr p,
+      toExpr i,
+      toExpr cs,
+      toExpr rs,
+      toExpr r,
+      toExpr s,
       toExpr r' ]
 
 instance : ToExpr QuotKind where toExpr
@@ -119,12 +135,12 @@ instance : ToExpr QuotKind where toExpr
   | .ind  => toExpr 3
 
 instance : ToExpr (Definition k) where toExpr
-  | .mk n l ty v s => 
+  | .mk n l ty v s =>
     .mkList [
-      toExpr n, 
-      toExpr l, 
-      toExpr ty, 
-      toExpr v, 
+      toExpr n,
+      toExpr l,
+      toExpr ty,
+      toExpr v,
       toExpr s ]
 
 def Univ.toLurk : Univ k → Lurk.Expr
