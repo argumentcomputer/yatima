@@ -124,7 +124,7 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
   | .natDecEq => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
-    | .lit (.natVal v), .lit (.natVal v') => 
+    | .lit (.natVal v), .lit (.natVal v') =>
       if h : v' = v then do
         pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
           [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
