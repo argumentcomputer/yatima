@@ -152,10 +152,10 @@ also be accepted by our implementation
 -/
 
 def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).store.consts.filter (·.name == name)).forM checkConst
+  ((← read).store.consts.toList.enum.filter (fun (_, const) => const.name == name)).forM fun (i, const) => checkConst const i
 
 def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init store) (typecheckConstM name) with
+  match TypecheckM.run (.init store) (.init store) (typecheckConstM name) with
   | .ok u => .ok u
   | .error err => throw $ toString err
 

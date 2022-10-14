@@ -64,10 +64,10 @@ abbrev ConstIdx := Nat
   - `prop?` tells us if the expression's type is `Prop` itself
 -/
 structure TypeInfo where
-  struct? : Option Nat
-  unit?   : Bool
-  proof?  : Bool
-  prop?   : Bool
+  struct? : Option Nat := none
+  unit?   : Bool := false
+  proof?  : Bool := false
+  prop?   : Bool := false
   deriving Inhabited
 
 instance : BEq TypeInfo where beq _ _ := true

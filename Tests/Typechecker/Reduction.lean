@@ -66,6 +66,7 @@ mutual
         $ .mk default $  Value.app (.fvar name 0) []
       pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piEnv bod
     | .lit lit => pure $ .lit default lit
+    | .litProp _ => none -- FIXME
     | .exception _ => none
 
   partial def readBackNeutral (consts : Array Const) : Neutral → Option Expr
@@ -90,7 +91,7 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       | some (_, ridx)  =>
         let some (.definition const) ← pure state.tcStore.consts[idx]? | throw "invalid definition index"
         let some (.definition rconst) ← pure state.tcStore.consts[ridx]? | throw "invalid definition index"
-        match TypecheckM.run (.init state.tcStore) $ eval const.value with
+        match TypecheckM.run (.init state.tcStore) (.init state.tcStore) $ eval const.value with
         | .ok value =>
           -- dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
           let some expr ← pure $ readBack state.tcStore.consts value | throw s!"failed to read back value {value}"

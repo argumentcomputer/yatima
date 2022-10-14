@@ -864,7 +864,6 @@ open BEq (beq)
 instance [DecidableEq α] : BEq α where
   beq a b := decide (Eq a b)
 
-
 /--
 "Dependent" if-then-else, normally written via the notation `if h : c then t(h) else e(h)`,
 is sugar for `dite c (fun h => t(h)) (fun h => e(h))`, and it is the same as

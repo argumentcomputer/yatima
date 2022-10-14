@@ -23,12 +23,24 @@ structure TypecheckCtx where
   lvl    : Nat
   env    : Env
   types  : List SusValue
-  store : Store
+  store  : Store
+  deriving Inhabited
+
+/--
+The state available to the typechecker monad. The available fields are
+* `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their types and values annotated
+-/
+structure TypecheckState where
+  tcConsts : Array (Option Const)
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular `store : Array Const` -/
 def TypecheckCtx.init (store : Store) : TypecheckCtx :=
   { (default : TypecheckCtx) with store }
+
+/-- An initialization of the typechecker state with a particular `store : Array Const` -/
+def TypecheckState.init (store : Store) : TypecheckState := Id.run $ do
+  pure {tcConsts := mkArray store.consts.size none}
 
 /-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
 def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=
@@ -38,11 +50,13 @@ def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
 and can throw exceptions of the form `TypecheckError`
 -/
-abbrev TypecheckM := ReaderT TypecheckCtx $ ExceptT TypecheckError Id
+abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT TypecheckError Id
 
-/-- Basic runner for the typchecker monad -/
-def TypecheckM.run (ctx : TypecheckCtx) (m : TypecheckM α) : Except TypecheckError α :=
-  ExceptT.run (ReaderT.run m ctx)
+/-- Basic runner for the typechecker monad -/
+def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except TypecheckError α :=
+  match ExceptT.run $ (StateT.run (ReaderT.run m ctx) stt) with
+  | .error e => .error e
+  | .ok (a, _) => .ok a
 
 /-- Evaluates a `TypecheckM` computation with an `TypecheckCtx` whose environment is fixed by `env` -/
 def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
@@ -76,13 +90,47 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
-def natIndex : TypecheckM Nat := do
-  match (← read).store.natIdx with | none => throw $ .custom "Cannot find definition of `Nat`" | some a => pure a
-def stringIndex : TypecheckM Nat := do
-  match (← read).store.stringIdx with | none => throw $ .custom "Cannot find definition of `String`" | some a => pure a
-def zeroIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
-  match (← read).store.natZeroIdx with | none => noneHandle | some a => someHandle a
-def succIndexWith (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
-  match (← read).store.natSuccIdx with | none => noneHandle | some a => someHandle a
+def primIndexWith (p : PrimConst) (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
+  match (← read).store.primIdxs.find? p with | none => noneHandle | some a => someHandle a
+def primIndex (p : PrimConst) : TypecheckM Nat := do
+  primIndexWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
+def indexPrim (k : Nat) : TypecheckM (Option PrimConst) := do
+  pure $ (← read).store.idxsToPrims.find? k
+
+structure PrimOp where
+  op : Array SusValue → TypecheckM (Option Value)
+
+def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
+  | .natSucc => .mk fun vs => do
+    let some v := vs.get? 0 | throw $ .impossible
+    match v.get with
+    | .lit (.natVal v) => pure $ .some $ .lit (.natVal (v+1))
+    | _ => pure none
+  | .natAdd => .mk fun vs => do
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    match v.get, v'.get with
+    | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v+v'))
+    | _, _ => pure none
+  | .natMul => .mk fun vs => do
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    match v.get, v'.get with
+    | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v*v'))
+    | _, _ => pure none
+  | .natPow => .mk fun vs => do
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    match v.get, v'.get with
+    | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
+    | _, _ => pure none
+  | .natDecEq => .mk fun vs => do
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    match v.get, v'.get with
+    | .lit (.natVal v), .lit (.natVal v') =>
+      if h : v' = v then do
+        pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
+          [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
+      else do
+        pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
+          [.mk {proof? := true} $ .mk fun _ => .litProp $ .natNEq v' v h]
+    | _, _ => pure none
 
 end Yatima.Typechecker

@@ -395,11 +395,10 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
     (← read).store.consts.forM fun cid => discard $ constFromIR cid
     (← get).constCache.forM fun cid idx => do
       match Ipld.primCidsMap.find? cid.anon.data.toString with
-      | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := some idx } }
-      | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := some idx } }
-      | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := some idx } }
-      | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := some idx } }
-      | none => pure ()
+      | some pc => modify fun stt => { stt with tcStore := { stt.tcStore with
+        primIdxs := stt.tcStore.primIdxs.insert pc idx
+        idxsToPrims := stt.tcStore.idxsToPrims.insert idx pc } }
+      | none    => pure ()
 
 /--
 Main function in the converter API. Extracts the final array of constants from

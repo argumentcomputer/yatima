@@ -15,11 +15,11 @@ open TC
 
 /-- Typechecks all the constants in the `TypecheckEnv.store` -/
 def typecheckM : TypecheckM Unit := do
-  (← read).store.consts.forM checkConst
+  (← read).store.consts.toList.enum.forM (fun (i, const) => checkConst const i)
 
 /-- Typechecks an array of constants -/
 def typecheckConsts (store : Store) : Except String Unit :=
-  match TypecheckM.run (.init store) typecheckM with
+  match TypecheckM.run (.init store) (.init store) typecheckM with
   | .ok u => .ok u
   | .error err => throw $ toString err
 

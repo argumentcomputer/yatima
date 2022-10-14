@@ -1,5 +1,6 @@
 import Ipld.Ipld
 import Yatima.Datatypes.Const
+import Yatima.Typechecker.Datatypes
 
 namespace Yatima
 
@@ -42,13 +43,12 @@ end IR
 
 namespace TC
 
+open Typechecker in
 /-- Keeps track of the data used for typechecking -/
 structure Store where
-  consts     : Array Const
-  natIdx     : Option Nat
-  natZeroIdx : Option Nat
-  natSuccIdx : Option Nat
-  stringIdx  : Option Nat
+  consts       : Array Const
+  primIdxs     : Std.RBMap PrimConst Nat compare
+  idxsToPrims  : Std.RBMap Nat PrimConst compare
   deriving Inhabited
 
 end TC
