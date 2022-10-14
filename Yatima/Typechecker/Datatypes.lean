@@ -146,6 +146,37 @@ def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
 def mkSusVar (info : TypeInfo) (name : Name) (idx : Nat) : SusValue :=
   .mk info (.mk fun _ => .app (.fvar name idx) [])
 
+inductive PrimConstOp
+  | natAdd | natMul | natPow | natDecEq  | natSucc
+  deriving Ord
+
+inductive PrimConst
+  | nat 
+  | decT 
+  | decF 
+  | natZero 
+  | string
+  | op : PrimConstOp → PrimConst
+  deriving Ord
+
+def PrimConstOp.numArgs : PrimConstOp → Nat
+  | .natAdd | .natMul | .natPow | .natDecEq => 2 | .natSucc => 1
+
+def PrimConstOp.reducible : PrimConstOp → Bool
+  | .natAdd | .natMul | .natPow | .natDecEq => true | .natSucc => false
+
+instance : ToString PrimConst where toString
+| .nat      => "Nat"
+| .decT     => "Decidable.isTrue"
+| .decF     => "Decidable.isFalse"
+| .natZero  => "Nat.zero"
+| .string   => "String"
+| .op .natAdd   => "Nat.add"
+| .op .natMul   => "Nat.mul"
+| .op .natPow   => "Nat.pow"
+| .op .natDecEq => "Nat.decEq"
+| .op .natSucc  => "Nat.succ"
+
 end Yatima.Typechecker
 
 namespace Yatima.Expr

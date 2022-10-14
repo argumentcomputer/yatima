@@ -111,13 +111,8 @@ mutual
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    let zero? ← zeroIndexWith (pure false) (fun zeroIdx => pure $ const == zeroIdx)
-    let add? ← addIndexWith (pure false) (fun addIdx => pure $ const == addIdx)
-    let mul? ← mulIndexWith (pure false) (fun mulIdx => pure $ const == mulIdx)
-    let pow? ← powIndexWith (pure false) (fun powIdx => pure $ const == powIdx)
-    let decEq? ← decEqIndexWith (pure false) (fun decEqIdx => pure $ const == decEqIdx)
-    if zero? then pure $ .lit (.natVal 0)
-    else if add? || mul? || pow? || decEq? then pure $ mkConst name const univs
+    if (← primIndexWith .natZero (pure false) (pure $ · == const)) then pure $ .lit (.natVal 0)
+    else if (← indexPrim const) matches .some (.op _) then pure $ mkConst name const univs
     else evalConst' name const univs
 
   /--
@@ -162,37 +157,19 @@ mutual
    -/
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : SusValue) (args : Args) : TypecheckM Value := do
-    let succ? ← succIndexWith (pure false) (fun succIdx => pure $ k == succIdx)
-    let add? ← addIndexWith (pure false) (fun addIdx => pure $ k == addIdx)
-    let mul? ← mulIndexWith (pure false) (fun mulIdx => pure $ k == mulIdx)
-    let pow? ← powIndexWith (pure false) (fun powIdx => pure $ k == powIdx)
-    let decEq? ← decEqIndexWith (pure false) (fun decEqIdx => pure $ k == decEqIdx)
-    if succ? then
-      -- Sanity check
-      if !args.isEmpty then throw $ .custom "args should be empty"
-      else match arg.get with
-      | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
-      | _ => pure $ .app (.const name k univs) [arg]
-    else if add? || mul? || pow? || decEq? then
-      if args.length < 1 then pure $ .app (.const name k univs) [arg]
+
+    if let some $ .op p ← indexPrim k then
+      let newArgs := List.cons arg args
+      if args.length < p.numArgs - 1 then
+        pure $ Value.app (.const name k univs) $ newArgs
       else
-        let some arg' := args.get? 0 | throw .impossible
-        match arg.get with
-        | .lit (.natVal v) => 
-          match arg'.get with
-          | .lit (.natVal v') => 
-            if add? then pure $ .lit (.natVal (v'+v))
-            else if mul? then pure $ .lit (.natVal (v'*v))
-            else if decEq? then
-              if h : v' = v then
-                pure $ .app (.const `Decidable.isTrue (← decTIndexWith (throw .impossible) pure) []) $
-                  [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
-              else
-                pure $ .app (.const `Decidable.isFalse (← decFIndexWith (throw .impossible) pure) []) $
-                  [.mk {proof? := true} $ .mk fun _ => .litProp $ .natNEq v' v h]
-            else pure $ .lit (.natVal (Nat.pow v' v))
-          | _ => apply (← apply (← evalConst' name k univs) arg' ) arg
-        | _ => apply (← apply (← evalConst' name k univs) arg' ) arg
+        let op := p.toPrimOp
+        let argsArr := (Array.mk newArgs).reverse
+        match ← op.op argsArr with
+        | .some v => pure v
+        | .none => if p.reducible then 
+                     argsArr.foldlM (init := (← evalConst' name k univs)) fun acc arg => apply acc arg
+                   else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with
@@ -269,8 +246,8 @@ mutual
   partial def toCtorIfLit : SusValue → TypecheckM Value
     | .mk info thunk => match thunk.get with
       | .lit (.natVal v) => do
-        let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
-        let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
+        let zeroIdx ← primIndex .natZero
+        let succIdx ← primIndex (.op .natSucc)
         if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
         else
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))

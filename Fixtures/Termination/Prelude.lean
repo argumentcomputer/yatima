@@ -1556,8 +1556,6 @@ theorem usize_size_eq' : Or (Eq USize.size 4294967296) (Eq USize.size 1844674407
   | _, Or.inl rfl => Or.inl (by decide)
   | _, Or.inr rfl => Or.inr (by decide)
 
-#exit
-
 /-- A USize is an unsigned integer with the size of a word
 for the platform's architecture.
 
@@ -1588,6 +1586,8 @@ instance : Inhabited USize where
   default := USize.ofNatCore 0 (match USize.size, usize_size_eq with
     | _, Or.inl rfl => by decide
     | _, Or.inr rfl => by decide)
+
+#exit
 
 @[extern "lean_usize_of_nat"]
 def USize.ofNat32 (n : @& Nat) (h : LT.lt n 4294967296) : USize := {

@@ -162,10 +162,10 @@ mutual
       let term := .letE bod.info name expType exp bod
       return (term, typ)
     | .lit _ (.natVal _) =>
-      let typ := .mk primTypeInfo (mkConst `Nat (← natIndex) [])
+      let typ := .mk primTypeInfo (mkConst `Nat (← primIndex .nat) [])
       pure $ (term, typ)
     | .lit _ (.strVal _) =>
-      let typ := .mk primTypeInfo (mkConst `String (← stringIndex) [])
+      let typ := .mk primTypeInfo (mkConst `String (← primIndex .string) [])
       pure $ (term, typ)
     | .const _ name k constUnivs =>
       let univs := (← read).env.univs
