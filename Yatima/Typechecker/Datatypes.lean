@@ -25,10 +25,15 @@ the correctness of the statement has been checked. This is enforced by making ea
 also take a proof of the statement (which is not used for any other purpose).
 -/
 inductive LiteralProp where
-  -- Natural number inequality
-  | natNEq (v1 v2 : Nat) (h : v1 ≠ v2)
   -- Natural number equality
   | natEq (v1 v2 : Nat) (h : v1 = v2)
+  | natNEq (v1 v2 : Nat) (h : v1 ≠ v2)
+  -- Natural number less-than-or-equal
+  | natLe (v1 v2 : Nat) (h : v1 ≤ v2)
+  | natNLe (v1 v2 : Nat) (h : ¬ v1 ≤ v2)
+  -- Natural number less-than
+  | natLt (v1 v2 : Nat) (h : v1 < v2)
+  | natNLt (v1 v2 : Nat) (h : ¬ v1 < v2)
 
 mutual
   /--
@@ -147,7 +152,7 @@ def mkSusVar (info : TypeInfo) (name : Name) (idx : Nat) : SusValue :=
   .mk info (.mk fun _ => .app (.fvar name idx) [])
 
 inductive PrimConstOp
-  | natAdd | natMul | natPow | natDecEq  | natSucc
+  | natAdd | natMul | natPow | natDecLt | natDecLe | natDecEq  | natSucc
   deriving Ord
 
 inductive PrimConst
@@ -160,10 +165,10 @@ inductive PrimConst
   deriving Ord
 
 def PrimConstOp.numArgs : PrimConstOp → Nat
-  | .natAdd | .natMul | .natPow | .natDecEq => 2 | .natSucc => 1
+  | .natAdd | .natMul | .natPow | .natDecLe | .natDecLt | .natDecEq => 2 | .natSucc => 1
 
 def PrimConstOp.reducible : PrimConstOp → Bool
-  | .natAdd | .natMul | .natPow | .natDecEq => true | .natSucc => false
+  | .natAdd | .natMul | .natPow | .natDecLe | .natDecLt | .natDecEq => true | .natSucc => false
 
 instance : ToString PrimConst where toString
 | .nat      => "Nat"
@@ -174,6 +179,8 @@ instance : ToString PrimConst where toString
 | .op .natAdd   => "Nat.add"
 | .op .natMul   => "Nat.mul"
 | .op .natPow   => "Nat.pow"
+| .op .natDecLe => "Nat.decLe"
+| .op .natDecLt => "Nat.decLt"
 | .op .natDecEq => "Nat.decEq"
 | .op .natSucc  => "Nat.succ"
 

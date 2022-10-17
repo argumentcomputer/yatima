@@ -168,12 +168,16 @@ mutual
       let typ := .mk primTypeInfo (mkConst `String (← primIndex .string) [])
       pure $ (term, typ)
     | .const _ name k constUnivs =>
-      let univs := (← read).env.univs
-      let const ← derefConst name k
-      checkConst const k
-      let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-      let typ := suspend const.type { ← read with env := env } (← get)
-      pure (.const (← infoFromType typ) name k constUnivs, typ)
+      if let some typ := (← read).mutTypes.find? k then
+        -- mutual references are assumed to typecheck
+        pure (.const (← infoFromType typ) name k constUnivs, typ)
+      else
+        let univs := (← read).env.univs
+        let const ← derefConst name k
+        withResetCtx $ checkConst const k
+        let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
+        let typ := suspend const.type { ← read with env := env } (← get)
+        pure (.const (← infoFromType typ) name k constUnivs, typ)
     | .proj _ idx expr =>
       let (expr, exprType) ← infer expr
       let some (_, ctor, univs, params) ← isStruct exprType.get
@@ -227,7 +231,19 @@ mutual
         | .definition struct => do
           let (type, _) ← isSort struct.type
           let typeSus := suspend type (← read) (← get)
-          let value ← check struct.value typeSus
+          let value ← match c with
+          | .definition struct => match struct.safety with
+            | .partial =>
+              let mutTypes : Std.RBMap ConstIdx SusValue compare ← struct.all.foldlM (init := default) fun acc k => do
+                let const ← derefConst default k
+                match const with
+                | .theorem    struct
+                | .opaque     struct
+                | .definition struct => pure $ acc.insert k $ suspend type (← read) (← get)
+                | _ => throw .impossible -- FIXME better error
+              withMutTypes mutTypes $ check struct.value typeSus
+            | _ => check struct.value typeSus
+          | _ => check struct.value typeSus
 
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts

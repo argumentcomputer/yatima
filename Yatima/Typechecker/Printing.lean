@@ -109,6 +109,10 @@ mutual
     | .lit (.strVal x) => s!"\"{x}\""
     | .litProp (.natNEq x y _) => s!"(? : {x} ≠ {y})"
     | .litProp (.natEq x y _) => s!"(? : {x} = {y})"
+    | .litProp (.natLe x y _) => s!"(? : {x} ≤ {y})"
+    | .litProp (.natNLe x y _) => s!"(? : ¬ {x} ≤ {y})"
+    | .litProp (.natLt x y _) => s!"(? : {x} < {y})"
+    | .litProp (.natNLt x y _) => s!"(? : ¬ {x} < {y})"
     | .exception e => s!"exception {e}"
 end
 

@@ -2596,6 +2596,16 @@ def setArg (stx : Syntax) (i : Nat) (arg : Syntax) : Syntax :=
   | node info k args => node info k (args.setD i arg)
   | stx              => stx
 
+partial def test (n : Nat) : Nat :=  test n
+
+mutual
+  partial def test1 (n : Nat) : Nat :=  test2 n
+
+  partial def test2 (n : Nat) : Nat :=  test1 n
+end
+
+#exit
+
 /-- Retrieve the left-most node or leaf's info in the Syntax tree. -/
 partial def getHeadInfo? : Syntax → Option SourceInfo
   | atom info _   => some info
