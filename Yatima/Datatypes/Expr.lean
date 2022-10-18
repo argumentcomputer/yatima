@@ -4,6 +4,15 @@ namespace Yatima
 
 namespace IR
 
+instance : Ord Unit :=
+  ⟨fun _ _ => Ordering.eq⟩
+
+instance : Ord $ Option Nat where compare
+  | none,   none   => .eq
+  | none,   some _ => .lt
+  | some _, none   => .gt
+  | some a, some b => compare a b
+
 -- Carries a `Lean.Name` for meta
 scoped notation "Nameₘ" => Split Unit Name
 
@@ -31,7 +40,7 @@ inductive Expr (k : Kind)
   | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | proj  : Natₐ k → ExprCid k → Expr k
-  deriving BEq, Inhabited
+  deriving Inhabited, Ord
 
 def Expr.ctorName : Expr k → String
   | .var   .. => "var"
