@@ -37,16 +37,52 @@ instance : Ord Name where
 instance : BEq QuotKind where beq
   | .type, .type => true
   | .ctor, .ctor => true
-  | .ind,  .ind  => true
-  | .lift, .lift => true
-  | _, _ => false
-
-instance : BEq QuotKind where beq
-  | .type, .type => true
-  | .ctor, .ctor => true
   | .lift, .lift => true
   | .ind,  .ind  => true
   | _,     _     => false
+
+instance : Ord QuotKind where compare
+  | .type, .type
+  | .ctor, .ctor
+  | .lift, .lift
+  | .ind , .ind  => .eq
+  | .type, _     => .lt
+  | _    , .type => .gt
+  | .ctor, _     => .lt
+  | .lift, .ctor => .gt
+  | .lift, .ind  => .lt
+  | .ind , _     => .gt
+
+instance : Ord BinderInfo where compare
+  | .default       , .default
+  | .implicit      , .implicit
+  | .strictImplicit, .strictImplicit
+  | .instImplicit  , .instImplicit
+  | .auxDecl       , .auxDecl        => .eq
+  | .default       , _               => .lt
+  | _              , .default        => .gt
+  | .implicit      , _               => .lt
+  | .strictImplicit, .implicit       => .gt
+  | .strictImplicit, _               => .lt
+  | .instImplicit  , .implicit
+  | .instImplicit  , .strictImplicit => .gt
+  | .instImplicit  , .auxDecl        => .lt
+  | .auxDecl       , _               => .gt
+
+instance : Ord Literal where compare
+  | .natVal _, .strVal _ => .lt
+  | .strVal _, .natVal _ => .gt
+  | .natVal a, .natVal b
+  | .strVal a, .strVal b => compare a b
+
+instance : Ord DefinitionSafety where compare
+  | .safe   , .safe
+  | .unsafe , .unsafe
+  | .partial, .partial => .eq
+  | .safe   , _        => .lt
+  | _       , .safe    => .gt
+  | .unsafe , .partial => .lt
+  | .partial, _        => .gt
 
 instance : BEq Lean.ReducibilityHints where beq
   | .opaque,    .opaque    => true
