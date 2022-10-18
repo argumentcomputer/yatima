@@ -2604,8 +2604,6 @@ mutual
   partial def test2 (n : Nat) : Nat :=  test1 n
 end
 
-#exit
-
 /-- Retrieve the left-most node or leaf's info in the Syntax tree. -/
 partial def getHeadInfo? : Syntax → Option SourceInfo
   | atom info _   => some info

@@ -90,7 +90,7 @@ mutual
         let img := suspend img { ← read with env } (← get)
         let bod ← withExtendedCtx var dom $ check bod img
         pure $ .lam (lamInfo bod.info) lamName bind lamDom bod
-      | val => throw $ .notPi (toString val)
+      | val => throw $ .gotPi (toString val)
     | .letE _ name expType exp bod =>
       let (expType, _) ← isSort expType
       let expTypeVal := suspend expType (← read) (← get)
@@ -239,7 +239,7 @@ mutual
                 match const with
                 | .theorem    struct
                 | .opaque     struct
-                | .definition struct => pure $ acc.insert k $ suspend type (← read) (← get)
+                | .definition struct => pure $ acc.insert k $ suspend struct.type (← read) (← get)
                 | _ => throw .impossible -- FIXME better error
               withMutTypes mutTypes $ check struct.value typeSus
             | _ => check struct.value typeSus
