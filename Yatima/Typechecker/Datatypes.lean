@@ -35,12 +35,40 @@ inductive LiteralProp where
   | natLt (v1 v2 : Nat) (h : v1 < v2)
   | natNLt (v1 v2 : Nat) (h : ¬ v1 < v2)
 
+/--
+  The type info is a simplified form of the value's type, with only relevant
+  information for conversion checking, in order to get proof irrelevance and equality
+  of unit-like values.
+
+  - `unit` tells us that the expression's type is unit-like
+  - `proof` tells us that the expression's type is a proposition (belong to `Prop`)
+  - `prop` tells us that the expression's type is `Prop` itself
+-/
+inductive TypeInfo
+  | unit  : TypeInfo
+  | proof : TypeInfo
+  | prop  : TypeInfo
+  | none  : TypeInfo
+  deriving BEq, Inhabited
+
+/-- Representation of expressions for evaluation and transpilation -/
+inductive TypedExpr
+  | var   : TypeInfo → Name → Nat → TypedExpr
+  | sort  : TypeInfo → Univ → TypedExpr
+  | const : TypeInfo → Name → ConstIdx → List Univ → TypedExpr
+  | app   : TypeInfo → TypedExpr → TypedExpr → TypedExpr
+  | lam   : TypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
+  | pi    : TypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
+  | letE  : TypeInfo → Name → TypedExpr → TypedExpr → TypedExpr → TypedExpr
+  | lit   : TypeInfo → Literal → TypedExpr
+  | proj  : TypeInfo → ConstIdx → Nat → TypedExpr → TypedExpr
+  deriving BEq, Inhabited
+
 mutual
   /--
   Values are the final result of the evaluation of well-typed expressions under a well-typed
-  environment. We also assume here that the expressions and environment were "fully annotated",
-  meaning all subexpressions have the correct `TypeInfo` field. The `TypeInfo` of the value
-  is, by the type preservation property, the same as that of their expression under its environment.
+  environment. The `TypeInfo` of the value is, by the type preservation property, the same as
+  that of their expression under its environment.
   -/
   inductive Value
     -- Type universes. It is assumed `Univ` is reduced/simplified
@@ -50,15 +78,18 @@ mutual
     | app : Neutral → List SusValue → Value
     -- Lambdas are unevaluated expressions with environments for their free
     -- variables apart from their argument variables
-    | lam : Name → BinderInfo → SusValue → Expr → Env → Value
+    | lam : Name → BinderInfo → SusValue → TypedExpr → Env → Value
     -- Pi types will have thunks for their domains and unevaluated expressions
     -- analogous to lambda bodies for their codomains
-    | pi : Name → BinderInfo → SusValue → Expr → Env → Value
+    | pi : Name → BinderInfo → SusValue → TypedExpr → Env → Value
     | lit : Literal → Value
     | litProp : LiteralProp → Value
     -- An exception constructor is used to catch bugs in the evaluator/typechecker
     | exception : TypecheckError → Value
     deriving Inhabited
+
+  inductive TypedValue
+    | mk : TypeInfo → Value → TypedValue
 
   /--
   Suspended values are thunks that return a value. For optimization purposes, the value's
@@ -67,7 +98,7 @@ mutual
   the values themselves. This allows us to extract it without needing to force the thunk.
   -/
   inductive SusValue
-  | mk : TypeInfo → Thunk Value → SusValue
+    | mk : TypeInfo → Thunk Value → SusValue
 
   /--
   The environment will bind free variables to different things, depending on
@@ -93,7 +124,7 @@ mutual
   inductive Neutral
     | fvar  : Name → Nat → Neutral
     | const : Name → ConstIdx → List Univ → Neutral
-    | proj  : Nat → SusValue → Neutral
+    | proj  : Nat → ConstIdx → TypedValue → Neutral
     deriving Inhabited
 
 end
@@ -104,16 +135,31 @@ abbrev Args := List SusValue
 instance : Inhabited SusValue where
   default := .mk default {fn := default}
 
+def TypedExpr.info : TypedExpr → TypeInfo
+| var   info ..
+| sort  info ..
+| const info ..
+| app   info ..
+| lam   info ..
+| pi    info ..
+| letE  info ..
+| lit   info ..
+| proj  info .. => info
+
 def SusValue.info : SusValue → TypeInfo
 | .mk info _ => info
 
 def SusValue.get : SusValue → Value
 | .mk _ thunk => thunk.get
 
-def Neutral.ctorName : Neutral → String
-  | .fvar ..  => "fvar"
-  | .const .. => "const"
-  | .proj .. => "proj"
+def TypedValue.info : TypedValue → TypeInfo
+| .mk info _ => info
+
+def TypedValue.value : TypedValue → Value
+| .mk _ val => val
+
+def TypedValue.sus : TypedValue → SusValue
+| .mk info val => .mk info val
 
 def Value.ctorName : Value → String
   | .sort ..  => "sort"
@@ -123,6 +169,11 @@ def Value.ctorName : Value → String
   | .lit ..  => "lit"
   | .litProp ..  => "litProp"
   | .exception .. => "exception"
+
+def Neutral.ctorName : Neutral → String
+  | .fvar ..  => "fvar"
+  | .const .. => "const"
+  | .proj .. => "proj"
 
 namespace Env
 /-- Gets the list of expressions from a environment -/
@@ -185,7 +236,3 @@ instance : ToString PrimConst where toString
 | .op .natSucc  => "Nat.succ"
 
 end Yatima.Typechecker
-
-namespace Yatima.Expr
-
-end Yatima.Expr

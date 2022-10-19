@@ -43,13 +43,13 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
 
 mutual
   /--
-  Evaluates a `Yatima.Expr` into a `Typechecker.Value`.
+  Evaluates a `TypedExpr` into a `Value`.
 
   Evaluation here means applying functions to arguments, resuming evaluation of suspended thunks,
   evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
   and evaluating a projection.
   -/
-  partial def eval : Expr → TypecheckM Value
+  partial def eval : TypedExpr → TypecheckM Value
     | .app _ fnc arg => do
       let ctx ← read
       let argThunk := suspend arg ctx (← get)
@@ -59,7 +59,7 @@ mutual
     | .lam _ name info dom bod => do
       let ctx ← read
       let dom' := suspend dom ctx (← get)
-      pure $ Value.lam name info dom' bod ctx.env
+      pure $ .lam name info dom' bod ctx.env
     | .var _ name idx => do
       let exprs := (← read).env.exprs
       let some thunk := exprs.get? idx | throw $ .outOfRangeError name idx exprs.length
@@ -73,15 +73,15 @@ mutual
     | .pi _ name info dom img => do
       let ctx ← read
       let dom' := suspend dom ctx (← get)
-      pure $ Value.pi name info dom' img ctx.env
+      pure $ .pi name info dom' img ctx.env
     | .sort _ univ => do
       let env := (← read).env
-      pure $ Value.sort (Univ.instBulkReduce env.univs univ)
+      pure $ .sort (Univ.instBulkReduce env.univs univ)
     | .lit _ lit =>
-      pure $ Value.lit lit
-    | .proj _ idx expr => do
-      let val := suspend expr (← read) (← get)
-      match val.get with
+      pure $ .lit lit
+    | .proj _ struct idx expr => do
+      let val ← eval expr
+      match val with
       | .app (.const name k _) args =>
         match ← derefConst name k with
         | .constructor ctor =>
@@ -91,17 +91,17 @@ mutual
           let some arg := args.reverse.get? idx
             | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        | _ => pure $ .app (.proj idx val) []
-      | .app .. => pure $ .app (.proj idx val) []
+        | _ => pure $ .app (.proj struct idx (.mk expr.info val)) []
+      | .app .. => pure $ .app (.proj struct idx (.mk expr.info val)) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
   partial def evalConst' (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
     match ← derefConst name const with
-    | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
+    | .theorem x => withEnv ⟨[], univs⟩ $ eval sorry -- x.value
     | .definition x =>
       match x.safety with
-      | .safe    => withEnv ⟨[], univs⟩ $ eval x.value
+      | .safe    => withEnv ⟨[], univs⟩ $ eval sorry -- x.value
       | .partial =>
         pure $ mkConst name const univs
       | .unsafe  => throw .unsafeDefinition
@@ -116,11 +116,11 @@ mutual
     else evalConst' name const univs
 
   /--
-  Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `ctx : TypecheckCtx`
+  Suspends the evaluation of a Yatima expression `expr : TypedExpr` in a particular `ctx : TypecheckCtx`
 
   Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
   -/
-  partial def suspend (expr : Expr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
+  partial def suspend (expr : TypedExpr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
     let thunk := { fn := fun _ =>
       match TypecheckM.run ctx stt (eval expr) with
       | .ok a => a
@@ -143,8 +143,8 @@ mutual
     | .lam _ _ _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
     | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
-    | .app var@(.fvar ..) args => pure $ Value.app var (arg :: args)
-    | .app proj@(.proj ..) args => pure $ Value.app proj (arg :: args)
+    | .app var@(.fvar ..) args => pure $ .app var (arg :: args)
+    | .app proj@(.proj ..) args => pure $ .app proj (arg :: args)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
 
@@ -161,7 +161,7 @@ mutual
     if let some $ .op p ← indexPrim k then
       let newArgs := List.cons arg args
       if args.length < p.numArgs - 1 then
-        pure $ Value.app (.const name k univs) $ newArgs
+        pure $ .app (.const name k univs) $ newArgs
       else
         let op := p.toPrimOp
         let argsArr := (Array.mk newArgs).reverse
@@ -176,7 +176,7 @@ mutual
     | .intRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
-        pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        pure $ .app (Neutral.const name k univs) (arg :: args)
       else
         if recur.k then
           --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
@@ -193,13 +193,13 @@ mutual
             match ← derefConst kName k with
             | .constructor ctor =>
               let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-              withEnv ⟨exprs, univs⟩ $ eval ctor.rhs.toImplicitLambda
-            | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+              withEnv ⟨exprs, univs⟩ $ eval sorry -- ctor.rhs.toImplicitLambda
+            | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
+          | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
     | .extRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then
-        pure $ Value.app (Neutral.const name k univs) (arg :: args)
+        pure $ .app (Neutral.const name k univs) (arg :: args)
       else
         match ← toCtorIfLit arg with
         | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
@@ -208,17 +208,17 @@ mutual
             match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
             | some rule =>
               let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
-              withEnv ⟨exprs, univs⟩ $ eval rule.rhs.toImplicitLambda
+              withEnv ⟨exprs, univs⟩ $ eval sorry -- rule.rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
-          | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+          | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
+        | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
     | .quotient quotVal => match quotVal.kind with
-      | .lift => applyQuot arg args 6 1 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | .ind  => applyQuot arg args 5 0 $ Value.app (Neutral.const name k univs) (arg :: args)
-      | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
-    | _ => pure $ Value.app (Neutral.const name k univs) (arg :: args)
+      | .lift => applyQuot arg args 6 1 $ .app (Neutral.const name k univs) (arg :: args)
+      | .ind  => applyQuot arg args 5 0 $ .app (Neutral.const name k univs) (arg :: args)
+      | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
+    | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
 
   /--
   Applies a quotient to a value. It might reduce if enough arguments are applied to it

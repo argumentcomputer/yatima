@@ -208,13 +208,13 @@ mutual
         | some name =>
           let value := ⟨ .var idx () [], .var name (.injᵣ none) [] ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .var default name idx)
+          pure (cid, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
         let (univCid, univ) ← compileUniv lvl
         let value := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .sort default univ)
+        pure (cid, .sort univ)
       | .const name lvls =>
         let pairs ← lvls.mapM $ compileUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
@@ -225,34 +225,34 @@ mutual
           let value := ⟨ .var idx () (univCids.map (·.anon)),
             .var name i? (univCids.map (·.meta)) ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .const default name ref univs)
+          pure (cid, .const name ref univs)
         | none =>
           let const ← getLeanConstant name
           let (constCid, const) ← getCompiledConst const
           let value := ⟨ .const () constCid.anon $ univCids.map (·.anon),
             .const name constCid.meta $ univCids.map (·.meta) ⟩
           let cid ← addToStore $ .expr value
-          pure (cid, .const default name const univs)
+          pure (cid, .const name const univs)
       | .app fnc arg =>
         let (fncCid, fnc) ← compileExpr fnc
         let (argCid, arg) ← compileExpr arg
         let value := ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .app default fnc arg)
+        pure (cid, .app fnc arg)
       | .lam name typ bod bnd =>
         let (typCid, typ) ← compileExpr typ
         let (bodCid, bod) ← withBinder name $ compileExpr bod
         let value := ⟨ .lam () bnd typCid.anon bodCid.anon,
           .lam name () typCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .lam default name bnd typ bod)
+        pure (cid, .lam name bnd typ bod)
       | .forallE name dom img bnd =>
         let (domCid, dom) ← compileExpr dom
         let (imgCid, img) ← withBinder name $ compileExpr img
         let value := ⟨ .pi () bnd domCid.anon imgCid.anon,
           .pi name () domCid.meta imgCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .pi default name bnd dom img)
+        pure (cid, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
         let (typCid, typ) ← compileExpr typ
         let (expCid, exp) ← compileExpr exp
@@ -260,16 +260,16 @@ mutual
         let value := ⟨ .letE () typCid.anon expCid.anon bodCid.anon,
           .letE name typCid.meta expCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .letE default name typ exp bod)
+        pure (cid, .letE name typ exp bod)
       | .lit lit =>
         let value := ⟨ .lit lit, .lit () ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .lit default lit)
+        pure (cid, .lit lit)
       | .proj _ idx exp =>
         let (expCid, exp) ← compileExpr exp
         let value := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         let cid ← addToStore $ .expr value
-        pure (cid, .proj default idx exp)
+        pure (cid, .proj idx exp)
       | .fvar ..  => throw $ .freeVariableExpr expr
       | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr

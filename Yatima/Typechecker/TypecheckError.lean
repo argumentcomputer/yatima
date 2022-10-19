@@ -11,7 +11,6 @@ namespace Yatima.Typechecker
 
 /-- The errors used by the `TypecheckM` monad. -/
 inductive TypecheckError where
-  | gotPi : String →  TypecheckError
   | notPi : String →  TypecheckError
   | notTyp : String → TypecheckError
   | valueMismatch : String → String → TypecheckError
@@ -36,7 +35,6 @@ inductive TypecheckError where
 
 /-- Rudimentary printing of `TypecheckError` -/
 instance : ToString TypecheckError where toString
-  | .gotPi val => s!"Expected '{val}', found a pi type"
   | .notPi val => s!"Expected a pi type, found '{val}'"
   | .notTyp val => s!"Expected a sort type, found '{val}'"
   | .valueMismatch val₁ val₂ => s!"Expected {val₁}, found {val₂}"
