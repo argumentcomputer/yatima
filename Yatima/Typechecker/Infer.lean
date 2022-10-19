@@ -128,8 +128,9 @@ mutual
         let univs := (← read).env.univs
         let const ← derefConst name k
         withResetCtx $ checkConst const k
+        let tconst ← derefTypedConst name k
         let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-        let typ := suspend sorry /- const.type -/ { ← read with env := env } (← get)
+        let typ := suspend tconst.type { ← read with env := env } (← get)
         pure (.const (← infoFromType typ) name k constUnivs, typ)
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
@@ -175,73 +176,77 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := do
-    sorry
-    -- match (← get).tcConsts.get? idx with
-    -- | .some .none =>
-    --   let univs := c.levels.foldr
-    --     (fun name cont i => Univ.var name i :: (cont (i + 1)))
-    --     (fun _ => []) 0
-    --   withEnv ⟨ [], univs ⟩ $ do
-    --     match c with
-    --     | .theorem    struct
-    --     | .opaque     struct
-    --     | .definition struct => do
-    --       let (type, _) ← isSort struct.type
-    --       let typeSus := suspend type (← read) (← get)
-    --       let value ← match c with
-    --       | .definition struct => match struct.safety with
-    --         | .partial =>
-    --           let mutTypes : Std.RBMap ConstIdx SusValue compare ← struct.all.foldlM (init := default) fun acc k => do
-    --             let const ← derefConst default k
-    --             match const with
-    --             | .theorem    struct
-    --             | .opaque     struct
-    --             | .definition struct => pure $ acc.insert k $ suspend struct.type (← read) (← get)
-    --             | _ => throw .impossible -- FIXME better error
-    --           withMutTypes mutTypes $ check struct.value typeSus
-    --         | _ => check struct.value typeSus
-    --       | _ => check struct.value typeSus
+    match (← get).tcConsts.get? idx with
+    | .some .none =>
+      let univs := c.levels.foldr
+        (fun name cont i => Univ.var name i :: (cont (i + 1)))
+        (fun _ => []) 0
+      withEnv ⟨ [], univs ⟩ $ do
+        match c with
+        | .theorem    struct
+        | .opaque     struct
+        | .definition struct => do
+          let (type, _) ← isSort struct.type
+          let typeSus := suspend type (← read) (← get)
+          let value ← match c with
+          | .definition struct => match struct.safety with
+            | .partial =>
+              let mutTypes : Std.RBMap ConstIdx SusValue compare ← struct.all.foldlM (init := default) fun acc k => do
+                let const ← derefConst default k
+                -- TODO avoid repeated work here
+                let (type, _) ← isSort struct.type
+                let typeSus := suspend type (← read) (← get)
+                match const with
+                | .theorem    struct
+                | .opaque     struct
+                | .definition struct => pure $ acc.insert k typeSus
+                | _ => throw .impossible -- FIXME better error
+              withMutTypes mutTypes $ check struct.value typeSus
+            | _ => check struct.value typeSus
+          | _ => check struct.value typeSus
 
-    --       -- update the typechecked consts with the annotated values/types
-    --       let tcConsts := (← get).tcConsts
-    --       if h : idx < tcConsts.size then
-    --         let newConst ← match c with
-    --         | .theorem    struct => pure $ Const.theorem {struct with value := value, type := type}
-    --         | .opaque     struct => pure $ .opaque {struct with value := value, type := type}
-    --         | .definition struct => pure $ .definition {struct with value := value, type := type}
-    --         | _ => throw .impossible
-    --         modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
-    --       else
-    --         throw $ .impossible
-    --     -- TODO: check that inductives, constructors and recursors are well-formed
-    --     -- TODO: check that quotient is well-formed. I guess it is possible to do this
-    --     -- while converting from Ipld by checking the cids of the quotient constants
-    --     -- with precomputed ones
-    --     | .axiom       struct
-    --     | .inductive   struct
-    --     | .constructor struct
-    --     | .extRecursor struct
-    --     | .intRecursor struct
-    --     | .quotient    struct =>
-    --       let (type, _)  ← isSort struct.type
+          -- update the typechecked consts with the annotated values/types
+          let tcConsts := (← get).tcConsts
+          if h : idx < tcConsts.size then
+            let newConst ← match c with
+            | .theorem    struct => pure $ Const'.theorem {struct with value, type}
+            | .opaque     struct => pure $ .opaque {struct with value, type}
+            | .definition struct => pure $ .definition {struct with value, type}
+            | _ => throw .impossible
+            modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
+          else
+            throw $ .impossible
+        -- TODO: check that inductives, constructors and recursors are well-formed
+        -- TODO: check that quotient is well-formed. I guess it is possible to do this
+        -- while converting from Ipld by checking the cids of the quotient constants
+        -- with precomputed ones
+        | .axiom       struct
+        | .inductive   struct
+        | .constructor struct
+        | .extRecursor struct
+        | .intRecursor struct
+        | .quotient    struct =>
+          let (type, _)  ← isSort struct.type
 
-    --       -- update the typechecked consts with the annotated values/types
-    --       let tcConsts := (← get).tcConsts
-    --       if h : idx < tcConsts.size then
-    --         let newConst ← match c with 
-    --         | .axiom       struct => pure $ Const.axiom {struct with type := type}
-    --         | .inductive   struct => pure $ Const.inductive {struct with type := type}
-    --         | .constructor struct => pure $ Const.constructor {struct with type := type}
-    --         | .extRecursor struct => pure $ Const.extRecursor {struct with type := type}
-    --         | .intRecursor struct => pure $ Const.intRecursor {struct with type := type}
-    --         | .quotient    struct => pure $ Const.quotient {struct with type := type}
-    --         | _ => throw $ .impossible
-    --         modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
-    --       else
-    --         throw $ .impossible
-    -- | .none =>
-    --   throw .impossible
-    -- | _ => pure ()
+          -- update the typechecked consts with the annotated values/types
+          let tcConsts := (← get).tcConsts
+          if h : idx < tcConsts.size then
+            let newConst ← match c with 
+            | .axiom       struct => pure $ Const'.axiom {struct with type}
+            | .inductive   struct => pure $ .inductive {struct with type}
+            | .constructor struct =>
+              let (rhs, _) ← infer struct.rhs
+              pure $ .constructor {struct with rhs, type}
+            | .extRecursor struct => pure $ .extRecursor {struct with type}
+            | .intRecursor struct => pure $ .intRecursor {struct with type}
+            | .quotient    struct => pure $ .quotient {struct with type}
+            | _ => throw $ .impossible
+            modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
+          else
+            throw $ .impossible
+    | .none =>
+      throw .impossible
+    | _ => pure ()
 end
 
 end Yatima.Typechecker

@@ -63,21 +63,21 @@ def getMutualIndInfo (ind : Inductive) :
         | .intr => intR := recr.name.projᵣ 
         | .extr => extRs := recr.name.projᵣ :: extRs
       let ind : Inductive := ← match map.find? indName with
-        | some (.inductive ind) => return ind 
+        | some (Const'.inductive ind) => return ind 
         | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
         | none => throw $ .notFoundInMap intR
       let ctors ← ctors.mapM fun ctor =>
         match map.find? ctor with
-        | some (.constructor ctor) => return ctor 
+        | some (Const'.constructor ctor) => return ctor 
         | some x => throw $ .invalidConstantKind x.name "constructor" x.ctorName
         | none => throw $ .notFoundInMap ctor
       let irecr : IntRecursor := ← match map.find? intR with
-        | some (.intRecursor recr) => return recr 
+        | some (Const'.intRecursor recr) => return recr 
         | some x => throw $ .invalidConstantKind x.name "internal recursor" x.ctorName
         | none => throw $ .notFoundInMap intR
       let erecrs ← extRs.mapM fun extR => 
         match map.find? extR with
-        | some (.extRecursor extR) => return extR 
+        | some (Const'.extRecursor extR) => return extR 
         | some x => throw $ .invalidConstantKind x.name "external recursor" x.ctorName
         | none => throw $ .notFoundInMap extR
       return (ind, ctors, irecr, erecrs)

@@ -64,6 +64,8 @@ inductive TypedExpr
   | proj  : TypeInfo → ConstIdx → Nat → TypedExpr → TypedExpr
   deriving BEq, Inhabited
 
+abbrev TypedConst := Const' TypedExpr
+
 mutual
   /--
   Values are the final result of the evaluation of well-typed expressions under a well-typed

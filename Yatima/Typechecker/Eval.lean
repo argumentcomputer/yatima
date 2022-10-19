@@ -30,15 +30,22 @@ returns it if it is found. If the constant is not found it throws an error.
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
+  let consts := (← read).store.consts
+  match consts.get? constIdx with
+  | some const => pure const
+  | none => throw $ .outOfConstsRange name constIdx consts.size
+
+/--
+Looks for a constant by its index `constIdx` in the `TypecheckState` cache of `TypedConst` and
+returns it if it is found. If the constant is not found it throws an error.
+
+Note: The `name : Name` is used only in the error messaging
+-/
+def derefTypedConst (name : Name) (constIdx : ConstIdx) : TypecheckM TypedConst := do
   let tcConsts := (← get).tcConsts
-  -- use typechecked version if available
   match tcConsts.get? constIdx with
   | some (some const) => pure const
-  | some none =>
-    let consts := (← read).store.consts
-    match consts.get? constIdx with
-    | some const => pure const
-    | none => throw $ .outOfConstsRange name constIdx consts.size
+  | some none => throw $ .missingTypedConst name constIdx
   | none => throw $ .outOfConstsRange name constIdx tcConsts.size
 
 mutual
@@ -230,7 +237,7 @@ mutual
       match major?.get with
       | .app (.const name majorFn _) majorArgs => do
         match ← derefConst name majorFn with
-        | Const.quotient {kind := .ctor, ..} =>
+        | .quotient {kind := .ctor, ..} =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
           if majorArgs.length != 3 then throw .impossible
           let some majorArg := majorArgs.head? | throw .impossible

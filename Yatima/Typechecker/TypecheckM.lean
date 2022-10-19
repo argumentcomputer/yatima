@@ -32,7 +32,7 @@ The state available to the typechecker monad. The available fields are
 * `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their types and values annotated
 -/
 structure TypecheckState where
-  tcConsts : Array (Option Const)
+  tcConsts : Array (Option TypedConst)
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular `store : Array Const` -/
