@@ -64,6 +64,15 @@ inductive TypedExpr
   | proj  : TypeInfo → ConstIdx → Nat → TypedExpr → TypedExpr
   deriving BEq, Inhabited
 
+/--
+Remove all binders from an expression, converting a lambda into
+an "implicit lambda". This is useful for constructing the `rhs` of
+recursor rules.
+-/
+def TypedExpr.toImplicitLambda : TypedExpr → TypedExpr
+  | .lam _ _ _ _ body => toImplicitLambda body
+  | x => x
+
 abbrev TypedConst := Const' TypedExpr
 
 mutual
