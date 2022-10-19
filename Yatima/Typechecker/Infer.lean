@@ -228,16 +228,24 @@ mutual
         | .quotient    struct =>
           let (type, _)  ← isSort struct.type
 
+          let convCtor (struct : Constructor' Expr) : TypecheckM $ Constructor' TypedExpr := do
+            let (rhs, _) ← infer struct.rhs
+            pure $ {struct with rhs, type}
+
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts
           if h : idx < tcConsts.size then
             let newConst ← match c with 
             | .axiom       struct => pure $ Const'.axiom {struct with type}
-            | .inductive   struct => pure $ .inductive {struct with type}
-            | .constructor struct =>
-              let (rhs, _) ← infer struct.rhs
-              pure $ .constructor {struct with rhs, type}
-            | .extRecursor struct => pure $ .extRecursor {struct with type}
+            | .inductive   struct =>
+              let thisStruct ← struct.struct.mapM fun ctor => convCtor ctor
+              pure $ .inductive {struct with struct := thisStruct, type}
+            | .constructor struct => pure $ .constructor $ ← convCtor struct
+            | .extRecursor struct =>
+              let rules ← struct.rules.mapM fun rule => do
+                let (rhs, _) ← infer rule.rhs
+                pure {rule with rhs}
+              pure $ .extRecursor {struct with rules, type}
             | .intRecursor struct => pure $ .intRecursor {struct with type}
             | .quotient    struct => pure $ .quotient {struct with type}
             | _ => throw $ .impossible

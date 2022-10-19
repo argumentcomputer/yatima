@@ -39,9 +39,9 @@ mutual
   partial def tryEtaStruct (lvl : Nat) (term term' : SusValue) : TypecheckM Bool := do
     match term'.get with
     | .app (.const name k _) args =>
-      match ← derefConst name k with
+      match ← derefTypedConst name k with
       | .constructor ctor =>
-        match ← applyType (← eval sorry /- ctor.type -/) args with
+        match ← applyType (← eval ctor.type) args with
         | .app (.const tname tk _) args =>
           match ← derefConst tname tk with
           | .inductive ind => if let some _ := ind.struct then

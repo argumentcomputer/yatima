@@ -179,7 +179,7 @@ mutual
                    else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
-    else match ← derefConst name k with
+    else match ← derefTypedConst name k with
     | .intRecursor recur =>
       let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
       if args.length != majorIdx then

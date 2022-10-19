@@ -260,7 +260,7 @@ structure Inductive' (expr : Type) where
   safe    : Bool
   refl    : Bool
   unit    : Bool
-  struct  : Option Constructor
+  struct  : Option (Constructor' expr)
   deriving BEq
 abbrev Inductive := Inductive' Expr
 
@@ -279,7 +279,7 @@ structure ExtRecursor' (expr : Type) where
   indices : Nat
   motives : Nat
   minors  : Nat
-  rules   : List RecursorRule
+  rules   : List (RecursorRule' expr)
   k       : Bool
   deriving BEq
 abbrev ExtRecursor := ExtRecursor' Expr
