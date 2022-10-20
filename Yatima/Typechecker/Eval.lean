@@ -174,7 +174,7 @@ mutual
         let argsArr := (Array.mk newArgs).reverse
         match ← op.op argsArr with
         | .some v => pure v
-        | .none => if p.reducible then 
+        | .none => if p.reducible then
                      argsArr.foldlM (init := (← evalConst' name k univs)) fun acc arg => apply acc arg
                    else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
@@ -196,7 +196,7 @@ mutual
           pure minor.get
         else
           match ← toCtorIfLit arg with
-          | .app (Neutral.const kName k _) args' => 
+          | .app (Neutral.const kName k _) args' =>
             match ← derefTypedConst kName k with
             | .constructor ctor =>
               let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
@@ -263,4 +263,73 @@ mutual
       | e => pure e
 end
 
+mutual
+  /--
+  Quoting transforms a value into a (typed) expression. It is the right-inverse of evaluation:
+  evaluating a quoted value results in the value itself.
+  -/
+  partial def quote (lvl : Nat) (info : TypeInfo) : Value → TypecheckM TypedExpr
+    | .sort univ => pure $ .sort info univ
+    | .app neu args => do
+      args.foldrM (init := ← quoteNeutral lvl neu) fun arg acc => do
+      -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to the spine of arguments
+        pure $ .app default acc $ ← quote lvl arg.info arg.get
+    | .lam name binfo dom bod env => do
+      let dom ← quote lvl dom.info dom.get
+      -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value
+      let var := mkSusVar default name lvl
+      let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
+      pure $ .lam info name binfo dom bod
+    | .pi name binfo dom img env => do
+      let dom ← quote lvl dom.info dom.get
+      let var := mkSusVar default name lvl
+      let img ← quoteExpr (lvl+1) img (env.extendWith var)
+      pure $ .pi info name binfo dom img
+    | .lit lit => pure $ .lit info lit
+    | .litProp _ => throw $ .custom "TODO"
+    | .exception e => throw e
+
+  partial def quoteExpr (lvl : Nat) (expr : TypedExpr) (env : Env) : TypecheckM TypedExpr :=
+    match expr with
+    | .var info _ idx => do
+      match env.exprs.get? idx with
+      -- NOTE: if everything is correct, then `info` should coincide with `val.info`. We will choose `info` since
+      -- this allows us to add values to the environment without knowing which `TypeInfo` it should take. See their
+      -- previous note
+     | some val => quote lvl info val.get
+     | none => throw $ .custom "Unbound variable {name}"
+    | .app info fnc arg => do
+      let fnc ← quoteExpr lvl fnc env
+      let arg ← quoteExpr lvl arg env
+      pure $ .app info fnc arg
+    | .lam info name bind dom bod => do
+      let dom ← quoteExpr lvl dom env
+      let var := mkSusVar default name lvl
+      let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
+      pure $ .lam info name bind dom bod
+    | .letE info name typ val bod => do
+      let typ ← quoteExpr lvl typ env
+      let val ← quoteExpr lvl val env
+      let var := mkSusVar default name lvl
+      let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
+      pure $ .letE info name typ val bod
+    | .pi info name bind dom img => do
+      let dom ← quoteExpr lvl dom env
+      let var := mkSusVar default name lvl
+      let img ← quoteExpr (lvl+1) img (env.extendWith var)
+      pure $ .pi info name bind dom img
+    | .proj info struct idx expr => do
+      let expr ← quoteExpr lvl expr env
+      pure $ .proj info struct idx expr
+    | .const .. => pure expr
+    | .sort .. => pure expr
+    | .lit .. => pure expr
+
+  partial def quoteNeutral (lvl : Nat) : Neutral → TypecheckM TypedExpr
+    -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to `Neutral`
+    | .fvar  nam idx => pure $ .var default nam (lvl - idx - 1)
+    | .const nam cidx univs => pure $ .const default nam cidx univs
+    | .proj  nam struct val => do
+      pure $ .proj default nam struct (← quote lvl val.info val.value)
+end
 end Yatima.Typechecker

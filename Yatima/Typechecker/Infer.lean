@@ -42,6 +42,10 @@ def lamInfo : TypeInfo → TypeInfo
 | .proof => .proof
 | _ => .none
 
+def piInfo : TypeInfo → TypeInfo
+| .prop => .prop
+| _ => .none
+
 /--
   Gives the correct type information for a term based on its type.
 -/
@@ -59,7 +63,7 @@ def infoFromType (typ : SusValue) : TypecheckM TypeInfo :=
 
 mutual
   /--
-  Checks if `term : Expr` has type `type : SusValue`. Returns the expression with flags updated
+  Checks if `term : Expr` has type `type : SusValue`. Returns the typed IR for `term`
   -/
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
@@ -68,7 +72,7 @@ mutual
     else
       pure term
 
-  /-- Infers the type of `term : Expr`. Returns the expression with flags updated along with the inferred type  -/
+  /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
     match term with
     | .var name idx =>
@@ -80,13 +84,6 @@ mutual
       let univs := (← read).env.univs
       let typ := .mk .none ⟨ fun _ => .sort $ .instBulkReduce univs lvl.succ ⟩
       return (.sort .none lvl, typ)
-    | .app (.lam lamName bind lamDom bod) arg =>
-      let (lamDom, _) ← isSort lamDom
-      let lamDomVal := suspend lamDom (← read) (← get)
-      let arg ← check arg lamDomVal
-      let argVal := suspend arg (← read) (← get)
-      let (bod, type) ← withExtendedCtx argVal lamDomVal $ infer bod
-      pure (.app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg, type)
     | .app fnc arg =>
       let (fnc, fncType) ← infer fnc
       match fncType.get with
@@ -96,7 +93,16 @@ mutual
         let term := .app (← infoFromType typ) fnc arg
         pure (term, typ)
       | val => throw $ .notPi (toString val)
-    | .lam .. => sorry
+    | .lam name bind dom bod  =>
+      let (dom, _) ← isSort dom
+      let ctx ← read
+      let domVal := suspend dom ctx (← get)
+      let var := mkSusVar (← infoFromType domVal) name ctx.lvl
+      let (bod, img) ← withExtendedCtx var domVal $ infer bod
+      let term := .lam (lamInfo bod.info) name bind dom bod
+      let typ := .mk (piInfo img.info) $
+        Value.pi name bind domVal (← quote (ctx.lvl+1) img.info img.get) ⟨[], []⟩
+      pure (term, typ)
     | .pi name bind dom img =>
       let (dom, domLvl) ← isSort dom
       let ctx ← read
