@@ -31,8 +31,6 @@ expression.
 -/
 @[inline] def id {α : Sort u} (a : α) : α := a
 
-#exit
-
 /--
 Function composition is the act of pipelining the result of one function, to the input of another, creating an entirely new function.
 Example:
@@ -110,6 +108,8 @@ For more information about universe levels: [Types as objects](https://leanprove
 inductive PUnit : Sort u where
   | /-- `PUnit.unit : PUnit` is the canonical element of the unit type. -/
     unit : PUnit
+
+#exit
 
 /--
 The unit type, the canonical type with one element, named `unit` or `()`.
