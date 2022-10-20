@@ -101,7 +101,7 @@ mutual
       let (bod, img) ← withExtendedCtx var domVal $ infer bod
       let term := .lam (lamInfo bod.info) name bind dom bod
       let typ := .mk (piInfo img.info) $
-        Value.pi name bind domVal (← quote (ctx.lvl+1) img.info img.get) ⟨[], []⟩
+        Value.pi name bind domVal (← quote (ctx.lvl+1) img.info img.get) ctx.env
       pure (term, typ)
     | .pi name bind dom img =>
       let (dom, domLvl) ← isSort dom

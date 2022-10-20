@@ -291,13 +291,13 @@ mutual
 
   partial def quoteExpr (lvl : Nat) (expr : TypedExpr) (env : Env) : TypecheckM TypedExpr :=
     match expr with
-    | .var info _ idx => do
+    | .var info name idx => do
       match env.exprs.get? idx with
       -- NOTE: if everything is correct, then `info` should coincide with `val.info`. We will choose `info` since
       -- this allows us to add values to the environment without knowing which `TypeInfo` it should take. See their
       -- previous note
      | some val => quote lvl info val.get
-     | none => throw $ .custom "Unbound variable {name}"
+     | none => throw $ .custom s!"Unbound variable {name}"
     | .app info fnc arg => do
       let fnc ← quoteExpr lvl fnc env
       let arg ← quoteExpr lvl arg env

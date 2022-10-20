@@ -31,6 +31,8 @@ expression.
 -/
 @[inline] def id {α : Sort u} (a : α) : α := a
 
+#exit
+
 /--
 Function composition is the act of pipelining the result of one function, to the input of another, creating an entirely new function.
 Example:
