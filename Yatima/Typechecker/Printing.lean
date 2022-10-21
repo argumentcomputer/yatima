@@ -29,27 +29,50 @@ mutual
 end
 
 /-- Printer of expressions -/
-def printExpr : TypedExpr → String
-  | .var _ nam idx => s!"{nam}@{idx}"
-  | .sort _ u => s!"(Sort {printUniv u})"
-  | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
-  | .app _ fnc arg => s!"({printExpr fnc} {printExpr arg})"
-  | .lam _ nam binfo dom bod =>
+def printExpr : Expr → String
+  | .var nam idx => s!"{nam}@{idx}"
+  | .sort u => s!"(Sort {printUniv u})"
+  | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+  | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
+  | .lam nam binfo dom bod =>
     match binfo with
     | .implicit => s!"(λ\{{nam}: {printExpr dom}}. {printExpr bod})"
     | .strictImplicit => s!"(λ⦃{nam}: {printExpr dom}⦄. {printExpr bod})"
     | .instImplicit => s!"(λ[{nam}: {printExpr dom}]. {printExpr bod})"
     | _ => s!"(λ({nam}: {printExpr dom}). {printExpr bod})"
-  | .pi _ nam binfo dom cod =>
+  | .pi nam binfo dom cod =>
     match binfo with
     | .implicit => s!"(\{{nam}: {printExpr dom}} → {printExpr cod})"
     | .strictImplicit => s!"(⦃{nam}: {printExpr dom}⦄ → {printExpr cod})"
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
-  | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
+  | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
+  | .lit (.natVal x) => s!"{x}"
+  | .lit (.strVal x) => s!"\"{x}\""
+  | .proj idx val => s!"{printExpr val}.{idx}"
+
+/-- Printer of expressions -/
+def printTypedExpr : TypedExpr → String
+  | .var _ nam idx => s!"{nam}@{idx}"
+  | .sort _ u => s!"(Sort {printUniv u})"
+  | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+  | .app _ fnc arg => s!"({printTypedExpr fnc} {printTypedExpr arg})"
+  | .lam _ nam binfo dom bod =>
+    match binfo with
+    | .implicit => s!"(λ\{{nam}: {printTypedExpr dom}}. {printTypedExpr bod})"
+    | .strictImplicit => s!"(λ⦃{nam}: {printTypedExpr dom}⦄. {printTypedExpr bod})"
+    | .instImplicit => s!"(λ[{nam}: {printTypedExpr dom}]. {printTypedExpr bod})"
+    | _ => s!"(λ({nam}: {printTypedExpr dom}). {printTypedExpr bod})"
+  | .pi _ nam binfo dom cod =>
+    match binfo with
+    | .implicit => s!"(\{{nam}: {printTypedExpr dom}} → {printTypedExpr cod})"
+    | .strictImplicit => s!"(⦃{nam}: {printTypedExpr dom}⦄ → {printTypedExpr cod})"
+    | .instImplicit => s!"([{nam}: {printTypedExpr dom}] → {printTypedExpr cod})"
+    | _ => s!"(({nam}: {printTypedExpr dom}) → {printTypedExpr cod})"
+  | .letE _ nam typ val bod => s!"let {nam} : {printTypedExpr typ} := {printTypedExpr val} in {printTypedExpr bod}"
   | .lit _ (.natVal x) => s!"{x}"
   | .lit _ (.strVal x) => s!"\"{x}\""
-  | .proj _ _ idx val => s!"{printExpr val}.{idx}"
+  | .proj _ _ idx val => s!"{printTypedExpr val}.{idx}"
 
 mutual
   /-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
@@ -117,7 +140,8 @@ mutual
     | .exception e => s!"exception {e}"
 end
 
-instance : ToString TypedExpr  where toString := printExpr
+instance : ToString TypedExpr  where toString := printTypedExpr
+instance : ToString Expr  where toString := printExpr
 instance : ToString Univ  where toString := printUniv
 instance : ToString Value where toString := printVal
 

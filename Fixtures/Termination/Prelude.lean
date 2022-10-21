@@ -109,8 +109,6 @@ inductive PUnit : Sort u where
   | /-- `PUnit.unit : PUnit` is the canonical element of the unit type. -/
     unit : PUnit
 
-#exit
-
 /--
 The unit type, the canonical type with one element, named `unit` or `()`.
 In other words, it describes only a single value, which consists of said constructor applied
@@ -296,6 +294,8 @@ For more information: [Equality](https://leanprover.github.io/theorem_proving_in
 -/
 theorem Eq.subst {α : Sort u} {motive : α → Prop} {a b : α} (h₁ : Eq a b) (h₂ : motive a) : motive b :=
   Eq.ndrec h₂ h₁
+
+#exit
 
 /--
 Equality is symmetric: if `a = b` then `b = a`.

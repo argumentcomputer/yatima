@@ -197,19 +197,17 @@ mutual
           let value ← match c with
           | .definition data => match data.safety with
             | .partial =>
-              -- let mutTypes : Std.RBMap ConstIdx SusValue compare ← data.all.foldlM (init := default) fun acc k => do
-              --   let const ← derefTypedConst default k
-              --   -- TODO avoid repeated work here
-              --   let (type, _) ← isSort data.type
-              --   let typeSus := suspend type (← read) (← get)
-              --   match const with
-              --   | .theorem    data
-              --   | .opaque     data
-              --   | .definition data => pure $ acc.insert k typeSus
-              --   | _ => throw .impossible -- FIXME better error
-              -- withMutTypes mutTypes $ check data.value typeSus
-              -- FIXME
-              sorry
+              let mutTypes : Std.RBMap ConstIdx SusValue compare ← data.all.foldlM (init := default) fun acc k => do
+                let const ← derefConst default k
+                -- TODO avoid repeated work here
+                let (type, _) ← isSort data.type
+                let typeSus := suspend type (← read) (← get)
+                match const with
+                | .theorem    data
+                | .opaque     data
+                | .definition data => pure $ acc.insert k typeSus
+                | _ => throw .impossible -- FIXME better error
+              withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
           | _ => check data.value typeSus
 
@@ -243,13 +241,17 @@ mutual
             | .axiom       _ => pure $ TypedConst.axiom type
             | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
             | .constructor data =>
-              -- FIXME `rhs` can have recursive references to `c`
-              let (rhs, _) ← infer data.rhs
+              let typeSus := suspend type (← read) (← get)
+                -- rhs` can have recursive references to `c`, so we must `withMutTypes`
+              let mutTypes : Std.RBMap ConstIdx SusValue compare := default
+              let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer data.rhs
               pure $ TypedConst.constructor type rhs data.idx data.fields
             | .extRecursor data =>
               let rules ← data.rules.mapM fun rule => do
-                -- FIXME `rhs` can have recursive references to `c`
-                let (rhs, _) ← infer rule.rhs
+                -- rhs` can have recursive references to `c`, so we must `withMutTypes`
+                let typeSus := suspend type (← read) (← get)
+                let mutTypes : Std.RBMap ConstIdx SusValue compare := default
+                let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
                 pure (rule.ctor.idx, rule.fields, rhs)
               pure $ .extRecursor type data.params data.motives data.minors data.indices rules
             | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k

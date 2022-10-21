@@ -38,6 +38,8 @@ def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
 /--
 Looks for a constant by its index `constIdx` in the `TypecheckState` cache of `TypedConst` and
 returns it if it is found. If the constant is not found it throws an error.
+Specifically, this function assumes that `checkConst name constIdx` has previously been called
+(which populates this cache).
 
 Note: The `name : Name` is used only in the error messaging
 -/
@@ -104,14 +106,19 @@ mutual
 
   partial def evalConst' (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    match ← derefTypedConst name const with
-    | .theorem _ deref => withEnv ⟨[], univs⟩ $ eval deref
-    | .definition _ deref safety =>
-      match safety with
-      | .safe    => withEnv ⟨[], univs⟩ $ eval deref
-      | .partial =>
-        pure $ mkConst name const univs
-      | .unsafe  => throw .unsafeDefinition
+    match ← derefConst name const with
+    | .theorem _
+    | .definition _ =>
+      match ← derefTypedConst name const with
+      | .theorem _ deref => withEnv ⟨[], univs⟩ $ eval deref
+      | .definition _ deref safety =>
+        match safety with
+        | .safe    => withEnv ⟨[], univs⟩ $ eval deref
+        | .partial =>
+          pure $ mkConst name const univs
+        | .unsafe  => throw .unsafeDefinition
+      | _ =>
+        throw .impossible
     | _ =>
       pure $ mkConst name const univs
 
@@ -179,8 +186,8 @@ mutual
                    else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
-    else match ← derefTypedConst name k with
-    | .intRecursor _ params motives minors indices isK =>
+    else match ← derefConst name k with
+    | .intRecursor (.mk _ _ _ params motives minors indices isK) =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const name k univs) (arg :: args)
@@ -197,31 +204,37 @@ mutual
         else
           match ← toCtorIfLit arg with
           | .app (Neutral.const kName k _) args' =>
-            match ← derefTypedConst kName k with
-            | .constructor _ rhs _ fields =>
-              let exprs := (args'.take fields) ++ (args.drop indices)
-              withEnv ⟨exprs, univs⟩ $ eval $ rhs.toImplicitLambda
+            match ← derefConst kName k with
+            | .constructor _ =>
+              match ← derefTypedConst kName k with
+              | .constructor _ rhs _ fields =>
+                let exprs := (args'.take fields) ++ (args.drop indices)
+                withEnv ⟨exprs, univs⟩ $ eval $ rhs.toImplicitLambda
+              | _ => throw .impossible
             | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
           | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-    | .extRecursor _ params motives minors indices rules =>
-      let majorIdx := params + motives + minors + indices
-      if args.length != majorIdx then
-        pure $ .app (Neutral.const name k univs) (arg :: args)
-      else
-        match ← toCtorIfLit arg with
-        | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
-          | .constructor _ _ idx _ =>
-            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-            match rules.find? (fun r => r.fst == idx) with
-            | some (_, fields, rhs) =>
-              let exprs := (args'.take fields) ++ (args.drop indices)
-              withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
-            -- Since we assume expressions are previously type checked, we know that this constructor
-            -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
+    | .extRecursor _  =>
+      match ← derefTypedConst name k with
+      | .extRecursor _ params motives minors indices rules =>
+        let majorIdx := params + motives + minors + indices
+        if args.length != majorIdx then
+          pure $ .app (Neutral.const name k univs) (arg :: args)
+        else
+          match ← toCtorIfLit arg with
+          | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
+            | .constructor (.mk _ _ _ _ idx _ _ _) =>
+              -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
+              match rules.find? (fun r => r.fst == idx) with
+              | some (_, fields, rhs) =>
+                let exprs := (args'.take fields) ++ (args.drop indices)
+                withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
+              -- Since we assume expressions are previously type checked, we know that this constructor
+              -- must have an associated recursion rule
+              | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
+            | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
           | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-        | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-    | .quotient _ kind => match kind with
+      | _ => throw .impossible
+    | .quotient (.mk _ _ _ kind) => match kind with
       | .lift => applyQuot arg args 6 1 $ .app (Neutral.const name k univs) (arg :: args)
       | .ind  => applyQuot arg args 5 0 $ .app (Neutral.const name k univs) (arg :: args)
       | _ => pure $ .app (Neutral.const name k univs) (arg :: args)

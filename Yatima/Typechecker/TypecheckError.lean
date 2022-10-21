@@ -45,7 +45,7 @@ instance : ToString TypecheckError where toString
   | .unsafeDefinition => "Unsafe definition found"
   | .hasNoRecursionRule => "Constructor has no associated recursion rule. Implementation is broken."
   | .cannotApply => "Cannot apply argument list to type. Implementation broken."
-  | .missingTypedConst name idx => "Attempted to get a typed const '{name}' (index {idx}) that has not yet been generated. Implementation broken."
+  | .missingTypedConst name idx => s!"Attempted to get a typed const '{name}' (index {idx}) that has not yet been generated. Implementation broken."
   | .outOfRangeError name idx len => s!"'{name}' (index {idx}) out of the thunk list range (size {len})"
   | .outOfConstsRange name idx len => s!"'{name}' (index {idx}) out of the range of definitions (size {len})"
   | .outOfEnvironmentRange name idx len => s!"'{name}' (index {idx}) out of environment range (size {len})"
