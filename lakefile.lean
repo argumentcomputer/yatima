@@ -14,19 +14,19 @@ lean_exe yatima {
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "d50cb274e4a763e577976198fbc38ecceea9d3ee"
+  "https://github.com/yatima-inc/Ipld.lean" @ "f265a7ac8bd43a3166eb9f857c88c4291f228af5"
 
 require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "a8dc2f38fc38f16efcc877ca8a4c7b37d3965db0"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "9aedefe96478a6033c1ffa030a800f4d3e0c7681"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "cbf5cd7c098c4369d93b9b8399a323bf0a28c107"
 
 require Cli from git
   "https://github.com/mhuisi/lean4-cli" @ "1f844d9d3c31908588f507dfa3f3b4c764bdcdf6"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "fd45f1c33e8248322d9f97b6ef321eb8f007c259"
+  "https://github.com/yatima-inc/Lurk.lean" @ "9c09e74eaddca06eda8a78a5477283e5d8afbb39"
 
 section Testing
 

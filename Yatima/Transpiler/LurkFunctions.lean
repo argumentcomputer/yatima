@@ -1,4 +1,4 @@
-import Lurk.DSL 
+import Lurk.Syntax.DSL
 
 /-!
 
@@ -10,7 +10,9 @@ transpiled output should look like.
 
 -/
 
-namespace Lurk 
+namespace Lurk.Functions
+
+open Lurk.Syntax
 
 /-! 
 ## Helper Functions 
@@ -237,7 +239,7 @@ def StringDecEq : Name × Expr := (``String.decEq, ⟦
         ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
-
+namespace Example
 
 /-! 
 ## `Nat` Example
@@ -299,15 +301,6 @@ def g := ⟦(
   )
 )⟧
 
--- #eval IO.println $ 
---   Expr.mkMutualBlock [(`f, f), (`g, g)] |>.map fun (n, e) => (n, e.pprint false |>.pretty 50)
+end Example
 
--- #eval IO.println $ ⟦
---   (letrec (
---     (mutual_fg $(mutual_fg.2))
---   ) (
---     (mutual_fg 0) 10 
---   ))
--- ⟧.pprint.pretty 50
-
-end Lurk
+end Lurk.Functions

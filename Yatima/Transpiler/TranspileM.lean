@@ -1,6 +1,6 @@
 import Yatima.Transpiler.TranspileError
 import Yatima.Datatypes.Store
-import Lurk.AST
+import Lurk.Syntax.Expr
 
 namespace Yatima.Transpiler
 
@@ -9,10 +9,10 @@ structure TranspileEnv where
   tcStore  : TC.Store
   /-- Used to speed up lookup by name -/
   map      : Std.RBMap Name TC.Const compare
-  builtins : List (Name × Lurk.Expr)
+  builtins : List (Name × Lurk.Syntax.Expr)
 
 structure TranspileState where
-  appendedBindings  : Array (Name × Lurk.Expr)
+  appendedBindings  : Array (Name × Lurk.Syntax.Expr)
   /-- Contains constants that have already been processed -/
   visited : Lean.NameSet
   ngen : Lean.NameGenerator
@@ -38,7 +38,7 @@ def replaceFreshId (name : Name) : TranspileM Name := do
   set $ { (← get) with replaced := (← get).replaced.insert name name'}
   return name'
 
-def appendBinding (b : Name × Lurk.Expr) (vst := true) : TranspileM Unit := do
+def appendBinding (b : Name × Lurk.Syntax.Expr) (vst := true) : TranspileM Unit := do
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
   if vst then visit b.1
