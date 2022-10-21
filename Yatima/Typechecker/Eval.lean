@@ -86,7 +86,7 @@ mutual
       pure $ .sort (Univ.instBulkReduce env.univs univ)
     | .lit _ lit =>
       pure $ .lit lit
-    | .proj _ struct idx expr => do
+    | .proj _ ind idx expr => do
       let val ← eval expr
       match val with
       | .app (.const name k _) args =>
@@ -98,17 +98,17 @@ mutual
           let some arg := args.reverse.get? idx
             | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        | _ => pure $ .app (.proj struct idx (.mk expr.info val)) []
-      | .app .. => pure $ .app (.proj struct idx (.mk expr.info val)) []
+        | _ => pure $ .app (.proj ind idx (.mk expr.info val)) []
+      | .app .. => pure $ .app (.proj ind idx (.mk expr.info val)) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
   partial def evalConst' (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
     match ← derefTypedConst name const with
-    | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
-    | .definition x =>
-      match x.safety with
-      | .safe    => withEnv ⟨[], univs⟩ $ eval x.value
+    | .theorem _ deref => withEnv ⟨[], univs⟩ $ eval deref
+    | .definition _ deref safety =>
+      match safety with
+      | .safe    => withEnv ⟨[], univs⟩ $ eval deref
       | .partial =>
         pure $ mkConst name const univs
       | .unsafe  => throw .unsafeDefinition
@@ -180,48 +180,48 @@ mutual
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefTypedConst name k with
-    | .intRecursor recur =>
-      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
+    | .intRecursor _ params motives minors indices isK =>
+      let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const name k univs) (arg :: args)
       else
-        if recur.k then
+        if isK then
           --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
           --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
           -- sanity check
-          if args.length < (recur.params + recur.motives + 1) then
+          if args.length < (params + motives + 1) then
             throw .impossible
-          let minorIdx := args.length - (recur.params + recur.motives + 1)
+          let minorIdx := args.length - (params + motives + 1)
           let some minor := args.get? minorIdx | throw .impossible
           pure minor.get
         else
           match ← toCtorIfLit arg with
           | .app (Neutral.const kName k _) args' =>
             match ← derefTypedConst kName k with
-            | .constructor ctor =>
-              let exprs := (args'.take ctor.fields) ++ (args.drop recur.indices)
-              withEnv ⟨exprs, univs⟩ $ eval $ ctor.rhs.toImplicitLambda
+            | .constructor _ rhs _ fields =>
+              let exprs := (args'.take fields) ++ (args.drop indices)
+              withEnv ⟨exprs, univs⟩ $ eval $ rhs.toImplicitLambda
             | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
           | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-    | .extRecursor recur =>
-      let majorIdx := recur.params + recur.motives + recur.minors + recur.indices
+    | .extRecursor _ params motives minors indices rules =>
+      let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const name k univs) (arg :: args)
       else
         match ← toCtorIfLit arg with
-        | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-          | .constructor ctor =>
+        | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
+          | .constructor _ _ idx _ =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-            match recur.rules.find? (fun r => r.ctor.idx == ctor.idx) with
-            | some rule =>
-              let exprs := (args'.take rule.fields) ++ (args.drop recur.indices)
-              withEnv ⟨exprs, univs⟩ $ eval rule.rhs.toImplicitLambda
+            match rules.find? (fun r => r.fst == idx) with
+            | some (_, fields, rhs) =>
+              let exprs := (args'.take fields) ++ (args.drop indices)
+              withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
         | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-    | .quotient quotVal => match quotVal.kind with
+    | .quotient _ kind => match kind with
       | .lift => applyQuot arg args 6 1 $ .app (Neutral.const name k univs) (arg :: args)
       | .ind  => applyQuot arg args 5 0 $ .app (Neutral.const name k univs) (arg :: args)
       | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
@@ -236,8 +236,8 @@ mutual
     if argsLength == reduceSize then
       match major?.get with
       | .app (.const name majorFn _) majorArgs => do
-        match ← derefConst name majorFn with
-        | .quotient {kind := .ctor, ..} =>
+        match ← derefTypedConst name majorFn with
+        | .quotient _ .ctor =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
           if majorArgs.length != 3 then throw .impossible
           let some majorArg := majorArgs.head? | throw .impossible
@@ -318,9 +318,9 @@ mutual
       let var := mkSusVar default name lvl
       let img ← quoteExpr (lvl+1) img (env.extendWith var)
       pure $ .pi info name bind dom img
-    | .proj info struct idx expr => do
+    | .proj info ind idx expr => do
       let expr ← quoteExpr lvl expr env
-      pure $ .proj info struct idx expr
+      pure $ .proj info ind idx expr
     | .const .. => pure expr
     | .sort .. => pure expr
     | .lit .. => pure expr
@@ -329,7 +329,7 @@ mutual
     -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to `Neutral`
     | .fvar  nam idx => pure $ .var default nam (lvl - idx - 1)
     | .const nam cidx univs => pure $ .const default nam cidx univs
-    | .proj  nam struct val => do
-      pure $ .proj default nam struct (← quote lvl val.info val.value)
+    | .proj  nam ind val => do
+      pure $ .proj default nam ind (← quote lvl val.info val.value)
 end
 end Yatima.Typechecker

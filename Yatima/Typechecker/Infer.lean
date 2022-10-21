@@ -140,7 +140,7 @@ mutual
         pure (.const (← infoFromType typ) name k constUnivs, typ)
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
-      let some (struct, ctor, univs, params) ← isStruct exprType.get
+      let some (ind, ctor, univs, params) ← isStruct exprType.get
         | throw $ .typNotStructure (toString exprType.get)
       -- annotate constructor type
       let (ctorType, _) ← infer ctor.type
@@ -149,19 +149,19 @@ mutual
         match ctorType with
         | .pi _ _ dom img piEnv =>
           let info ← infoFromType dom
-          let proj := suspend (.proj info struct i expr) (← read) (← get)
+          let proj := suspend (.proj info ind i expr) (← read) (← get)
           ctorType ← withNewExtendedEnv piEnv proj $ eval img
         | _ => pure ()
       match ctorType with
       | .pi _ _ dom _ _  =>
         match exprType.info, dom.info with
-        | .prop, .prop => 
-          let term := .proj (← infoFromType dom) struct idx expr
+        | .prop, .prop =>
+          let term := .proj (← infoFromType dom) ind idx expr
           pure (term, dom)
-        | .prop, _ => 
+        | .prop, _ =>
           throw $ .projEscapesProp s!"{toString expr}.{idx}"
-        | _, _ => 
-          let term := .proj (← infoFromType dom) struct idx expr
+        | _, _ =>
+          let term := .proj (← infoFromType dom) ind idx expr
           pure (term, dom)
       | _ => throw .impossible
 
@@ -189,71 +189,71 @@ mutual
         (fun _ => []) 0
       withEnv ⟨ [], univs ⟩ $ do
         match c with
-        | .theorem    struct
-        | .opaque     struct
-        | .definition struct => do
-          let (type, _) ← isSort struct.type
+        | .theorem    data
+        | .opaque     data
+        | .definition data => do
+          let (type, _) ← isSort data.type
           let typeSus := suspend type (← read) (← get)
           let value ← match c with
-          | .definition struct => match struct.safety with
+          | .definition data => match data.safety with
             | .partial =>
-              let mutTypes : Std.RBMap ConstIdx SusValue compare ← struct.all.foldlM (init := default) fun acc k => do
-                let const ← derefConst default k
-                -- TODO avoid repeated work here
-                let (type, _) ← isSort struct.type
-                let typeSus := suspend type (← read) (← get)
-                match const with
-                | .theorem    struct
-                | .opaque     struct
-                | .definition struct => pure $ acc.insert k typeSus
-                | _ => throw .impossible -- FIXME better error
-              withMutTypes mutTypes $ check struct.value typeSus
-            | _ => check struct.value typeSus
-          | _ => check struct.value typeSus
+              -- let mutTypes : Std.RBMap ConstIdx SusValue compare ← data.all.foldlM (init := default) fun acc k => do
+              --   let const ← derefTypedConst default k
+              --   -- TODO avoid repeated work here
+              --   let (type, _) ← isSort data.type
+              --   let typeSus := suspend type (← read) (← get)
+              --   match const with
+              --   | .theorem    data
+              --   | .opaque     data
+              --   | .definition data => pure $ acc.insert k typeSus
+              --   | _ => throw .impossible -- FIXME better error
+              -- withMutTypes mutTypes $ check data.value typeSus
+              -- FIXME
+              sorry
+            | _ => check data.value typeSus
+          | _ => check data.value typeSus
 
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts
           if h : idx < tcConsts.size then
             let newConst ← match c with
-            | .theorem    struct => pure $ Const'.theorem {struct with value, type}
-            | .opaque     struct => pure $ .opaque {struct with value, type}
-            | .definition struct => pure $ .definition {struct with value, type}
+            | .theorem    data => pure $ TypedConst.theorem type value
+            | .opaque     data => pure $ TypedConst.opaque type value
+            | .definition data => pure $ TypedConst.definition type value data.safety
             | _ => throw .impossible
             modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
           else
             throw $ .impossible
-        -- TODO: check that inductives, constructors and recursors are well-formed
+        -- TODO: check that inductives, condataors and recursors are well-formed
         -- TODO: check that quotient is well-formed. I guess it is possible to do this
         -- while converting from Ipld by checking the cids of the quotient constants
         -- with precomputed ones
-        | .axiom       struct
-        | .inductive   struct
-        | .constructor struct
-        | .extRecursor struct
-        | .intRecursor struct
-        | .quotient    struct =>
-          let (type, _)  ← isSort struct.type
-
-          let convCtor (struct : Constructor' Expr) : TypecheckM $ Constructor' TypedExpr := do
-            let (rhs, _) ← infer struct.rhs
-            pure $ {struct with rhs, type}
+        | .axiom       data
+        | .inductive   data
+        | .constructor data
+        | .extRecursor data
+        | .intRecursor data
+        | .quotient    data =>
+          let (type, _)  ← isSort data.type
 
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts
           if h : idx < tcConsts.size then
-            let newConst ← match c with 
-            | .axiom       struct => pure $ Const'.axiom {struct with type}
-            | .inductive   struct =>
-              let thisStruct ← struct.struct.mapM fun ctor => convCtor ctor
-              pure $ .inductive {struct with struct := thisStruct, type}
-            | .constructor struct => pure $ .constructor $ ← convCtor struct
-            | .extRecursor struct =>
-              let rules ← struct.rules.mapM fun rule => do
+            let newConst ← match c with
+            | .axiom       _ => pure $ TypedConst.axiom type
+            | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
+            | .constructor data =>
+              -- FIXME `rhs` can have recursive references to `c`
+              let (rhs, _) ← infer data.rhs
+              pure $ TypedConst.constructor type rhs data.idx data.fields
+            | .extRecursor data =>
+              let rules ← data.rules.mapM fun rule => do
+                -- FIXME `rhs` can have recursive references to `c`
                 let (rhs, _) ← infer rule.rhs
-                pure {rule with rhs}
-              pure $ .extRecursor {struct with rules, type}
-            | .intRecursor struct => pure $ .intRecursor {struct with type}
-            | .quotient    struct => pure $ .quotient {struct with type}
+                pure (rule.ctor.idx, rule.fields, rhs)
+              pure $ .extRecursor type data.params data.motives data.minors data.indices rules
+            | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k
+            | .quotient    data => pure $ .quotient type data.kind
             | _ => throw $ .impossible
             modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
           else

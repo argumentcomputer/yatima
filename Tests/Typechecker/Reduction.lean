@@ -89,8 +89,8 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       match state.cache.find? rconstName with
       | none            => notFound := notFound.push rconstName
       | some (_, ridx)  =>
-        let some (Const'.definition const) ← pure state.tcStore.consts[idx]? | throw "invalid definition index"
-        let some (Const'.definition rconst) ← pure state.tcStore.consts[ridx]? | throw "invalid definition index"
+        let some (.definition const) ← pure state.tcStore.consts[idx]? | throw "invalid definition index"
+        let some (.definition rconst) ← pure state.tcStore.consts[ridx]? | throw "invalid definition index"
         match TypecheckM.run (.init state.tcStore) (.init state.tcStore) do eval (← infer const.value).1, TypecheckM.run (.init state.tcStore) (.init state.tcStore) do pure (← infer rconst.value).1 with
         | .ok value, .ok rexpr =>
           -- dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"

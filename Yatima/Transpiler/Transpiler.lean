@@ -303,7 +303,7 @@ mutual
 
   partial def mkRecursor (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) :
       TranspileM (Name × Lurk.Expr) := do
-    let ctorName := rhs.head?.map Constructor'.name
+    let ctorName := rhs.head?.map Constructor.name
     if ctorName = some ``List.nil || ctorName = some ``List.cons then
       mkListRecursor recrType recrName rhs
     else
@@ -476,7 +476,7 @@ mutual
     getInductive (name : Name) : TranspileM Inductive := do
       let indName := name.getPrefix
       match (← read).map.find? indName with
-      | some (Const'.inductive i) => return i
+      | some (.inductive i) => return i
       | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
       | none => dbg_trace name; throw $ .notFoundInMap indName
     processInductive (name : Name) : TranspileM Unit := do

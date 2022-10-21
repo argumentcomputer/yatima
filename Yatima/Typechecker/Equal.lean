@@ -40,18 +40,19 @@ mutual
     match term'.get with
     | .app (.const name k _) args =>
       match ← derefTypedConst name k with
-      | .constructor ctor =>
-        match ← applyType (← eval ctor.type) args with
+      | .constructor type .. =>
+        match ← applyType (← eval type) args with
         | .app (.const tname tk _) args =>
-          match ← derefConst tname tk with
-          | .inductive ind => if let some _ := ind.struct then
-                                args.enum.foldlM (init := true) fun acc (i, arg) => do
-                                match arg.get with
-                                | .app (.proj struct idx val) _ =>
-                                  pure $ acc && i == idx && (← equal lvl term val.sus)
-                                | _ => pure false
-                              else
-                                pure false
+          match ← derefTypedConst tname tk with
+          | .inductive _ struct .. =>
+            if struct then
+              args.enum.foldlM (init := true) fun acc (i, arg) => do
+                match arg.get with
+                | .app (.proj _ idx val) _ =>
+                pure $ acc && i == idx && (← equal lvl term val.sus)
+                | _ => pure false
+            else
+              pure false
           | _ => pure false
         | _ => pure false
       | _ => pure false
@@ -108,8 +109,8 @@ mutual
         tryEtaStruct lvl term term'
       | .app (.const _ _ _) _, _ =>
         tryEtaStruct lvl term' term
-      | .app (.proj struct idx val) args, .app (.proj struct' idx' val') args' =>
-          if struct == struct' && idx == idx' then
+      | .app (.proj ind idx val) args, .app (.proj ind' idx' val') args' =>
+          if ind == ind' && idx == idx' then
             let eqVal ← equal lvl val.sus val'.sus
             let eqThunks ← equalThunks lvl args args'
             pure (eqVal && eqThunks)
