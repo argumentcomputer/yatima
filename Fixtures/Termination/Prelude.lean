@@ -293,9 +293,7 @@ hypotheses.
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem Eq.subst {α : Sort u} {motive : α → Prop} {a b : α} (h₁ : Eq a b) (h₂ : motive a) : motive b :=
-  Eq.ndrec h₂ h₁
-
-#exit
+  Eq.rec h₂ h₁
 
 /--
 Equality is symmetric: if `a = b` then `b = a`.
@@ -376,6 +374,8 @@ opaque Quot.ind {α : Sort u} {r : α → α → Prop} {β : Quot r → Prop} :
 ```
 -/
 init_quot
+
+#exit
 
 /--
 Let `α` be any type, and let `r` be an equivalence relation on `α`.

@@ -35,6 +35,11 @@ inductive LiteralProp where
   | natLt (v1 v2 : Nat) (h : v1 < v2)
   | natNLt (v1 v2 : Nat) (h : ¬ v1 < v2)
 
+inductive DecUniv where
+  | init : Univ → DecUniv
+  | dec  : DecUniv → DecUniv
+  deriving BEq, Inhabited, Repr
+
 /--
   The type info is a simplified form of the value's type, with only relevant
   information for conversion checking, in order to get proof irrelevance and equality
@@ -45,11 +50,13 @@ inductive LiteralProp where
   - `prop` tells us that the expression's type is `Prop` itself
 -/
 inductive TypeInfo
-  | unit  : TypeInfo
-  | proof : TypeInfo
-  | prop  : TypeInfo
-  | none  : TypeInfo
-  deriving BEq, Inhabited
+  | unit    : TypeInfo
+  | proof   : TypeInfo
+  | prop    : TypeInfo
+  | sort    : Univ → TypeInfo
+  | decSort : DecUniv → TypeInfo
+  | none    : TypeInfo
+  deriving BEq, Inhabited, Repr
 
 /-- Representation of expressions for evaluation and transpilation -/
 inductive TypedExpr
