@@ -35,9 +35,12 @@ inductive LiteralProp where
   | natLt (v1 v2 : Nat) (h : v1 < v2)
   | natNLt (v1 v2 : Nat) (h : ¬ v1 < v2)
 
-inductive DecUniv where
-  | init : Univ → DecUniv
-  | dec  : DecUniv → DecUniv
+inductive SusTypeInfo
+  | unit    : SusTypeInfo
+  | proof   : SusTypeInfo
+  | prop    : SusTypeInfo
+  | sort    : Univ → SusTypeInfo
+  | none    : SusTypeInfo
   deriving BEq, Inhabited, Repr
 
 /--
@@ -53,23 +56,27 @@ inductive TypeInfo
   | unit    : TypeInfo
   | proof   : TypeInfo
   | prop    : TypeInfo
-  | sort    : Univ → TypeInfo
-  | decSort : DecUniv → TypeInfo
   | none    : TypeInfo
   deriving BEq, Inhabited, Repr
 
+def TypeInfo.toSus : TypeInfo → SusTypeInfo
+  | .unit    => .unit
+  | .proof   => .proof
+  | .prop    => .prop
+  | .none    => .none
+
 /-- Representation of expressions for evaluation and transpilation -/
 inductive TypedExpr
-  | var   : TypeInfo → Name → Nat → TypedExpr
-  | sort  : TypeInfo → Univ → TypedExpr
-  | const : TypeInfo → Name → ConstIdx → List Univ → TypedExpr
-  | app   : TypeInfo → TypedExpr → TypedExpr → TypedExpr
-  | lam   : TypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
-  | pi    : TypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
-  | letE  : TypeInfo → Name → TypedExpr → TypedExpr → TypedExpr → TypedExpr
-  | lit   : TypeInfo → Literal → TypedExpr
-  | proj  : TypeInfo → ConstIdx → Nat → TypedExpr → TypedExpr
-  deriving BEq, Inhabited
+  | var   : SusTypeInfo → Name → Nat → TypedExpr
+  | sort  : SusTypeInfo → Univ → TypedExpr
+  | const : SusTypeInfo → Name → ConstIdx → List Univ → TypedExpr
+  | app   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
+  | lam   : SusTypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
+  | pi    : SusTypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
+  | letE  : SusTypeInfo → Name → TypedExpr → TypedExpr → TypedExpr → TypedExpr
+  | lit   : SusTypeInfo → Literal → TypedExpr
+  | proj  : SusTypeInfo → ConstIdx → Nat → TypedExpr → TypedExpr
+  deriving BEq, Inhabited, Repr
 
 /--
 Remove all binders from an expression, converting a lambda into
@@ -174,7 +181,7 @@ abbrev Args := List SusValue
 instance : Inhabited SusValue where
   default := .mk default {fn := default}
 
-def TypedExpr.info : TypedExpr → TypeInfo
+def TypedExpr.info : TypedExpr → SusTypeInfo
 | var   info ..
 | sort  info ..
 | const info ..
@@ -187,6 +194,9 @@ def TypedExpr.info : TypedExpr → TypeInfo
 
 def SusValue.info : SusValue → TypeInfo
 | .mk info _ => info
+
+def SusValue.thunk : SusValue → Thunk Value
+| .mk _ thunk => thunk
 
 def SusValue.get : SusValue → Value
 | .mk _ thunk => thunk.get

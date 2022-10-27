@@ -62,7 +62,7 @@ inductive Expr
   | letE  : Name → Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
   | proj  : Nat → Expr → Expr
-  deriving BEq, Inhabited
+  deriving BEq, Inhabited, Repr
 
 namespace Expr
 

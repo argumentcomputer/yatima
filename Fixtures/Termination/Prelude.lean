@@ -352,8 +352,8 @@ statement is more complex in the dependent case.
 
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-theorem congr {α : Sort u} {β : Sort v} {f₁ f₂ : α → β} {a₁ a₂ : α} (h₁ : Eq f₁ f₂) (h₂ : Eq a₁ a₂) : Eq (f₁ a₁) (f₂ a₂) :=
-  h₁ ▸ h₂ ▸ rfl
+theorem congr {α : Sort u} {β : Sort v} {f : α → β} : Eq f f :=
+  rfl
 
 /-- Congruence in the function part of an application: If `f = g` then `f a = g a`. -/
 theorem congrFun {α : Sort u} {β : α → Sort v} {f g : (x : α) → β x} (h : Eq f g) (a : α) : Eq (f a) (g a) :=
@@ -374,8 +374,6 @@ opaque Quot.ind {α : Sort u} {r : α → α → Prop} {β : Quot r → Prop} :
 ```
 -/
 init_quot
-
-#exit
 
 /--
 Let `α` be any type, and let `r` be an equivalence relation on `α`.
@@ -441,6 +439,8 @@ the same type then `a = b` and `HEq a b` ae equivalent.
 inductive HEq : {α : Sort u} → α → {β : Sort u} → β → Prop where
   | /-- Reflexivity of heterogeneous equality. -/
     refl (a : α) : HEq a a
+
+#exit
 
 /-- A version of `HEq.refl` with an implicit argument. -/
 @[matchPattern] protected def HEq.rfl {α : Sort u} {a : α} : HEq a a :=

@@ -63,7 +63,6 @@ mutual
       let ctx ← read
       let argThunk := suspend arg ctx (← get)
       let fnc ← eval fnc
-      -- dbg_trace s!"evaluating {fnc}... {arg.info.struct?}"
       apply fnc argThunk
     | .lam _ name info dom bod => do
       let ctx ← read
@@ -81,6 +80,7 @@ mutual
       withExtendedEnv thunk (eval bod)
     | .pi _ name info dom img => do
       let ctx ← read
+      --dbg_trace s!"pi suspending: {dom} with {repr dom.info}"
       let dom' := suspend dom ctx (← get)
       pure $ .pi name info dom' img ctx.env
     | .sort _ univ => do
@@ -100,8 +100,8 @@ mutual
           let some arg := args.reverse.get? idx
             | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
-        | _ => pure $ .app (.proj ind idx (.mk expr.info val)) []
-      | .app .. => pure $ .app (.proj ind idx (.mk expr.info val)) []
+        | _ => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
+      | .app .. => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
   partial def evalConst' (name : Name) (const : ConstIdx) (univs : List Univ) :
@@ -129,6 +129,17 @@ mutual
     else if (← indexPrim const) matches .some (.op _) then pure $ mkConst name const univs
     else evalConst' name const univs
 
+  partial def SusTypeInfo.update (univs : List Univ) : SusTypeInfo → TypeInfo
+  | .sort lvl =>
+    let lvl := Univ.instBulkReduce univs lvl
+    match lvl with 
+    | .zero => .prop
+    | _ => .none
+  | .unit    => .unit
+  | .proof   => .proof
+  | .prop    => .prop
+  | .none    => .none
+
   /--
   Suspends the evaluation of a Yatima expression `expr : TypedExpr` in a particular `ctx : TypecheckCtx`
 
@@ -140,7 +151,7 @@ mutual
       | .ok a => a
       | .error e => .exception e,
      }
-    .mk expr.info thunk
+    .mk (expr.info.update ctx.env.univs) thunk
 
   /--
   Applies `value : Value` to the argument `arg : SusValue`.
@@ -281,20 +292,20 @@ mutual
   Quoting transforms a value into a (typed) expression. It is the right-inverse of evaluation:
   evaluating a quoted value results in the value itself.
   -/
-  partial def quote (lvl : Nat) (info : TypeInfo) : Value → TypecheckM TypedExpr
+  partial def quote (lvl : Nat) (info : SusTypeInfo) : Value → TypecheckM TypedExpr
     | .sort univ => pure $ .sort info univ
     | .app neu args => do
       args.foldrM (init := ← quoteNeutral lvl neu) fun arg acc => do
       -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to the spine of arguments
-        pure $ .app default acc $ ← quote lvl arg.info arg.get
+        pure $ .app default acc $ ← quote lvl arg.info.toSus arg.get
     | .lam name binfo dom bod env => do
-      let dom ← quote lvl dom.info dom.get
+      let dom ← quote lvl dom.info.toSus dom.get
       -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value
       let var := mkSusVar default name lvl
       let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
       pure $ .lam info name binfo dom bod
     | .pi name binfo dom img env => do
-      let dom ← quote lvl dom.info dom.get
+      let dom ← quote lvl dom.info.toSus dom.get
       let var := mkSusVar default name lvl
       let img ← quoteExpr (lvl+1) img (env.extendWith var)
       pure $ .pi info name binfo dom img
@@ -343,6 +354,6 @@ mutual
     | .fvar  nam idx => pure $ .var default nam (lvl - idx - 1)
     | .const nam cidx univs => pure $ .const default nam cidx univs
     | .proj  nam ind val => do
-      pure $ .proj default nam ind (← quote lvl val.info val.value)
+      pure $ .proj default nam ind (← quote lvl val.info.toSus val.value)
 end
 end Yatima.Typechecker
