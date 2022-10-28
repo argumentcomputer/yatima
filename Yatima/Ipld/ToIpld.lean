@@ -49,7 +49,6 @@ instance : Coe BinderInfo Ipld where coe
   | .implicit       => .number 1
   | .strictImplicit => .number 2
   | .instImplicit   => .number 3
-  | .auxDecl        => .number 4
 
 instance : Coe Literal Ipld where coe
   | .natVal n => n
