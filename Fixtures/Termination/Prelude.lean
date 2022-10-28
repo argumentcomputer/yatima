@@ -439,8 +439,8 @@ the same type then `a = b` and `HEq a b` ae equivalent.
 inductive HEq : {α : Sort u} → α → {β : Sort u} → β → Prop where
   | /-- Reflexivity of heterogeneous equality. -/
     refl (a : α) : HEq a a
-
-#exit
+def HEq.noConfusionTest {α : Sort u} {a : α} {P : Sort u_1} : HEq.noConfusionType P (HEq.refl a) (HEq.refl a) :=
+    (fun a => a)
 
 /-- A version of `HEq.refl` with an implicit argument. -/
 @[matchPattern] protected def HEq.rfl {α : Sort u} {a : α} : HEq a a :=
@@ -451,6 +451,8 @@ theorem eq_of_heq {α : Sort u} {a a' : α} (h : HEq a a') : Eq a a' :=
     fun _ _ _ _ h₁ =>
       h₁.rec (fun _ => rfl)
   this α α a a' h rfl
+
+#exit
 
 /--
 Product type (aka pair). You can use `α × β` as notation for `Prod α β`.

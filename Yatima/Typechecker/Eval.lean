@@ -198,7 +198,7 @@ mutual
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with
-    | .intRecursor (.mk _ _ _ params motives minors indices isK) =>
+    | .intRecursor (.mk _ _ _ params indices motives minors isK) =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const name k univs) (arg :: args)
