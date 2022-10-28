@@ -1,5 +1,5 @@
 import LSpec
-import Lurk.Eval
+import Lurk.Evaluation.Eval
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
@@ -173,7 +173,7 @@ end Typechecking
 
 section Transpilation
 
-open Transpiler Lurk
+open Transpiler Lurk Evaluation
 
 instance [BEq α] [BEq β] : BEq (Except α β) where 
   beq x y := match x, y with 
@@ -181,7 +181,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where
     | .error x, .error y => x == y
     | _, _ => false
 
-def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
+def extractTranspilationTests (expect : _root_.List (Lean.Name × Option Lurk.Syntax.Expr))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
     withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun expr =>
