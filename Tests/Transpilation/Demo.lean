@@ -1,5 +1,7 @@
 import TestsUtils.CompileAndExtractTests
 
+open Lurk.Syntax.DSL
+
 open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
