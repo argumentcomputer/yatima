@@ -22,7 +22,7 @@ require YatimaStdLib from git
   "https://github.com/yatima-inc/YatimaStdLib.lean" @ "8e90071add9c667f93289d4ab784756611b7c909"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "caface0b69d86db62fdcb21c4fd312012f049577"
+  "https://github.com/yatima-inc/Cli.lean" @ "8e81b62cdeccbd972a1a8e1ddd0694b236ebf41a"
 
 require Lurk from git
   "https://github.com/yatima-inc/Lurk.lean" @ "ecb0a0622b06c0debe182315f4003895b4c6b608"
