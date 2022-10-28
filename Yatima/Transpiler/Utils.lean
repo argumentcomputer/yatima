@@ -1,4 +1,5 @@
 import Yatima.Transpiler.TranspileM
+import Lurk.Syntax.DSL
 
 namespace Yatima.Transpiler
 
@@ -124,3 +125,30 @@ def Lean.Name.isHygenic : Name → Bool
   | num p _ => p.isHygenic
   | _       => false
 
+/-
+TODO : Re-visit whether these are actually necessary? 
+
+Presumably with the refactor of `Lurk.lean` there's no point in having these, but I included
+them so things compile
+-/
+
+namespace Lurk.Syntax
+
+open DSL Expr Lean
+
+def Expr.mkMutualBlock (mutuals : List (Name × Syntax.Expr)) : List (Name × Syntax.Expr) :=
+  if mutuals.length == 1 then 
+    mutuals 
+  else 
+    let names := mutuals.map Prod.fst
+    let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
+    let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
+    let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
+    let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
+        (⟦(= mutidx $i)⟧, replaceFreeVars map e)
+      ) ⟦nil⟧
+    (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
+
+def Expr.toImplicitLambda : Expr → Expr
+  | .lam _ body => toImplicitLambda body
+  | x => x

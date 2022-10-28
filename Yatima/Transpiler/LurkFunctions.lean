@@ -1,4 +1,4 @@
-import Lurk.DSL 
+import Lurk.Syntax.DSL 
 
 /-!
 
@@ -11,6 +11,8 @@ transpiled output should look like.
 -/
 
 namespace Lurk 
+
+open Syntax DSL SExpr.DSL
 
 /-! 
 ## Helper Functions 
