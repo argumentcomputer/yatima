@@ -58,7 +58,6 @@ instance : Ord BinderInfo where compare
   | .implicit      , .implicit
   | .strictImplicit, .strictImplicit
   | .instImplicit  , .instImplicit
-  | .auxDecl       , .auxDecl        => .eq
   | .default       , _               => .lt
   | _              , .default        => .gt
   | .implicit      , _               => .lt
@@ -66,8 +65,6 @@ instance : Ord BinderInfo where compare
   | .strictImplicit, _               => .lt
   | .instImplicit  , .implicit
   | .instImplicit  , .strictImplicit => .gt
-  | .instImplicit  , .auxDecl        => .lt
-  | .auxDecl       , _               => .gt
 
 instance : Ord Literal where compare
   | .natVal _, .strVal _ => .lt
