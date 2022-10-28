@@ -41,7 +41,7 @@ def add' (x y : MyNat) : MyNat := match x with
   | .next x' => .next $ add' x' y
 
 -- force definition via primitive recursor
-@[implementedBy add'] def add (x y : MyNat) : MyNat := by
+@[implemented_by add'] def add (x y : MyNat) : MyNat := by
   induction x with
   | nope => exact y
   | next _ sum => exact .next sum
