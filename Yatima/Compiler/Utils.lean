@@ -1,5 +1,5 @@
 import Lean
-import Std
+import Std.Data.RBMap
 import YatimaStdLib.Lean
 
 namespace Lean
@@ -67,16 +67,10 @@ variable [BEq α] [Hashable α] [Monad m]
 def Lean.HashMap.map (hmap : Lean.HashMap α β) (f : β → σ) : Lean.HashMap α σ :=
   hmap.fold (init := default) fun acc a b => acc.insert a (f b)
 
-def Lean.HashMap.filter (hmap : Lean.HashMap α β) (p : α → β → Bool) : Lean.HashMap α β :=
-  hmap.fold (init := default) fun acc a b => if p a b then acc.insert a b else acc
-
 def Lean.SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
   let m₁ := smap.map₁.map f
   let m₂ := smap.map₂.map f
   ⟨smap.stage₁, m₁, m₂⟩
-
-def Lean.SMap.filter (smap : Lean.SMap α β) (f : α → β → Bool) : Lean.SMap α β :=
-  ⟨smap.stage₁, smap.map₁.filter f, smap.map₂.filter f⟩
 
 end 
 
