@@ -27,7 +27,7 @@ structure ConstCid (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Rep
 structure AnonMeta (A : Type) (B : Type) : Type where
   anon : A
   meta : B
-  deriving BEq, Ord, Inhabited, Repr
+  deriving BEq, Ord, Inhabited
 
 abbrev Both (A : Kind → Type) := AnonMeta (A .anon) (A .meta)
 

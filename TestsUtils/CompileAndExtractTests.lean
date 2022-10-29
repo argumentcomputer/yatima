@@ -196,13 +196,6 @@ end Transpilation
 
 section Ipld
 
-def findDiff [BEq α] (as bs : List α) : Option (Nat × α × α) :=
-  let rec go (as bs : List α ) (idx : Nat) : Option (Nat × α × α) :=
-    match as, bs with
-    | a :: as, b :: bs => if a == b then go as bs idx.succ else .some (idx, a, b)
-    | _, _ => .none
-  go as bs 0
-
 def extractIpldTests (stt : CompileState) : TestSeq :=
   let store := stt.irStore
   let ipld := Ipld.storeToIpld stt.ipldStore
