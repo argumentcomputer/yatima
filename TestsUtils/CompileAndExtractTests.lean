@@ -207,12 +207,6 @@ def extractIpldTests (stt : CompileState) : TestSeq :=
   let store := stt.irStore
   let ipld := Ipld.storeToIpld stt.ipldStore
   withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
-    fun store' => 
-      dbg_trace "THE DIFF"
-      dbg_trace "========"
-      dbg_trace Repr.reprPrec (findDiff (store.exprAnon.toList) (store'.exprAnon.toList)) 3
-      dbg_trace "========"
-      dbg_trace "END OF DIFF"
-      test "IPLD DeSer roundtrips" (store.exprAnon.toList == store'.exprAnon.toList)
+    fun store' => test "IPLD SerDe roundtrips" (store == store')
 
 end Ipld

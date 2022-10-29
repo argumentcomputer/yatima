@@ -1,4 +1,6 @@
 import Lean
+import Std
+import YatimaStdLib.Lean
 
 namespace Lean
 
@@ -48,15 +50,6 @@ instance : HMul Ordering Ordering Ordering where hMul
   | .lt, _ => .lt
   | .eq, x => x
 
-instance [Ord α] : Ord $ Option α where compare
-  | some x, some y => compare x y
-  | some _, none => .gt
-  | none, some _ => .lt
-  | none, none => .eq
-
-instance [Ord α] [Ord β] : Ord $ α × β where
-  compare x y := compare x.1 y.1 * compare x.2 y.2
-
 def concatOrds : List Ordering → Ordering :=
   List.foldl (fun x y => x * y) .eq
 
@@ -89,7 +82,7 @@ end
 
 open Lean in
 def patchUnsafeRec (cs : ConstMap) : ConstMap :=
-  let unsafes : Lean.HashSet Name :=
+  let unsafes : Std.RBSet Name compare :=
     cs.fold (init := .empty) fun acc n _ => match n with
     | .str n "_unsafe_rec" => acc.insert n
     | _ => acc

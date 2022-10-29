@@ -57,7 +57,7 @@ instance : Ord BinderInfo where compare
   | .default       , .default
   | .implicit      , .implicit
   | .strictImplicit, .strictImplicit
-  | .instImplicit  , .instImplicit
+  | .instImplicit  , .instImplicit   => .eq
   | .default       , _               => .lt
   | _              , .default        => .gt
   | .implicit      , _               => .lt
