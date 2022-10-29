@@ -8,7 +8,7 @@ def main := do
     "Fixtures/Transpilation/Demo.lean"
     [
       extractIpldTests,
-      extractIpldRoundtripTests,
+      extractConverterTests,
       extractTranspilationTests [
         (`expr, none),
         (`univCtor, some ⟦"zero"⟧),

@@ -56,7 +56,7 @@ def extractAnonCidGroupsTests (groups : List (List Lean.Name))
 
 end AnonCidGroups
 
-section IpldRoundtrip
+section Converting
 
 open Converter
 
@@ -131,14 +131,14 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
-def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
-  withExceptOk "`FromIpld.extractPureStore` succeeds"
+def extractConverterTests (stt : CompileState) : TestSeq :=
+  withExceptOk "`extractPureStore` succeeds"
     (extractPureStore stt.irStore) fun pStore =>
       withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
-end IpldRoundtrip
+end Converting
 
 section Typechecking
 
@@ -213,6 +213,6 @@ def extractIpldTests (stt : CompileState) : TestSeq :=
       dbg_trace Repr.reprPrec (findDiff (store.exprAnon.toList) (store'.exprAnon.toList)) 3
       dbg_trace "========"
       dbg_trace "END OF DIFF"
-      test "DeSer roundtrips" (store.exprAnon.toList == store'.exprAnon.toList)
+      test "IPLD DeSer roundtrips" (store.exprAnon.toList == store'.exprAnon.toList)
 
 end Ipld
