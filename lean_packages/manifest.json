@@ -1,9 +1,9 @@
 {"version": 2,
  "packages":
  [{"url": "https://github.com/yatima-inc/Cli.lean",
-   "rev": "caface0b69d86db62fdcb21c4fd312012f049577",
+   "rev": "8e81b62cdeccbd972a1a8e1ddd0694b236ebf41a",
    "name": "Cli",
-   "inputRev": "caface0b69d86db62fdcb21c4fd312012f049577"},
+   "inputRev": "8e81b62cdeccbd972a1a8e1ddd0694b236ebf41a"},
   {"url": "https://github.com/yatima-inc/LSpec.git",
    "rev": "02e423d02d2ba1b76bed3cf6459a5c2d7a13afb8",
    "name": "LSpec",

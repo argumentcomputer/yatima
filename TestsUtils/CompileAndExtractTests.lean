@@ -196,10 +196,23 @@ end Transpilation
 
 section Ipld
 
+def findDiff [BEq α] (as bs : List α) : Option (Nat × α × α) :=
+  let rec go (as bs : List α ) (idx : Nat) : Option (Nat × α × α) :=
+    match as, bs with
+    | a :: as, b :: bs => if a == b then go as bs idx.succ else .some (idx, a, b)
+    | _, _ => .none
+  go as bs 0
+
 def extractIpldTests (stt : CompileState) : TestSeq :=
   let store := stt.irStore
   let ipld := Ipld.storeToIpld stt.ipldStore
   withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
-    fun store' => test "DeSer roundtrips" (store == store')
+    fun store' => 
+      dbg_trace "THE DIFF"
+      dbg_trace "========"
+      dbg_trace Repr.reprPrec (findDiff (store.exprAnon.toList) (store'.exprAnon.toList)) 3
+      dbg_trace "========"
+      dbg_trace "END OF DIFF"
+      test "DeSer roundtrips" (store.exprAnon.toList == store'.exprAnon.toList)
 
 end Ipld
