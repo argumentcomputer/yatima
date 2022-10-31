@@ -1,4 +1,4 @@
-import Lurk.DSL
+import Lurk.Syntax.DSL
 
 /-!
 # Simp
@@ -14,8 +14,8 @@ open Lurk
 
 namespace Yatima.Transpiler.Simp
 
-def getOfNatLit : Lurk.Expr → Option (Fin N)
-  | .app (.app (.app f nat?) n) (.app inst m) =>
+def getOfNatLit : Syntax.Expr → Option (Fin N)
+  | .app (.app (.app f (.some nat?)) (.some n)) (.some $ .app inst m) =>
     if f == ⟦$(``OfNat.ofNat)⟧ && nat? == ⟦$(``Nat)⟧ && n == m &&
         inst == ⟦$(``instOfNatNat)⟧ then
       match n with

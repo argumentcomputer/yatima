@@ -17,7 +17,6 @@ instance : ToString BinderInfo where toString
   | .implicit       => "implicit"
   | .strictImplicit => "strict"
   | .instImplicit   => "inst"
-  | .auxDecl        => "auxDecl"
 
 def printDefSafety : DefinitionSafety → String
   | .unsafe  => "unsafe "

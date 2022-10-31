@@ -2,6 +2,7 @@ import Yatima.Datatypes.Store
 import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import YatimaStdLib.RBMap
+import YatimaStdLib.Ord
 
 namespace Yatima
 

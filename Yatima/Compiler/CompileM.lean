@@ -27,6 +27,9 @@ structure CompileState where
   univMetaIpld  : Array Ipld
   exprMetaIpld  : Array Ipld
   constMetaIpld : Array Ipld
+  univIpldCache  : RBMap (IR.Both IR.Univ)  (Ipld × Ipld × IR.BothUnivCid)  compare
+  exprIpldCache  : RBMap (IR.Both IR.Expr)  (Ipld × Ipld × IR.BothExprCid)  compare
+  constIpldCache : RBMap (IR.Both IR.Const) (Ipld × Ipld × IR.BothConstCid) compare
   deriving Inhabited
 
 def CompileState.ipldStore (s : CompileState) : Ipld.Store :=
@@ -124,34 +127,62 @@ def getFromRecrCtx! (name : Name) : CompileM $ RecrCtxEntry := do
 
 /-- Auxiliary type to standardize additions of CIDs to the store -/
 inductive StoreEntry : Type → Type
-  | univ  : IR.Both IR.Univ  → StoreEntry (IR.BothUnivCid)
-  | expr  : IR.Both IR.Expr  → StoreEntry (IR.BothExprCid)
-  | const : IR.Both IR.Const → StoreEntry (IR.BothConstCid)
+  | univ  : IR.Both IR.Univ  → StoreEntry IR.BothUnivCid
+  | expr  : IR.Both IR.Expr  → StoreEntry IR.BothExprCid
+  | const : IR.Both IR.Const → StoreEntry IR.BothConstCid
 
-open Ipld in
-/-- Adds CID data to the store, but also returns it for practical reasons -/
-def addToStore : StoreEntry A → CompileM A
-  | .univ obj =>
+open Ipld
+
+def getUnivIpld (obj : IR.Both IR.Univ) : CompileM $ Ipld × Ipld × IR.BothUnivCid := do
+  match (← get).univIpldCache.find? obj with
+  | some x => pure x
+  | none =>
     let (ipldAnon, cidAnon) := univToCid obj.anon
     let (ipldMeta, cidMeta) := univToCid obj.meta
+    let data := (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩)
+    modifyGet fun stt => (data, { stt with
+      univIpldCache := stt.univIpldCache.insert obj data })
+
+def getExprIpld (obj : IR.Both IR.Expr) : CompileM $ Ipld × Ipld × IR.BothExprCid := do
+  match (← get).exprIpldCache.find? obj with
+  | some x => pure x
+  | none =>
+    let (ipldAnon, cidAnon) := exprToCid obj.anon
+    let (ipldMeta, cidMeta) := exprToCid obj.meta
+    let data := (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩)
+    modifyGet fun stt => (data, { stt with
+      exprIpldCache := stt.exprIpldCache.insert obj data })
+
+def getConstIpld (obj : IR.Both IR.Const) : CompileM $ Ipld × Ipld × IR.BothConstCid := do
+  match (← get).constIpldCache.find? obj with
+  | some x => pure x
+  | none =>
+    let (ipldAnon, cidAnon) := constToCid obj.anon
+    let (ipldMeta, cidMeta) := constToCid obj.meta
+    let data := (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩)
+    modifyGet fun stt => (data, { stt with
+      constIpldCache := stt.constIpldCache.insert obj data })
+
+/-- Adds CID data to the store, but also returns it for practical reasons -/
+def addToStore : StoreEntry A → CompileM A
+  | .univ obj => do
+    let (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩) ← getUnivIpld obj
     modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
       irStore := { stt.irStore with
         univAnon := stt.irStore.univAnon.insert cidAnon obj.anon,
         univMeta := stt.irStore.univMeta.insert cidMeta obj.meta }
       univAnonIpld := stt.univAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
       univMetaIpld := stt.univMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
-  | .expr obj =>
-    let (ipldAnon, cidAnon) := exprToCid obj.anon
-    let (ipldMeta, cidMeta) := exprToCid obj.meta
+  | .expr obj => do
+    let (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩) ← getExprIpld obj
     modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
       irStore := { stt.irStore with
         exprAnon := stt.irStore.exprAnon.insert cidAnon obj.anon,
         exprMeta := stt.irStore.exprMeta.insert cidMeta obj.meta }
       exprAnonIpld := stt.exprAnonIpld.push $ .array #[.link cidAnon.data, ipldAnon]
       exprMetaIpld := stt.exprMetaIpld.push $ .array #[.link cidMeta.data, ipldMeta] })
-  | .const obj =>
-    let (ipldAnon, cidAnon) := constToCid obj.anon
-    let (ipldMeta, cidMeta) := constToCid obj.meta
+  | .const obj => do
+    let (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩) ← getConstIpld obj
     let cid := ⟨cidAnon, cidMeta⟩
     match obj.anon, obj.meta with
     -- Mutual definition/inductive blocks do not get added to the set of constants

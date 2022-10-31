@@ -21,7 +21,7 @@ def clock (tag : String) : IO Cronos := do
     data := c.data.insert tag (now - ref) }
 
 def summary : String :=
-  let timings := c.data.fold (init := "")
+  let timings := c.data.foldl (init := "")
     fun acc tag time => s!"{acc}\n  {tag} | {(Float.ofNat time) / 1000}s"
   s!"Timings:{timings}"
 

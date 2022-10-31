@@ -1,7 +1,7 @@
 import Yatima.Cli.Utils
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
-import Lurk.Eval
+import Lurk.Evaluation.Eval
 
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler in
 def transpileRun (p : Cli.Parsed) : IO UInt32 := do
@@ -17,7 +17,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
       IO.FS.writeFile (p.getFlagD "output" "output.lurk")
         ((exp.pprint false).pretty 70)
       if p.hasFlag "run" then
-        IO.println $ ← Lurk.ppEval exp
+        IO.println $ ← Lurk.Evaluation.ppEval exp
       return 0
 
 def transpileCmd : Cli.Cmd := `[Cli|

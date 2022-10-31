@@ -49,7 +49,6 @@ instance : Coe BinderInfo Ipld where coe
   | .implicit       => .number 1
   | .strictImplicit => .number 2
   | .instImplicit   => .number 3
-  | .auxDecl        => .number 4
 
 instance : Coe Literal Ipld where coe
   | .natVal n => n
@@ -86,8 +85,8 @@ instance : Coe (Inductive k) Ipld where coe
 instance : Coe QuotKind Ipld where coe
   | .type => .number 0
   | .ctor => .number 1
-  | .lift => .number 3
-  | .ind  => .number 4
+  | .lift => .number 2
+  | .ind  => .number 3
 
 instance : Coe (Definition k) Ipld where coe
   | .mk n l t v s => .array #[n, l, t, v, s]

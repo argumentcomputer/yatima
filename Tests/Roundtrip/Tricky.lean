@@ -4,5 +4,5 @@ open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Roundtrip/Tricky.lean"
-    [extractIpldTests, extractIpldRoundtripTests]
+    [extractIpldTests, extractConverterTests]
   lspecIO tSeq

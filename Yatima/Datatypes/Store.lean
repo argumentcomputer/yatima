@@ -6,10 +6,10 @@ namespace Yatima
 
 namespace IR
 
-open Std (RBMap RBTree) in
+open Std (RBMap RBSet) in
 /-- The end result of the compilation process -/
 structure Store where
-  consts : RBTree (Both ConstCid) compare
+  consts : RBSet (Both ConstCid) compare
 
   univAnon  : RBMap (UnivCid  .anon) (Univ  .anon) compare
   exprAnon  : RBMap (ExprCid  .anon) (Expr  .anon) compare
@@ -31,12 +31,12 @@ instance : BEq Store where
 
 def Store.union (s s' : Store) : Store := ⟨
   s'.consts.union s.consts,
-  s'.univAnon.fold  (init := s.univAnon)  fun acc cid x => acc.insert cid x,
-  s'.exprAnon.fold  (init := s.exprAnon)  fun acc cid x => acc.insert cid x,
-  s'.constAnon.fold (init := s.constAnon) fun acc cid x => acc.insert cid x,
-  s'.univMeta.fold  (init := s.univMeta)  fun acc cid x => acc.insert cid x,
-  s'.exprMeta.fold  (init := s.exprMeta)  fun acc cid x => acc.insert cid x,
-  s'.constMeta.fold (init := s.constMeta) fun acc cid x => acc.insert cid x
+  s'.univAnon.foldl  (init := s.univAnon)  fun acc cid x => acc.insert cid x,
+  s'.exprAnon.foldl  (init := s.exprAnon)  fun acc cid x => acc.insert cid x,
+  s'.constAnon.foldl (init := s.constAnon) fun acc cid x => acc.insert cid x,
+  s'.univMeta.foldl  (init := s.univMeta)  fun acc cid x => acc.insert cid x,
+  s'.exprMeta.foldl  (init := s.exprMeta)  fun acc cid x => acc.insert cid x,
+  s'.constMeta.foldl (init := s.constMeta) fun acc cid x => acc.insert cid x
 ⟩
 
 end IR

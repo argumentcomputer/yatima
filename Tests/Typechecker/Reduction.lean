@@ -11,7 +11,7 @@ local instance : Coe (Except ε α) (Option α) where coe
 partial def shiftEnv (env : Env) : Env :=
   -- NOTE: these gets could be very expensive, is there a way to avoid or optimize? Like some sort of WHNF of thunked values?
   env.withExprs $ env.exprs.map fun val => match val.get with
-    | .app (.fvar name idx) args => .mk default (Value.app (.fvar name (idx + 1)) args)
+    | .app (.fvar name idx) args => .mk default $ .pure (Value.app (.fvar name (idx + 1)) args)
     | _ => val
 
 mutual
@@ -27,7 +27,7 @@ mutual
       let lamEnv := shiftEnv env
       let lamEnv := lamEnv.extendWith
         -- TODO double-check ordering here
-        $ .mk default $ Value.app (.fvar n 0) []
+        $ .mk default $ .pure $ Value.app (.fvar n 0) []
       return .lam default n bin (← replace ty) (← replaceFvars consts lamEnv b)
     | .letE _ n e ty b  => return .letE default n (← replace e) (← replace ty) (← replace b)
     | .proj _ s n e  => return .proj default s n (← replace e)
@@ -57,13 +57,13 @@ mutual
         -- binder types are irrelevant to reduction and so are lost on evaluation;
         -- arbitrarily fill these in with `Sort 0`
         -- TODO double-check ordering here
-        $ .mk default $ Value.app (.fvar name 0) []
+        $ .mk default $ .pure $ Value.app (.fvar name 0) []
       pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts lamEnv bod
     | .pi name binfo dom bod env => do
       let piEnv := shiftEnv env
       let piEnv := piEnv.extendWith
         -- TODO double-check ordering here
-        $ .mk default $  Value.app (.fvar name 0) []
+        $ .mk default $ .pure $ Value.app (.fvar name 0) []
       pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piEnv bod
     | .lit lit => pure $ .lit default lit
     | .litProp _ => none -- FIXME
@@ -129,5 +129,5 @@ def tcExtractor := extractTcTests [
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Typechecker/Reduction.lean"
-    [extractIpldTests, tcExtractor]
+    [extractIpldTests, tcExtractor, extractConverterTests]
   lspecIO tSeq
