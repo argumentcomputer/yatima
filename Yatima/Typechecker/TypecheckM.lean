@@ -140,10 +140,10 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     | .lit (.natVal v), .lit (.natVal v') =>
       if h : v < v' then do
         pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [.mk .proof $ .mk fun _ => .litProp $ .natLt v v' h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natLt v v' h, .none)]
       else do
         pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [.mk .proof $ .mk fun _ => .litProp $ .natNLt v v' h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natNLt v v' h, .none)]
     | _, _ => pure none
   | .natDecLe => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
@@ -151,10 +151,10 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     | .lit (.natVal v), .lit (.natVal v') =>
       if h : v ≤ v' then do
         pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [.mk .proof $ .mk fun _ => .litProp $ .natLe v v' h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natLe v v' h, .none)]
       else do
         pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [.mk .proof $ .mk fun _ => .litProp $ .natNLe v v' h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natNLe v v' h, .none)]
     | _, _ => pure none
   | .natDecEq => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
@@ -162,10 +162,10 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     | .lit (.natVal v), .lit (.natVal v') =>
       if h : v = v' then do
         pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [.mk .proof $ .mk fun _ => .litProp $ .natEq v v' h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natEq v v' h, .none)]
       else do
         pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [.mk .proof $ .mk fun _ => .litProp $ .natNEq v v' h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natNEq v v' h, .none)]
     | _, _ => pure none
 
 end Yatima.Typechecker

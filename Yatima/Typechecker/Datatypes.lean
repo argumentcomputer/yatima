@@ -35,14 +35,6 @@ inductive LiteralProp where
   | natLt (v1 v2 : Nat) (h : v1 < v2)
   | natNLt (v1 v2 : Nat) (h : ¬ v1 < v2)
 
-inductive SusTypeInfo
-  | unit    : SusTypeInfo
-  | proof   : SusTypeInfo
-  | prop    : SusTypeInfo
-  | sort    : Univ → SusTypeInfo
-  | none    : SusTypeInfo
-  deriving BEq, Inhabited, Repr
-
 /--
   The type info is a simplified form of the value's type, with only relevant
   information for conversion checking, in order to get proof irrelevance and equality
@@ -57,6 +49,20 @@ inductive TypeInfo
   | proof   : TypeInfo
   | prop    : TypeInfo
   | none    : TypeInfo
+  deriving BEq, Inhabited, Repr
+
+/--
+  A "suspended" version of `TypeInfo` with a `sort` enum that accepts a universe
+  level pending instantiation. This is used in situations where we don't have enough
+  information yet to know whether an expression should be tagged with `TypeInfo.prop`
+  (i.e. Sort 0), for example in the types of universe-polymorphic constants.
+-/
+inductive SusTypeInfo
+  | unit    : SusTypeInfo
+  | proof   : SusTypeInfo
+  | prop    : SusTypeInfo
+  | sort    : Univ → SusTypeInfo
+  | none    : SusTypeInfo
   deriving BEq, Inhabited, Repr
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo
@@ -120,8 +126,12 @@ mutual
     -- Type universes. It is assumed `Univ` is reduced/simplified
     | sort : Univ → Value
     -- Values can only be an application if its a stuck application. That is, if
-    -- the head of the application is neutral
-    | app : Neutral → List SusValue → Value
+    -- the head of the application is neutral.
+    -- For `Value.app neu [(a_1, ti_1), (a_2, ti_2), ... (a_n, ti_n)]`,
+    -- `ti_i` representst the `TypeInfo` of the partial application thus far (`neu a_1 a_2 ... a_i`);
+    -- this preserves information necessary to implement the quoting (i.e. read-back)
+    -- functionality that is used in lambda inference
+    | app : Neutral → List (SusValue × TypeInfo) → Value
     -- Lambdas are unevaluated expressions with environments for their free
     -- variables apart from their argument variables
     | lam : Name → BinderInfo → SusValue → TypedExpr → Env → Value
@@ -176,7 +186,10 @@ mutual
 end
 
 /-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
-abbrev Args := List SusValue
+abbrev Args := List (SusValue × TypeInfo)
+
+instance : Coe Args (List SusValue) where
+  coe := fun args => args.map (·.1)
 
 instance : Inhabited SusValue where
   default := .mk default {fn := default}

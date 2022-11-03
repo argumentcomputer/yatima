@@ -47,7 +47,7 @@ mutual
           | .inductive _ struct .. =>
             if struct then
               args.enum.foldlM (init := true) fun acc (i, arg) => do
-                match arg.get with
+                match arg.1.get with
                 | .app (.proj _ idx val) _ =>
                 pure $ acc && i == idx && (← equal lvl term val.sus)
                 | _ => pure false
@@ -87,12 +87,12 @@ mutual
       | .lam name _ dom bod env, .app neu' args' =>
         let var := mkSusVar dom.info name lvl
         let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
-        let app := Value.app neu' (var :: args')
+        let app := Value.app neu' ((var, bod.info) :: args')
         equal (lvl + 1) bod (.mk bod.info app)
       | .app neu args, .lam name _ dom bod env =>
         let var := mkSusVar dom.info name lvl
         let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
-        let app := Value.app neu (var :: args)
+        let app := Value.app neu ((var, bod.info) :: args)
         equal (lvl + 1) (.mk bod.info app) bod
       | .app (.fvar _ idx) args, .app (.fvar _ idx') args' =>
         if idx == idx' then

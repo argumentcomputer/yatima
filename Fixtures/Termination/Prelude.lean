@@ -454,8 +454,6 @@ theorem eq_of_heq {α : Sort u} {a a' : α} (h : HEq a a') : Eq a a' :=
       h₁.rec (fun _ => rfl)
   this α α a a' h rfl
 
-#exit
-
 /--
 Product type (aka pair). You can use `α × β` as notation for `Prod α β`.
 Given `a : α` and `b : β`, `Prod.mk a b : Prod α β`. You can use `(a, b)`
@@ -470,6 +468,8 @@ structure Prod (α : Type u) (β : Type v) where
   fst : α
   /-- The second projection out of a pair. if `p : α × β` then `p.2 : β`. -/
   snd : β
+
+#exit
 
 attribute [unbox] Prod
 
@@ -873,7 +873,6 @@ open BEq (beq)
 
 instance [DecidableEq α] : BEq α where
   beq a b := decide (Eq a b)
-
 
 /--
 "Dependent" if-then-else, normally written via the notation `if h : c then t(h) else e(h)`,

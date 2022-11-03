@@ -59,11 +59,11 @@ mutual
   and evaluating a projection.
   -/
   partial def eval : TypedExpr → TypecheckM Value
-    | .app _ fnc arg => do
+    | .app i fnc arg => do
       let ctx ← read
       let argThunk := suspend arg ctx (← get)
       let fnc ← eval fnc
-      apply fnc argThunk
+      apply fnc argThunk (i.update ctx.env.univs)
     | .lam _ name info dom bod => do
       let ctx ← read
       let dom' := suspend dom ctx (← get)
@@ -99,7 +99,7 @@ mutual
           let idx := ctor.params + idx
           let some arg := args.reverse.get? idx
             | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
-          pure $ arg.get
+          pure $ arg.1.get
         | _ => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
       | .app .. => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
@@ -163,13 +163,13 @@ mutual
   * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
   * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
   -/
-  partial def apply (value : Value) (arg : SusValue) : TypecheckM Value :=
+  partial def apply (value : Value) (arg : SusValue) (i : TypeInfo) : TypecheckM Value :=
     match value with
     | .lam _ _ _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
-    | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args
-    | .app var@(.fvar ..) args => pure $ .app var (arg :: args)
-    | .app proj@(.proj ..) args => pure $ .app proj (arg :: args)
+    | .app (.const name k kUnivs) args => applyConst name k kUnivs arg args i
+    | .app var@(.fvar ..) args => pure $ .app var ((arg, i) :: args)
+    | .app proj@(.proj ..) args => pure $ .app proj ((arg, i) :: args)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw .impossible
 
@@ -181,19 +181,18 @@ mutual
   a quotient, or any other constant (which returns an unreduced application)
    -/
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
-      (arg : SusValue) (args : Args) : TypecheckM Value := do
-
+      (arg : SusValue) (args : Args) (info : TypeInfo) : TypecheckM Value := do
     if let some $ .op p ← indexPrim k then
-      let newArgs := List.cons arg args
+      let newArgs := args.cons (arg, info)
       if args.length < p.numArgs - 1 then
         pure $ .app (.const name k univs) $ newArgs
       else
         let op := p.toPrimOp
         let argsArr := (Array.mk newArgs).reverse
-        match ← op.op argsArr with
+        match ← op.op $ argsArr.map (·.1) with
         | .some v => pure v
         | .none => if p.reducible then
-                     argsArr.foldlM (init := (← evalConst' name k univs)) fun acc arg => apply acc arg
+                     argsArr.foldlM (init := (← evalConst' name k univs)) fun acc (arg, info) => apply acc arg info
                    else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
@@ -201,7 +200,7 @@ mutual
     | .intRecursor (.mk _ _ _ params indices motives minors isK) =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
-        pure $ .app (Neutral.const name k univs) (arg :: args)
+        pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
       else
         if isK then
           --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
@@ -211,7 +210,7 @@ mutual
             throw .impossible
           let minorIdx := args.length - (params + motives + 1)
           let some minor := args.get? minorIdx | throw .impossible
-          pure minor.get
+          pure minor.1.get
         else
           match ← toCtorIfLit arg with
           | .app (Neutral.const kName k _) args' =>
@@ -222,14 +221,14 @@ mutual
                 let exprs := (args'.take fields) ++ (args.drop indices)
                 withEnv ⟨exprs, univs⟩ $ eval $ rhs.toImplicitLambda
               | _ => throw .impossible
-            | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-          | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
+            | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
+          | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
     | .extRecursor _  =>
       match ← derefTypedConst name k with
       | .extRecursor _ params motives minors indices rules =>
         let majorIdx := params + motives + minors + indices
         if args.length != majorIdx then
-          pure $ .app (Neutral.const name k univs) (arg :: args)
+          pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
         else
           match ← toCtorIfLit arg with
           | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
@@ -242,20 +241,20 @@ mutual
               -- Since we assume expressions are previously type checked, we know that this constructor
               -- must have an associated recursion rule
               | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
-            | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-          | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
+            | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
+          | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
       | _ => throw .impossible
     | .quotient (.mk _ _ _ kind) => match kind with
-      | .lift => applyQuot arg args 6 1 $ .app (Neutral.const name k univs) (arg :: args)
-      | .ind  => applyQuot arg args 5 0 $ .app (Neutral.const name k univs) (arg :: args)
-      | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
-    | _ => pure $ .app (Neutral.const name k univs) (arg :: args)
+      | .lift => applyQuot arg args 6 1 (.app (Neutral.const name k univs) ((arg, info) :: args)) info
+      | .ind  => applyQuot arg args 5 0 (.app (Neutral.const name k univs) ((arg, info) :: args)) info
+      | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
+    | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
 
   /--
   Applies a quotient to a value. It might reduce if enough arguments are applied to it
   -/
   partial def applyQuot (major? : SusValue) (args : Args)
-      (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
+      (reduceSize argPos : Nat) (default : Value) (info : TypeInfo) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
       match major?.get with
@@ -266,7 +265,7 @@ mutual
           if majorArgs.length != 3 then throw .impossible
           let some majorArg := majorArgs.head? | throw .impossible
           let some head := args.get? argPos | throw .impossible
-          apply head.get majorArg
+          apply head.1.get majorArg.1 info
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
@@ -282,7 +281,7 @@ mutual
         if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
         else
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
-          pure $ .app (.const `Nat.succ succIdx []) [thunk]
+          pure $ .app (.const `Nat.succ succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
       | e => pure e
 end
@@ -296,8 +295,7 @@ mutual
     | .sort univ => pure $ .sort info univ
     | .app neu args => do
       args.foldrM (init := ← quoteNeutral lvl neu) fun arg acc => do
-      -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to the spine of arguments
-        pure $ .app default acc $ ← quote lvl arg.info.toSus arg.get
+        pure $ .app arg.2.toSus acc $ ← quote lvl arg.1.info.toSus arg.1.get
     | .lam name binfo dom bod env => do
       let dom ← quote lvl dom.info.toSus dom.get
       -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value

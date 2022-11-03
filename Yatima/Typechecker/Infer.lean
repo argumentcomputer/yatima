@@ -29,7 +29,7 @@ def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Uni
         | some ctor =>
           -- Sanity check
           if ind.params != params.length then throw .impossible else
-          pure (k, ctor, univs, params)
+          pure (k, ctor, univs, (params.map (·.1)))
         | none => pure none
     | _ => pure none
   | _ => pure none
@@ -81,7 +81,7 @@ mutual
     --dbg_trace s!"checking: {term} : {type.get}"
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      dbg_trace s!"mismatch (inferred, expected): {repr inferType.info}, {repr type.info}"
+      --dbg_trace s!"mismatch (inferred, expected): {repr inferType.info}, {repr type.info}"
       --dbg_trace s!"failed checking: {term} : {type.get}"
       throw $ .valueMismatch (toString type.get) (toString inferType.get)
     else
@@ -106,22 +106,23 @@ mutual
       let (fnc, fncType) ← infer fnc
       match fncType.get with
       | .pi _ _ dom img env =>
-        --dbg_trace s!"applying: {fnc} to {arg} : {dom.get} with {repr dom.info}"
+        --dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
         let arg ← check arg dom
-        --dbg_trace s!"done applying: {fnc} to {arg}"
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
         let term := .app (← susInfoFromType typ) fnc arg
+        --dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"
         --dbg_trace s!"info for {typ.get}: {repr img.info}, {repr typ.info}, {repr term.info}"
         pure (term, typ)
       | val => throw $ .notPi (toString val)
     | .lam name bind dom bod  =>
-      --dbg_trace s!"inferring lam: {name}"
+      --dbg_trace s!"inferring lam: {term}"
       let (dom, _) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       let var := mkSusVar (← infoFromType domVal) name ctx.lvl
       let (bod, img) ← withExtendedCtx var domVal $ infer bod
       let term := .lam (lamInfo bod.info) name bind dom bod
+      --dbg_trace s!"inferring lam: {term} with img info before {repr img.info} and after quote {repr (← quote (ctx.lvl+1) img.info.toSus img.get).info}"
       let typ := .mk (piInfo img.info) $
         Value.pi name bind domVal (← quote (ctx.lvl+1) img.info.toSus img.get) ctx.env
       pure (term, typ)

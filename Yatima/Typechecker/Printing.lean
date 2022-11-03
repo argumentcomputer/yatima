@@ -109,7 +109,7 @@ mutual
     | .fvar nam idx .. => s!"{nam}#{idx}"
     | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
     | .proj _ idx val => s!"{printVal val.value}.{idx}"
-    List.foldr (fun arg str => s!"({str} {printVal arg.get})") neu args
+    List.foldr (fun arg str => s!"({str} {printVal arg.1.get})") neu args
 
   /-- Printer of typechecker values -/
   partial def printVal (val : Value) : String :=
