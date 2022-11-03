@@ -101,6 +101,8 @@ mutual
       let lvl := Univ.instBulkReduce univs lvl
       let lvl' := Univ.succ lvl
       let typ := .mk .none ⟨ fun _ => .sort lvl' ⟩
+      -- NOTE: we populate `SusTypeInfo.sort` here for consistency but technically it isn't necessary
+      -- because `lvl'` can never become `Univ.zero`.
       return (.sort (.sort lvl') lvl, typ)
     | .app fnc arg =>
       let (fnc, fncType) ← infer fnc
@@ -109,8 +111,8 @@ mutual
         --dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
         let arg ← check arg dom
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
-        let term := .app (← susInfoFromType typ) fnc arg
         --dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"
+        let term := .app (← susInfoFromType typ) fnc arg
         --dbg_trace s!"info for {typ.get}: {repr img.info}, {repr typ.info}, {repr term.info}"
         pure (term, typ)
       | val => throw $ .notPi (toString val)
@@ -156,6 +158,7 @@ mutual
       pure $ (.lit .none (.strVal s), typ)
     | .const name k constUnivs =>
       if let some typ := (← read).mutTypes.find? k then
+        let typ := typ (constUnivs.map (Univ.instBulkReduce (← read).env.univs))
         -- mutual references are assumed to typecheck
         pure (.const (← susInfoFromType typ) name k constUnivs, typ)
       else
@@ -210,6 +213,7 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := do
+    dbg_trace s!"Checking: {c.name}"
     match (← get).tcConsts.get? idx with
     | .some .none =>
       let univs := c.levels.foldr
@@ -225,11 +229,13 @@ mutual
           let value ← match c with
           | .definition data => match data.safety with
             | .partial =>
-              let mutTypes : Std.RBMap ConstIdx SusValue compare ← data.all.foldlM (init := default) fun acc k => do
+              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc k => do
                 let const ← derefConst default k
                 -- TODO avoid repeated work here
                 let (type, _) ← isSort data.type
-                let typeSus := suspend type (← read) (← get)
+                let ctx ← read
+                let stt ← get
+                let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
                 match const with
                 | .theorem    data
                 | .opaque     data
@@ -260,9 +266,9 @@ mutual
         | .extRecursor data
         | .intRecursor data
         | .quotient    data =>
-          --dbg_trace s!"checking constant type: {data.name} with repr: "
+          --dbg_trace s!"checking constant type: {data.name}"
           let (type, _)  ← isSort data.type
-          --dbg_trace s!"done checking constant type: {data.name} with new repr: {repr type}"
+          --dbg_trace s!"done checking constant type: {data.name}"
 
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts
@@ -271,16 +277,21 @@ mutual
             | .axiom       _ => pure $ TypedConst.axiom type
             | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
             | .constructor data =>
-              let typeSus := suspend type (← read) (← get)
-                -- rhs` can have recursive references to `c`, so we must `withMutTypes`
-              let mutTypes : Std.RBMap ConstIdx SusValue compare := default
+              let ctx ← read
+              let stt ← get
+              let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+              -- rhs` can have recursive references to `c`, so we must `withMutTypes`
+              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
+              --dbg_trace s!"rhs: {data.rhs}"
               let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer data.rhs
               pure $ TypedConst.constructor type rhs data.idx data.fields
             | .extRecursor data =>
               let rules ← data.rules.mapM fun rule => do
+                let ctx ← read
+                let stt ← get
+                let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
                 -- rhs` can have recursive references to `c`, so we must `withMutTypes`
-                let typeSus := suspend type (← read) (← get)
-                let mutTypes : Std.RBMap ConstIdx SusValue compare := default
+                let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
                 let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
                 pure (rule.ctor.idx, rule.fields, rhs)
               pure $ .extRecursor type data.params data.motives data.minors data.indices rules

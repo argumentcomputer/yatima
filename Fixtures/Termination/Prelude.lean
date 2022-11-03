@@ -469,8 +469,6 @@ structure Prod (α : Type u) (β : Type v) where
   /-- The second projection out of a pair. if `p : α × β` then `p.2 : β`. -/
   snd : β
 
-#exit
-
 attribute [unbox] Prod
 
 /--
@@ -519,6 +517,8 @@ inductive Or (a b : Prop) : Prop where
   | inl (h : a) : Or a b
   /-- `Or.inr` is "right injection" into an `Or`. If `h : b` then `Or.inr h : a ∨ b`. -/
   | inr (h : b) : Or a b
+
+#exit
 
 /-- Alias for `Or.inl`. -/
 theorem Or.intro_left (b : Prop) (h : a) : Or a b :=
