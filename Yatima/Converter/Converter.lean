@@ -2,7 +2,7 @@ import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
-import Yatima.Ipld.PrimCids
+import Yatima.LurkData.PrimConsts
 
 namespace Yatima
 
@@ -394,7 +394,7 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
         constsIdx := state.constsIdx.insert meta.name idx })
     (← read).store.consts.forM fun cid => discard $ constFromIR cid
     (← get).constCache.forM fun cid idx => do
-      match Ipld.primCidsMap.find? cid.anon.data.toString with
+      match IR.primCidsMap.find? cid.anon.data with
       | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := some idx } }
       | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := some idx } }
       | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := some idx } }

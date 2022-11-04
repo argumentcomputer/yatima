@@ -1,4 +1,3 @@
--- import Ipld.Ipld
 import Yatima.Datatypes.Const
 
 namespace Yatima
@@ -55,12 +54,12 @@ end TC
 
 /-- Contains `IR.Store` data encoded in `Lurk.Expr` -/
 structure LurkStore where
-  consts    : Array Lurk.Expr
-  univAnon  : Array Lurk.Expr
-  exprAnon  : Array Lurk.Expr
-  constAnon : Array Lurk.Expr
-  univMeta  : Array Lurk.Expr
-  exprMeta  : Array Lurk.Expr
-  constMeta : Array Lurk.Expr
+  consts    : Array Lurk.Syntax.Expr
+  univAnon  : Array Lurk.Syntax.Expr
+  exprAnon  : Array Lurk.Syntax.Expr
+  constAnon : Array Lurk.Syntax.Expr
+  univMeta  : Array Lurk.Syntax.Expr
+  exprMeta  : Array Lurk.Syntax.Expr
+  constMeta : Array Lurk.Syntax.Expr
 
 end Yatima

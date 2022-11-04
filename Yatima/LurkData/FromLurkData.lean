@@ -20,16 +20,19 @@ def toNat? : Lurk.Expr → Option (Option Nat)
   | .lit .nil => return none
   | _ => none
 
-def toName : Lurk.Expr → Option Name
-  | .sym name => return name
-  | _ => none
-
 def toList (es : Lurk.Expr) : Option $ List Lurk.Expr :=
   let rec aux (acc : List Lurk.Expr) : Lurk.Expr → Option (List Lurk.Expr)
     | .cons e e'@(.cons ..) => aux (e :: acc) e'
     | .cons e (.lit .nil) => e :: acc
     | _ => none
   aux [] es |>.map List.reverse
+
+def toName (parts : Lurk.Expr) : Option Name := do
+  (← toList parts).foldlM (init := .anonymous) fun acc i =>
+    match i with
+    | .lit (.num n) => pure $ acc.mkNum n
+    | .lit (.str s) => pure $ acc.mkStr s
+    | _ => none
 
 def toListName (es : Lurk.Expr) : Option (List Name) := do
   (← toList es).mapM toName
