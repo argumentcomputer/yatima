@@ -213,7 +213,7 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := do
-    dbg_trace s!"Checking: {c.name}"
+    --dbg_trace s!"Checking: {c.name}"
     match (← get).tcConsts.get? idx with
     | .some .none =>
       let univs := c.levels.foldr
@@ -277,13 +277,19 @@ mutual
             | .axiom       _ => pure $ TypedConst.axiom type
             | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
             | .constructor data =>
-              let ctx ← read
-              let stt ← get
-              let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
-              -- rhs` can have recursive references to `c`, so we must `withMutTypes`
-              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
+              -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
+              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
+                match (← read).store.consts.get? idx with
+                | .some (.constructor data) =>
+                  -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
+                  let (type, _)  ← isSort data.type
+                  let ctx ← read
+                  let stt ← get
+                  let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+                  pure $ acc.insert idx typeSus
+                | _ => throw .impossible
               --dbg_trace s!"rhs: {data.rhs}"
-              let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer data.rhs
+              let (rhs, _) ← withMutTypes (mutTypes) $ infer data.rhs
               pure $ TypedConst.constructor type rhs data.idx data.fields
             | .extRecursor data =>
               let rules ← data.rules.mapM fun rule => do

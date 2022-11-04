@@ -232,7 +232,7 @@ mutual
         else
           match ← toCtorIfLit arg with
           | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-            | .constructor (.mk _ _ _ _ idx _ _ _) =>
+            | .constructor (.mk _ _ _ _ idx _ _ _ _) =>
               -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
               match rules.find? (fun r => r.fst == idx) with
               | some (_, fields, rhs) =>

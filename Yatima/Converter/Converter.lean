@@ -163,7 +163,9 @@ mutual
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
       | [ctorAnon], [ctorMeta] => do
-        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩)
+        let all ← ind.meta.ctors.mapM fun ctor =>
+          getConstIdx ctor.name
+        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩ all)
       | _, _ => pure none
 
   /--
@@ -289,6 +291,8 @@ mutual
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
+          let all ← induct.meta.ctors.mapM fun ctor =>
+            getConstIdx ctor.name
           let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
           let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
           let name   := constructorMeta.name
@@ -303,7 +307,7 @@ mutual
           withRecrs recrCtx do
             let type ← exprFromIR ⟨constructorAnon.type, constructorMeta.type⟩
             let rhs ← exprFromIR ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
+            pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe, all}
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
@@ -351,7 +355,7 @@ mutual
         pure constIdx
 
   /-- Converts a `IR.Both IR.Constructor` into a `Constructor` -/
-  partial def ctorFromIR (ctor : IR.Both IR.Constructor) :
+  partial def ctorFromIR (ctor : IR.Both IR.Constructor) (all : List Nat):
       ConvertM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
@@ -361,7 +365,7 @@ mutual
     let params := ctor.anon.params
     let fields := ctor.anon.fields
     let safe := ctor.anon.safe
-    pure { name, lvls, type, idx, params, fields, rhs, safe }
+    pure { name, lvls, type, idx, params, fields, rhs, safe, all}
 
   /-- Converts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
   partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :

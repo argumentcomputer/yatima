@@ -438,7 +438,7 @@ mutual
         let ctorMap : RBMap Name (IR.Both IR.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             if ctors.contains r.ctor then
-              let ctor ← constructorToIR r
+              let ctor ← constructorToIR r ctors
               return ctorMap.insert ctor.meta.name.projᵣ ctor
             -- this is an external recursor rule
             else return ctorMap
@@ -480,9 +480,11 @@ mutual
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
   /-- Encodes a Lean constructor to IR -/
-  partial def constructorToIR (rule : Lean.RecursorRule) :
+  partial def constructorToIR (rule : Lean.RecursorRule) (ctors : List Lean.Name):
       CompileM $ IR.Both IR.Constructor := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
+    let all ← ctors.mapM fun name => do 
+      let (_, _, constIdx) ← getFromRecrCtx! name; pure constIdx
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
       withLevels ctor.levelParams do
@@ -496,6 +498,7 @@ mutual
         fields  := ctor.numFields
         rhs     := rhs
         safe    := not ctor.isUnsafe
+        all     := all
       }
       let (_, _, constIdx) ← getFromRecrCtx! ctor.name
       addToConsts constIdx tcCtor

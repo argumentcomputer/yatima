@@ -243,6 +243,9 @@ structure Constructor where
   fields : Nat
   rhs    : Expr
   safe   : Bool
+  -- we need to cache a list of the indexes of all of the constructors
+  -- of this inductive in order to avoid infinite loops while typechecking
+  all    : List ConstIdx
   deriving BEq
 
 structure Inductive where

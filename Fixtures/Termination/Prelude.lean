@@ -518,8 +518,6 @@ inductive Or (a b : Prop) : Prop where
   /-- `Or.inr` is "right injection" into an `Or`. If `h : b` then `Or.inr h : a ∨ b`. -/
   | inr (h : b) : Or a b
 
-#exit
-
 /-- Alias for `Or.inl`. -/
 theorem Or.intro_left (b : Prop) (h : a) : Or a b :=
   Or.inl h
@@ -873,6 +871,8 @@ open BEq (beq)
 
 instance [DecidableEq α] : BEq α where
   beq a b := decide (Eq a b)
+
+#exit
 
 /--
 "Dependent" if-then-else, normally written via the notation `if h : c then t(h) else e(h)`,
