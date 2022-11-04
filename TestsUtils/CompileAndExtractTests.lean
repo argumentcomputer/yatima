@@ -105,7 +105,7 @@ def reindexExpr (map : NatNatMap) : Expr → Expr
   | .proj n e => .proj n (reindexExpr map e)
 
 def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
-  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs }
+  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs, all := ctor.all.map map.find!}
 
 def reindexConst (map : NatNatMap) : Const → Const
   | .axiom x => .axiom { x with type := reindexExpr map x.type }
@@ -120,8 +120,7 @@ def reindexConst (map : NatNatMap) : Const → Const
     type := reindexExpr map x.type,
     value := reindexExpr map x.value,
     all := x.all.map map.find! }
-  | .constructor x => .constructor { x with
-    type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
+  | .constructor x => .constructor $ reindexCtor map x
   | .extRecursor x =>
     let rules := x.rules.map fun r => { r with
       rhs := reindexExpr map r.rhs,
