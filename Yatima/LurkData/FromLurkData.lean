@@ -5,182 +5,182 @@ import Yatima.LurkData.Move
 We follow the convention `LurkData.to<object>`
 -/
 namespace Yatima.LurkData
+open Lurk.Syntax AST
 
-def toNat : Lurk.Expr → Option Nat
-  | .lit $ .num n => return n.val
+def toNat : AST → Option Nat
+  | .num n => return n
   | _ => none
 
-def toBool : Lurk.Expr → Option Bool
-  | .lit .t => return true
-  | .lit .nil => return false
+def toBool : AST → Option Bool
+  | .t => return true
+  | .nil => return false
   | _ => none
 
-def toNat? : Lurk.Expr → Option (Option Nat)
-  | .lit $ .num n => return some n.val
-  | .lit .nil => return none
+def toNat? : AST → Option (Option Nat)
+  | ~[.num n] => return some n
+  | .nil => return none
   | _ => none
 
-def toList (es : Lurk.Expr) : Option $ List Lurk.Expr :=
-  let rec aux (acc : List Lurk.Expr) : Lurk.Expr → Option (List Lurk.Expr)
+def toList (es : AST) : Option $ List AST :=
+  let rec aux (acc : List AST) : AST → Option (List AST)
     | .cons e e'@(.cons ..) => aux (e :: acc) e'
-    | .cons e (.lit .nil) => e :: acc
+    | .cons e .nil => e :: acc
     | _ => none
   aux [] es |>.map List.reverse
 
-def toName (parts : Lurk.Expr) : Option Name := do
+def toName (parts : AST) : Option Name := do
   (← toList parts).foldlM (init := .anonymous) fun acc i =>
     match i with
-    | .lit (.num n) => pure $ acc.mkNum n
-    | .lit (.str s) => pure $ acc.mkStr s
+    | .num n => pure $ acc.mkNum n
+    | .str s => pure $ acc.mkStr s
     | _ => none
 
-def toListName (es : Lurk.Expr) : Option (List Name) := do
+def toListName (es : AST) : Option (List Name) := do
   (← toList es).mapM toName
 
-def toBinderInfo : Lurk.Expr → Option BinderInfo
-  | .nat 0 => return .default
-  | .nat 1 => return .implicit
-  | .nat 2 => return .strictImplicit
-  | .nat 3 => return .instImplicit
-  | .nat 4 => return .auxDecl
+def toBinderInfo : AST → Option BinderInfo
+  | .num 0 => return .default
+  | .num 1 => return .implicit
+  | .num 2 => return .strictImplicit
+  | .num 3 => return .instImplicit
   | _ => none
 
-def toQuotKind : Lurk.Expr → Option QuotKind
-  | .nat 0 => return .type
-  | .nat 1 => return .ctor
-  | .nat 2 => return .lift
-  | .nat 3 => return .ind
+def toQuotKind : AST → Option QuotKind
+  | .num 0 => return .type
+  | .num 1 => return .ctor
+  | .num 2 => return .lift
+  | .num 3 => return .ind
   | _ => none
 
-def toDefinitionSafety : Lurk.Expr → Option DefinitionSafety
-  | .nat 0 => return .safe
-  | .nat 1 => return .unsafe
-  | .nat 2 => return .partial
+def toDefinitionSafety : AST → Option DefinitionSafety
+  | .num 0 => return .safe
+  | .num 1 => return .unsafe
+  | .num 2 => return .partial
   | _ => none
 
-def toLiteral : Lurk.Expr → Option Literal
-  | .lit $ .str s => return .strVal s
-  | .lit $ .num n => return .natVal n.val
+def toLiteral : AST → Option Literal
+  | .str s => return .strVal s
+  | .num n => return .natVal n
   | _ => none
 
 open IR
 
-def toNatₐ : (k : Kind) → Lurk.Expr → Option (Natₐ k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toNat x)
-  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
+def toNatₐ : (k : Kind) → AST → Option (Natₐ k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-def toBoolₐ : (k : Kind) → Lurk.Expr → Option (Boolₐ k)
-  | .anon, .cons (.nat 0) b => return .injₗ (← toBool b)
-  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
+def toBoolₐ : (k : Kind) → AST → Option (Boolₐ k)
+  | .anon, .cons (.num 0) b => return .injₗ (← toBool b)
+  | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-def toSplitNatₐNameₘ : (k : Kind) → Lurk.Expr → Option (NatₐNameₘ k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toNat x)
-  | .meta, .cons (.nat 1) x => return .injᵣ (← toName x)
+def toSplitNatₐNameₘ : (k : Kind) → AST → Option (NatₐNameₘ k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.num 1) x => return .injᵣ (← toName x)
   | _, _ => none
 
-def toNat?ₘ : (k : Kind) → Lurk.Expr → Option (Nat?ₘ k)
-  | .anon, .cons (.nat 0) (.lit .nil) => return .injₗ ()
-  | .meta, .cons (.nat 1) x => return .injᵣ (← toNat? x)
+def toNat?ₘ : (k : Kind) → AST → Option (Nat?ₘ k)
+  | .anon, .cons (.num 0) .nil => return .injₗ ()
+  | .meta, .cons (.num 1) x => return .injᵣ (← toNat? x)
   | _, _ => none
 
-def toNameₘ : (k : Kind) → Lurk.Expr → Option (Nameₘ k)
-  | .anon, .cons (.nat 0) (.lit .nil) => return .injₗ ()
-  | .meta, .cons (.nat 1) x => return .injᵣ (← toName x)
+def toNameₘ : (k : Kind) → AST → Option (Nameₘ k)
+  | .anon, .cons (.num 0) .nil => return .injₗ ()
+  | .meta, .cons (.num 1) x => return .injᵣ (← toName x)
   | _, _ => none
 
-def toNatₐListNameₘ : (k : Kind) → Lurk.Expr → Option (NatₐListNameₘ k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toNat x)
-  | .meta, .cons (.nat 1) x => return .injᵣ (← toListName x)
+def toNatₐListNameₘ : (k : Kind) → AST → Option (NatₐListNameₘ k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toNat x)
+  | .meta, .cons (.num 1) x => return .injᵣ (← toListName x)
   | _, _ => none
 
-def toBinderInfoₐ : (k : Kind) → Lurk.Expr → Option (BinderInfoₐ k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toBinderInfo x)
-  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
+def toBinderInfoₐ : (k : Kind) → AST → Option (BinderInfoₐ k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toBinderInfo x)
+  | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-def toSplitLiteralUnit : (k : Kind) → Lurk.Expr → Option (Split Literal Unit k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toLiteral x)
-  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
+def toSplitLiteralUnit : (k : Kind) → AST → Option (Split Literal Unit k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toLiteral x)
+  | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-def toSplitQuotKind : (k : Kind) → Lurk.Expr → Option (Split QuotKind Unit k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toQuotKind x)
-  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
+def toSplitQuotKind : (k : Kind) → AST → Option (Split QuotKind Unit k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toQuotKind x)
+  | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
 def toSplitDefinitionSafetyUnit :
-    (k : Kind) → Lurk.Expr → Option (Split DefinitionSafety Unit k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toDefinitionSafety x)
-  | .meta, .cons (.nat 1) (.lit .nil) => return .injᵣ ()
+    (k : Kind) → AST → Option (Split DefinitionSafety Unit k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toDefinitionSafety x)
+  | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-def toUnivCid : Lurk.Expr → Option (UnivCid k)
-  | .comm (.lit $ .num c) => return ⟨c⟩
+def toUnivCid : AST → Option (UnivCid k)
+  | ~[.comm, .num c] => return ⟨.ofNat c⟩
   | _ => none
 
-def toExprCid : Lurk.Expr → Option (ExprCid k)
-  | .comm (.lit $ .num c) => return ⟨c⟩
+def toExprCid : AST → Option (ExprCid k)
+  | ~[.comm, .num c] => return ⟨.ofNat c⟩
   | _ => none
 
-def toConstCid : Lurk.Expr → Option (ConstCid k)
-  | .comm (.lit $ .num c) => return ⟨c⟩
+def toConstCid : AST → Option (ConstCid k)
+  | ~[.comm, .num c] => return ⟨.ofNat c⟩
   | _ => none
 
-def toListUnivCid (es : Lurk.Expr) : Option (List (UnivCid k)) := do
+def toListUnivCid (es : AST) : Option (List (UnivCid k)) := do
   (← toList es).mapM toUnivCid
 
-def toDefinition : Lurk.Expr → Option (Definition k)
-  | .mkList [n, l, ty, v, s] =>
+def toDefinition : AST → Option (Definition k)
+  | ~[n, l, ty, v, s] =>
     return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprCid ty, ← toExprCid v,
       ← toSplitDefinitionSafetyUnit k s⟩
   | _ => none
 
-def toListDefinition (es : Lurk.Expr) : Option (List (Definition k)) := do
+def toListDefinition (es : AST) : Option (List (Definition k)) := do
   (← toList es).mapM toDefinition
 
 def toMutDef :
-    (k : Kind) → Lurk.Expr → Option (Split (Definition k) (List (Definition k)) k)
-  | .anon, .cons (.nat 0) x => return .injₗ (← toDefinition x)
-  | .meta, .cons (.nat 1) x => return .injᵣ (← toListDefinition x)
+    (k : Kind) → AST → Option (Split (Definition k) (List (Definition k)) k)
+  | .anon, .cons (.num 0) x => return .injₗ (← toDefinition x)
+  | .meta, .cons (.num 1) x => return .injᵣ (← toListDefinition x)
   | _, _ => none
 
 def toMutDefBlock :
-    (k : Kind) → Lurk.Expr → Option (List (Split (Definition k) (List (Definition k)) k))
+    (k : Kind) → AST → Option (List (Split (Definition k) (List (Definition k)) k))
   | .anon, es => do (← toList es).mapM $ toMutDef .anon
   | .meta, es => do (← toList es).mapM $ toMutDef .meta
 
-def toConstructor : Lurk.Expr → Option (Constructor k)
-  | .mkList [n, ty, l, i, p, f, r, s] =>
+def toConstructor : AST → Option (Constructor k)
+  | ~[n, ty, l, i, p, f, r, s] =>
     return ⟨← toNameₘ k n, ← toNatₐListNameₘ k ty,
       ← toExprCid l, ← toNatₐ k i, ← toNatₐ k p,
       ← toNatₐ k f, ← toExprCid r, ← toBoolₐ k s⟩
   | _ => none
 
-def toListConstructor (es : Lurk.Expr) : Option (List (Constructor k)) := do
+def toListConstructor (es : AST) : Option (List (Constructor k)) := do
   (← toList es).mapM toConstructor
 
-def toRecursorRule : Lurk.Expr → Option (RecursorRule k)
-  | .mkList [c, f, r] => return ⟨← toConstCid c, ← toNatₐ k f, ← toExprCid r⟩
+def toRecursorRule : AST → Option (RecursorRule k)
+  | ~[c, f, r] => return ⟨← toConstCid c, ← toNatₐ k f, ← toExprCid r⟩
   | _ => none
 
-def toListRecursorRule (es : Lurk.Expr) : Option (List (RecursorRule k)) := do
+def toListRecursorRule (es : AST) : Option (List (RecursorRule k)) := do
   (← toList es).mapM toRecursorRule
 
 def toSplitUnitListRecursorRule :
-    (r : RecType) → Lurk.Expr → Option (Split Unit (List (RecursorRule k)) r)
-  | .intr, .cons (.nat 0) (.lit .nil) => return .injₗ ()
-  | .extr, .cons (.nat 1) x => return .injᵣ (← toListRecursorRule x)
+    (r : RecType) → AST → Option (Split Unit (List (RecursorRule k)) r)
+  | .intr, .cons (.num 0) .nil => return .injₗ ()
+  | .extr, .cons (.num 1) x => return .injᵣ (← toListRecursorRule x)
   | _, _ => none
 
-def toRecType : Lurk.Expr → Option RecType
-  | .lit .t   => return .intr
-  | .lit .nil => return .extr
+def toRecType : AST → Option RecType
+  | .t   => return .intr
+  | .nil => return .extr
   | _ => none
 
-def toSigmaRecursor : Lurk.Expr → Option (Sigma (Recursor · k))
-  | .mkList [b, n, l, ty, p, i, m, m', rs, k'] => do
+def toSigmaRecursor : AST → Option (Sigma (Recursor · k))
+  | ~[b, n, l, ty, p, i, m, m', rs, k'] => do
     let recType ← toRecType b
     return ⟨recType,
       ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprCid ty,
@@ -190,11 +190,11 @@ def toSigmaRecursor : Lurk.Expr → Option (Sigma (Recursor · k))
         ← toBoolₐ k k'⟩⟩
   | _ => none
 
-def toListSigmaRecursor (es : Lurk.Expr) : Option (List (Sigma (Recursor · k))) := do
+def toListSigmaRecursor (es : AST) : Option (List (Sigma (Recursor · k))) := do
   (← toList es).mapM toSigmaRecursor
 
-def mutIndFromIpld : Lurk.Expr → Option (Inductive k)
-  | .mkList [n, l, ty, p, i, cs, rs, r, s, r'] =>
+def mutIndFromIpld : AST → Option (Inductive k)
+  | ~[n, l, ty, p, i, cs, rs, r, s, r'] =>
     return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l,
       ← toExprCid ty, ← toNatₐ k p, ← toNatₐ k i,
       ← toListConstructor cs,
@@ -202,204 +202,203 @@ def mutIndFromIpld : Lurk.Expr → Option (Inductive k)
       ← toBoolₐ k r, ← toBoolₐ k s, ← toBoolₐ k r'⟩
   | _ => none
 
-def toMutIndBlock (es : Lurk.Expr) : Option (List (Inductive k)) := do
+def toMutIndBlock (es : AST) : Option (List (Inductive k)) := do
   (← toList es).mapM mutIndFromIpld
 
-def toUnivAnon : Lurk.Expr → Option (Univ .anon)
-  | .mkList [.u64 $ UNIV .anon, .nat 0] =>
+def toUnivAnon : AST → Option (Univ .anon)
+  | ~[.u64 $ UNIV .anon, .num 0] =>
     return .zero
-  | .mkList [.u64 $ UNIV .anon, .nat 1, p] =>
+  | ~[.u64 $ UNIV .anon, .num 1, p] =>
     return .succ (← toUnivCid p)
-  | .mkList [.u64 $ UNIV .anon, .nat 2, a, b] =>
+  | ~[.u64 $ UNIV .anon, .num 2, a, b] =>
     return .max (← toUnivCid a) (← toUnivCid b)
-  | .mkList [.u64 $ UNIV .anon, .nat 3, a, b] =>
+  | ~[.u64 $ UNIV .anon, .num 3, a, b] =>
     return .imax (← toUnivCid a) (← toUnivCid b)
-  | .mkList [.u64 $ UNIV .anon, .nat 4, n] =>
+  | ~[.u64 $ UNIV .anon, .num 4, n] =>
     return .var (← toSplitNatₐNameₘ .anon n)
   | _ => none
 
-def toUnivMeta : Lurk.Expr → Option (Univ .meta)
-  | .mkList [.u64 $ UNIV .meta, .nat 0] =>
+def toUnivMeta : AST → Option (Univ .meta)
+  | ~[.u64 $ UNIV .meta, .num 0] =>
     return .zero
-  | .mkList [.u64 $ UNIV .meta, .nat 1, p] =>
+  | ~[.u64 $ UNIV .meta, .num 1, p] =>
     return .succ (← toUnivCid p)
-  | .mkList [.u64 $ UNIV .meta, .nat 2, a, b] =>
+  | ~[.u64 $ UNIV .meta, .num 2, a, b] =>
     return .max (← toUnivCid a) (← toUnivCid b)
-  | .mkList [.u64 $ UNIV .meta, .nat 3, a, b] =>
+  | ~[.u64 $ UNIV .meta, .num 3, a, b] =>
     return .imax (← toUnivCid a) (← toUnivCid b)
-  | .mkList [.u64 $ UNIV .meta, .nat 4, n] =>
+  | ~[.u64 $ UNIV .meta, .num 4, n] =>
     return .var (← toSplitNatₐNameₘ .meta n)
   | _ => none
 
-def toExprAnon : Lurk.Expr → Option (Expr .anon)
-  | .mkList [.u64 $ EXPR .anon, .nat 0, n, i, ls] =>
+def toExprAnon : AST → Option (Expr .anon)
+  | ~[.u64 $ EXPR .anon, .num 0, n, i, ls] =>
     return .var (← toSplitNatₐNameₘ .anon n) (← toNat?ₘ .anon i)
       (← toListUnivCid ls)
-  | .mkList [.u64 $ EXPR .anon, .nat 1, u] =>
+  | ~[.u64 $ EXPR .anon, .num 1, u] =>
     return .sort (← toUnivCid u)
-  | .mkList [.u64 $ EXPR .anon, .nat 2, n, c, ls] =>
+  | ~[.u64 $ EXPR .anon, .num 2, n, c, ls] =>
     return .const (← toNameₘ .anon n) (← toConstCid c)
       (← toListUnivCid ls)
-  | .mkList [.u64 $ EXPR .anon, .nat 3, f, a] =>
+  | ~[.u64 $ EXPR .anon, .num 3, f, a] =>
     return .app (← toExprCid f) (← toExprCid a)
-  | .mkList [.u64 $ EXPR .anon, .nat 4, n, i, d, b] =>
+  | ~[.u64 $ EXPR .anon, .num 4, n, i, d, b] =>
     return .lam (← toNameₘ .anon n) (← toBinderInfoₐ .anon i)
       (← toExprCid d) (← toExprCid b)
-  | .mkList [.u64 $ EXPR .anon, .nat 5, n, i, d, b] =>
+  | ~[.u64 $ EXPR .anon, .num 5, n, i, d, b] =>
     return .pi (← toNameₘ .anon n) (← toBinderInfoₐ .anon i)
       (← toExprCid d) (← toExprCid b)
-  | .mkList [.u64 $ EXPR .anon, .nat 6, n, ty, v, b] =>
+  | ~[.u64 $ EXPR .anon, .num 6, n, ty, v, b] =>
     return .letE (← toNameₘ .anon n) (← toExprCid ty)
       (← toExprCid v) (← toExprCid b)
-  | .mkList [.u64 $ EXPR .anon, .nat 7, l] =>
+  | ~[.u64 $ EXPR .anon, .num 7, l] =>
     return .lit (← toSplitLiteralUnit .anon l)
-  | .mkList [.u64 $ EXPR .anon, .nat 8, n, e] =>
+  | ~[.u64 $ EXPR .anon, .num 8, n, e] =>
     return .proj (← toNatₐ .anon n) (← toExprCid e)
   | _ => none
 
-def toExprMeta : Lurk.Expr → Option (Expr .meta)
-  | .mkList [.u64 $ EXPR .meta, .nat 0, n, i, ls] =>
+def toExprMeta : AST → Option (Expr .meta)
+  | ~[.u64 $ EXPR .meta, .num 0, n, i, ls] =>
     return .var (← toSplitNatₐNameₘ .meta n) (← toNat?ₘ .meta i)
       (← toListUnivCid ls)
-  | .mkList [.u64 $ EXPR .meta, .nat 1, u] =>
+  | ~[.u64 $ EXPR .meta, .num 1, u] =>
     return .sort (← toUnivCid u)
-  | .mkList [.u64 $ EXPR .meta, .nat 2, n, c, ls] =>
+  | ~[.u64 $ EXPR .meta, .num 2, n, c, ls] =>
     return .const (← toNameₘ .meta n) (← toConstCid c)
       (← toListUnivCid ls)
-  | .mkList [.u64 $ EXPR .meta, .nat 3, f, a] =>
+  | ~[.u64 $ EXPR .meta, .num 3, f, a] =>
     return .app (← toExprCid f) (← toExprCid a)
-  | .mkList [.u64 $ EXPR .meta, .nat 4, n, i, d, b] =>
+  | ~[.u64 $ EXPR .meta, .num 4, n, i, d, b] =>
     return .lam (← toNameₘ .meta n) (← toBinderInfoₐ .meta i)
       (← toExprCid d) (← toExprCid b)
-  | .mkList [.u64 $ EXPR .meta, .nat 5, n, i, d, b] =>
+  | ~[.u64 $ EXPR .meta, .num 5, n, i, d, b] =>
     return .pi (← toNameₘ .meta n) (← toBinderInfoₐ .meta i)
       (← toExprCid d) (← toExprCid b)
-  | .mkList [.u64 $ EXPR .meta, .nat 6, n, ty, v, b] =>
+  | ~[.u64 $ EXPR .meta, .num 6, n, ty, v, b] =>
     return .letE (← toNameₘ .meta n) (← toExprCid ty)
       (← toExprCid v) (← toExprCid b)
-  | .mkList [.u64 $ EXPR .meta, .nat 7, l] =>
+  | ~[.u64 $ EXPR .meta, .num 7, l] =>
     return .lit (← toSplitLiteralUnit .meta l)
-  | .mkList [.u64 $ EXPR .meta, .nat 8, n, e] =>
+  | ~[.u64 $ EXPR .meta, .num 8, n, e] =>
     return .proj (← toNatₐ .meta n) (← toExprCid e)
   | _ => none
 
-def toConstAnon : Lurk.Expr → Option (Const .anon)
-  | .mkList [.u64 $ CONST .anon, .nat 0, n, l, ty, s] =>
+def toConstAnon : AST → Option (Const .anon)
+  | ~[.u64 $ CONST .anon, .num 0, n, l, ty, s] =>
     return .axiom ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toBoolₐ .anon s⟩
-  | .mkList [.u64 $ CONST .anon, .nat 1, n, l, ty, v] =>
+  | ~[.u64 $ CONST .anon, .num 1, n, l, ty, v] =>
     return .theorem ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toExprCid v⟩
-  | .mkList [.u64 $ CONST .anon, .nat 2, n, l, ty, v, s] =>
+  | ~[.u64 $ CONST .anon, .num 2, n, l, ty, v, s] =>
     return .opaque ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toExprCid v, ← toBoolₐ .anon s⟩
-  | .mkList [.u64 $ CONST .anon, .nat 3, n, l, ty, k] =>
+  | ~[.u64 $ CONST .anon, .num 3, n, l, ty, k] =>
     return .quotient ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toSplitQuotKind .anon k⟩
-  | .mkList [.u64 $ CONST .anon, .nat 5, n, l, ty, b, i] =>
+  | ~[.u64 $ CONST .anon, .num 5, n, l, ty, b, i] =>
     return .inductiveProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i⟩
-  | .mkList [.u64 $ CONST .anon, .nat 6, n, l, ty, b, i, j] =>
+  | ~[.u64 $ CONST .anon, .num 6, n, l, ty, b, i, j] =>
     return .constructorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
-  | .mkList [.u64 $ CONST .anon, .nat 7, n, l, ty, b, i, j] =>
+  | ~[.u64 $ CONST .anon, .num 7, n, l, ty, b, i, j] =>
     return .recursorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
-  | .mkList [.u64 $ CONST .anon, .nat 8, n, l, ty, b, i] =>
+  | ~[.u64 $ CONST .anon, .num 8, n, l, ty, b, i] =>
     return .definitionProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
       ← toExprCid ty, ← toConstCid b, ← toNat i⟩
-  | .mkList [.u64 $ CONST .anon, .nat 9, b] =>
+  | ~[.u64 $ CONST .anon, .num 9, b] =>
     return .mutDefBlock (← toMutDefBlock .anon b)
-  | .mkList [.u64 $ CONST .anon, .nat 10, b] =>
+  | ~[.u64 $ CONST .anon, .num 10, b] =>
     return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
-def toConstMeta : Lurk.Expr → Option (Const .meta)
-  | .mkList [.u64 $ CONST .meta, .nat 0, n, l, ty, s] =>
+def toConstMeta : AST → Option (Const .meta)
+  | ~[.u64 $ CONST .meta, .num 0, n, l, ty, s] =>
     return .axiom ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toBoolₐ .meta s⟩
-  | .mkList [.u64 $ CONST .meta, .nat 1, n, l, ty, v] =>
+  | ~[.u64 $ CONST .meta, .num 1, n, l, ty, v] =>
     return .theorem ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toExprCid v⟩
-  | .mkList [.u64 $ CONST .meta, .nat 2, n, l, ty, v, s] =>
+  | ~[.u64 $ CONST .meta, .num 2, n, l, ty, v, s] =>
     return .opaque ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toExprCid v, ← toBoolₐ .meta s⟩
-  | .mkList [.u64 $ CONST .meta, .nat 3, n, l, ty, k] =>
+  | ~[.u64 $ CONST .meta, .num 3, n, l, ty, k] =>
     return .quotient ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toSplitQuotKind .meta k⟩
-  | .mkList [.u64 $ CONST .meta, .nat 5, n, l, ty, b, i] =>
+  | ~[.u64 $ CONST .meta, .num 5, n, l, ty, b, i] =>
     return .inductiveProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i⟩
-  | .mkList [.u64 $ CONST .meta, .nat 6, n, l, ty, b, i, j] =>
+  | ~[.u64 $ CONST .meta, .num 6, n, l, ty, b, i, j] =>
     return .constructorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
-  | .mkList [.u64 $ CONST .meta, .nat 7, n, l, ty, b, i, j] =>
+  | ~[.u64 $ CONST .meta, .num 7, n, l, ty, b, i, j] =>
     return .recursorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
-  | .mkList [.u64 $ CONST .meta, .nat 8, n, l, ty, b, i] =>
+  | ~[.u64 $ CONST .meta, .num 8, n, l, ty, b, i] =>
     return .definitionProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
       ← toExprCid ty, ← toConstCid b, ← toNat i⟩
-  | .mkList [.u64 $ CONST .meta, .nat 9, b] =>
+  | ~[.u64 $ CONST .meta, .num 9, b] =>
     return .mutDefBlock (← toMutDefBlock .meta b)
-  | .mkList [.u64 $ CONST .meta, .nat 10, b] =>
+  | ~[.u64 $ CONST .meta, .num 10, b] =>
     return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
-def toConstsTree (ar : List Lurk.Expr) : Option (Std.RBTree BothConstCid compare) :=
+def toConstsTree (ar : List AST) : Option (Std.RBSet BothConstCid compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num anonCid, .comm $ .lit $ .num metaCid] =>
-      acc.insert ⟨⟨anonCid⟩, ⟨metaCid⟩⟩
+    | ~[~[.comm, .num anonCid], ~[.comm, .num metaCid]] =>
+      acc.insert ⟨⟨.ofNat anonCid⟩, ⟨.ofNat metaCid⟩⟩
     | _ => none
 
-def toUnivAnonMap (ar : List Lurk.Expr) :
+def toUnivAnonMap (ar : List AST) :
     Option (Std.RBMap (UnivCid .anon) (Univ .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toUnivAnon e)
+    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toUnivAnon e)
     | _ => none
 
-def toUnivMetaMap (ar : List Lurk.Expr) :
+def toUnivMetaMap (ar : List AST) :
     Option (Std.RBMap (UnivCid .meta) (Univ .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toUnivMeta e)
+    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toUnivMeta e)
     | _ => none
 
-def toExprAnonMap (ar : List Lurk.Expr) :
+def toExprAnonMap (ar : List AST) :
     Option (Std.RBMap (ExprCid .anon) (Expr .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toExprAnon e)
+    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toExprAnon e)
     | _ => none
 
-def toExprMetaMap (ar : List Lurk.Expr) :
+def toExprMetaMap (ar : List AST) :
     Option (Std.RBMap (ExprCid .meta) (Expr .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toExprMeta e)
+    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toExprMeta e)
     | _ => none
 
-def toConstAnonMap (ar : List Lurk.Expr) :
+def toConstAnonMap (ar : List AST) :
     Option (Std.RBMap (ConstCid .anon) (Const .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toConstAnon e)
+    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toConstAnon e)
     | _ => none
 
-def toConstMetaMap (ar : List Lurk.Expr) :
+def toConstMetaMap (ar : List AST) :
     Option (Std.RBMap (ConstCid .meta) (Const .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | .mkList [.comm $ .lit $ .num cid, e] => do acc.insert ⟨cid⟩ (← toConstMeta e)
+    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toConstMeta e)
     | _ => none
 
-def storeFromIpld : Lurk.Expr → Option IR.Store
-  | .mkList [
-    .u64 STORE,
-    consts,
-    univAnon, exprAnon, constAnon,
-    univMeta, exprMeta, constMeta] =>
+def storeFromIpld : AST → Option IR.Store
+  | ~[.u64 STORE,
+      consts,
+      univAnon, exprAnon, constAnon,
+      univMeta, exprMeta, constMeta] =>
     return ⟨
       ← toConstsTree   (← toList consts),
       ← toUnivAnonMap  (← toList univAnon),

@@ -6,6 +6,7 @@ import Yatima.Compiler.Utils
 namespace Yatima.Compiler
 
 open Std (RBMap)
+open Lurk.Syntax AST
 
 /--
 The state for the `Yatima.Compiler.CompileM` monad.
@@ -21,13 +22,13 @@ structure CompileState where
   tcStore : TC.Store
   cache   : RBMap Name (IR.BothConstCid × TC.ConstIdx) compare
   -- find better names
-  consts    : Array Lurk.Expr
-  univAnon  : Array Lurk.Expr
-  exprAnon  : Array Lurk.Expr
-  constAnon : Array Lurk.Expr
-  univMeta  : Array Lurk.Expr
-  exprMeta  : Array Lurk.Expr
-  constMeta : Array Lurk.Expr
+  consts    : Array AST
+  univAnon  : Array AST
+  exprAnon  : Array AST
+  constAnon : Array AST
+  univMeta  : Array AST
+  exprMeta  : Array AST
+  constMeta : Array AST
   deriving Inhabited
 
 def CompileState.ipldStore (s : CompileState) : LurkStore :=
@@ -138,8 +139,8 @@ def addToStore : StoreEntry A → CompileM A
       irStore := { stt.irStore with
         univAnon := stt.irStore.univAnon.insert cidAnon obj.anon,
         univMeta := stt.irStore.univMeta.insert cidMeta obj.meta }
-      univAnon := stt.univAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
-      univMeta := stt.univMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta] })
+      univAnon := stt.univAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
+      univMeta := stt.univMeta.push $ ~[~[.comm, .num cidMeta.data], ipldMeta] })
   | .expr obj =>
     let (ipldAnon, cidAnon) := obj.anon.toCid
     let (ipldMeta, cidMeta) := obj.meta.toCid
@@ -147,8 +148,8 @@ def addToStore : StoreEntry A → CompileM A
       irStore := { stt.irStore with
         exprAnon := stt.irStore.exprAnon.insert cidAnon obj.anon,
         exprMeta := stt.irStore.exprMeta.insert cidMeta obj.meta }
-      exprAnon := stt.exprAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
-      exprMeta := stt.exprMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta] })
+      exprAnon := stt.exprAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
+      exprMeta := stt.exprMeta.push $ ~[.comm, .num cidMeta.data, ipldMeta] })
   | .const obj =>
     let (ipldAnon, cidAnon) := obj.anon.toCid
     let (ipldMeta, cidMeta) := obj.meta.toCid
@@ -161,18 +162,18 @@ def addToStore : StoreEntry A → CompileM A
         irStore := { stt.irStore with
           constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
           constMeta := stt.irStore.constMeta.insert cidMeta obj.meta }
-        constAnon := stt.constAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
-        constMeta := stt.constMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta] })
+        constAnon := stt.constAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
+        constMeta := stt.constMeta.push $ ~[~[.comm, .num cidMeta.data], ipldMeta] })
     | _, _ =>
       modifyGet fun stt => (cid, { stt with
         irStore := { stt.irStore with
           constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
           constMeta := stt.irStore.constMeta.insert cidMeta obj.meta,
           consts    := stt.irStore.consts.insert cid }
-        constAnon := stt.constAnon.push $ .mkList [.comm $ .num cidAnon.data, ipldAnon]
-        constMeta := stt.constMeta.push $ .mkList [.comm $ .num cidMeta.data, ipldMeta]
+        constAnon := stt.constAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
+        constMeta := stt.constMeta.push $ ~[~[.comm, .num cidMeta.data], ipldMeta]
         consts    := stt.consts.push    $
-          .mkList [.comm $ .num cidAnon.data, .comm $ .num cidMeta.data] })
+          ~[~[.comm, .num cidAnon.data], ~[.comm, .num cidMeta.data]] })
 
 /-- Adds data associated with a name to the cache -/
 def addToCache (name : Name) (c : IR.BothConstCid × TC.ConstIdx) : CompileM Unit :=

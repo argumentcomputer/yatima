@@ -1,5 +1,5 @@
 -- import Ipld.Cid
-import Lurk.Syntax.Expr
+import Lurk.Field
 import Yatima.Datatypes.Kind
 
 namespace Yatima.IR
@@ -21,9 +21,9 @@ namespace Yatima.IR
 
 @[match_pattern] def STORE : UInt64 := 0xC0DE0007
 
-structure UnivCid  (k : Kind) where data : Fin Lurk.Syntax.N deriving BEq, Ord, Repr
-structure ExprCid  (k : Kind) where data : Fin Lurk.Syntax.N deriving BEq, Ord, Repr
-structure ConstCid (k : Kind) where data : Fin Lurk.Syntax.N deriving BEq, Ord, Repr
+structure UnivCid  (k : Kind) where data : Lurk.F deriving BEq, Ord, Repr
+structure ExprCid  (k : Kind) where data : Lurk.F deriving BEq, Ord, Repr
+structure ConstCid (k : Kind) where data : Lurk.F deriving BEq, Ord, Repr
 
 instance : Inhabited (UnivCid k) where 
   default := ⟨Fin.ofNat 0⟩

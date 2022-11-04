@@ -8,7 +8,7 @@ namespace IR
 inductive RecType where
   | intr : RecType
   | extr : RecType
-  deriving Inhabited, DecidableEq, Ord
+  deriving Inhabited, DecidableEq, BEq, Ord
 
 instance : Coe RecType Bool where coe
   | .intr => true
@@ -25,14 +25,14 @@ structure Axiom (k : Kind) where
   lvls : NatₐListNameₘ k
   type : ExprCid k
   safe : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure Theorem (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure Opaque (k : Kind) where
   name  : Nameₘ k
@@ -40,14 +40,14 @@ structure Opaque (k : Kind) where
   type  : ExprCid k
   value : ExprCid k
   safe  : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure Quotient (k : Kind) where
   name : Nameₘ k
   lvls : NatₐListNameₘ k
   type : ExprCid k
   kind : Split QuotKind Unit k
-  deriving Ord
+  deriving BEq, Ord
 
 structure Definition (k : Kind) where
   name   : Nameₘ k
@@ -55,7 +55,7 @@ structure Definition (k : Kind) where
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
-  deriving Inhabited, Ord
+  deriving Inhabited, BEq, Ord
 
 structure DefinitionProj (k : Kind) where
   name  : Nameₘ k
@@ -63,7 +63,7 @@ structure DefinitionProj (k : Kind) where
   type  : ExprCid k
   block : ConstCid k
   idx   : Nat
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure Constructor (k : Kind) where
   name   : Nameₘ k
@@ -74,13 +74,13 @@ structure Constructor (k : Kind) where
   fields : Natₐ k
   rhs    : ExprCid k
   safe   : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure RecursorRule (k : Kind) where
   ctor   : ConstCid k
   fields : Natₐ k
   rhs    : ExprCid k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure Recursor (r : RecType) (k : Kind) where
   name    : Nameₘ k
@@ -92,7 +92,7 @@ structure Recursor (r : RecType) (k : Kind) where
   minors  : Natₐ k
   rules   : Split Unit (List (RecursorRule k)) r
   k       : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 instance : Ord (Sigma (Recursor · k)) where
   compare x y :=
@@ -103,6 +103,11 @@ instance : Ord (Sigma (Recursor · k)) where
         exact compare x₂ y.2
     else
       compare x.1 y.1
+
+instance : BEq (Sigma (Recursor · k)) where
+  beq x y := match compare x y with
+    | .eq => true
+    | _ => false
 
 structure Inductive (k : Kind) where
   name    : Nameₘ k
@@ -115,7 +120,7 @@ structure Inductive (k : Kind) where
   recr    : Boolₐ k
   safe    : Boolₐ k
   refl    : Boolₐ k
-  deriving Inhabited, Ord
+  deriving Inhabited, BEq, Ord
 
 instance : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
@@ -126,7 +131,7 @@ structure InductiveProj (k : Kind) where
   type  : ExprCid k
   block : ConstCid k
   idx   : Natₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure ConstructorProj (k : Kind) where
   name  : Nameₘ k
@@ -135,7 +140,7 @@ structure ConstructorProj (k : Kind) where
   block : ConstCid k
   idx   : Natₐ k
   cidx  : Natₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 structure RecursorProj (k : Kind) where
   name  : Nameₘ k
@@ -144,7 +149,7 @@ structure RecursorProj (k : Kind) where
   block : ConstCid k
   idx   : Natₐ k
   ridx  : Natₐ k
-  deriving Repr, Ord
+  deriving Repr, BEq, Ord
 
 instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
@@ -164,7 +169,7 @@ inductive Const (k : Kind) where
   -- constants to represent mutual blocks
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
-  deriving Ord
+  deriving BEq, Ord
 
 namespace Const
 

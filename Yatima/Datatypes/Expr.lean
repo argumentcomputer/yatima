@@ -40,7 +40,7 @@ inductive Expr (k : Kind)
   | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
   | lit   : Split Literal Unit k → Expr k
   | proj  : Natₐ k → ExprCid k → Expr k
-  deriving Inhabited, Ord
+  deriving Inhabited, BEq, Ord
 
 def Expr.ctorName : Expr k → String
   | .var   .. => "var"

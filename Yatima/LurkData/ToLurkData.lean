@@ -1,199 +1,171 @@
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Cid
 import Yatima.LurkData.Move
-import Lurk.Utils
 
-open Lurk Expr ToExpr
+open Lurk.Syntax AST ToAST
 
-namespace Lurk.Expr
+namespace Lurk.Syntax
 
-instance : ToExpr Bool where toExpr
-  | false => .lit .nil
-  | true  => .lit .t
+instance : ToAST Bool where toAST
+  | false => .nil
+  | true  => .t
 
-instance [ToExpr α] [ToExpr β] : ToExpr (α ⊕ β) where toExpr
-  | .inl a => toExpr a
-  | .inr b => toExpr b
+instance [ToAST α] [ToAST β] : ToAST (α ⊕ β) where toAST
+  | .inl a => toAST a
+  | .inr b => toAST b
 
-instance [ToExpr α] : ToExpr (Option α) where toExpr
-  | none   => .lit .nil
-  | some a => toExpr a
+-- TODO: this is bad?
+instance [ToAST α] : ToAST (Option α) where toAST
+  | none   => .nil
+  | some a => toAST [a] -- Note we can't write `toAST a` here because `a` could be `nil`
 
-instance [ToExpr α] : ToExpr (List α) where
-  toExpr es := .mkList $ es.map toExpr
-
-instance [ToExpr α] : ToExpr (Array α) where
-  toExpr es := .mkList $ es.data.map toExpr
-
-def partitionName (name : Name) : List (String ⊕ Nat) :=
-  let rec aux (acc : List (String ⊕ Nat)) : Name → List (String ⊕ Nat)
-    | .str name s => aux ((.inl s) :: acc) name
-    | .num name n => aux ((.inr n) :: acc) name
-    | .anonymous  => acc
-  aux [] name
-
-instance : ToExpr Name where
-  toExpr x :=
-    let parts := (partitionName x).foldl (init := #[]) fun acc y =>
-      match y with
-      | .inl s => acc.push (mkStr s)
-      | .inr n => acc.push (mkNum n)
-    mkList parts.data
-
-end Lurk.Expr
+end Lurk.Syntax
 
 namespace Yatima.IR
 
-instance : ToExpr (UnivCid  k) where toExpr u := .comm $ .num u.data
-instance : ToExpr (ExprCid  k) where toExpr u := .comm $ .num u.data
-instance : ToExpr (ConstCid k) where toExpr u := .comm $ .num u.data
+instance : ToAST (UnivCid  k) where toAST u := ~[.comm, .f u.data]
+instance : ToAST (ExprCid  k) where toAST u := ~[.comm, .f u.data]
+instance : ToAST (ConstCid k) where toAST u := ~[.comm, .f u.data]
 
-instance : ToExpr BinderInfo where toExpr
-  | .default        => toExpr 0
-  | .implicit       => toExpr 1
-  | .strictImplicit => toExpr 2
-  | .instImplicit   => toExpr 3
-  | .auxDecl        => toExpr 4
+instance : ToAST BinderInfo where toAST
+  | .default        => toAST 0
+  | .implicit       => toAST 1
+  | .strictImplicit => toAST 2
+  | .instImplicit   => toAST 3
 
-instance : ToExpr Literal where toExpr
-  | .natVal n => toExpr n
-  | .strVal s => toExpr s
+instance : ToAST Literal where toAST
+  | .natVal n => toAST n
+  | .strVal s => toAST s
 
-instance : ToExpr DefinitionSafety where toExpr
-  | .safe    => toExpr 0
-  | .unsafe  => toExpr 1
-  | .partial => toExpr 2
+instance : ToAST DefinitionSafety where toAST
+  | .safe    => toAST 0
+  | .unsafe  => toAST 1
+  | .partial => toAST 2
 
-instance [ToExpr α] [ToExpr β] : ToExpr (Split α β k) where toExpr
-  | .injₗ a => .cons (toExpr 0) (toExpr a)
-  | .injᵣ b => .cons (toExpr 1) (toExpr b)
+instance [ToAST α] [ToAST β] : ToAST (Split α β k) where toAST
+  | .injₗ a => .cons (toAST 0) (toAST a)
+  | .injᵣ b => .cons (toAST 1) (toAST b)
 
-instance : ToExpr Unit where toExpr
-  | .unit => .lit .nil
+instance : ToAST Unit where toAST
+  | .unit => .nil
 
-instance : (k : Kind) → ToExpr (RecursorRule k)
-  | .anon => { toExpr := fun | .mk c f r => .mkList [toExpr c, toExpr f, toExpr r] }
-  | .meta => { toExpr := fun | .mk c f r => .mkList [toExpr c, toExpr f, toExpr r] }
+instance : (k : Kind) → ToAST (RecursorRule k)
+  | .anon => { toAST := fun | .mk c f r => ~[toAST c, toAST f, toAST r] }
+  | .meta => { toAST := fun | .mk c f r => ~[toAST c, toAST f, toAST r] }
 
-instance : ToExpr (Recursor b k) where toExpr
+instance : ToAST (Recursor b k) where toAST
   | .mk n l ty p i m m' rs k =>
-    .mkList [
-      toExpr n,
-      toExpr l,
-      toExpr ty,
-      toExpr p,
-      toExpr i,
-      toExpr m,
-      toExpr m',
-      toExpr rs,
-      toExpr k ]
+    ~[toAST n,
+      toAST l,
+      toAST ty,
+      toAST p,
+      toAST i,
+      toAST m,
+      toAST m',
+      toAST rs,
+      toAST k ]
 
-instance : ToExpr (Sigma (Recursor · k)) where toExpr
+instance : ToAST (Sigma (Recursor · k)) where toAST
   | .mk b (.mk n l ty p i m m' rs k) =>
-    .mkList [
-      toExpr (b : Bool),
-      toExpr n,
-      toExpr l,
-      toExpr ty,
-      toExpr p,
-      toExpr i,
-      toExpr m,
-      toExpr m',
-      toExpr rs,
-      toExpr k ]
+    ~[toAST (b : Bool),
+      toAST n,
+      toAST l,
+      toAST ty,
+      toAST p,
+      toAST i,
+      toAST m,
+      toAST m',
+      toAST rs,
+      toAST k ]
 
-instance : ToExpr (Constructor k) where toExpr
+instance : ToAST (Constructor k) where toAST
   | .mk n ty l i p f r s =>
-    .mkList [
-      toExpr n,
-      toExpr ty,
-      toExpr l,
-      toExpr i,
-      toExpr p,
-      toExpr f,
-      toExpr r,
-      toExpr s ]
+    ~[toAST n,
+      toAST ty,
+      toAST l,
+      toAST i,
+      toAST p,
+      toAST f,
+      toAST r,
+      toAST s ]
 
-instance : ToExpr (Inductive k) where toExpr
+instance : ToAST (Inductive k) where toAST
   | .mk n l ty p i cs rs r s r' =>
-    .mkList [
-      toExpr n,
-      toExpr l,
-      toExpr ty,
-      toExpr p,
-      toExpr i,
-      toExpr cs,
-      toExpr rs,
-      toExpr r,
-      toExpr s,
-      toExpr r' ]
+    ~[toAST n,
+      toAST l,
+      toAST ty,
+      toAST p,
+      toAST i,
+      toAST cs,
+      toAST rs,
+      toAST r,
+      toAST s,
+      toAST r' ]
 
-instance : ToExpr QuotKind where toExpr
-  | .type => toExpr 0
-  | .ctor => toExpr 1
-  | .lift => toExpr 2
-  | .ind  => toExpr 3
+instance : ToAST QuotKind where toAST
+  | .type => toAST 0
+  | .ctor => toAST 1
+  | .lift => toAST 2
+  | .ind  => toAST 3
 
-instance : ToExpr (Definition k) where toExpr
+instance : ToAST (Definition k) where toAST
   | .mk n l ty v s =>
-    .mkList [
-      toExpr n,
-      toExpr l,
-      toExpr ty,
-      toExpr v,
-      toExpr s ]
+    ~[toAST n,
+      toAST l,
+      toAST ty,
+      toAST v,
+      toAST s ]
 
-def Univ.toLurk : Univ k → Lurk.Expr
-  | .zero     => .mkList [.u64 $ UNIV k, .nat 0]
-  | .succ p   => .mkList [.u64 $ UNIV k, .nat 1, toExpr p]
-  | .max a b  => .mkList [.u64 $ UNIV k, .nat 2, toExpr a, toExpr b]
-  | .imax a b => .mkList [.u64 $ UNIV k, .nat 3, toExpr a, toExpr b]
-  | .var n    => .mkList [.u64 $ UNIV k, .nat 4, toExpr n]
+def Univ.toLurk : Univ k → Lurk.Syntax.AST
+  | .zero     => ~[.u64 $ UNIV k, .num 0]
+  | .succ p   => ~[.u64 $ UNIV k, .num 1, toAST p]
+  | .max a b  => ~[.u64 $ UNIV k, .num 2, toAST a, toAST b]
+  | .imax a b => ~[.u64 $ UNIV k, .num 3, toAST a, toAST b]
+  | .var n    => ~[.u64 $ UNIV k, .num 4, toAST n]
 
-def Expr.toLurk : Expr k → Lurk.Expr
-  | .var n i ls    => .mkList [.u64 $ EXPR k, .nat 0, toExpr n, toExpr i, toExpr ls]
-  | .sort u        => .mkList [.u64 $ EXPR k, .nat 1, toExpr u]
-  | .const n c ls  => .mkList [.u64 $ EXPR k, .nat 2, toExpr n, toExpr c, toExpr ls]
-  | .app f a       => .mkList [.u64 $ EXPR k, .nat 3, toExpr f, toExpr a]
-  | .lam n i d b   => .mkList [.u64 $ EXPR k, .nat 4, toExpr n, toExpr i, toExpr d, toExpr b]
-  | .pi n i d b    => .mkList [.u64 $ EXPR k, .nat 5, toExpr n, toExpr i, toExpr d, toExpr b]
-  | .letE n ty v b => .mkList [.u64 $ EXPR k, .nat 6, toExpr n, toExpr ty, toExpr v, toExpr b]
-  | .lit l         => .mkList [.u64 $ EXPR k, .nat 7, toExpr l]
-  | .proj n e      => .mkList [.u64 $ EXPR k, .nat 8, toExpr n, toExpr e]
+def Expr.toLurk : Expr k → Lurk.Syntax.AST
+  | .var n i ls    => ~[.u64 $ EXPR k, .num 0, toAST n, toAST i, toAST ls]
+  | .sort u        => ~[.u64 $ EXPR k, .num 1, toAST u]
+  | .const n c ls  => ~[.u64 $ EXPR k, .num 2, toAST n, toAST c, toAST ls]
+  | .app f a       => ~[.u64 $ EXPR k, .num 3, toAST f, toAST a]
+  | .lam n i d b   => ~[.u64 $ EXPR k, .num 4, toAST n, toAST i, toAST d, toAST b]
+  | .pi n i d b    => ~[.u64 $ EXPR k, .num 5, toAST n, toAST i, toAST d, toAST b]
+  | .letE n ty v b => ~[.u64 $ EXPR k, .num 6, toAST n, toAST ty, toAST v, toAST b]
+  | .lit l         => ~[.u64 $ EXPR k, .num 7, toAST l]
+  | .proj n e      => ~[.u64 $ EXPR k, .num 8, toAST n, toAST e]
 
-def Const.toLurk : Const k → Lurk.Expr
-  | .axiom ⟨n, l, ty, s⟩                 => .mkList [.u64 $ CONST k, .nat 0, toExpr n, toExpr l, toExpr ty, toExpr s]
-  | .theorem ⟨n, l, ty, v⟩               => .mkList [.u64 $ CONST k, .nat 1, toExpr n, toExpr l, toExpr ty, toExpr v]
-  | .opaque ⟨n, l, ty, v, s⟩             => .mkList [.u64 $ CONST k, .nat 2, toExpr n, toExpr l, toExpr ty, toExpr v, toExpr s]
-  | .quotient ⟨n, l, ty, K⟩              => .mkList [.u64 $ CONST k, .nat 3, toExpr n, toExpr l, toExpr ty, toExpr K]
-  | .inductiveProj ⟨n, l, ty, b, i⟩      => .mkList [.u64 $ CONST k, .nat 5, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i]
-  | .constructorProj ⟨n, l, ty, b, i, j⟩ => .mkList [.u64 $ CONST k, .nat 6, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i, toExpr j]
-  | .recursorProj ⟨n, l, ty, b, i, j⟩    => .mkList [.u64 $ CONST k, .nat 7, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i, toExpr j]
-  | .definitionProj ⟨n, l, ty, b, i⟩     => .mkList [.u64 $ CONST k, .nat 8, toExpr n, toExpr l, toExpr ty, toExpr b, toExpr i]
-  | .mutDefBlock b                       => .mkList [.u64 $ CONST k, .nat 9, toExpr b]
-  | .mutIndBlock b                       => .mkList [.u64 $ CONST k, .nat 10, toExpr b]
+def Const.toLurk : Const k → Lurk.Syntax.AST
+  | .axiom ⟨n, l, ty, s⟩                 => ~[.u64 $ CONST k, .num 0, toAST n, toAST l, toAST ty, toAST s]
+  | .theorem ⟨n, l, ty, v⟩               => ~[.u64 $ CONST k, .num 1, toAST n, toAST l, toAST ty, toAST v]
+  | .opaque ⟨n, l, ty, v, s⟩             => ~[.u64 $ CONST k, .num 2, toAST n, toAST l, toAST ty, toAST v, toAST s]
+  | .quotient ⟨n, l, ty, K⟩              => ~[.u64 $ CONST k, .num 3, toAST n, toAST l, toAST ty, toAST K]
+  | .inductiveProj ⟨n, l, ty, b, i⟩      => ~[.u64 $ CONST k, .num 5, toAST n, toAST l, toAST ty, toAST b, toAST i]
+  | .constructorProj ⟨n, l, ty, b, i, j⟩ => ~[.u64 $ CONST k, .num 6, toAST n, toAST l, toAST ty, toAST b, toAST i, toAST j]
+  | .recursorProj ⟨n, l, ty, b, i, j⟩    => ~[.u64 $ CONST k, .num 7, toAST n, toAST l, toAST ty, toAST b, toAST i, toAST j]
+  | .definitionProj ⟨n, l, ty, b, i⟩     => ~[.u64 $ CONST k, .num 8, toAST n, toAST l, toAST ty, toAST b, toAST i]
+  | .mutDefBlock b                       => ~[.u64 $ CONST k, .num 9, toAST b]
+  | .mutIndBlock b                       => ~[.u64 $ CONST k, .num 10, toAST b]
 
-def Univ.toCid (univ : Univ k) : Lurk.Expr × UnivCid k :=
+def Univ.toCid (univ : Univ k) : Lurk.Syntax.AST × UnivCid k :=
   let data := univ.toLurk
   (data, ⟨hash data⟩)
 
-def Expr.toCid (expr : Expr k) : Lurk.Expr × ExprCid k :=
+def Expr.toCid (expr : Expr k) : Lurk.Syntax.AST × ExprCid k :=
   let data := expr.toLurk
   (data, ⟨hash data⟩)
 
-def Const.toCid (const : Const k) : Lurk.Expr × ConstCid k :=
+def Const.toCid (const : Const k) : Lurk.Syntax.AST × ConstCid k :=
   let data := const.toLurk
   (data, ⟨hash data⟩)
 
-def LurkStore.toLurk.Expr (store : LurkStore) : Lurk.Expr :=
-  .mkList [
-    .u64 STORE,
-    toExpr store.consts,
-    toExpr store.univAnon,
-    toExpr store.exprAnon,
-    toExpr store.constAnon,
-    toExpr store.univMeta,
-    toExpr store.exprMeta,
-    toExpr store.constMeta]
+def LurkStore.toLurk.Syntax.AST (store : LurkStore) : Lurk.Syntax.AST :=
+  ~[.u64 STORE,
+    toAST store.consts,
+    toAST store.univAnon,
+    toAST store.exprAnon,
+    toAST store.constAnon,
+    toAST store.univMeta,
+    toAST store.exprMeta,
+    toAST store.constMeta]
 
 end Yatima.IR

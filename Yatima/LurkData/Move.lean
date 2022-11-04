@@ -1,22 +1,31 @@
-import Lurk.AST
+import Lurk.Field
+import Lurk.Syntax.AST
 
-namespace Lurk
+namespace Lurk.Syntax
 
-namespace Expr
+namespace AST
 
 /-- Uses Poseidon hashing -/
-def hash : Expr → Fin N
+def hash : AST → F
   | _ => sorry
 
-def num   (n : Fin N)  : Lurk.Expr := .lit $ .num n
-def nat   (n : Nat)    : Lurk.Expr := .lit $ .num (Fin.ofNat n)
-def int   (n : Fin N)  : Lurk.Expr := .lit $ .num (Fin.ofInt n)
-def u8    (n : UInt8)  : Lurk.Expr := nat n.val
-def u16   (n : UInt16) : Lurk.Expr := nat n.val
-def u32   (n : UInt32) : Lurk.Expr := nat n.val
-def u64   (n : UInt64) : Lurk.Expr := nat n.val
-def usize (n : USize)  : Lurk.Expr := nat n.val
+def f   (n : Fin N)  : AST := .num n
+def u8    (n : UInt8)  : AST := .num n.val
+def u16   (n : UInt16) : AST := .num n.val
+def u32   (n : UInt32) : AST := .num n.val
+def u64   (n : UInt64) : AST := .num n.val
+def usize (n : USize)  : AST := .num n.val
 
-end Expr
+@[match_pattern] def t : AST := .sym "T"
+@[match_pattern] def comm : AST := .sym "COMM"
 
-end Lurk
+end AST
+
+namespace ToAST
+
+instance : ToAST AST where
+  toAST a := a
+
+end ToAST
+
+end Lurk.Syntax

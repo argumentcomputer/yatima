@@ -1,5 +1,7 @@
 import Yatima.Datatypes.Const
 import Yatima.Typechecker.Datatypes
+import Lurk.Syntax.AST
+import Std.Data.RBMap.Basic
 
 namespace Yatima
 
@@ -54,12 +56,12 @@ end TC
 
 /-- Contains `IR.Store` data encoded in `Lurk.Expr` -/
 structure LurkStore where
-  consts    : Array Lurk.Syntax.Expr
-  univAnon  : Array Lurk.Syntax.Expr
-  exprAnon  : Array Lurk.Syntax.Expr
-  constAnon : Array Lurk.Syntax.Expr
-  univMeta  : Array Lurk.Syntax.Expr
-  exprMeta  : Array Lurk.Syntax.Expr
-  constMeta : Array Lurk.Syntax.Expr
+  consts    : Array Lurk.Syntax.AST
+  univAnon  : Array Lurk.Syntax.AST
+  exprAnon  : Array Lurk.Syntax.AST
+  constAnon : Array Lurk.Syntax.AST
+  univMeta  : Array Lurk.Syntax.AST
+  exprMeta  : Array Lurk.Syntax.AST
+  constMeta : Array Lurk.Syntax.AST
 
 end Yatima

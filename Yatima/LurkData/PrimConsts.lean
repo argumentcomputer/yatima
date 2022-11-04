@@ -1,16 +1,17 @@
-import Lurk.Syntax.Expr
+import Lurk.Field
+import Std.Data.RBMap.Basic
 
 namespace Yatima.IR
 
 inductive PrimConst
   | nat | natZero | natSucc | string
 
-open Std (RBMap) in
-def primCidsMap : RBMap (Fin Lurk.Syntax.N) PrimConst compare := .ofList [
+open Std in
+def primCidsMap : RBMap Lurk.F PrimConst compare := .ofList [
   (sorry, .nat),
   (sorry, .natZero),
   (sorry, .natSucc),
   (sorry, .string)
-]
+] compare
 
 end Yatima.IR
