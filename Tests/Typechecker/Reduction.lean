@@ -48,7 +48,7 @@ mutual
   partial def readBack (consts : Array Const) : Value → Option TypedExpr
     | .sort univ => pure $ .sort default univ
     | .app neu args => do args.foldlM (init := ← readBackNeutral consts neu) fun acc arg => do
-      pure $ TypedExpr.app default acc $ ← readBack consts arg.get
+      pure $ TypedExpr.app default acc $ ← readBack consts arg.1.get
     | .lam name binfo dom bod env => do
       -- any neutral fvars in the environment are now additionally nested,
       -- and so must have their de bruijn indices incremented

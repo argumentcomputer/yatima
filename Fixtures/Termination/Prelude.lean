@@ -297,7 +297,7 @@ hypotheses.
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem Eq.subst {α : Sort u} {motive : α → Prop} {a b : α} (h₁ : Eq a b) (h₂ : motive a) : motive b :=
-  Eq.rec h₂ h₁
+  Eq.ndrec h₂ h₁
 
 /--
 Equality is symmetric: if `a = b` then `b = a`.
@@ -356,8 +356,8 @@ statement is more complex in the dependent case.
 
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
-theorem congr {α : Sort u} {β : Sort v} {f : α → β} : Eq f f :=
-  rfl
+theorem congr {α : Sort u} {β : Sort v} {f₁ f₂ : α → β} {a₁ a₂ : α} (h₁ : Eq f₁ f₂) (h₂ : Eq a₁ a₂) : Eq (f₁ a₁) (f₂ a₂) :=
+  h₁ ▸ h₂ ▸ rfl
 
 /-- Congruence in the function part of an application: If `f = g` then `f a = g a`. -/
 theorem congrFun {α : Sort u} {β : α → Sort v} {f g : (x : α) → β x} (h : Eq f g) (a : α) : Eq (f a) (g a) :=
@@ -872,7 +872,6 @@ open BEq (beq)
 instance [DecidableEq α] : BEq α where
   beq a b := decide (Eq a b)
 
-#exit
 
 /--
 "Dependent" if-then-else, normally written via the notation `if h : c then t(h) else e(h)`,
@@ -3798,14 +3797,6 @@ def setArg (stx : Syntax) (i : Nat) (arg : Syntax) : Syntax :=
   match stx with
   | node info k args => node info k (args.setD i arg)
   | stx              => stx
-
-partial def test (n : Nat) : Nat :=  test n
-
-mutual
-  partial def test1 (n : Nat) : Nat :=  test2 n
-
-  partial def test2 (n : Nat) : Nat :=  test1 n
-end
 
 /-- Retrieve the left-most node or leaf's info in the Syntax tree. -/
 partial def getHeadInfo? : Syntax → Option SourceInfo
