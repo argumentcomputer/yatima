@@ -60,8 +60,9 @@ def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
   | .error e _ => .error e
 
 /-- Extracts `x` from `some x` and throws an error otherwise -/
-def ConvertM.unwrap : Option α → ConvertM α :=
-  Option.option (throw .irError) pure
+def ConvertM.unwrap : Option α → ConvertM α
+  | some x => return x
+  | none => throw .irError
 
 /-- Runs a computation with `bindDepth` reset to `0` -/
 def withResetBindDepth : ConvertM α → ConvertM α :=
