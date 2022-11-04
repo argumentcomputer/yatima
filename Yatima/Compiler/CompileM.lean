@@ -125,9 +125,9 @@ def getFromRecrCtx! (name : Name) : CompileM $ RecrCtxEntry := do
 
 /-- Auxiliary type to standardize additions of CIDs to the store -/
 inductive StoreEntry : Type → Type
-  | univ  : IR.Both IR.Univ  → StoreEntry (IR.BothUnivCid)
-  | expr  : IR.Both IR.Expr  → StoreEntry (IR.BothExprCid)
-  | const : IR.Both IR.Const → StoreEntry (IR.BothConstCid)
+  | univ  : IR.Both IR.Univ  → StoreEntry IR.BothUnivCid
+  | expr  : IR.Both IR.Expr  → StoreEntry IR.BothExprCid
+  | const : IR.Both IR.Const → StoreEntry IR.BothConstCid
 
 /-- Adds CID data to the store, but also returns it for practical reasons -/
 def addToStore : StoreEntry A → CompileM A

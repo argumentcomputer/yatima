@@ -1,11 +1,10 @@
 import Lake
-import Lean
 
 open Lake DSL
 
 package Yatima 
 
-@[defaultTarget]
+@[default_target]
 lean_exe yatima {
   supportInterpreter := true
   root := `Main
@@ -14,19 +13,22 @@ lean_exe yatima {
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "f265a7ac8bd43a3166eb9f857c88c4291f228af5"
+  "https://github.com/yatima-inc/Ipld.lean" @ "bf02714e216265b495636dd10f987ec32461dfd4"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "a8dc2f38fc38f16efcc877ca8a4c7b37d3965db0"
+  "https://github.com/yatima-inc/LSpec.git" @ "02e423d02d2ba1b76bed3cf6459a5c2d7a13afb8"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "cbf5cd7c098c4369d93b9b8399a323bf0a28c107"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "8e90071add9c667f93289d4ab784756611b7c909"
 
 require Cli from git
-  "https://github.com/mhuisi/lean4-cli" @ "1f844d9d3c31908588f507dfa3f3b4c764bdcdf6"
+  "https://github.com/yatima-inc/Cli.lean" @ "8e81b62cdeccbd972a1a8e1ddd0694b236ebf41a"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "9c09e74eaddca06eda8a78a5477283e5d8afbb39"
+  "https://github.com/yatima-inc/Lurk.lean" @ "6b3a75dc90178afc16d59f51e001ffd254bc7b1e"
+
+require std from git
+  "https://github.com/leanprover/std4/"@"f648e43ef696ce1cf7f6ec534ec44c06816380f9"
 
 section Testing
 
@@ -59,7 +61,7 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
   if h : cmd ≠ [] then
     let (cmd, args) := match h' : cmd with
       | cmd :: args => (cmd, ⟨args⟩)
-      | []          => absurd h' h
+      | []          => absurd h' (h' ▸ h)
     let out ← IO.Process.output {
       cmd  := cmd
       args := args
@@ -111,7 +113,7 @@ partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
     else
       return acc
 
-open Std (RBTree)
+open Lean (RBTree)
 
 def getAllFiles : ScriptM $ List String := do
   let paths := (← getLeanFilePathsList ⟨"Yatima"⟩).map toString

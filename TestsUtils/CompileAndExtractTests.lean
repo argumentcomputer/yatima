@@ -1,5 +1,5 @@
 import LSpec
-import Lurk.Eval
+import Lurk.Evaluation.Eval
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
@@ -56,7 +56,7 @@ def extractAnonCidGroupsTests (groups : List (List Lean.Name))
 
 end AnonCidGroups
 
-section IpldRoundtrip
+section Converting
 
 open Converter
 
@@ -131,14 +131,14 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
-def extractIpldRoundtripTests (stt : CompileState) : TestSeq :=
-  withExceptOk "`FromIpld.extractPureStore` succeeds"
+def extractConverterTests (stt : CompileState) : TestSeq :=
+  withExceptOk "`extractPureStore` succeeds"
     (extractPureStore stt.irStore) fun pStore =>
       withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
-end IpldRoundtrip
+end Converting
 
 section Typechecking
 
@@ -152,10 +152,10 @@ also be accepted by our implementation
 -/
 
 def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).store.consts.filter (·.name == name)).forM checkConst
+  ((← read).store.consts.toList.enum.filter (fun (_, const) => const.name == name)).forM fun (i, const) => checkConst const i
 
 def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init store) (typecheckConstM name) with
+  match TypecheckM.run (.init store) (.init store) (typecheckConstM name) with
   | .ok u => .ok u
   | .error err => throw $ toString err
 
@@ -173,7 +173,7 @@ end Typechecking
 
 section Transpilation
 
-open Transpiler Lurk
+open Transpiler Lurk Evaluation
 
 instance [BEq α] [BEq β] : BEq (Except α β) where 
   beq x y := match x, y with 
@@ -181,7 +181,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where
     | .error x, .error y => x == y
     | _, _ => false
 
-def extractTranspilationTests (expect : List (Lean.Name × Option Lurk.Expr))
+def extractTranspilationTests (expect : _root_.List (Lean.Name × Option Lurk.Syntax.Expr))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
     withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun expr =>
@@ -200,6 +200,6 @@ def extractIpldTests (stt : CompileState) : TestSeq :=
   let store := stt.irStore
   let ipld := Ipld.storeToIpld stt.ipldStore
   withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
-    fun store' => test "DeSer roundtrips" (store == store')
+    fun store' => test "IPLD SerDe roundtrips" (store == store')
 
 end Ipld

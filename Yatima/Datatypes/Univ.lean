@@ -16,7 +16,7 @@ inductive Univ (k : Kind) where
   | max   : UnivCid k → UnivCid k → Univ k
   | imax  : UnivCid k → UnivCid k → Univ k
   | var   : NatₐNameₘ k → Univ k
-  deriving BEq, Inhabited
+  deriving Inhabited, Ord
 
 def Univ.ctorName : Univ k → String
   | .zero .. => "zero"
@@ -36,7 +36,7 @@ inductive Univ where
   | max   : Univ → Univ → Univ
   | imax  : Univ → Univ → Univ
   | var   : Name → Nat → Univ
-  deriving BEq, Inhabited
+  deriving BEq, Inhabited, Repr
 
 namespace Univ
 
@@ -62,22 +62,30 @@ def reduceMax (a b : Univ) : Univ :=
   | .var _ idx, .var _ idx' => if idx == idx' then a else .max a b
   | _, _ => .max a b
 
+def isNotZero : Univ → Bool
+  | .max a b => isNotZero a || isNotZero b
+  | .imax _ b => isNotZero b
+  | .succ _ => true
+  | _ => false
+
 /--
 Reduces as an `imax` applied to two values.
 
 It is assumed that `a` and `b` are already reduced
 -/
 def reduceIMax (a b : Univ) : Univ :=
-  match b with
-  -- IMax(a, b) will reduce to 0 if b == 0
-  | .zero => .zero
-  -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..)
-  | .succ _ => reduceMax a b
-  | .var _ idx => match a with
-    | .var _ idx' => if idx == idx' then a else .imax a b
+  if isNotZero b then reduceMax a b
+  else
+    match b with
+    -- IMax(a, b) will reduce to 0 if b == 0
+    | .zero => .zero
+    -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..) (impossible case)
+    | .succ _ => reduceMax a b
+    | .var _ idx => match a with
+      | .var _ idx' => if idx == idx' then a else .imax a b
+      | _ => .imax a b
+    -- Otherwise, IMax(a, b) is stuck, with a and b reduced
     | _ => .imax a b
-  -- Otherwise, IMax(a, b) is stuck, with a and b reduced
-  | _ => .imax a b
 
 /--
 Reduce, or simplify, the universe levels to a normal form. Notice that universe
@@ -107,11 +115,12 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
   | .succ u => .succ (instReduce u idx subst)
   | .max a b => reduceMax (instReduce a idx subst) (instReduce b idx subst)
   | .imax a b =>
+    let a' := instReduce a idx subst
     let b' := instReduce b idx subst
     match b' with
     | .zero => .zero
-    | .succ _ => reduceMax (instReduce a idx subst) b'
-    | _ => .imax (instReduce a idx subst) b'
+    | .succ _ => reduceMax a' b'
+    | _ => .imax a' b'
   | .var _ idx' => if idx' == idx then subst else u
   | .zero => u
 
@@ -173,12 +182,12 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
   | Univ.imax c (Univ.max e f), _ =>
     -- Here we use the relationship
     -- imax c (max e f) = max (imax c e) (imax c f)
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
+    let new_max := Univ.max (reduceIMax c e) (reduceIMax c f)
     leq new_max b diff
   | Univ.imax c (Univ.imax e f), _ =>
     -- Here we use the relationship
-    -- imax c (imax e f) = max (imax c e) (imax e f)
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
+    -- imax c (imax e f) = imax (max c e) f
+    let new_max := Univ.imax (Univ.max c e) f
     leq new_max b diff
   -- Analogous to previous case
   | _, Univ.imax _ (Univ.var nam idx) =>
@@ -186,10 +195,10 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
     let succ := Univ.succ (Univ.var nam idx)
     leq (instReduce a idx succ) (instReduce b idx succ) diff
   | _, Univ.imax c (Univ.max e f) =>
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax c f)
+    let new_max := Univ.max (reduceIMax c e) (reduceIMax c f)
     leq a new_max diff
   | _, Univ.imax c (Univ.imax e f) =>
-    let new_max := Univ.max (Univ.imax c e) (Univ.imax e f)
+    let new_max := Univ.imax (Univ.max c e) f
     leq a new_max diff
   | _, _ => false -- Impossible cases
 

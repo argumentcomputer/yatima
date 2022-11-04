@@ -21,14 +21,6 @@ namespace Yatima.Typechecker
 
 open TC
 
-/-- Reduces the application of a `pi` type to its arguments -/
-def applyType : Value → List SusValue → TypecheckM Value
-  | .pi _ _ _ img imgCtx, arg :: args => do
-    let res ← withEnv (imgCtx.extendWith arg) (eval img)
-    applyType res args
-  | type, [] => pure type
-  | _, _ => throw .cannotApply
-
 /-- Checks if a type is an unit inductive -/
 def isUnit : Value → TypecheckM Bool
   | .app (.const name i _) _ => do
@@ -85,7 +77,6 @@ mutual
   Checks if `term : Expr` has type `type : SusValue`. Returns the expression with flags updated
   -/
   partial def check (term : Expr) (type : SusValue) : TypecheckM Expr := do
-    --dbg_trace s!"Checking: {term} : {type.get}"
     match term with
     | .lam _ lamName bind lamDom bod =>
       let (lamDom, _) ← isSort lamDom
@@ -96,22 +87,22 @@ mutual
           throw $ .custom "Lambda annotation does not match with its type"
         let var := mkSusVar (← infoFromType dom) lamName lvl
         let env := env.extendWith var 
-        let img := suspend img { ← read with env }
+        let img := suspend img { ← read with env } (← get)
         let bod ← withExtendedCtx var dom $ check bod img
         pure $ .lam (lamInfo bod.info) lamName bind lamDom bod
       | val => throw $ .notPi (toString val)
     | .letE _ name expType exp bod =>
       let (expType, _) ← isSort expType
-      let expTypeVal := suspend expType (← read)
+      let expTypeVal := suspend expType (← read) (← get)
       let exp ← check exp expTypeVal
-      let expVal := suspend exp (← read)
+      let expVal := suspend exp (← read) (← get)
       let bod ← withExtendedCtx expVal expTypeVal $ check bod type
       pure $ .letE bod.info name expType exp bod
     | .app _ (.lam _ lamName bind lamDom bod) arg =>
       let (lamDom, _) ← isSort lamDom
-      let lamDomVal := suspend lamDom (← read)
+      let lamDomVal := suspend lamDom (← read) (← get)
       let arg ← check arg lamDomVal
-      let argVal := suspend arg (← read)
+      let argVal := suspend arg (← read) (← get)
       let bod ← withExtendedCtx argVal lamDomVal $ check bod type
       pure $ .app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg
     | _ =>
@@ -135,9 +126,9 @@ mutual
       return (term, typ)
     | .app _ (.lam _ lamName bind lamDom bod) arg =>
       let (lamDom, _) ← isSort lamDom
-      let lamDomVal := suspend lamDom (← read)
+      let lamDomVal := suspend lamDom (← read) (← get)
       let arg ← check arg lamDomVal
-      let argVal := suspend arg (← read)
+      let argVal := suspend arg (← read) (← get)
       let (bod, type) ← withExtendedCtx argVal lamDomVal $ infer bod
       pure (.app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg, type)
     | .app _ fnc arg =>
@@ -145,7 +136,7 @@ mutual
       match fncType.get with
       | .pi _ _ dom img env =>
         let arg ← check arg dom
-        let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) }
+        let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
         let term := .app (← infoFromType typ) fnc arg
         pure (term, typ)
       | val => throw $ .notPi (toString val)
@@ -156,7 +147,7 @@ mutual
     | .pi _ name bind dom img =>
       let (dom, domLvl) ← isSort dom
       let ctx ← read
-      let domVal := suspend dom ctx
+      let domVal := suspend dom ctx (← get)
       withExtendedCtx (mkSusVar (← infoFromType domVal) name ctx.lvl) domVal $ do
         let (img, imgLvl) ← isSort img
         let typ := .mk sortInfo ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
@@ -164,37 +155,25 @@ mutual
         return (term, typ)
     | .letE _ name expType exp bod =>
       let (expType, _) ← isSort expType
-      let expTypeVal := suspend expType (← read)
+      let expTypeVal := suspend expType (← read) (← get)
       let exp ← check exp expTypeVal
-      let expVal := suspend exp (← read)
+      let expVal := suspend exp (← read) (← get)
       let (bod, typ) ← withExtendedCtx expVal expTypeVal $ infer bod
       let term := .letE bod.info name expType exp bod
       return (term, typ)
     | .lit _ (.natVal _) =>
-      let typ := .mk primTypeInfo (mkConst `Nat (← natIndex) [])
+      let typ := .mk primTypeInfo (mkConst `Nat (← primIndex .nat) [])
       pure $ (term, typ)
     | .lit _ (.strVal _) =>
-      let typ := .mk primTypeInfo (mkConst `String (← stringIndex) [])
+      let typ := .mk primTypeInfo (mkConst `String (← primIndex .string) [])
       pure $ (term, typ)
     | .const _ name k constUnivs =>
       let univs := (← read).env.univs
       let const ← derefConst name k
+      checkConst const k
       let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-      let typ := suspend const.type { ← read with env := env }
-      let val ← match const with
-        | .theorem    struct
-        | .opaque     struct
-        | .definition struct => do
-          let (type, _) ← isSort struct.type
-          let type := suspend type (← read)
-          check struct.value type
-        | .axiom       _
-        | .inductive   _
-        | .constructor _
-        | .extRecursor _
-        | .intRecursor _
-        | .quotient    _ => pure $ .const (← infoFromType typ) name k constUnivs
-      pure (val, typ)
+      let typ := suspend const.type { ← read with env := env } (← get)
+      pure (.const (← infoFromType typ) name k constUnivs, typ)
     | .proj _ idx expr =>
       let (expr, exprType) ← infer expr
       let some (_, ctor, univs, params) ← isStruct exprType.get
@@ -207,7 +186,7 @@ mutual
         | .pi _ _ _ img piEnv =>
           -- Note: This expression that is generated on the fly is immediately transformed into a value,
           -- which discards the hash, so the value of the hash does not matter here
-          let proj := suspend (Expr.proj default i expr) (← read)
+          let proj := suspend (Expr.proj default i expr) (← read) (← get)
           ctorType ← withNewExtendedEnv piEnv proj $ eval img
         | _ => pure ()
       match ctorType with
@@ -229,35 +208,67 @@ mutual
     | .sort u => pure (expr, u)
     | val => throw $ .notTyp (toString val)
 
+  /-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
+  otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.
+
+  Note that inductives, constructors, and recursors are constructed to typecheck, so this function
+  only has to check the other `Const` constructors.
+  -/
+  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := do
+    match (← get).tcConsts.get? idx with
+    | .some .none =>
+      let univs := c.levels.foldr
+        (fun name cont i => Univ.var name i :: (cont (i + 1)))
+        (fun _ => []) 0
+      withEnv ⟨ [], univs ⟩ $ do
+        match c with
+        | .theorem    struct
+        | .opaque     struct
+        | .definition struct => do
+          let (type, _) ← isSort struct.type
+          let typeSus := suspend type (← read) (← get)
+          let value ← check struct.value typeSus
+
+          -- update the typechecked consts with the annotated values/types
+          let tcConsts := (← get).tcConsts
+          if h : idx < tcConsts.size then
+            let newConst ← match c with
+            | .theorem    struct => pure $ Const.theorem {struct with value := value, type := type}
+            | .opaque     struct => pure $ .opaque {struct with value := value, type := type}
+            | .definition struct => pure $ .definition {struct with value := value, type := type}
+            | _ => throw .impossible
+            modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
+          else
+            throw $ .impossible
+        -- TODO: check that inductives, constructors and recursors are well-formed
+        -- TODO: check that quotient is well-formed. I guess it is possible to do this
+        -- while converting from Ipld by checking the cids of the quotient constants
+        -- with precomputed ones
+        | .axiom       struct
+        | .inductive   struct
+        | .constructor struct
+        | .extRecursor struct
+        | .intRecursor struct
+        | .quotient    struct =>
+          let (type, _)  ← isSort struct.type
+
+          -- update the typechecked consts with the annotated values/types
+          let tcConsts := (← get).tcConsts
+          if h : idx < tcConsts.size then
+            let newConst ← match c with 
+            | .axiom       struct => pure $ Const.axiom {struct with type := type}
+            | .inductive   struct => pure $ Const.inductive {struct with type := type}
+            | .constructor struct => pure $ Const.constructor {struct with type := type}
+            | .extRecursor struct => pure $ Const.extRecursor {struct with type := type}
+            | .intRecursor struct => pure $ Const.intRecursor {struct with type := type}
+            | .quotient    struct => pure $ Const.quotient {struct with type := type}
+            | _ => throw $ .impossible
+            modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
+          else
+            throw $ .impossible
+    | .none =>
+      throw .impossible
+    | _ => pure ()
 end
-
-/-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
-otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.
-
-Note that inductives, constructors, and recursors are constructed to typecheck, so this function
-only has to check the other `Const` constructors.
--/
-def checkConst (c : Const) : TypecheckM Unit :=
-  let univs := c.levels.foldr
-    (fun name cont i => Univ.var name i :: (cont (i + 1)))
-    (fun _ => []) 0
-  withEnv ⟨ [], univs ⟩ $ do
-    match c with
-    | .theorem    struct
-    | .opaque     struct
-    | .definition struct => do
-      let (type, _) ← isSort struct.type
-      let type := suspend type (← read)
-      discard $ check struct.value type
-    -- TODO: check that inductives, constructors and recursors are well-formed
-    -- TODO: check that quotient is well-formed. I guess it is possible to do this
-    -- while converting from Ipld by checking the cids of the quotient constants
-    -- with precomputed ones
-    | .axiom       struct
-    | .inductive   struct
-    | .constructor struct
-    | .extRecursor struct
-    | .intRecursor struct
-    | .quotient    struct => discard $ isSort struct.type
 
 end Yatima.Typechecker

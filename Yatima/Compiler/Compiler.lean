@@ -767,7 +767,7 @@ mutual
       CompileM (List (List Lean.DefinitionVal)) := do
     let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
-    let weakOrd := enum dss
+    let weakOrd := enum dss _ 
     let newDss ← (← dss.mapM fun ds =>
       match ds with
       | []  => unreachable!

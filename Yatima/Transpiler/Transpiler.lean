@@ -234,7 +234,7 @@ def mkMutualBlock : List (Name × Lurk.Syntax.Expr) → List (Name × Lurk.Synta
 
 namespace Yatima.Transpiler
 
-open TC
+open TC Lurk.Syntax.DSL Lurk.Syntax.SExpr.DSL
 
 def replaceName (name : Name) : TranspileM Name := do
   if name.isHygenic then
@@ -407,7 +407,10 @@ mutual
       | .strcons e₁ e₂ => do go e₁; go e₂
       | .quote ..
       | .currEnv
-      | .lit .. => return
+      | .lit .. 
+      | .comm ..            -- TODO : Fill this in?
+      | .commit ..          -- TODO : Fill this in?
+      | .hide ..  => return -- TODO : Fill this in?
 
   partial def mkLurkExpr (e : Expr) : TranspileM Lurk.Syntax.Expr := do
     -- dbg_trace ">> mkLurkExpr: "
@@ -537,6 +540,8 @@ def builtins : List (Name × Lurk.Syntax.Expr) := [
   Lurk.Functions.StringRec
 ]
 
+open Yatima.Transpiler
+
 def initializePrimitives : TranspileM Unit := do
   let decls := [
     Lurk.Functions.getelem,
@@ -571,4 +576,3 @@ def transpile (store : IR.Store) (root : Name := `root) :
     | .ok    s => .ok $ .letRecE s.appendedBindings.data ⟦$root⟧
     | .error e => .error e
 
-end Yatima.Transpiler

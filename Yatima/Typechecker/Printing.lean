@@ -107,6 +107,8 @@ mutual
       | _ => s!"(({nam}: {dom}) → {printLamBod cod ctx})"
     | .lit (.natVal x) => s!"{x}"
     | .lit (.strVal x) => s!"\"{x}\""
+    | .litProp (.natNEq x y _) => s!"(? : {x} ≠ {y})"
+    | .litProp (.natEq x y _) => s!"(? : {x} = {y})"
     | .exception e => s!"exception {e}"
 end
 

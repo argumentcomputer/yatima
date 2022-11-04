@@ -27,7 +27,35 @@ namespace Yatima.Typechecker
 
 open TC
 
+/-- Reduces the application of a `pi` type to its arguments -/
+def applyType : Value → List SusValue → TypecheckM Value
+  | .pi _ _ _ img imgCtx, arg :: args => do
+    let res ← withEnv (imgCtx.extendWith arg) (eval img)
+    applyType res args
+  | type, [] => pure type
+  | _, _ => throw .cannotApply
+
 mutual
+  partial def tryEtaStruct (lvl : Nat) (term term' : Value) : TypecheckM Bool := do
+    match term, term' with
+    | t, .app (.const name k _) args =>
+      match ← derefConst name k with
+      | .constructor ctor =>
+        match ← applyType (← eval ctor.type) args with
+        | .app (.const tname tk _) args =>
+          match ← derefConst tname tk with
+          | .inductive ind => if let some _ := ind.struct then
+                                args.enum.foldlM (init := true) fun acc (i, arg) => do
+                                match arg.get with
+                                | .app (.proj idx val) _ =>
+                                  pure $ acc && i == idx && (← equal val.info lvl t val.get)
+                                | _ => pure false
+                              else
+                                pure false
+          | _ => pure false
+        | _ => pure false
+      | _ => pure false
+    | _, _=> pure false
 
   /--
   Checks if two values `term term' : Value` at level `lvl : Nat` are equal.
@@ -77,6 +105,10 @@ mutual
       if k == k' && Univ.equalUnivs us us' then
         equalThunks lvl args args'
       else pure false
+    | _, .app (.const _ _ _) _ =>
+      tryEtaStruct lvl term term'
+    | .app (.const _ _ _) _, _ =>
+      tryEtaStruct lvl term' term
     | .app (.proj idx val) args, .app (.proj idx' val') args' =>
       match val.info.struct?, val'.info.struct? with
       | .some const, .some const' =>

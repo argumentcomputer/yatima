@@ -5,21 +5,21 @@ import Yatima.Datatypes.Kind
 namespace Yatima.IR
 
 /-- Constants to encode universe levels in IPLD -/
-@[matchPattern] def UNIV : Kind → UInt64
+@[match_pattern] def UNIV : Kind → UInt64
   | .anon => 0xC0DE0001
   | .meta => 0xC0DE0002
 
 /-- Constants to encode expressions in IPLD -/
-@[matchPattern] def EXPR : Kind → UInt64
+@[match_pattern] def EXPR : Kind → UInt64
   | .anon => 0xC0DE0003
   | .meta => 0xC0DE0004
 
 /-- Constants to encode constants in IPLD -/
-@[matchPattern] def CONST : Kind → UInt64
+@[match_pattern] def CONST : Kind → UInt64
   | .anon => 0xC0DE0005
   | .meta => 0xC0DE0006
 
-@[matchPattern] def STORE : UInt64 := 0xC0DE0007
+@[match_pattern] def STORE : UInt64 := 0xC0DE0007
 
 structure UnivCid  (k : Kind) where data : Fin Lurk.Syntax.N deriving BEq, Ord, Repr
 structure ExprCid  (k : Kind) where data : Fin Lurk.Syntax.N deriving BEq, Ord, Repr

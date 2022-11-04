@@ -31,7 +31,6 @@ def binderInfoFromIpld : Ipld → Option BinderInfo
   | .number 1 => return .implicit
   | .number 2 => return .strictImplicit
   | .number 3 => return .instImplicit
-  | .number 4 => return .auxDecl
   | _ => none
 
 def quotKindFromIpld : Ipld → Option QuotKind
@@ -343,7 +342,7 @@ def constMetaFromIpld : Ipld → Option (Const .meta)
   | _ => none
 
 def constsTreeFromIpld (ar : Array Ipld) :
-    Option (Std.RBTree (Both ConstCid) compare) :=
+    Option (Std.RBSet (Both ConstCid) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
     | .array #[.link anonCid, .link metaCid] => acc.insert ⟨⟨anonCid⟩, ⟨metaCid⟩⟩

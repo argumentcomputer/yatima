@@ -30,10 +30,16 @@ returns it if it is found. If the constant is not found it throws an error.
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefConst (name : Name) (constIdx : ConstIdx) : TypecheckM Const := do
-  let consts := (← read).store.consts
-  match consts.get? constIdx with
-  | some const => pure const
-  | none => throw $ .outOfConstsRange name constIdx consts.size
+  let tcConsts := (← get).tcConsts
+  -- use typechecked version if available
+  match tcConsts.get? constIdx with
+  | some (some const) => pure const
+  | some none =>
+    let consts := (← read).store.consts
+    match consts.get? constIdx with
+    | some const => pure const
+    | none => throw $ .outOfConstsRange name constIdx consts.size
+  | none => throw $ .outOfConstsRange name constIdx tcConsts.size
 
 mutual
   /--
@@ -46,13 +52,13 @@ mutual
   partial def eval : Expr → TypecheckM Value
     | .app _ fnc arg => do
       let ctx ← read
-      let argThunk := suspend arg ctx
+      let argThunk := suspend arg ctx (← get)
       let fnc ← eval fnc
       -- dbg_trace s!"evaluating {fnc}... {arg.info.struct?}"
       apply fnc argThunk
     | .lam _ name info dom bod => do
       let ctx ← read
-      let dom' := suspend dom ctx
+      let dom' := suspend dom ctx (← get)
       pure $ Value.lam name info dom' bod ctx.env
     | .var _ name idx => do
       let exprs := (← read).env.exprs
@@ -62,11 +68,11 @@ mutual
       let env := (← read).env
       evalConst name k (const_univs.map (Univ.instBulkReduce env.univs))
     | .letE _ _ _ val bod => do
-      let thunk := suspend val (← read)
+      let thunk := suspend val (← read) (← get)
       withExtendedEnv thunk (eval bod)
     | .pi _ name info dom img => do
       let ctx ← read
-      let dom' := suspend dom ctx
+      let dom' := suspend dom ctx (← get)
       pure $ Value.pi name info dom' img ctx.env
     | .sort _ univ => do
       let env := (← read).env
@@ -74,7 +80,7 @@ mutual
     | .lit _ lit =>
       pure $ Value.lit lit
     | .proj _ idx expr => do
-      let val := suspend expr (← read)
+      let val := suspend expr (← read) (← get)
       match val.get with
       | .app (.const name k _) args =>
         match ← derefConst name k with
@@ -89,12 +95,9 @@ mutual
       | .app .. => pure $ .app (.proj idx val) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
-  /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
-  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+  partial def evalConst' (name : Name) (const : ConstIdx) (univs : List Univ) :
       TypecheckM Value := do
-    let zero? ← zeroIndexWith (pure false) (fun zeroIdx => pure $ const == zeroIdx)
-    if zero? then pure $ .lit (.natVal 0)
-    else match ← derefConst name const with
+    match ← derefConst name const with
     | .theorem x => withEnv ⟨[], univs⟩ $ eval x.value
     | .definition x =>
       match x.safety with
@@ -105,14 +108,21 @@ mutual
     | _ =>
       pure $ mkConst name const univs
 
+  /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
+  partial def evalConst (name : Name) (const : ConstIdx) (univs : List Univ) :
+      TypecheckM Value := do
+    if (← primIndexWith .natZero (pure false) (pure $ · == const)) then pure $ .lit (.natVal 0)
+    else if (← indexPrim const) matches .some (.op _) then pure $ mkConst name const univs
+    else evalConst' name const univs
+
   /--
   Suspends the evaluation of a Yatima expression `expr : Expr` in a particular `ctx : TypecheckCtx`
 
   Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
   -/
-  partial def suspend (expr : Expr) (ctx : TypecheckCtx) : SusValue :=
+  partial def suspend (expr : Expr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
     let thunk := { fn := fun _ =>
-      match TypecheckM.run ctx (eval expr) with
+      match TypecheckM.run ctx stt (eval expr) with
       | .ok a => a
       | .error e => .exception e,
      }
@@ -148,14 +158,18 @@ mutual
   partial def applyConst (name : Name) (k : ConstIdx) (univs : List Univ)
       (arg : SusValue) (args : Args) : TypecheckM Value := do
 
-    let succ? ← succIndexWith (pure false) (fun succIdx => pure $ k == succIdx)
-    if succ? then
-      -- Sanity check
-      if !args.isEmpty then throw $ .custom "args should be empty"
-      else match arg.get with
-      | .lit (.natVal v) => pure $ .lit (.natVal (v+1))
-      | _ => pure $ .app (.const name k univs) [arg]
-
+    if let some $ .op p ← indexPrim k then
+      let newArgs := List.cons arg args
+      if args.length < p.numArgs - 1 then
+        pure $ Value.app (.const name k univs) $ newArgs
+      else
+        let op := p.toPrimOp
+        let argsArr := (Array.mk newArgs).reverse
+        match ← op.op argsArr with
+        | .some v => pure v
+        | .none => if p.reducible then 
+                     argsArr.foldlM (init := (← evalConst' name k univs)) fun acc arg => apply acc arg
+                   else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with
@@ -165,7 +179,6 @@ mutual
         pure $ Value.app (Neutral.const name k univs) (arg :: args)
       else
         if recur.k then
-          -- TODO external recursors
           --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
           --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
           -- sanity check
@@ -233,8 +246,8 @@ mutual
   partial def toCtorIfLit : SusValue → TypecheckM Value
     | .mk info thunk => match thunk.get with
       | .lit (.natVal v) => do
-        let zeroIdx ← zeroIndexWith (throw $ .custom "Cannot find definition of `Nat.Zero`") pure
-        let succIdx ← succIndexWith (throw $ .custom "Cannot find definition of `Nat.Succ`") pure
+        let zeroIdx ← primIndex .natZero
+        let succIdx ← primIndex (.op .natSucc)
         if v == 0 then pure $ mkConst `Nat.Zero zeroIdx []
         else
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))

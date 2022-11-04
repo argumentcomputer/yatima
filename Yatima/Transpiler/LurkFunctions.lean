@@ -14,6 +14,8 @@ namespace Lurk.Functions
 
 open Lurk.Syntax
 
+open Syntax DSL SExpr.DSL
+
 /-! 
 ## Helper Functions 
 Technically only `getelem` is used right now, but maybe the others will find use.
