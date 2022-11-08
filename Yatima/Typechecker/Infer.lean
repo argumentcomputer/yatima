@@ -126,7 +126,7 @@ mutual
       let term := .lam (lamInfo bod.info) name bind dom bod
       --dbg_trace s!"inferring lam: {term} with img info before {repr img.info} and after quote {repr (← quote (ctx.lvl+1) img.info.toSus img.get).info}"
       let typ := .mk (piInfo img.info) $
-        Value.pi name bind domVal (← quote (ctx.lvl+1) img.info.toSus img.get) ctx.env
+        Value.pi name bind domVal (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get) ctx.env
       pure (term, typ)
     | .pi name bind dom img =>
       --dbg_trace s!"pi getting dom: {name} : {dom}"
@@ -164,7 +164,7 @@ mutual
       else
         let univs := (← read).env.univs
         let const ← derefConst name k
-        withResetCtx $ checkConst const k
+        checkConst const k
         let tconst ← derefTypedConst name k
         let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
         let typ := suspend tconst.type { ← read with env := env } (← get)
@@ -212,7 +212,7 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := do
+  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := withResetCtx do
     --dbg_trace s!"Checking: {c.name}"
     match (← get).tcConsts.get? idx with
     | .some .none =>

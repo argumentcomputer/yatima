@@ -80,7 +80,6 @@ mutual
       withExtendedEnv thunk (eval bod)
     | .pi _ name info dom img => do
       let ctx ← read
-      --dbg_trace s!"pi suspending: {dom} with {repr dom.info}"
       let dom' := suspend dom ctx (← get)
       pure $ .pi name info dom' img ctx.env
     | .sort _ univ => do
@@ -291,21 +290,21 @@ mutual
   Quoting transforms a value into a (typed) expression. It is the right-inverse of evaluation:
   evaluating a quoted value results in the value itself.
   -/
-  partial def quote (lvl : Nat) (info : SusTypeInfo) : Value → TypecheckM TypedExpr
-    | .sort univ => pure $ .sort info univ
+  partial def quote (lvl : Nat) (info : SusTypeInfo) (env : Env) : Value → TypecheckM TypedExpr
+    | .sort univ => pure $ .sort info (univ.instBulkReduce env.univs)
     | .app neu args => do
-      args.foldrM (init := ← quoteNeutral lvl neu) fun arg acc => do
-        pure $ .app arg.2.toSus acc $ ← quote lvl arg.1.info.toSus arg.1.get
-    | .lam name binfo dom bod env => do
-      let dom ← quote lvl dom.info.toSus dom.get
+      args.foldrM (init := ← quoteNeutral lvl env neu) fun arg acc => do
+        pure $ .app arg.2.toSus acc $ ← quote lvl arg.1.info.toSus env arg.1.get
+    | .lam name binfo dom bod env' => do
+      let dom ← quote lvl dom.info.toSus env dom.get
       -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value
       let var := mkSusVar default name lvl
-      let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
+      let bod ← quoteExpr (lvl+1) bod (env'.extendWith var)
       pure $ .lam info name binfo dom bod
-    | .pi name binfo dom img env => do
-      let dom ← quote lvl dom.info.toSus dom.get
+    | .pi name binfo dom img env' => do
+      let dom ← quote lvl dom.info.toSus env dom.get
       let var := mkSusVar default name lvl
-      let img ← quoteExpr (lvl+1) img (env.extendWith var)
+      let img ← quoteExpr (lvl+1) img (env'.extendWith var)
       pure $ .pi info name binfo dom img
     | .lit lit => pure $ .lit info lit
     | .litProp _ => throw $ .custom "TODO"
@@ -318,7 +317,7 @@ mutual
       -- NOTE: if everything is correct, then `info` should coincide with `val.info`. We will choose `info` since
       -- this allows us to add values to the environment without knowing which `TypeInfo` it should take. See their
       -- previous note
-     | some val => quote lvl info val.get
+     | some val => quote lvl info env val.get
      | none => throw $ .custom s!"Unbound variable {name}"
     | .app info fnc arg => do
       let fnc ← quoteExpr lvl fnc env
@@ -343,15 +342,15 @@ mutual
     | .proj info ind idx expr => do
       let expr ← quoteExpr lvl expr env
       pure $ .proj info ind idx expr
-    | .const .. => pure expr
-    | .sort .. => pure expr
+    | .const info name idx univs => pure $ .const info name idx (univs.map (Univ.instBulkReduce env.univs))
+    | .sort info univ => pure $ .sort info (univ.instBulkReduce env.univs)
     | .lit .. => pure expr
 
-  partial def quoteNeutral (lvl : Nat) : Neutral → TypecheckM TypedExpr
+  partial def quoteNeutral (lvl : Nat) (env : Env) : Neutral → TypecheckM TypedExpr
     -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to `Neutral`
     | .fvar  nam idx => pure $ .var default nam (lvl - idx - 1)
-    | .const nam cidx univs => pure $ .const default nam cidx univs
+    | .const nam cidx univs => pure $ .const default nam cidx (univs.map (Univ.instBulkReduce env.univs))
     | .proj  nam ind val => do
-      pure $ .proj default nam ind (← quote lvl val.info.toSus val.value)
+      pure $ .proj default nam ind (← quote lvl val.info.toSus env val.value)
 end
 end Yatima.Typechecker
