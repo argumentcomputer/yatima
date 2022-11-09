@@ -214,20 +214,19 @@ else if `v`.cidx == 1
 
 namespace Yatima.Transpiler
 
-open TC Lurk.Syntax.DSL Lurk.Syntax.SExpr.DSL
+open TC Lurk.Syntax AST DSL
 
 def replaceName (name : Name) : TranspileM Name := do
   if name.isHygenic then
     match (← get).replaced.find? name with
-      | some n =>
-        return n
-      | none   => replaceFreshId name
+    | some n => return n
+    | none   => replaceFreshId name
   else return name
 
-def mkName (name : Name) : TranspileM Lurk.Syntax.Expr := do
-  .sym <$> replaceName name
+def mkName (name : Name) : TranspileM AST := do
+  toAST <$> replaceName name
 
-def mkIndLiteral (ind : Inductive) : TranspileM Lurk.Syntax.Expr := do
+def mkIndLiteral (ind : Inductive) : TranspileM AST := do
   let (name, params, indices, type) := (toString ind.name, ind.params, ind.indices, ind.type)
   let (_, args) := telescope type
   let args : List Name ← args.mapM fun (n, _) => replaceName n
@@ -237,15 +236,10 @@ def mkIndLiteral (ind : Inductive) : TranspileM Lurk.Syntax.Expr := do
     return ⟦(lambda ($args) ,($name $params $indices))⟧
 
 /-- TODO explain this; `p` is `params`, `i` is `indices` -/
-def splitCtorArgs (args : List Lurk.Syntax.Expr) (p i : Nat) : List (List Lurk.Syntax.Expr) :=
+def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
   let (params, rest) := args.splitAt p
   let (indices, args) := rest.splitAt i
   [params, indices, args]
-
--- def patchBrecOn (e : Lurk.Syntax.Expr) : Lurk.Syntax.Expr :=
---   match e with
---   | x => _
---   | _ => _
 
 mutual
 
