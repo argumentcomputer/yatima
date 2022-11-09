@@ -1,10 +1,8 @@
 import Yatima.Datatypes.Store
 import Yatima.LurkData.Move
 
-/-! 
-We follow the convention `LurkData.to<object>`
--/
 namespace Yatima.LurkData
+
 open Lurk.Syntax AST
 
 def toNat : AST → Option Nat
@@ -22,11 +20,9 @@ def toNat? : AST → Option (Option Nat)
   | _ => none
 
 def toList (es : AST) : Option $ List AST :=
-  let rec aux (acc : List AST) : AST → Option (List AST)
-    | .cons e e'@(.cons ..) => aux (e :: acc) e'
-    | .cons e .nil => e :: acc
-    | _ => none
-  aux [] es |>.map List.reverse
+  match es.telescopeCons with
+  | (es, .nil) => es.data
+  | _ => none
 
 def toName (parts : AST) : Option Name := do
   (← toList parts).foldlM (init := .anonymous) fun acc i =>

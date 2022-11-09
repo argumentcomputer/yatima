@@ -14,7 +14,6 @@ instance [ToAST α] [ToAST β] : ToAST (α ⊕ β) where toAST
   | .inl a => toAST a
   | .inr b => toAST b
 
--- TODO: this is bad?
 instance [ToAST α] : ToAST (Option α) where toAST
   | none   => .nil
   | some a => toAST [a] -- Note we can't write `toAST a` here because `a` could be `nil`
@@ -22,6 +21,18 @@ instance [ToAST α] : ToAST (Option α) where toAST
 end Lurk.Syntax
 
 namespace Yatima.IR
+
+def partitionName (name : Name) : List (String ⊕ Nat) :=
+  let rec aux (acc : List (String ⊕ Nat)) : Name → List (String ⊕ Nat)
+    | .str name s => aux ((.inl s) :: acc) name
+    | .num name n => aux ((.inr n) :: acc) name
+    | .anonymous  => acc
+  aux [] name
+
+instance : ToAST Name where
+  toAST x :=
+    let parts := (partitionName x).foldl (fun acc y =>acc.push (toAST y)) #[]
+    consWith parts.data .nil
 
 instance : ToAST (UnivCid  k) where toAST u := ~[.comm, .f u.data]
 instance : ToAST (ExprCid  k) where toAST u := ~[.comm, .f u.data]
