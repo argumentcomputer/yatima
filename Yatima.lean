@@ -24,12 +24,9 @@ import Yatima.Datatypes.Scalar
 import Yatima.Datatypes.Split
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Univ
-import Yatima.Ipld.FromIpld
-import Yatima.Ipld.PrimCids
-import Yatima.Ipld.ToIpld
-import Yatima.LurkData.FromLurkData
-import Yatima.LurkData.PrimConsts
-import Yatima.LurkData.ToLurkData
+import Yatima.Lurk.FromLurkData
+import Yatima.Lurk.PrimConsts
+import Yatima.Lurk.ToLurkData
 import Yatima.Transpiler.LurkFunctions
 import Yatima.Transpiler.Simp
 import Yatima.Transpiler.TranspileError

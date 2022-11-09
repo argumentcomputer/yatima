@@ -212,26 +212,6 @@ else if `v`.cidx == 1
   caseCons n a as (Vector.rec A motive caseNil caseCons n as)
 -/
 
-open Lurk.Syntax in
-/--
-Transforms a list of named expressions that were mutually defined into a
-"switch" function `S` and a set of projections (named after the original names)
-that call `S` with their respective indices.
-
-Important: the resulting expressions must to be bound in a `letrec`.
--/
-def mkMutualBlock : List (Name × Lurk.Syntax.Expr) → List (Name × Lurk.Syntax.Expr)
-  | x@([_]) => x
-  | mutuals =>
-    let names := mutuals.map Prod.fst
-    let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
-    let fnProjs := names.enum.map fun (i, (n : Name)) => (n, .app ⟦$mutualName⟧ (some ⟦$i⟧))
-    let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
-    let mutualBlock := Expr.mkIfElses (mutuals.enum.map fun (i, _, e) =>
-        (⟦(= mutidx $i)⟧, Expr.replaceFreeVars map e)
-      ) ⟦nil⟧
-    (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
-
 namespace Yatima.Transpiler
 
 open TC Lurk.Syntax.DSL Lurk.Syntax.SExpr.DSL
