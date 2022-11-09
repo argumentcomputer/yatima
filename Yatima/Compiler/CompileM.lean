@@ -6,7 +6,7 @@ import Yatima.Compiler.Utils
 namespace Yatima.Compiler
 
 open Std (RBMap)
-open Lurk Hashing Syntax AST
+open Lurk.Hashing Lurk.Syntax AST
 
 /--
 The state for the `Yatima.Compiler.CompileM` monad.
@@ -33,7 +33,7 @@ structure CompileState where
   encodeState : EncodeState
   deriving Inhabited
 
-def CompileState.lurkStore (s : CompileState) : LurkStore :=
+def CompileState.lurkStore (s : CompileState) : Lurk.Store :=
   ⟨s.consts,
     s.univAnon, s.exprAnon, s.constAnon,
     s.univMeta, s.exprMeta, s.constMeta⟩

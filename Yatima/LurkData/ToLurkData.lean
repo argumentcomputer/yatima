@@ -178,13 +178,14 @@ def Const.encode (const : Const k) (stt : EncodeState) :
 instance : ToAST AST where
   toAST a := a
 
-def LurkStore.toLurk.Syntax.AST (store : LurkStore) : Lurk.Syntax.AST :=
-  ~[toAST store.consts,
-    toAST store.univAnon,
-    toAST store.exprAnon,
-    toAST store.constAnon,
-    toAST store.univMeta,
-    toAST store.exprMeta,
-    toAST store.constMeta]
+instance : ToAST Lurk.Store where
+  toAST store :=
+    ~[toAST store.consts,
+      toAST store.univAnon,
+      toAST store.exprAnon,
+      toAST store.constAnon,
+      toAST store.univMeta,
+      toAST store.exprMeta,
+      toAST store.constMeta]
 
 end Yatima.IR
