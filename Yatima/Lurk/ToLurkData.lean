@@ -1,5 +1,6 @@
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Scalar
+import Yatima.Lurk.Utils
 import Lurk.Hashing.Encoding
 
 open Lurk.Syntax AST ToAST
@@ -174,9 +175,6 @@ def Const.encode (const : Const k) (stt : EncodeState) :
   let data := const.toLurk
   let (ptr, store) := data.encode' stt
   (data, ⟨ptr⟩, store)
-
-instance : ToAST AST where
-  toAST a := a
 
 instance : ToAST Lurk.Store where
   toAST store :=

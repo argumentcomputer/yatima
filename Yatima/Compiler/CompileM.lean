@@ -1,6 +1,6 @@
 import Yatima.Datatypes.Store
 import Yatima.Compiler.CompileError
-import Yatima.LurkData.ToLurkData
+import Yatima.Lurk.ToLurkData
 import Yatima.Compiler.Utils
 
 namespace Yatima.Compiler

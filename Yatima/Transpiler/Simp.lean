@@ -1,4 +1,5 @@
 import Lurk.Syntax.DSL
+import Lurk.Field
 
 /-!
 # Simp
@@ -12,13 +13,13 @@ A rudimentary simplifier for lurk expressions.
 -/
 namespace Yatima.Transpiler.Simp
 
-open Lurk.Syntax in
-def getOfNatLit : Expr → Option (Fin N)
-  | .app (.app (.app f nat?) (some n)) (some $ .app inst m) =>
+open Lurk.Syntax AST DSL in
+def getOfNatLit : AST → Option Lurk.F
+  | ~[~[~[f, nat?], n], ~[inst, m]] =>
     if f == ⟦$(``OfNat.ofNat)⟧ && nat? == ⟦$(``Nat)⟧ && n == m &&
         inst == ⟦$(``instOfNatNat)⟧ then
       match n with
-      | .lit (.num n) => some n
+      | .num n => some $ .ofNat n
       | _ => none
     else
       none

@@ -1,6 +1,6 @@
 import Yatima.Compiler.Printing
 import YatimaStdLib.RBMap
-import Yatima.LurkData.PrimConsts
+import Yatima.Lurk.PrimConsts
 import YatimaStdLib.List
 
 namespace Yatima.Compiler

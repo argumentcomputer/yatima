@@ -1,7 +1,7 @@
 import Yatima.Datatypes.Store
 import Lurk.Hashing.Datatypes
 
-namespace Yatima.LurkData
+namespace Yatima.Lurk
 
 open Lurk.Syntax AST
 
@@ -112,9 +112,7 @@ def toSplitDefinitionSafetyUnit :
   | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-open Lurk (Tag)
-
-def toTag : Nat → Option Tag
+def toTag : Nat → Option Lurk.Tag
   | 0 => some .nil
   | 1 => some .cons
   | 2 => some .sym
@@ -381,4 +379,4 @@ def toStore : AST → Option IR.Store
       ← toConstMetaMap (← toList constMeta)⟩
   | _ => none
 
-end Yatima.LurkData
+end Yatima.Lurk

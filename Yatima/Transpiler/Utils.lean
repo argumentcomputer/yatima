@@ -4,9 +4,9 @@ import Lurk.Syntax.DSL
 namespace Yatima.Transpiler
 
 inductive StoreKey : Type → Type
-  | univ  : IR.BothUnivCid  → StoreKey (IR.Both IR.Univ)
-  | expr  : IR.BothExprCid  → StoreKey (IR.Both IR.Expr)
-  | const : IR.BothConstCid → StoreKey (IR.Both IR.Const)
+  | univ  : IR.BothUnivScalar  → StoreKey (IR.Both IR.Univ)
+  | expr  : IR.BothExprScalar  → StoreKey (IR.Both IR.Expr)
+  | const : IR.BothConstScalar → StoreKey (IR.Both IR.Const)
 
 def StoreKey.find? : (key : StoreKey A) → TranspileM (Option A)
   | .univ  univCid => do
@@ -48,7 +48,7 @@ def getMutualIndInfo (ind : Inductive) :
       | some cid => pure cid
       | none => throw $ .notFoundInStore ind.name
     | none => throw $ .notFoundInStore ind.name
-  let blockCid : IR.BothConstCid := ← match ← StoreKey.find! $ .const cid with 
+  let blockCid : IR.BothConstScalar := ← match ← StoreKey.find! $ .const cid with 
     | ⟨.inductiveProj indAnon, .inductiveProj indMeta⟩ => 
       return ⟨indAnon.block, indMeta.block⟩
     | _ => throw $ .custom "cid not found in store"
@@ -124,31 +124,3 @@ def Lean.Name.isHygenic : Name → Bool
   | str p s => if s == "_hyg" then true else p.isHygenic
   | num p _ => p.isHygenic
   | _       => false
-
-/-
-TODO : Re-visit whether these are actually necessary? 
-
-Presumably with the refactor of `Lurk.lean` there's no point in having these, but I included
-them so things compile
--/
-
-namespace Lurk.Syntax
-
-open DSL Expr Lean
-
-def Expr.mkMutualBlock (mutuals : List (Name × Syntax.Expr)) : List (Name × Syntax.Expr) :=
-  if mutuals.length == 1 then 
-    mutuals 
-  else 
-    let names := mutuals.map Prod.fst
-    let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
-    let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
-    let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
-    let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
-        (⟦(= mutidx $i)⟧, replaceFreeVars map e)
-      ) ⟦nil⟧
-    (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
-
-def Expr.toImplicitLambda : Expr → Expr
-  | .lam _ body => toImplicitLambda body
-  | x => x

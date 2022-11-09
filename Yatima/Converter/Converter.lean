@@ -2,7 +2,7 @@ import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
-import Yatima.LurkData.PrimConsts
+import Yatima.Lurk.PrimConsts
 
 namespace Yatima
 
