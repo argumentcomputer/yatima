@@ -280,9 +280,12 @@ mutual
               -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
               let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
                 match (← read).store.consts.get? idx with
+                | .some (.intRecursor data)
+                | .some (.extRecursor data)
+                | .some (.inductive data)
                 | .some (.constructor data) =>
                   -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
-                  let (type, _)  ← isSort data.type
+                  let (type, _)  ← withMutTypes acc $ isSort data.type
                   let ctx ← read
                   let stt ← get
                   let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
