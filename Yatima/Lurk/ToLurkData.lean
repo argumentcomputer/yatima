@@ -1,6 +1,5 @@
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Scalar
-import Yatima.Lurk.Utils
 import Lurk.Hashing.Encoding
 
 open Lurk.Syntax AST ToAST
