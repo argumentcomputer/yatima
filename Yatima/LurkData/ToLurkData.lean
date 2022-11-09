@@ -1,6 +1,6 @@
 import Yatima.Datatypes.Store
-import Yatima.Datatypes.Cid
-import Yatima.LurkData.Move
+import Yatima.Datatypes.Scalar
+import Lurk.Hashing.Encoding
 
 open Lurk.Syntax AST ToAST
 
@@ -8,7 +8,7 @@ namespace Lurk.Syntax
 
 instance : ToAST Bool where toAST
   | false => .nil
-  | true  => .t
+  | true  => .sym "T"
 
 instance [ToAST α] [ToAST β] : ToAST (α ⊕ β) where toAST
   | .inl a => toAST a
@@ -31,12 +31,17 @@ def partitionName (name : Name) : List (String ⊕ Nat) :=
 
 instance : ToAST Name where
   toAST x :=
-    let parts := (partitionName x).foldl (fun acc y =>acc.push (toAST y)) #[]
+    let parts := (partitionName x).foldl (fun acc y => acc.push (toAST y)) #[]
     consWith parts.data .nil
 
-instance : ToAST (UnivCid  k) where toAST u := ~[.comm, .f u.data]
-instance : ToAST (ExprCid  k) where toAST u := ~[.comm, .f u.data]
-instance : ToAST (ConstCid k) where toAST u := ~[.comm, .f u.data]
+open Lurk.Hashing
+
+instance : ToAST ScalarPtr where
+  toAST x := ~[toAST x.tag.toF.val, toAST x.val.val]
+
+instance : ToAST (UnivScalar  k) where toAST u := toAST u.data
+instance : ToAST (ExprScalar  k) where toAST u := toAST u.data
+instance : ToAST (ConstScalar k) where toAST u := toAST u.data
 
 instance : ToAST BinderInfo where toAST
   | .default        => toAST 0
@@ -74,7 +79,7 @@ instance : ToAST (Recursor b k) where toAST
       toAST m,
       toAST m',
       toAST rs,
-      toAST k ]
+      toAST k]
 
 instance : ToAST (Sigma (Recursor · k)) where toAST
   | .mk b (.mk n l ty p i m m' rs k) =>
@@ -87,7 +92,7 @@ instance : ToAST (Sigma (Recursor · k)) where toAST
       toAST m,
       toAST m',
       toAST rs,
-      toAST k ]
+      toAST k]
 
 instance : ToAST (Constructor k) where toAST
   | .mk n ty l i p f r s =>
@@ -98,7 +103,7 @@ instance : ToAST (Constructor k) where toAST
       toAST p,
       toAST f,
       toAST r,
-      toAST s ]
+      toAST s]
 
 instance : ToAST (Inductive k) where toAST
   | .mk n l ty p i cs rs r s r' =>
@@ -111,7 +116,7 @@ instance : ToAST (Inductive k) where toAST
       toAST rs,
       toAST r,
       toAST s,
-      toAST r' ]
+      toAST r']
 
 instance : ToAST QuotKind where toAST
   | .type => toAST 0
@@ -120,58 +125,61 @@ instance : ToAST QuotKind where toAST
   | .ind  => toAST 3
 
 instance : ToAST (Definition k) where toAST
-  | .mk n l ty v s =>
-    ~[toAST n,
-      toAST l,
-      toAST ty,
-      toAST v,
-      toAST s ]
+  | .mk n l ty v s => ~[toAST n, toAST l, toAST ty, toAST v, toAST s]
 
 def Univ.toLurk : Univ k → Lurk.Syntax.AST
-  | .zero     => ~[.u64 $ UNIV k, .num 0]
-  | .succ p   => ~[.u64 $ UNIV k, .num 1, toAST p]
-  | .max a b  => ~[.u64 $ UNIV k, .num 2, toAST a, toAST b]
-  | .imax a b => ~[.u64 $ UNIV k, .num 3, toAST a, toAST b]
-  | .var n    => ~[.u64 $ UNIV k, .num 4, toAST n]
+  | .zero     => ~[.num 0]
+  | .succ p   => ~[.num 1, toAST p]
+  | .max a b  => ~[.num 2, toAST a, toAST b]
+  | .imax a b => ~[.num 3, toAST a, toAST b]
+  | .var n    => ~[.num 4, toAST n]
 
 def Expr.toLurk : Expr k → Lurk.Syntax.AST
-  | .var n i ls    => ~[.u64 $ EXPR k, .num 0, toAST n, toAST i, toAST ls]
-  | .sort u        => ~[.u64 $ EXPR k, .num 1, toAST u]
-  | .const n c ls  => ~[.u64 $ EXPR k, .num 2, toAST n, toAST c, toAST ls]
-  | .app f a       => ~[.u64 $ EXPR k, .num 3, toAST f, toAST a]
-  | .lam n i d b   => ~[.u64 $ EXPR k, .num 4, toAST n, toAST i, toAST d, toAST b]
-  | .pi n i d b    => ~[.u64 $ EXPR k, .num 5, toAST n, toAST i, toAST d, toAST b]
-  | .letE n ty v b => ~[.u64 $ EXPR k, .num 6, toAST n, toAST ty, toAST v, toAST b]
-  | .lit l         => ~[.u64 $ EXPR k, .num 7, toAST l]
-  | .proj n e      => ~[.u64 $ EXPR k, .num 8, toAST n, toAST e]
+  | .var n i ls    => ~[.num 0, toAST n, toAST i, toAST ls]
+  | .sort u        => ~[.num 1, toAST u]
+  | .const n c ls  => ~[.num 2, toAST n, toAST c, toAST ls]
+  | .app f a       => ~[.num 3, toAST f, toAST a]
+  | .lam n i d b   => ~[.num 4, toAST n, toAST i, toAST d, toAST b]
+  | .pi n i d b    => ~[.num 5, toAST n, toAST i, toAST d, toAST b]
+  | .letE n ty v b => ~[.num 6, toAST n, toAST ty, toAST v, toAST b]
+  | .lit l         => ~[.num 7, toAST l]
+  | .proj n e      => ~[.num 8, toAST n, toAST e]
 
 def Const.toLurk : Const k → Lurk.Syntax.AST
-  | .axiom ⟨n, l, ty, s⟩                 => ~[.u64 $ CONST k, .num 0, toAST n, toAST l, toAST ty, toAST s]
-  | .theorem ⟨n, l, ty, v⟩               => ~[.u64 $ CONST k, .num 1, toAST n, toAST l, toAST ty, toAST v]
-  | .opaque ⟨n, l, ty, v, s⟩             => ~[.u64 $ CONST k, .num 2, toAST n, toAST l, toAST ty, toAST v, toAST s]
-  | .quotient ⟨n, l, ty, K⟩              => ~[.u64 $ CONST k, .num 3, toAST n, toAST l, toAST ty, toAST K]
-  | .inductiveProj ⟨n, l, ty, b, i⟩      => ~[.u64 $ CONST k, .num 5, toAST n, toAST l, toAST ty, toAST b, toAST i]
-  | .constructorProj ⟨n, l, ty, b, i, j⟩ => ~[.u64 $ CONST k, .num 6, toAST n, toAST l, toAST ty, toAST b, toAST i, toAST j]
-  | .recursorProj ⟨n, l, ty, b, i, j⟩    => ~[.u64 $ CONST k, .num 7, toAST n, toAST l, toAST ty, toAST b, toAST i, toAST j]
-  | .definitionProj ⟨n, l, ty, b, i⟩     => ~[.u64 $ CONST k, .num 8, toAST n, toAST l, toAST ty, toAST b, toAST i]
-  | .mutDefBlock b                       => ~[.u64 $ CONST k, .num 9, toAST b]
-  | .mutIndBlock b                       => ~[.u64 $ CONST k, .num 10, toAST b]
+  | .axiom ⟨n, l, ty, s⟩                 => ~[.num 0, toAST n, toAST l, toAST ty, toAST s]
+  | .theorem ⟨n, l, ty, v⟩               => ~[.num 1, toAST n, toAST l, toAST ty, toAST v]
+  | .opaque ⟨n, l, ty, v, s⟩             => ~[.num 2, toAST n, toAST l, toAST ty, toAST v, toAST s]
+  | .quotient ⟨n, l, ty, K⟩              => ~[.num 3, toAST n, toAST l, toAST ty, toAST K]
+  | .inductiveProj ⟨n, l, ty, b, i⟩      => ~[.num 5, toAST n, toAST l, toAST ty, toAST b, toAST i]
+  | .constructorProj ⟨n, l, ty, b, i, j⟩ => ~[.num 6, toAST n, toAST l, toAST ty, toAST b, toAST i, toAST j]
+  | .recursorProj ⟨n, l, ty, b, i, j⟩    => ~[.num 7, toAST n, toAST l, toAST ty, toAST b, toAST i, toAST j]
+  | .definitionProj ⟨n, l, ty, b, i⟩     => ~[.num 8, toAST n, toAST l, toAST ty, toAST b, toAST i]
+  | .mutDefBlock b                       => ~[.num 9, toAST b]
+  | .mutIndBlock b                       => ~[.num 10, toAST b]
 
-def Univ.toCid (univ : Univ k) : Lurk.Syntax.AST × UnivCid k :=
+def Univ.encode (univ : Univ k) (stt : EncodeState) :
+    Lurk.Syntax.AST × UnivScalar k × EncodeState :=
   let data := univ.toLurk
-  (data, ⟨hash data⟩)
+  let (ptr, store) := data.encode' stt
+  (data, ⟨ptr⟩, store)
 
-def Expr.toCid (expr : Expr k) : Lurk.Syntax.AST × ExprCid k :=
+def Expr.encode (expr : Expr k) (stt : EncodeState) :
+    Lurk.Syntax.AST × ExprScalar k × EncodeState :=
   let data := expr.toLurk
-  (data, ⟨hash data⟩)
+  let (ptr, store) := data.encode' stt
+  (data, ⟨ptr⟩, store)
 
-def Const.toCid (const : Const k) : Lurk.Syntax.AST × ConstCid k :=
+def Const.encode (const : Const k) (stt : EncodeState) :
+    Lurk.Syntax.AST × ConstScalar k × EncodeState :=
   let data := const.toLurk
-  (data, ⟨hash data⟩)
+  let (ptr, store) := data.encode' stt
+  (data, ⟨ptr⟩, store)
+
+instance : ToAST AST where
+  toAST a := a
 
 def LurkStore.toLurk.Syntax.AST (store : LurkStore) : Lurk.Syntax.AST :=
-  ~[.u64 STORE,
-    toAST store.consts,
+  ~[toAST store.consts,
     toAST store.univAnon,
     toAST store.exprAnon,
     toAST store.constAnon,

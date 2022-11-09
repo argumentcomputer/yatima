@@ -23,7 +23,7 @@ def getLeanConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
   | none => throw $ .unknownConstant name
 
 /-- Compiles a Lean universe level and adds it to the store -/
-def compileUniv (l : Lean.Level) : CompileM (IR.BothUnivCid × TC.Univ) := do
+def compileUniv (l : Lean.Level) : CompileM (IR.BothUnivScalar × TC.Univ) := do
   let (value, univ) ← match l with
     | .zero =>
       let value := ⟨ .zero, .zero ⟩
@@ -98,7 +98,7 @@ mutual
   `compileConstant` to do the actual compilation.
   -/
   partial def getCompiledConst (const : Lean.ConstantInfo) :
-      CompileM $ IR.BothConstCid × TC.ConstIdx := do
+      CompileM $ IR.BothConstScalar × TC.ConstIdx := do
     let name := const.name
     let log  := (← read).log
     match (← get).cache.find? name with
@@ -119,7 +119,7 @@ mutual
 
   For other cases, adds them to the cache, the store and the array of constants.
   -/
-  partial def compileConstant : Lean.ConstantInfo → CompileM (IR.BothConstCid × TC.ConstIdx)
+  partial def compileConstant : Lean.ConstantInfo → CompileM (IR.BothConstScalar × TC.ConstIdx)
   -- These cases add multiple constants at the same time
   | .defnInfo struct => withLevelsAndReset struct.levelParams $ compileDefinition struct
   | .inductInfo struct => withLevelsAndReset struct.levelParams $ compileInductive struct
@@ -197,7 +197,7 @@ mutual
   * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
   and thus we can compile the actual constant right away
   -/
-  partial def compileExpr : Lean.Expr → CompileM (IR.BothExprCid × TC.Expr)
+  partial def compileExpr : Lean.Expr → CompileM (IR.BothExprScalar × TC.Expr)
   | .mdata _ e => compileExpr e
   | expr => do
     match expr with
@@ -280,7 +280,7 @@ mutual
   constructors and recursors, hence the lenght of this function.
   -/
   partial def compileInductive (initInd : Lean.InductiveVal) :
-      CompileM (IR.BothConstCid × TC.ConstIdx) := do
+      CompileM (IR.BothConstScalar × TC.ConstIdx) := do
     -- `mutualConsts` is the list of the names of all constants associated with an
     -- inductive block: the inductives themselves, the constructors and the recursors
     let mut mutualConsts : List Lean.Name := []
@@ -317,7 +317,7 @@ mutual
 
     -- While iterating on the inductives from the mutual block, we need to track
     -- the correct objects to return
-    let mut ret? : Option (IR.BothConstCid × TC.ConstIdx) := none
+    let mut ret? : Option (IR.BothConstScalar × TC.ConstIdx) := none
 
     -- `constIdx` keeps track of the constant index for the next addition to cache
     let mut constIdx := firstIdx
@@ -581,7 +581,7 @@ mutual
   This function is rather similar to `Yatima.Compiler.compileInductive`.
   -/
   partial def compileDefinition (struct : Lean.DefinitionVal) :
-      CompileM (IR.BothConstCid × TC.ConstIdx) := do
+      CompileM (IR.BothConstScalar × TC.ConstIdx) := do
     let mutualSize := struct.all.length
 
     -- This solves an issue in which the constant name comes different in the
@@ -620,7 +620,7 @@ mutual
 
     -- While iterating on the definitions from the mutual block, we need to track
     -- the correct objects to return
-    let mut ret? : Option (IR.BothConstCid × TC.ConstIdx) := none
+    let mut ret? : Option (IR.BothConstScalar × TC.ConstIdx) := none
 
     let mut i : Nat := 0
     for (⟨defnAnon, defnMeta⟩, defn) in definitions.join do

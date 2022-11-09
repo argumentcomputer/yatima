@@ -31,15 +31,15 @@ inductive Expr (k : Kind)
   -- definitions, so the second argument indicates the index of reference inside
   -- the weakly equal group. And when referencing constants, the third argument
   -- keeps track of the universe levels
-  | var   : NatₐNameₘ k → Nat?ₘ k → List (UnivCid k) → Expr k
-  | sort  : UnivCid k → Expr k
-  | const : Nameₘ k → ConstCid k → List (UnivCid k) → Expr k
-  | app   : ExprCid k → ExprCid k → Expr k
-  | lam   : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
-  | pi    : Nameₘ k → BinderInfoₐ k → ExprCid k → ExprCid k → Expr k
-  | letE  : Nameₘ k → ExprCid k → ExprCid k → ExprCid k → Expr k
+  | var   : NatₐNameₘ k → Nat?ₘ k → List (UnivScalar k) → Expr k
+  | sort  : UnivScalar k → Expr k
+  | const : Nameₘ k → ConstScalar k → List (UnivScalar k) → Expr k
+  | app   : ExprScalar k → ExprScalar k → Expr k
+  | lam   : Nameₘ k → BinderInfoₐ k → ExprScalar k → ExprScalar k → Expr k
+  | pi    : Nameₘ k → BinderInfoₐ k → ExprScalar k → ExprScalar k → Expr k
+  | letE  : Nameₘ k → ExprScalar k → ExprScalar k → ExprScalar k → Expr k
   | lit   : Split Literal Unit k → Expr k
-  | proj  : Natₐ k → ExprCid k → Expr k
+  | proj  : Natₐ k → ExprScalar k → Expr k
   deriving Inhabited, BEq, Ord
 
 def Expr.ctorName : Expr k → String

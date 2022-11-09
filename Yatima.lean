@@ -16,11 +16,11 @@ import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
 import Yatima.Converter.Converter
-import Yatima.Datatypes.Cid
 import Yatima.Datatypes.Const
 import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Kind
 import Yatima.Datatypes.Lean
+import Yatima.Datatypes.Scalar
 import Yatima.Datatypes.Split
 import Yatima.Datatypes.Store
 import Yatima.Datatypes.Univ
@@ -28,7 +28,6 @@ import Yatima.Ipld.FromIpld
 import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld
 import Yatima.LurkData.FromLurkData
-import Yatima.LurkData.Move
 import Yatima.LurkData.PrimConsts
 import Yatima.LurkData.ToLurkData
 import Yatima.Transpiler.LurkFunctions

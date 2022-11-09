@@ -1,4 +1,4 @@
-import Yatima.Datatypes.Cid
+import Yatima.Datatypes.Scalar
 import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Split
 
@@ -12,9 +12,9 @@ scoped notation "NatₐNameₘ" => Split Nat Name
 /-- Parametric representation of universe levels for IPLD -/
 inductive Univ (k : Kind) where
   | zero
-  | succ  : UnivCid k → Univ k
-  | max   : UnivCid k → UnivCid k → Univ k
-  | imax  : UnivCid k → UnivCid k → Univ k
+  | succ  : UnivScalar k → Univ k
+  | max   : UnivScalar k → UnivScalar k → Univ k
+  | imax  : UnivScalar k → UnivScalar k → Univ k
   | var   : NatₐNameₘ k → Univ k
   deriving Inhabited, BEq, Ord
 

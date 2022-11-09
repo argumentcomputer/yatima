@@ -1,5 +1,5 @@
 import Yatima.Datatypes.Store
-import Yatima.LurkData.Move
+import Lurk.Hashing.Datatypes
 
 namespace Yatima.LurkData
 
@@ -10,7 +10,7 @@ def toNat : AST → Option Nat
   | _ => none
 
 def toBool : AST → Option Bool
-  | .t => return true
+  | .sym "T" => return true
   | .nil => return false
   | _ => none
 
@@ -112,24 +112,38 @@ def toSplitDefinitionSafetyUnit :
   | .meta, .cons (.num 1) .nil => return .injᵣ ()
   | _, _ => none
 
-def toUnivCid : AST → Option (UnivCid k)
-  | ~[.comm, .num c] => return ⟨.ofNat c⟩
+open Lurk (Tag)
+
+def toTag : Nat → Option Tag
+  | 0 => some .nil
+  | 1 => some .cons
+  | 2 => some .sym
+  | 3 => some .fun
+  | 4 => some .num
+  | 5 => some .thunk
+  | 6 => some .str
+  | 7 => some .char
+  | 8 => some .comm
   | _ => none
 
-def toExprCid : AST → Option (ExprCid k)
-  | ~[.comm, .num c] => return ⟨.ofNat c⟩
+def toUnivScalar : AST → Option (UnivScalar k)
+  | ~[.num t, .num v] => return ⟨← toTag t, .ofNat v⟩
   | _ => none
 
-def toConstCid : AST → Option (ConstCid k)
-  | ~[.comm, .num c] => return ⟨.ofNat c⟩
+def toExprScalar : AST → Option (ExprScalar k)
+  | ~[.num t, .num v] => return ⟨← toTag t, .ofNat v⟩
   | _ => none
 
-def toListUnivCid (es : AST) : Option (List (UnivCid k)) := do
-  (← toList es).mapM toUnivCid
+def toConstScalar : AST → Option (ConstScalar k)
+  | ~[.num t, .num v] => return ⟨← toTag t, .ofNat v⟩
+  | _ => none
+
+def toListUnivScalar (es : AST) : Option (List (UnivScalar k)) := do
+  (← toList es).mapM toUnivScalar
 
 def toDefinition : AST → Option (Definition k)
   | ~[n, l, ty, v, s] =>
-    return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprCid ty, ← toExprCid v,
+    return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprScalar ty, ← toExprScalar v,
       ← toSplitDefinitionSafetyUnit k s⟩
   | _ => none
 
@@ -150,15 +164,15 @@ def toMutDefBlock :
 def toConstructor : AST → Option (Constructor k)
   | ~[n, ty, l, i, p, f, r, s] =>
     return ⟨← toNameₘ k n, ← toNatₐListNameₘ k ty,
-      ← toExprCid l, ← toNatₐ k i, ← toNatₐ k p,
-      ← toNatₐ k f, ← toExprCid r, ← toBoolₐ k s⟩
+      ← toExprScalar l, ← toNatₐ k i, ← toNatₐ k p,
+      ← toNatₐ k f, ← toExprScalar r, ← toBoolₐ k s⟩
   | _ => none
 
 def toListConstructor (es : AST) : Option (List (Constructor k)) := do
   (← toList es).mapM toConstructor
 
 def toRecursorRule : AST → Option (RecursorRule k)
-  | ~[c, f, r] => return ⟨← toConstCid c, ← toNatₐ k f, ← toExprCid r⟩
+  | ~[c, f, r] => return ⟨← toConstScalar c, ← toNatₐ k f, ← toExprScalar r⟩
   | _ => none
 
 def toListRecursorRule (es : AST) : Option (List (RecursorRule k)) := do
@@ -171,7 +185,7 @@ def toSplitUnitListRecursorRule :
   | _, _ => none
 
 def toRecType : AST → Option RecType
-  | .t   => return .intr
+  | .sym "T" => return .intr
   | .nil => return .extr
   | _ => none
 
@@ -179,7 +193,7 @@ def toSigmaRecursor : AST → Option (Sigma (Recursor · k))
   | ~[b, n, l, ty, p, i, m, m', rs, k'] => do
     let recType ← toRecType b
     return ⟨recType,
-      ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprCid ty,
+      ⟨← toNameₘ k n, ← toNatₐListNameₘ k l, ← toExprScalar ty,
         ← toNatₐ k p, ← toNatₐ k i,
         ← toNatₐ k m, ← toNatₐ k m',
         ← toSplitUnitListRecursorRule recType rs,
@@ -192,7 +206,7 @@ def toListSigmaRecursor (es : AST) : Option (List (Sigma (Recursor · k))) := do
 def mutIndFromIpld : AST → Option (Inductive k)
   | ~[n, l, ty, p, i, cs, rs, r, s, r'] =>
     return ⟨← toNameₘ k n, ← toNatₐListNameₘ k l,
-      ← toExprCid ty, ← toNatₐ k p, ← toNatₐ k i,
+      ← toExprScalar ty, ← toNatₐ k p, ← toNatₐ k i,
       ← toListConstructor cs,
       ← toListSigmaRecursor rs,
       ← toBoolₐ k r, ← toBoolₐ k s, ← toBoolₐ k r'⟩
@@ -202,197 +216,159 @@ def toMutIndBlock (es : AST) : Option (List (Inductive k)) := do
   (← toList es).mapM mutIndFromIpld
 
 def toUnivAnon : AST → Option (Univ .anon)
-  | ~[.u64 $ UNIV .anon, .num 0] =>
-    return .zero
-  | ~[.u64 $ UNIV .anon, .num 1, p] =>
-    return .succ (← toUnivCid p)
-  | ~[.u64 $ UNIV .anon, .num 2, a, b] =>
-    return .max (← toUnivCid a) (← toUnivCid b)
-  | ~[.u64 $ UNIV .anon, .num 3, a, b] =>
-    return .imax (← toUnivCid a) (← toUnivCid b)
-  | ~[.u64 $ UNIV .anon, .num 4, n] =>
-    return .var (← toSplitNatₐNameₘ .anon n)
+  | ~[.num 0]       => return .zero
+  | ~[.num 1, p]    => return .succ (← toUnivScalar p)
+  | ~[.num 2, a, b] => return .max (← toUnivScalar a) (← toUnivScalar b)
+  | ~[.num 3, a, b] => return .imax (← toUnivScalar a) (← toUnivScalar b)
+  | ~[.num 4, n]    => return .var (← toSplitNatₐNameₘ .anon n)
   | _ => none
 
 def toUnivMeta : AST → Option (Univ .meta)
-  | ~[.u64 $ UNIV .meta, .num 0] =>
-    return .zero
-  | ~[.u64 $ UNIV .meta, .num 1, p] =>
-    return .succ (← toUnivCid p)
-  | ~[.u64 $ UNIV .meta, .num 2, a, b] =>
-    return .max (← toUnivCid a) (← toUnivCid b)
-  | ~[.u64 $ UNIV .meta, .num 3, a, b] =>
-    return .imax (← toUnivCid a) (← toUnivCid b)
-  | ~[.u64 $ UNIV .meta, .num 4, n] =>
-    return .var (← toSplitNatₐNameₘ .meta n)
+  | ~[.num 0]       => return .zero
+  | ~[.num 1, p]    => return .succ (← toUnivScalar p)
+  | ~[.num 2, a, b] => return .max (← toUnivScalar a) (← toUnivScalar b)
+  | ~[.num 3, a, b] => return .imax (← toUnivScalar a) (← toUnivScalar b)
+  | ~[.num 4, n]    => return .var (← toSplitNatₐNameₘ .meta n)
   | _ => none
 
 def toExprAnon : AST → Option (Expr .anon)
-  | ~[.u64 $ EXPR .anon, .num 0, n, i, ls] =>
-    return .var (← toSplitNatₐNameₘ .anon n) (← toNat?ₘ .anon i)
-      (← toListUnivCid ls)
-  | ~[.u64 $ EXPR .anon, .num 1, u] =>
-    return .sort (← toUnivCid u)
-  | ~[.u64 $ EXPR .anon, .num 2, n, c, ls] =>
-    return .const (← toNameₘ .anon n) (← toConstCid c)
-      (← toListUnivCid ls)
-  | ~[.u64 $ EXPR .anon, .num 3, f, a] =>
-    return .app (← toExprCid f) (← toExprCid a)
-  | ~[.u64 $ EXPR .anon, .num 4, n, i, d, b] =>
-    return .lam (← toNameₘ .anon n) (← toBinderInfoₐ .anon i)
-      (← toExprCid d) (← toExprCid b)
-  | ~[.u64 $ EXPR .anon, .num 5, n, i, d, b] =>
-    return .pi (← toNameₘ .anon n) (← toBinderInfoₐ .anon i)
-      (← toExprCid d) (← toExprCid b)
-  | ~[.u64 $ EXPR .anon, .num 6, n, ty, v, b] =>
-    return .letE (← toNameₘ .anon n) (← toExprCid ty)
-      (← toExprCid v) (← toExprCid b)
-  | ~[.u64 $ EXPR .anon, .num 7, l] =>
+  | ~[.num 0, n, i, ls]    =>
+    return .var (← toSplitNatₐNameₘ .anon n) (← toNat?ₘ .anon i) (← toListUnivScalar ls)
+  | ~[.num 1, u]           =>
+    return .sort (← toUnivScalar u)
+  | ~[.num 2, n, c, ls]    =>
+    return .const (← toNameₘ .anon n) (← toConstScalar c) (← toListUnivScalar ls)
+  | ~[.num 3, f, a]        =>
+    return .app (← toExprScalar f) (← toExprScalar a)
+  | ~[.num 4, n, i, d, b]  =>
+    return .lam (← toNameₘ .anon n) (← toBinderInfoₐ .anon i) (← toExprScalar d) (← toExprScalar b)
+  | ~[.num 5, n, i, d, b]  =>
+    return .pi (← toNameₘ .anon n) (← toBinderInfoₐ .anon i) (← toExprScalar d) (← toExprScalar b)
+  | ~[.num 6, n, ty, v, b] =>
+    return .letE (← toNameₘ .anon n) (← toExprScalar ty) (← toExprScalar v) (← toExprScalar b)
+  | ~[.num 7, l]           =>
     return .lit (← toSplitLiteralUnit .anon l)
-  | ~[.u64 $ EXPR .anon, .num 8, n, e] =>
-    return .proj (← toNatₐ .anon n) (← toExprCid e)
+  | ~[.num 8, n, e]        =>
+    return .proj (← toNatₐ .anon n) (← toExprScalar e)
   | _ => none
 
 def toExprMeta : AST → Option (Expr .meta)
-  | ~[.u64 $ EXPR .meta, .num 0, n, i, ls] =>
-    return .var (← toSplitNatₐNameₘ .meta n) (← toNat?ₘ .meta i)
-      (← toListUnivCid ls)
-  | ~[.u64 $ EXPR .meta, .num 1, u] =>
-    return .sort (← toUnivCid u)
-  | ~[.u64 $ EXPR .meta, .num 2, n, c, ls] =>
-    return .const (← toNameₘ .meta n) (← toConstCid c)
-      (← toListUnivCid ls)
-  | ~[.u64 $ EXPR .meta, .num 3, f, a] =>
-    return .app (← toExprCid f) (← toExprCid a)
-  | ~[.u64 $ EXPR .meta, .num 4, n, i, d, b] =>
-    return .lam (← toNameₘ .meta n) (← toBinderInfoₐ .meta i)
-      (← toExprCid d) (← toExprCid b)
-  | ~[.u64 $ EXPR .meta, .num 5, n, i, d, b] =>
-    return .pi (← toNameₘ .meta n) (← toBinderInfoₐ .meta i)
-      (← toExprCid d) (← toExprCid b)
-  | ~[.u64 $ EXPR .meta, .num 6, n, ty, v, b] =>
-    return .letE (← toNameₘ .meta n) (← toExprCid ty)
-      (← toExprCid v) (← toExprCid b)
-  | ~[.u64 $ EXPR .meta, .num 7, l] =>
+  | ~[.num 0, n, i, ls]    =>
+    return .var (← toSplitNatₐNameₘ .meta n) (← toNat?ₘ .meta i) (← toListUnivScalar ls)
+  | ~[.num 1, u]           =>
+    return .sort (← toUnivScalar u)
+  | ~[.num 2, n, c, ls]    =>
+    return .const (← toNameₘ .meta n) (← toConstScalar c) (← toListUnivScalar ls)
+  | ~[.num 3, f, a]        =>
+    return .app (← toExprScalar f) (← toExprScalar a)
+  | ~[.num 4, n, i, d, b]  =>
+    return .lam (← toNameₘ .meta n) (← toBinderInfoₐ .meta i) (← toExprScalar d) (← toExprScalar b)
+  | ~[.num 5, n, i, d, b]  =>
+    return .pi (← toNameₘ .meta n) (← toBinderInfoₐ .meta i) (← toExprScalar d) (← toExprScalar b)
+  | ~[.num 6, n, ty, v, b] =>
+    return .letE (← toNameₘ .meta n) (← toExprScalar ty) (← toExprScalar v) (← toExprScalar b)
+  | ~[.num 7, l]           =>
     return .lit (← toSplitLiteralUnit .meta l)
-  | ~[.u64 $ EXPR .meta, .num 8, n, e] =>
-    return .proj (← toNatₐ .meta n) (← toExprCid e)
+  | ~[.num 8, n, e]        =>
+    return .proj (← toNatₐ .meta n) (← toExprScalar e)
   | _ => none
 
 def toConstAnon : AST → Option (Const .anon)
-  | ~[.u64 $ CONST .anon, .num 0, n, l, ty, s] =>
-    return .axiom ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toBoolₐ .anon s⟩
-  | ~[.u64 $ CONST .anon, .num 1, n, l, ty, v] =>
-    return .theorem ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toExprCid v⟩
-  | ~[.u64 $ CONST .anon, .num 2, n, l, ty, v, s] =>
-    return .opaque ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toExprCid v, ← toBoolₐ .anon s⟩
-  | ~[.u64 $ CONST .anon, .num 3, n, l, ty, k] =>
-    return .quotient ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toSplitQuotKind .anon k⟩
-  | ~[.u64 $ CONST .anon, .num 5, n, l, ty, b, i] =>
-    return .inductiveProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i⟩
-  | ~[.u64 $ CONST .anon, .num 6, n, l, ty, b, i, j] =>
-    return .constructorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
-  | ~[.u64 $ CONST .anon, .num 7, n, l, ty, b, i, j] =>
-    return .recursorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toConstCid b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
-  | ~[.u64 $ CONST .anon, .num 8, n, l, ty, b, i] =>
-    return .definitionProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l,
-      ← toExprCid ty, ← toConstCid b, ← toNat i⟩
-  | ~[.u64 $ CONST .anon, .num 9, b] =>
+  | ~[.num 0, n, l, ty, s]       =>
+    return .axiom ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toBoolₐ .anon s⟩
+  | ~[.num 1, n, l, ty, v]       =>
+    return .theorem ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toExprScalar v⟩
+  | ~[.num 2, n, l, ty, v, s]    =>
+    return .opaque ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toExprScalar v, ← toBoolₐ .anon s⟩
+  | ~[.num 3, n, l, ty, k]       =>
+    return .quotient ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toSplitQuotKind .anon k⟩
+  | ~[.num 5, n, l, ty, b, i]    =>
+    return .inductiveProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toConstScalar b, ← toNatₐ .anon i⟩
+  | ~[.num 6, n, l, ty, b, i, j] =>
+    return .constructorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toConstScalar b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
+  | ~[.num 7, n, l, ty, b, i, j] =>
+    return .recursorProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toConstScalar b, ← toNatₐ .anon i, ← toNatₐ .anon j⟩
+  | ~[.num 8, n, l, ty, b, i]    =>
+    return .definitionProj ⟨← toNameₘ .anon n, ← toNatₐListNameₘ .anon l, ← toExprScalar ty, ← toConstScalar b, ← toNat i⟩
+  | ~[.num 9, b]                 =>
     return .mutDefBlock (← toMutDefBlock .anon b)
-  | ~[.u64 $ CONST .anon, .num 10, b] =>
+  | ~[.num 10, b]                =>
     return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
 def toConstMeta : AST → Option (Const .meta)
-  | ~[.u64 $ CONST .meta, .num 0, n, l, ty, s] =>
-    return .axiom ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toBoolₐ .meta s⟩
-  | ~[.u64 $ CONST .meta, .num 1, n, l, ty, v] =>
-    return .theorem ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toExprCid v⟩
-  | ~[.u64 $ CONST .meta, .num 2, n, l, ty, v, s] =>
-    return .opaque ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toExprCid v, ← toBoolₐ .meta s⟩
-  | ~[.u64 $ CONST .meta, .num 3, n, l, ty, k] =>
-    return .quotient ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toSplitQuotKind .meta k⟩
-  | ~[.u64 $ CONST .meta, .num 5, n, l, ty, b, i] =>
-    return .inductiveProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i⟩
-  | ~[.u64 $ CONST .meta, .num 6, n, l, ty, b, i, j] =>
-    return .constructorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
-  | ~[.u64 $ CONST .meta, .num 7, n, l, ty, b, i, j] =>
-    return .recursorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toConstCid b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
-  | ~[.u64 $ CONST .meta, .num 8, n, l, ty, b, i] =>
-    return .definitionProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l,
-      ← toExprCid ty, ← toConstCid b, ← toNat i⟩
-  | ~[.u64 $ CONST .meta, .num 9, b] =>
+  | ~[.num 0, n, l, ty, s]       =>
+    return .axiom ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toBoolₐ .meta s⟩
+  | ~[.num 1, n, l, ty, v]       =>
+    return .theorem ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toExprScalar v⟩
+  | ~[.num 2, n, l, ty, v, s]    =>
+    return .opaque ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toExprScalar v, ← toBoolₐ .meta s⟩
+  | ~[.num 3, n, l, ty, k]       =>
+    return .quotient ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toSplitQuotKind .meta k⟩
+  | ~[.num 5, n, l, ty, b, i]    =>
+    return .inductiveProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toConstScalar b, ← toNatₐ .meta i⟩
+  | ~[.num 6, n, l, ty, b, i, j] =>
+    return .constructorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toConstScalar b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
+  | ~[.num 7, n, l, ty, b, i, j] =>
+    return .recursorProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toConstScalar b, ← toNatₐ .meta i, ← toNatₐ .meta j⟩
+  | ~[.num 8, n, l, ty, b, i]    =>
+    return .definitionProj ⟨← toNameₘ .meta n, ← toNatₐListNameₘ .meta l, ← toExprScalar ty, ← toConstScalar b, ← toNat i⟩
+  | ~[.num 9, b]                 =>
     return .mutDefBlock (← toMutDefBlock .meta b)
-  | ~[.u64 $ CONST .meta, .num 10, b] =>
+  | ~[.num 10, b]                =>
     return .mutIndBlock (← toMutIndBlock b)
   | _ => none
 
-def toConstsTree (ar : List AST) : Option (Std.RBSet BothConstCid compare) :=
+def toConstsTree (ar : List AST) : Option (Std.RBSet BothConstScalar compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num anonCid], ~[.comm, .num metaCid]] =>
-      acc.insert ⟨⟨.ofNat anonCid⟩, ⟨.ofNat metaCid⟩⟩
+    | ~[anon, meta] => do acc.insert ⟨← toConstScalar anon, ← toConstScalar meta⟩
     | _ => none
 
 def toUnivAnonMap (ar : List AST) :
-    Option (Std.RBMap (UnivCid .anon) (Univ .anon) compare) :=
+    Option (Std.RBMap (UnivScalar .anon) (Univ .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toUnivAnon e)
+    | ~[ptr, e] => do acc.insert (← toUnivScalar ptr) (← toUnivAnon e)
     | _ => none
 
 def toUnivMetaMap (ar : List AST) :
-    Option (Std.RBMap (UnivCid .meta) (Univ .meta) compare) :=
+    Option (Std.RBMap (UnivScalar .meta) (Univ .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toUnivMeta e)
+    | ~[ptr, e] => do acc.insert (← toUnivScalar ptr) (← toUnivMeta e)
     | _ => none
 
 def toExprAnonMap (ar : List AST) :
-    Option (Std.RBMap (ExprCid .anon) (Expr .anon) compare) :=
+    Option (Std.RBMap (ExprScalar .anon) (Expr .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toExprAnon e)
+    | ~[ptr, e] => do acc.insert (← toExprScalar ptr) (← toExprAnon e)
     | _ => none
 
 def toExprMetaMap (ar : List AST) :
-    Option (Std.RBMap (ExprCid .meta) (Expr .meta) compare) :=
+    Option (Std.RBMap (ExprScalar .meta) (Expr .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toExprMeta e)
+    | ~[ptr, e] => do acc.insert (← toExprScalar ptr) (← toExprMeta e)
     | _ => none
 
 def toConstAnonMap (ar : List AST) :
-    Option (Std.RBMap (ConstCid .anon) (Const .anon) compare) :=
+    Option (Std.RBMap (ConstScalar .anon) (Const .anon) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toConstAnon e)
+    | ~[ptr, e] => do acc.insert (← toConstScalar ptr) (← toConstAnon e)
     | _ => none
 
 def toConstMetaMap (ar : List AST) :
-    Option (Std.RBMap (ConstCid .meta) (Const .meta) compare) :=
+    Option (Std.RBMap (ConstScalar .meta) (Const .meta) compare) :=
   ar.foldlM (init := default) fun acc pair =>
     match pair with
-    | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toConstMeta e)
+    | ~[ptr, e] => do acc.insert (← toConstScalar ptr) (← toConstMeta e)
     | _ => none
 
-def storeFromIpld : AST → Option IR.Store
-  | ~[.u64 STORE,
-      consts,
+def toStore : AST → Option IR.Store
+  | ~[consts,
       univAnon, exprAnon, constAnon,
       univMeta, exprMeta, constMeta] =>
     return ⟨

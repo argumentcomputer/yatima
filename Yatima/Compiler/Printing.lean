@@ -23,7 +23,7 @@ def printDefSafety : DefinitionSafety → String
   | .safe    => ""
   | .partial => "partial "
 
-def getCid (name : Name) : PrintM IR.BothConstCid := do
+def getCid (name : Name) : PrintM IR.BothConstScalar := do
   match (← read).cache.find? name with
   | some (cid, _) => return cid
   | none => throw $ .notFoundInCache name

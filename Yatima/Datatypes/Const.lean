@@ -23,76 +23,76 @@ scoped notation "Boolₐ" => Split Bool Unit
 structure Axiom (k : Kind) where
   name : Nameₘ k
   lvls : NatₐListNameₘ k
-  type : ExprCid k
+  type : ExprScalar k
   safe : Boolₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 structure Theorem (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
-  type  : ExprCid k
-  value : ExprCid k
-  deriving Repr, BEq, Ord
+  type  : ExprScalar k
+  value : ExprScalar k
+  deriving BEq, Ord
 
 structure Opaque (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
-  type  : ExprCid k
-  value : ExprCid k
+  type  : ExprScalar k
+  value : ExprScalar k
   safe  : Boolₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 structure Quotient (k : Kind) where
   name : Nameₘ k
   lvls : NatₐListNameₘ k
-  type : ExprCid k
+  type : ExprScalar k
   kind : Split QuotKind Unit k
   deriving BEq, Ord
 
 structure Definition (k : Kind) where
   name   : Nameₘ k
   lvls   : NatₐListNameₘ k
-  type   : ExprCid k
-  value  : ExprCid k
+  type   : ExprScalar k
+  value  : ExprScalar k
   safety : Split DefinitionSafety Unit k
   deriving Inhabited, BEq, Ord
 
 structure DefinitionProj (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
-  type  : ExprCid k
-  block : ConstCid k
+  type  : ExprScalar k
+  block : ConstScalar k
   idx   : Nat
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 structure Constructor (k : Kind) where
   name   : Nameₘ k
   lvls   : NatₐListNameₘ k
-  type   : ExprCid k
+  type   : ExprScalar k
   idx    : Natₐ k
   params : Natₐ k
   fields : Natₐ k
-  rhs    : ExprCid k
+  rhs    : ExprScalar k
   safe   : Boolₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 structure RecursorRule (k : Kind) where
-  ctor   : ConstCid k
+  ctor   : ConstScalar k
   fields : Natₐ k
-  rhs    : ExprCid k
-  deriving Repr, BEq, Ord
+  rhs    : ExprScalar k
+  deriving BEq, Ord
 
 structure Recursor (r : RecType) (k : Kind) where
   name    : Nameₘ k
   lvls    : NatₐListNameₘ k
-  type    : ExprCid k
+  type    : ExprScalar k
   params  : Natₐ k
   indices : Natₐ k
   motives : Natₐ k
   minors  : Natₐ k
   rules   : Split Unit (List (RecursorRule k)) r
   k       : Boolₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 instance : Ord (Sigma (Recursor · k)) where
   compare x y :=
@@ -112,7 +112,7 @@ instance : BEq (Sigma (Recursor · k)) where
 structure Inductive (k : Kind) where
   name    : Nameₘ k
   lvls    : NatₐListNameₘ k
-  type    : ExprCid k
+  type    : ExprScalar k
   params  : Natₐ k
   indices : Natₐ k
   ctors   : List (Constructor k)
@@ -128,28 +128,28 @@ instance : Repr (Inductive k) where
 structure InductiveProj (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
-  type  : ExprCid k
-  block : ConstCid k
+  type  : ExprScalar k
+  block : ConstScalar k
   idx   : Natₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 structure ConstructorProj (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
-  type  : ExprCid k
-  block : ConstCid k
+  type  : ExprScalar k
+  block : ConstScalar k
   idx   : Natₐ k
   cidx  : Natₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 structure RecursorProj (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
-  type  : ExprCid k
-  block : ConstCid k
+  type  : ExprScalar k
+  block : ConstScalar k
   idx   : Natₐ k
   ridx  : Natₐ k
-  deriving Repr, BEq, Ord
+  deriving BEq, Ord
 
 instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
@@ -360,49 +360,49 @@ def ctorName : Const → String
 
 end Const
 
-def Opaque.toIR (d : Opaque) (typeCid valueCid: IR.BothExprCid) : IR.Opaque k :=
+def Opaque.toIR (d : Opaque) (typeCid valueCid: IR.BothExprScalar) : IR.Opaque k :=
   match k with
   | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
   | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Quotient.toIR (d : Quotient) (typeCid : IR.BothExprCid) : IR.Quotient k :=
+def Quotient.toIR (d : Quotient) (typeCid : IR.BothExprScalar) : IR.Quotient k :=
   match k with
   | .anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
   | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Axiom.toIR (d : Axiom) (typeCid : IR.BothExprCid) : IR.Axiom k :=
+def Axiom.toIR (d : Axiom) (typeCid : IR.BothExprScalar) : IR.Axiom k :=
   match k with
   | .anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
   | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
 
-def Theorem.toIR (d : Theorem) (typeCid valueCid : IR.BothExprCid) : IR.Theorem k :=
+def Theorem.toIR (d : Theorem) (typeCid valueCid : IR.BothExprScalar) : IR.Theorem k :=
   match k with
   | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
   | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
 
-def Definition.toIR (d : Definition) (typeCid valueCid : IR.BothExprCid) : IR.Definition k :=
+def Definition.toIR (d : Definition) (typeCid valueCid : IR.BothExprScalar) : IR.Definition k :=
   match k with
   | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
   | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Constructor.toIR (c : Constructor) (typeCid rhsCid : IR.BothExprCid) : IR.Constructor k :=
+def Constructor.toIR (c : Constructor) (typeCid rhsCid : IR.BothExprScalar) : IR.Constructor k :=
   match k with
   | .anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
   | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
 
-def RecursorRule.toIR (r : RecursorRule) (ctorCid : IR.BothConstCid) (rhsCid : IR.BothExprCid) : IR.RecursorRule k :=
+def RecursorRule.toIR (r : RecursorRule) (ctorCid : IR.BothConstScalar) (rhsCid : IR.BothExprScalar) : IR.RecursorRule k :=
   match k with
   | .anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
   | .meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
 
-def ExtRecursor.toIR {k : IR.Kind} (r : ExtRecursor) (typeCid : IR.BothExprCid)
+def ExtRecursor.toIR {k : IR.Kind} (r : ExtRecursor) (typeCid : IR.BothExprScalar)
     (rulesCids : List $ IR.RecursorRule k) : IR.Recursor .extr k :=
   match k with 
   | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
     r.minors, rulesCids, r.k⟩
   | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), rulesCids, ()⟩
 
-def IntRecursor.toIR {k : IR.Kind} (r : IntRecursor) (typeCid : IR.BothExprCid) :
+def IntRecursor.toIR {k : IR.Kind} (r : IntRecursor) (typeCid : IR.BothExprScalar) :
     IR.Recursor .intr k :=
   match k with 
   | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
@@ -410,7 +410,7 @@ def IntRecursor.toIR {k : IR.Kind} (r : IntRecursor) (typeCid : IR.BothExprCid) 
   | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), (), ()⟩
 
 def Inductive.toIR (i : Inductive) (idx : Nat)
-    (typeCid : IR.BothExprCid) (blockCid : IR.BothConstCid) : IR.InductiveProj k :=
+    (typeCid : IR.BothExprScalar) (blockCid : IR.BothConstScalar) : IR.InductiveProj k :=
   match k with
   | .anon => ⟨(), i.lvls.length, typeCid.anon, blockCid.anon, idx⟩
   | .meta => ⟨i.name, i.lvls, typeCid.meta, blockCid.meta, ()⟩
