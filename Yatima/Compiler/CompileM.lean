@@ -29,7 +29,7 @@ structure CompileState where
   univMeta  : Array AST
   exprMeta  : Array AST
   constMeta : Array AST
-  --
+  -- contains cached data to speed up the encoding of Lurk data
   encodeState : EncodeState
   deriving Inhabited
 
