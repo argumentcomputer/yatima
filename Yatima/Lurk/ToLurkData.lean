@@ -10,6 +10,9 @@ instance : ToAST Bool where toAST
   | false => .nil
   | true  => .sym "T"
 
+instance [ToAST α] [ToAST β] : ToAST (α × β) where 
+  toAST x := ~[toAST x.1, toAST x.1]
+
 instance [ToAST α] [ToAST β] : ToAST (α ⊕ β) where toAST
   | .inl a => toAST a
   | .inr b => toAST b
@@ -126,6 +129,9 @@ instance : ToAST QuotKind where toAST
 
 instance : ToAST (Definition k) where toAST
   | .mk n l ty v s => ~[toAST n, toAST l, toAST ty, toAST v, toAST s]
+
+instance : ToAST IR.BothConstScalar where 
+  toAST x := ~[toAST x.1, toAST x.2]
 
 def Univ.toLurk : Univ k → Lurk.Syntax.AST
   | .zero     => ~[.num 0]

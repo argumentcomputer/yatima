@@ -1,8 +1,8 @@
 import Yatima.Cli.Utils
-import Yatima.LurkData.ToLurkData
+import Yatima.Lurk.ToLurkData
 import Lurk.SerDe.Serialize
 
-open System Yatima Compiler in
+open System Yatima Compiler Lurk.Syntax.AST.ToAST in
 def compileRun (p : Cli.Parsed) : IO UInt32 := do
   match ← getToolchain with
   | .error msg => IO.eprintln msg; return 1
@@ -36,10 +36,10 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
       if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
-      let (ptr, store) :=  stt.lurkStore.toLurk.encode
+      let (ptr, store) :=  toAST stt.lurkStore |>.encode
       let irPath : FilePath := "lurk"/p.getFlagD "output" "lurk_store.ir"
       IO.FS.writeBinFile irPath (Lurk.SerDe.serialize [ptr] store)
-      let (ptr, store) :=  cidCacheToLurk stt.cidCache |>.encode
+      let (ptr, store) :=  toAST stt.cidCache |>.encode
       let cachePath : FilePath := "lurk"/p.getFlagD "output" "precompiled.ir"
       IO.FS.writeBinFile cachePath (Lurk.SerDe.serialize [ptr] store)
       return 0

@@ -369,8 +369,7 @@ def toConstMetaMap (ar : List AST) :
     | _ => none
 
 def toIRStore : AST → Option IR.Store
-  | ~[.u64 STORE,
-      consts,
+  | ~[consts,
       univAnon, exprAnon, constAnon,
       univMeta, exprMeta, constMeta] =>
     return ⟨

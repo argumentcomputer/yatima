@@ -6,8 +6,8 @@ import Yatima.Compiler.Printing
 -- import Yatima.Converter.Converter
 -- import Yatima.Typechecker.Typechecker
 -- import Yatima.Transpiler.Transpiler
-import Yatima.LurkData.FromLurkData
-import Yatima.LurkData.ToLurkData
+import Yatima.Lurk.FromLurkData
+import Yatima.Lurk.ToLurkData
 
 open LSpec Yatima Compiler
 

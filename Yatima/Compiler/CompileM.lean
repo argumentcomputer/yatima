@@ -38,7 +38,7 @@ def CompileState.lurkStore (s : CompileState) : Lurk.Store :=
     s.univAnon, s.exprAnon, s.constAnon,
     s.univMeta, s.exprMeta, s.constMeta⟩
 
-def CompileState.cidCache (s : CompileState) : List (Name × IR.BothConstCid) :=
+def CompileState.cidCache (s : CompileState) : List (Name × IR.BothConstScalar) :=
   s.cache.toList.map fun (n, cid, _) => (n, cid)
 
 /-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
