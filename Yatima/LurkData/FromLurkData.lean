@@ -3,6 +3,7 @@ import Yatima.LurkData.Move
 
 /-! 
 We follow the convention `LurkData.to<object>`
+TODO: Replace `Option` with `Except String` for better errors
 -/
 namespace Yatima.LurkData
 open Lurk.Syntax AST
@@ -394,7 +395,7 @@ def toConstMetaMap (ar : List AST) :
     | ~[~[.comm, .num cid], e] => do acc.insert ⟨.ofNat cid⟩ (← toConstMeta e)
     | _ => none
 
-def storeFromIpld : AST → Option IR.Store
+def toIRStore : AST → Option IR.Store
   | ~[.u64 STORE,
       consts,
       univAnon, exprAnon, constAnon,

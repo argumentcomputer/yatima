@@ -1,8 +1,8 @@
 import Yatima.Cli.Utils
 import Yatima.LurkData.ToLurkData
-import Ipld.DagCbor
+import Lurk.SerDe.Serialize
 
-open System Yatima.Compiler in
+open System Yatima Compiler in
 def compileRun (p : Cli.Parsed) : IO UInt32 := do
   match ← getToolchain with
   | .error msg => IO.eprintln msg; return 1
@@ -36,8 +36,12 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
       if p.hasFlag "summary" then
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
-      let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
-      IO.FS.writeBinFile (p.getFlagD "output" "output.ir") (DagCbor.serialize ipld)
+      let (ptr, store) :=  stt.lurkStore.toLurk.encode
+      let irPath : FilePath := "lurk"/p.getFlagD "output" "lurk_store.ir"
+      IO.FS.writeBinFile irPath (Lurk.SerDe.serialize [ptr] store)
+      let (ptr, store) :=  cidCacheToLurk stt.cidCache |>.encode
+      let cachePath : FilePath := "lurk"/p.getFlagD "output" "precompiled.ir"
+      IO.FS.writeBinFile cachePath (Lurk.SerDe.serialize [ptr] store)
       return 0
     else
       IO.eprintln $ "No store argument was found.\n" ++
@@ -50,8 +54,8 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
 
 def compileCmd : Cli.Cmd := `[Cli|
   compile VIA compileRun;
-  "Compiles Lean 4 code to Yatima IR and writes the resulting IPLD data" ++
-    " encoded with DagCbor to the file system"
+  "Compiles Lean 4 code to Yatima IR and writes the resulting AST data" ++
+    " encoded with Lurk Scalars to the file system"
 
   FLAGS:
     o, "output" : String; "The name of the output binary file." ++

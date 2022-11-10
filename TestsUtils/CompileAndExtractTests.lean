@@ -3,10 +3,11 @@ import Lurk.Evaluation.Eval
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
-import Yatima.Converter.Converter
-import Yatima.Typechecker.Typechecker
-import Yatima.Transpiler.Transpiler
-import Yatima.Ipld.FromIpld
+-- import Yatima.Converter.Converter
+-- import Yatima.Typechecker.Typechecker
+-- import Yatima.Transpiler.Transpiler
+import Yatima.LurkData.FromLurkData
+import Yatima.LurkData.ToLurkData
 
 open LSpec Yatima Compiler
 
@@ -56,150 +57,150 @@ def extractAnonCidGroupsTests (groups : List (List Lean.Name))
 
 end AnonCidGroups
 
-section Converting
+-- section Converting
 
-open Converter
+-- open Converter
 
-/-
-This section defines an extractor that validates that the Ipld conversion
-roundtrips for every constant in the `CompileState.store`.
--/
+-- /-
+-- This section defines an extractor that validates that the Ipld conversion
+-- roundtrips for every constant in the `CompileState.store`.
+-- -/
 
-@[specialize]
-def find? [BEq α] (as : List α) (f : α → Bool) : Option (Nat × α) := Id.run do
-  for x in as.enum do
-    if f x.2 then return some x
-  return none
+-- @[specialize]
+-- def find? [BEq α] (as : List α) (f : α → Bool) : Option (Nat × α) := Id.run do
+--   for x in as.enum do
+--     if f x.2 then return some x
+--   return none
 
-abbrev NatNatMap := Std.RBMap Nat Nat compare
+-- abbrev NatNatMap := Std.RBMap Nat Nat compare
 
-open TC
+-- open TC
 
-instance : Ord Const where
-  compare x y := compare x.name y.name
+-- instance : Ord Const where
+--   compare x y := compare x.name y.name
 
-def pairConstants (x y : Array Const) :
-    Except String ((Array (Const × Const)) × NatNatMap) := Id.run do
-  let mut pairs : Array (Const × Const) := #[]
-  let mut map : NatNatMap := default
-  let mut notFound : Array Name := #[]
-  for (i, c) in x.data.enum do
-    match find? y.data fun c' => c.name == c'.name with
-    | some (i', c') => pairs := pairs.push (c, c'); map := map.insert i i'
-    | none          => notFound := notFound.push c.name
-  if notFound.isEmpty then
-    return .ok (pairs, map)
-  else
-    return .error s!"Not found: {", ".intercalate (notFound.data.map toString)}"
+-- def pairConstants (x y : Array Const) :
+--     Except String ((Array (Const × Const)) × NatNatMap) := Id.run do
+--   let mut pairs : Array (Const × Const) := #[]
+--   let mut map : NatNatMap := default
+--   let mut notFound : Array Name := #[]
+--   for (i, c) in x.data.enum do
+--     match find? y.data fun c' => c.name == c'.name with
+--     | some (i', c') => pairs := pairs.push (c, c'); map := map.insert i i'
+--     | none          => notFound := notFound.push c.name
+--   if notFound.isEmpty then
+--     return .ok (pairs, map)
+--   else
+--     return .error s!"Not found: {", ".intercalate (notFound.data.map toString)}"
 
-def reindexExpr (map : NatNatMap) : Expr → Expr
-  | e@(.var ..)
-  | e@(.sort _ _)
-  | e@(.lit ..) => e
-  | .const _ n i ls => .const default n (map.find! i) ls
-  | .app _ e₁ e₂ => .app default (reindexExpr map e₁) (reindexExpr map e₂)
-  | .lam _ n bi e₁ e₂ => .lam default n bi (reindexExpr map e₁) (reindexExpr map e₂)
-  | .pi _ n bi e₁ e₂ => .pi default n bi (reindexExpr map e₁) (reindexExpr map e₂)
-  | .letE _ n e₁ e₂ e₃ =>
-    .letE default n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
-  | .proj _ n e => .proj default n (reindexExpr map e)
+-- def reindexExpr (map : NatNatMap) : Expr → Expr
+--   | e@(.var ..)
+--   | e@(.sort _ _)
+--   | e@(.lit ..) => e
+--   | .const _ n i ls => .const default n (map.find! i) ls
+--   | .app _ e₁ e₂ => .app default (reindexExpr map e₁) (reindexExpr map e₂)
+--   | .lam _ n bi e₁ e₂ => .lam default n bi (reindexExpr map e₁) (reindexExpr map e₂)
+--   | .pi _ n bi e₁ e₂ => .pi default n bi (reindexExpr map e₁) (reindexExpr map e₂)
+--   | .letE _ n e₁ e₂ e₃ =>
+--     .letE default n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
+--   | .proj _ n e => .proj default n (reindexExpr map e)
 
-def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
-  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs }
+-- def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
+--   { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs }
 
-def reindexConst (map : NatNatMap) : Const → Const
-  | .axiom x => .axiom { x with type := reindexExpr map x.type }
-  | .theorem x => .theorem { x with
-    type := reindexExpr map x.type, value := reindexExpr map x.value }
-  | .inductive x => .inductive { x with
-    type := reindexExpr map x.type,
-    struct := x.struct.map (reindexCtor map) }
-  | .opaque x => .opaque { x with
-    type := reindexExpr map x.type, value := reindexExpr map x.value }
-  | .definition x => .definition { x with
-    type := reindexExpr map x.type,
-    value := reindexExpr map x.value,
-    all := x.all.map map.find! }
-  | .constructor x => .constructor { x with
-    type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
-  | .extRecursor x =>
-    let rules := x.rules.map fun r => { r with
-      rhs := reindexExpr map r.rhs,
-      ctor := reindexCtor map r.ctor }
-    .extRecursor { x with
-      type := reindexExpr map x.type, rules := rules }
-  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
-  | .quotient x => .quotient { x with type := reindexExpr map x.type }
+-- def reindexConst (map : NatNatMap) : Const → Const
+--   | .axiom x => .axiom { x with type := reindexExpr map x.type }
+--   | .theorem x => .theorem { x with
+--     type := reindexExpr map x.type, value := reindexExpr map x.value }
+--   | .inductive x => .inductive { x with
+--     type := reindexExpr map x.type,
+--     struct := x.struct.map (reindexCtor map) }
+--   | .opaque x => .opaque { x with
+--     type := reindexExpr map x.type, value := reindexExpr map x.value }
+--   | .definition x => .definition { x with
+--     type := reindexExpr map x.type,
+--     value := reindexExpr map x.value,
+--     all := x.all.map map.find! }
+--   | .constructor x => .constructor { x with
+--     type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
+--   | .extRecursor x =>
+--     let rules := x.rules.map fun r => { r with
+--       rhs := reindexExpr map r.rhs,
+--       ctor := reindexCtor map r.ctor }
+--     .extRecursor { x with
+--       type := reindexExpr map x.type, rules := rules }
+--   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
+--   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
-def extractConverterTests (stt : CompileState) : TestSeq :=
-  withExceptOk "`extractPureStore` succeeds"
-    (extractPureStore stt.irStore) fun pStore =>
-      withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
-        fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
-          tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
+-- def extractConverterTests (stt : CompileState) : TestSeq :=
+--   withExceptOk "`extractPureStore` succeeds"
+--     (extractPureStore stt.irStore) fun pStore =>
+--       withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
+--         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
+--           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
-end Converting
+-- end Converting
 
-section Typechecking
+-- section Typechecking
 
-open Typechecker
+-- open Typechecker
 
-/-
-Here we define the following extractors:
-* `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
-false negatives by requiring that everything that typechecks in Lean 4 should
-also be accepted by our implementation
--/
+-- /-
+-- Here we define the following extractors:
+-- * `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
+-- false negatives by requiring that everything that typechecks in Lean 4 should
+-- also be accepted by our implementation
+-- -/
 
-def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).store.consts.toList.enum.filter (fun (_, const) => const.name == name)).forM fun (i, const) => checkConst const i
+-- def typecheckConstM (name : Name) : TypecheckM Unit := do
+--   ((← read).store.consts.toList.enum.filter (fun (_, const) => const.name == name)).forM fun (i, const) => checkConst const i
 
-def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init store) (.init store) (typecheckConstM name) with
-  | .ok u => .ok u
-  | .error err => throw $ toString err
+-- def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
+--   match TypecheckM.run (.init store) (.init store) (typecheckConstM name) with
+--   | .ok u => .ok u
+--   | .error err => throw $ toString err
 
-inductive FoundConstFailure (constName : String) : Prop
+-- inductive FoundConstFailure (constName : String) : Prop
 
-instance : Testable (FoundConstFailure constName) :=
-  .isFailure $ .some s!"Could not find constant {constName}"
+-- instance : Testable (FoundConstFailure constName) :=
+--   .isFailure $ .some s!"Could not find constant {constName}"
 
-def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConst stt.tcStore const.name) fun _ => .done
+-- def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
+--   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
+--     tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+--       (typecheckConst stt.tcStore const.name) fun _ => .done
 
-end Typechecking
+-- end Typechecking
 
-section Transpilation
+-- section Transpilation
 
-open Transpiler Lurk Evaluation
+-- open Transpiler Lurk Evaluation
 
-instance [BEq α] [BEq β] : BEq (Except α β) where 
-  beq x y := match x, y with 
-    | .ok x, .ok y => x == y 
-    | .error x, .error y => x == y
-    | _, _ => false
+-- instance [BEq α] [BEq β] : BEq (Except α β) where 
+--   beq x y := match x, y with 
+--     | .ok x, .ok y => x == y 
+--     | .error x, .error y => x == y
+--     | _, _ => false
 
-def extractTranspilationTests (expect : _root_.List (Lean.Name × Option Lurk.Syntax.Expr))
-    (stt : CompileState) : TestSeq :=
-  expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun expr =>
-      let val := eval expr
-      match expected with
-        | some expected =>
-          let exVal := eval expected
-          tSeq ++ test s!"Evaluation of {root} yields {val}" (val == exVal)
-        | none => tSeq
+-- def extractTranspilationTests (expect : _root_.List (Lean.Name × Option Lurk.Syntax.Expr))
+--     (stt : CompileState) : TestSeq :=
+--   expect.foldl (init := .done) fun tSeq (root, expected) =>
+--     withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun expr =>
+--       let val := eval expr
+--       match expected with
+--         | some expected =>
+--           let exVal := eval expected
+--           tSeq ++ test s!"Evaluation of {root} yields {val}" (val == exVal)
+--         | none => tSeq
 
-end Transpilation
+-- end Transpilation
 
-section Ipld
+section LurkData
 
-def extractIpldTests (stt : CompileState) : TestSeq :=
+def extractLurkDataTests (stt : CompileState) : TestSeq :=
   let store := stt.irStore
-  let ipld := Ipld.storeToIpld stt.ipldStore
-  withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)
-    fun store' => test "IPLD SerDe roundtrips" (store == store')
+  let data := stt.lurkStore.toLurk
+  withOptionSome "LurkData decoding succeeds" (LurkData.toIRStore data)
+    fun store' => test "LurkData encoding/decoding roundtrips" (store == store')
 
-end Ipld
+end LurkData

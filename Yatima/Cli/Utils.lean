@@ -1,7 +1,9 @@
 import Yatima.Compiler.Compiler
-import Yatima.Transpiler.Transpiler
+-- import Yatima.Transpiler.Transpiler
 import Yatima.Cli.Cronos
-import Yatima.Ipld.FromIpld
+import Lurk.SerDe.Deserialize
+import Lurk.Hashing.Decoding
+import Yatima.LurkData.FromLurkData
 import Cli
 
 def getToolchain : IO $ Except String String := do
@@ -54,10 +56,13 @@ def Cli.Parsed.getFlagD (p : Cli.Parsed) (flag : String) (default : String) : St
 def Cli.Parsed.getArg! (p : Cli.Parsed) (arg : String) : String :=
   p.positionalArg! arg |>.as! String
 
-open Yatima.IR in
+open Yatima IR Lurk
 def readStoreFromFile (fileName : String) : IO $ Except String Store :=
-  return match DagCbor.deserialize (← IO.FS.readBinFile fileName) with
+  return match SerDe.deserialize (← IO.FS.readBinFile fileName) with
   | .error err => .error (toString err)
-  | .ok ipld => match Yatima.Ipld.storeFromIpld ipld with
-    | none => .error "Error deserializing IPLD"
-    | some store => .ok store
+  | .ok (ptrs, store) => do
+    let [data] ← Hashing.decodeAll ptrs store
+      | throw "store deserialization error: only one root is expected"
+    match LurkData.toIRStore data with
+    | some irStore => .ok irStore
+    | none => throw "store deserialization error: malformed store"

@@ -54,7 +54,7 @@ structure Store where
 
 end TC
 
-/-- Contains `IR.Store` data encoded in `Lurk.Expr` -/
+/-- Contains `IR.Store` data encoded in `Lurk.Syntax.AST` -/
 structure LurkStore where
   consts    : Array Lurk.Syntax.AST
   univAnon  : Array Lurk.Syntax.AST

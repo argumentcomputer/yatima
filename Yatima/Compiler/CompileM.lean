@@ -31,10 +31,13 @@ structure CompileState where
   constMeta : Array AST
   deriving Inhabited
 
-def CompileState.ipldStore (s : CompileState) : LurkStore :=
+def CompileState.lurkStore (s : CompileState) : LurkStore :=
   ⟨s.consts,
     s.univAnon, s.exprAnon, s.constAnon,
     s.univMeta, s.exprMeta, s.constMeta⟩
+
+def CompileState.cidCache (s : CompileState) : List (Name × IR.BothConstCid) :=
+  s.cache.toList.map fun (n, cid, _) => (n, cid)
 
 /-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
 def CompileState.summary (s : CompileState) : String :=

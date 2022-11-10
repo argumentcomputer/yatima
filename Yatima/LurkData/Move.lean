@@ -1,13 +1,14 @@
 import Lurk.Field
-import Lurk.Syntax.AST
+import Lurk.Hashing.Encoding
+import Lurk.SerDe.Deserialize
 
 namespace Lurk.Syntax
 
 namespace AST
 
-/-- Uses Poseidon hashing -/
-def hash : AST → F
-  | _ => sorry
+/-- Uses Poseidon hashing
+  TODO: This is extremely expensive -/
+def hash (a : AST) : F := (commit a).1
 
 def f   (n : Fin N)  : AST := .num n
 def u8    (n : UInt8)  : AST := .num n.val
@@ -29,3 +30,11 @@ instance : ToAST AST where
 end ToAST
 
 end Lurk.Syntax
+
+-- namespace Lurk.SerDe
+
+-- def deserialize (bytes : ByteArray) :
+--     Except String ((List ScalarPtr) × ScalarStore) :=
+--   (StateT.run (ReaderT.run deserializeM ⟨bytes, bytes.size, by eq_refl⟩) 0).1
+
+-- end Lurk.SerDe

@@ -10,6 +10,9 @@ instance : ToAST Bool where toAST
   | false => .nil
   | true  => .t
 
+instance [ToAST α] [ToAST β] : ToAST (α × β) where 
+  toAST x := toAST ~[toAST x.1, toAST x.2]
+
 instance [ToAST α] [ToAST β] : ToAST (α ⊕ β) where toAST
   | .inl a => toAST a
   | .inr b => toAST b
@@ -158,8 +161,10 @@ def Const.toCid (const : Const k) : Lurk.Syntax.AST × ConstCid k :=
   let data := const.toLurk
   (data, ⟨hash data⟩)
 
-def LurkStore.toLurk.Syntax.AST (store : LurkStore) : Lurk.Syntax.AST :=
-  ~[.u64 STORE,
+end IR 
+
+def LurkStore.toLurk (store : LurkStore) : Lurk.Syntax.AST :=
+  ~[.u64 IR.STORE,
     toAST store.consts,
     toAST store.univAnon,
     toAST store.exprAnon,
@@ -168,4 +173,8 @@ def LurkStore.toLurk.Syntax.AST (store : LurkStore) : Lurk.Syntax.AST :=
     toAST store.exprMeta,
     toAST store.constMeta]
 
-end Yatima.IR
+def cidCacheToLurk (cache : List (Name × IR.BothConstCid)) : Lurk.Syntax.AST :=
+  let cache := cache.map fun (n, cid) => (n, ~[.f cid.anon.data, .f cid.meta.data])
+  toAST cache
+
+end Yatima
