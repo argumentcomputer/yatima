@@ -8,7 +8,7 @@ instance : ToAST Bool where toAST
   | true  => .sym "T"
 
 instance [ToAST α] [ToAST β] : ToAST (α × β) where 
-  toAST x := ~[toAST x.1, toAST x.1]
+  toAST x := ~[toAST x.1, toAST x.2]
 
 instance [ToAST α] [ToAST β] : ToAST (α ⊕ β) where toAST
   | .inl a => toAST a
