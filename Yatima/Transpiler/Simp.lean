@@ -14,12 +14,12 @@ A rudimentary simplifier for lurk expressions.
 namespace Yatima.Transpiler.Simp
 
 open Lurk.Syntax AST DSL in
-def getOfNatLit : AST → Option Lurk.F
+def getOfNatLit : AST → Option Nat
   | ~[~[~[f, nat?], n], ~[inst, m]] =>
     if f == ⟦$(``OfNat.ofNat)⟧ && nat? == ⟦$(``Nat)⟧ && n == m &&
         inst == ⟦$(``instOfNatNat)⟧ then
       match n with
-      | .num n => some $ .ofNat n
+      | .num n => some n
       | _ => none
     else
       none
