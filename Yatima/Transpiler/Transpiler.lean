@@ -4,6 +4,7 @@ import Yatima.Transpiler.Utils
 import Yatima.Transpiler.LurkFunctions
 import YatimaStdLib.List
 import Lurk.Syntax.ExprUtils
+import Yatima.Lurk.Move
 
 /-!
 # The Transpiler
@@ -278,7 +279,7 @@ mutual
     appendBinding (name, body)
 
   partial def mkListRecursor (recrType : Expr) (recrName : Name) (rhs : List Constructor) :
-      TranspileM (Name × AST) := do
+      TranspileM (String × AST) := do
     let (_, bindings) := telescope recrType
     let (argName, _) : Name × Expr := bindings.last!
     let recrArgs : List Name ← bindings.mapM fun (n, _) => replaceName n
@@ -296,10 +297,10 @@ mutual
             $(consRHS))
           $(nilRHS))
     ⟧
-    return (recrName, ⟦(lambda ($recrArgs) $cases)⟧)
+    return (recrName.toString false, ⟦(lambda ($recrArgs) $cases)⟧)
 
   partial def mkRecursor (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) :
-      TranspileM (Name × AST) := do
+      TranspileM (String × AST) := do
     let ctorName := rhs.head?.map Constructor.name
     if ctorName = some ``List.nil || ctorName = some ``List.cons then
       mkListRecursor recrType recrName rhs
@@ -309,21 +310,20 @@ mutual
       let recrArgs : List Name ← bindings.mapM fun (n, _) => replaceName n
       let ifThens ← rhs.mapM fun ctor => do
         let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
+
+        let (rhs, binds) := telescope rhs
+
         let rhs ← mkLurkExpr rhs
         let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
         let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
-        let rhsCtorArgNames := ← match rhs with
-          | ~[.sym "LAMBDA", ns, _] => match ns.asArgs with
-            | .error err => throw $ .custom err
-            | .ok ns => return ns.takeLast (fields - recrIndices)
-          | _ => throw $ .custom "broken implementation: rhs of rule of {recrName} is not lambda?"
+        let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
 
         let bindings := (`_lurk_ctor_args, _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
-        return (⟦(= (car (cdr $argName)) $idx)⟧, .letE bindings rhs.toImplicitLambda) -- extract snd element
+        return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧) -- extract snd element
 
       let cases := AST.mkIfElses ifThens ⟦nil⟧
-      return (recrName, ⟦(lambda ($recrArgs) $cases)⟧)
+      return (recrName.toString false, ⟦(lambda ($recrArgs) $cases)⟧)
 
   partial def mkInductiveBlock (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) :
       TranspileM Unit := do
@@ -336,8 +336,9 @@ mutual
       let erecrs ← erecrs.mapM fun erecr =>
         mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
-      mkMutualBlock (irecr::erecrs) |>.forM
-        fun (n, e) => appendBinding (n, e) false
+      match mkMutualBlock (irecr::erecrs) with
+        | .ok xs => xs.forM fun (n, e) => appendBinding (n, e) false
+        | .error e => throw $ .custom e
 
   -- partial def mkStructure
 
@@ -362,33 +363,8 @@ mutual
           | none => return
             -- TODO: better detection of what to compile, use this carefully for now
             -- throw $ .custom s!"built constant contains unknown symbol {name}"
-      | .ifE test con alt => do go test; go con; go alt
-      | .lam _ body => go body
-      | .letE bindings body
-      | .letRecE bindings body
-      | .mutRecE bindings body => do
-        for (n, func) in bindings do
-          go func
-        go body
-      | .app fn none => go fn
-      | .app fn (some args) => do go fn; go args;
-      | .atom expr
-      | .cdr expr
-      | .car expr
-      | .comm expr
-      | .commit expr
-      | .emit expr => go expr
-      | .binaryOp _ e₁ e₂
-      | .cons e₁ e₂
-      | .begin e₁ e₂
-      | .hide e₁ e₂
-      | .strcons e₁ e₂ => do go e₁; go e₂
-      | .quote ..
-      | .currEnv
-      | .lit .. 
-      | .comm ..            -- TODO : Fill this in?
-      | .commit ..          -- TODO : Fill this in?
-      | .hide ..  => return -- TODO : Fill this in?
+      | .num n | .char c | .str s => return
+      | .cons e₁ e₂ => do go e₁; go e₂
 
   partial def mkLurkExpr (e : Expr) : TranspileM AST := do
     -- dbg_trace ">> mkLurkExpr: "
@@ -421,7 +397,7 @@ mutual
       -- dbg_trace s!"let {name}"
       let val ← mkLurkExpr value
       let body ← mkLurkExpr body
-      return .letE [(name, val)] body
+      return ⟦(let $([(name, val)]) $body)⟧
     | .lit _ lit  => match lit with
       -- TODO: need to include `Int` somehow
       | .natVal n =>
@@ -552,6 +528,6 @@ def transpile (store : IR.Store) (root : Name := `root) :
     let env := ⟨store, pStore, map, builtins⟩
     let state : TranspileState := ⟨#[], .empty, ⟨`x, 1⟩, .empty⟩
     match TranspileM.run env state (transpileM root) with
-    | .ok    s => .ok $ .letRecE s.appendedBindings.data ⟦$root⟧
+    | .ok    s => .ok $ ⟦(letrec $s.appendedBindings.data $root)⟧
     | .error e => .error e
 
