@@ -21,14 +21,6 @@ namespace Yatima.Typechecker
 
 open TC
 
-/-- Checks if a type is an unit inductive -/
-def isUnit : Value → TypecheckM Bool
-  | .app (.const name i _) _ => do
-    match ← derefConst name i with
-    | .inductive induct => pure induct.unit
-    | _ => pure false
-  | _ => pure false
-
 def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Univ × List SusValue))
   | .app (.const name k univs) params => do
     match ← derefConst name k with
@@ -37,7 +29,7 @@ def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Uni
         | some ctor =>
           -- Sanity check
           if ind.params != params.length then throw .impossible else
-          pure (k, ctor, univs, params)
+          pure (k, ctor, univs, (params.map (·.1)))
         | none => pure none
     | _ => pure none
   | _ => pure none
@@ -46,114 +38,111 @@ def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Uni
   Gives the correct type information for a lambda based on the information of the body.
   No lambdas can be a proposition, a struct or be elements of the unit type.
 -/
-def lamInfo (bodInfo : TypeInfo) : TypeInfo :=
-  { proof? := bodInfo.proof?
-  , unit? := false
-  , prop? := false
-  , struct? := none }
+def lamInfo : SusTypeInfo → SusTypeInfo
+| .proof => .proof
+| _ => .none
+
+def piInfo : TypeInfo → TypeInfo
+| .prop => .prop
+| _ => .none
 
 /--
   Gives the correct type information for a term based on its type.
 -/
 def infoFromType (typ : SusValue) : TypecheckM TypeInfo := do
-  let struct? := (← isStruct typ.get).map (fun (k, _, _, _) => k)
-  let proof? := typ.info.prop?
-  let unit? ← isUnit typ.get
-  let prop? := match typ.get with
-    | .sort lvl => lvl.isZero
-    | _ => false
-  pure { proof?, unit?, prop?, struct? }
+  match typ.info with
+  | .prop => pure .proof
+  | _ => do
+    match typ.get with
+    | .app (.const name i _) _ => do
+      match ← derefConst name i with
+      | .inductive induct => if induct.unit then pure .unit else pure .none
+      | _ => pure .none
+    | .sort lvl => if lvl.isZero then pure .prop else pure .none
+    | _ => pure .none
 
--- `Sort u` is not an element of `Prop` (i.e. `Sort 0`), unit-like types, structures or propositions
-def sortInfo : TypeInfo :=
-  { prop? := false, unit? := false, proof? := false, struct? := none }
-
--- Type info of `Nat` and `String`
-def primTypeInfo : TypeInfo :=
-  { prop? := false, unit? := false, proof? := false, struct? := none }
+def susInfoFromType (typ : SusValue) : TypecheckM SusTypeInfo := do
+  match typ.info with
+  | .prop => pure .proof
+  | _ => do
+    match typ.get with
+    | .app (.const name i _) _ => do
+      match ← derefConst name i with
+      | .inductive induct => if induct.unit then pure .unit else pure .none
+      | _ => pure .none
+    | .sort lvl => if lvl.isZero then pure .prop else pure (.sort lvl)
+    | _ => pure .none
 
 mutual
   /--
-  Checks if `term : Expr` has type `type : SusValue`. Returns the expression with flags updated
+  Checks if `term : Expr` has type `type : SusValue`. Returns the typed IR for `term`
   -/
-  partial def check (term : Expr) (type : SusValue) : TypecheckM Expr := do
-    match term with
-    | .lam _ lamName bind lamDom bod =>
-      let (lamDom, _) ← isSort lamDom
-      match type.get with
-      | .pi _ _ dom img env =>
-        let lvl := (← read).lvl
-        if !(dom.info == lamDom.info) || !(← equal dom.info lvl (← eval lamDom) dom.get) then
-          throw $ .custom "Lambda annotation does not match with its type"
-        let var := mkSusVar (← infoFromType dom) lamName lvl
-        let env := env.extendWith var 
-        let img := suspend img { ← read with env } (← get)
-        let bod ← withExtendedCtx var dom $ check bod img
-        pure $ .lam (lamInfo bod.info) lamName bind lamDom bod
-      | val => throw $ .notPi (toString val)
-    | .letE _ name expType exp bod =>
-      let (expType, _) ← isSort expType
-      let expTypeVal := suspend expType (← read) (← get)
-      let exp ← check exp expTypeVal
-      let expVal := suspend exp (← read) (← get)
-      let bod ← withExtendedCtx expVal expTypeVal $ check bod type
-      pure $ .letE bod.info name expType exp bod
-    | .app _ (.lam _ lamName bind lamDom bod) arg =>
-      let (lamDom, _) ← isSort lamDom
-      let lamDomVal := suspend lamDom (← read) (← get)
-      let arg ← check arg lamDomVal
-      let argVal := suspend arg (← read) (← get)
-      let bod ← withExtendedCtx argVal lamDomVal $ check bod type
-      pure $ .app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg
-    | _ =>
-      let (term, inferType) ← infer term
-      if !(inferType.info == type.info) || !(← equal inferType.info (← read).lvl type.get inferType.get) then
-        throw $ .valueMismatch (toString type.get) (toString inferType.get)
-      else
-        pure term
+  partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
+    --dbg_trace s!"checking: {term} : {type.get}"
+    let (term, inferType) ← infer term
+    if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
+      --dbg_trace s!"mismatch (inferred, expected): {repr inferType.info}, {repr type.info}"
+      --dbg_trace s!"failed checking: {term} : {type.get}"
+      throw $ .valueMismatch (toString type.get) (toString inferType.get)
+    else
+      --dbg_trace s!"done checking: {term} : {type.get}"
+      pure term
 
-  /-- Infers the type of `term : Expr`. Returns the expression with flags updated along with the inferred type  -/
-  partial def infer (term : Expr) : TypecheckM (Expr × SusValue) := do
+  /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
+  partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
     match term with
-    | .var _ name idx =>
+    | .var name idx =>
       let types := (← read).types
       let some type := types.get? idx | throw $ .outOfEnvironmentRange name idx types.length
-      let term := .var (← infoFromType type) name idx
+      let term := .var (← susInfoFromType type) name idx
       pure (term, type)
-    | .sort _ lvl =>
+    | .sort lvl =>
       let univs := (← read).env.univs
-      let typ := .mk sortInfo ⟨ fun _ => .sort $ .instBulkReduce univs lvl.succ ⟩
-      return (term, typ)
-    | .app _ (.lam _ lamName bind lamDom bod) arg =>
-      let (lamDom, _) ← isSort lamDom
-      let lamDomVal := suspend lamDom (← read) (← get)
-      let arg ← check arg lamDomVal
-      let argVal := suspend arg (← read) (← get)
-      let (bod, type) ← withExtendedCtx argVal lamDomVal $ infer bod
-      pure (.app bod.info (.lam (lamInfo bod.info) lamName bind lamDom bod) arg, type)
-    | .app _ fnc arg =>
+      let lvl := Univ.instBulkReduce univs lvl
+      let lvl' := Univ.succ lvl
+      let typ := .mk .none ⟨ fun _ => .sort lvl' ⟩
+      -- NOTE: we populate `SusTypeInfo.sort` here for consistency but technically it isn't necessary
+      -- because `lvl'` can never become `Univ.zero`.
+      return (.sort (.sort lvl') lvl, typ)
+    | .app fnc arg =>
       let (fnc, fncType) ← infer fnc
       match fncType.get with
       | .pi _ _ dom img env =>
+        --dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
         let arg ← check arg dom
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
-        let term := .app (← infoFromType typ) fnc arg
+        --dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"
+        let term := .app (← susInfoFromType typ) fnc arg
+        --dbg_trace s!"info for {typ.get}: {repr img.info}, {repr typ.info}, {repr term.info}"
         pure (term, typ)
       | val => throw $ .notPi (toString val)
-    -- Should we add inference of lambda terms? Perhaps not on this checker,
-    -- but on another that is capable of general unification, since this checker
-    -- is supposed to be used on fully annotated terms.
-    | .lam .. => throw .cannotInferLam
-    | .pi _ name bind dom img =>
+    | .lam name bind dom bod  =>
+      --dbg_trace s!"inferring lam: {term}"
+      let (dom, _) ← isSort dom
+      let ctx ← read
+      let domVal := suspend dom ctx (← get)
+      let var := mkSusVar (← infoFromType domVal) name ctx.lvl
+      let (bod, img) ← withExtendedCtx var domVal $ infer bod
+      let term := .lam (lamInfo bod.info) name bind dom bod
+      --dbg_trace s!"inferring lam: {term} with img info before {repr img.info} and after quote {repr (← quote (ctx.lvl+1) img.info.toSus img.get).info}"
+      let typ := .mk (piInfo img.info) $
+        Value.pi name bind domVal (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get) ctx.env
+      pure (term, typ)
+    | .pi name bind dom img =>
+      --dbg_trace s!"pi getting dom: {name} : {dom}"
       let (dom, domLvl) ← isSort dom
+      --dbg_trace s!"pi done getting dom: {name}"
+      --dbg_trace s!"domain info: {dom}: {repr dom.info}"
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       withExtendedCtx (mkSusVar (← infoFromType domVal) name ctx.lvl) domVal $ do
+        --dbg_trace s!"pi getting img: {img}"
         let (img, imgLvl) ← isSort img
-        let typ := .mk sortInfo ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
-        let term := .pi (← infoFromType typ) name bind dom img
+        --dbg_trace s!"pi done getting img of: {img}"
+        let typ := .mk .none ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
+        let term := .pi (← susInfoFromType typ) name bind dom img
         return (term, typ)
-    | .letE _ name expType exp bod =>
+    | .letE name expType exp bod =>
       let (expType, _) ← isSort expType
       let expTypeVal := suspend expType (← read) (← get)
       let exp ← check exp expTypeVal
@@ -161,40 +150,49 @@ mutual
       let (bod, typ) ← withExtendedCtx expVal expTypeVal $ infer bod
       let term := .letE bod.info name expType exp bod
       return (term, typ)
-    | .lit _ (.natVal _) =>
-      let typ := .mk primTypeInfo (mkConst `Nat (← primIndex .nat) [])
-      pure $ (term, typ)
-    | .lit _ (.strVal _) =>
-      let typ := .mk primTypeInfo (mkConst `String (← primIndex .string) [])
-      pure $ (term, typ)
-    | .const _ name k constUnivs =>
-      let univs := (← read).env.univs
-      let const ← derefConst name k
-      checkConst const k
-      let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-      let typ := suspend const.type { ← read with env := env } (← get)
-      pure (.const (← infoFromType typ) name k constUnivs, typ)
-    | .proj _ idx expr =>
+    | .lit (.natVal v) =>
+      let typ := .mk .none (mkConst `Nat (← primIndex .nat) [])
+      pure $ (.lit .none (.natVal v), typ)
+    | .lit (.strVal s) =>
+      let typ := .mk .none (mkConst `String (← primIndex .string) [])
+      pure $ (.lit .none (.strVal s), typ)
+    | .const name k constUnivs =>
+      if let some typ := (← read).mutTypes.find? k then
+        let typ := typ (constUnivs.map (Univ.instBulkReduce (← read).env.univs))
+        -- mutual references are assumed to typecheck
+        pure (.const (← susInfoFromType typ) name k constUnivs, typ)
+      else
+        let univs := (← read).env.univs
+        let const ← derefConst name k
+        checkConst const k
+        let tconst ← derefTypedConst name k
+        let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
+        let typ := suspend tconst.type { ← read with env := env } (← get)
+        pure (.const (← susInfoFromType typ) name k constUnivs, typ)
+    | .proj idx expr =>
       let (expr, exprType) ← infer expr
-      let some (_, ctor, univs, params) ← isStruct exprType.get
+      let some (ind, ctor, univs, params) ← isStruct exprType.get
         | throw $ .typNotStructure (toString exprType.get)
       -- annotate constructor type
       let (ctorType, _) ← infer ctor.type
       let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
       for i in [:idx] do
         match ctorType with
-        | .pi _ _ _ img piEnv =>
-          -- Note: This expression that is generated on the fly is immediately transformed into a value,
-          -- which discards the hash, so the value of the hash does not matter here
-          let proj := suspend (Expr.proj default i expr) (← read) (← get)
+        | .pi _ _ dom img piEnv =>
+          let info ← susInfoFromType dom
+          let proj := suspend (.proj info ind i expr) (← read) (← get)
           ctorType ← withNewExtendedEnv piEnv proj $ eval img
         | _ => pure ()
       match ctorType with
       | .pi _ _ dom _ _  =>
-        if exprType.info.prop? && !(dom.info.prop?) then 
-          throw $ .projEscapesProp (toString term)
-        else
-          let term := .proj (← infoFromType dom) idx expr
+        match exprType.info, dom.info with
+        | .prop, .prop =>
+          let term := .proj (← susInfoFromType dom) ind idx expr
+          pure (term, dom)
+        | .prop, _ =>
+          throw $ .projEscapesProp s!"{toString expr}.{idx}"
+        | _, _ =>
+          let term := .proj (← susInfoFromType dom) ind idx expr
           pure (term, dom)
       | _ => throw .impossible
 
@@ -202,7 +200,7 @@ mutual
   Checks if `expr : Expr` is `Sort lvl` for some level `lvl`, and throws `TypecheckerError.notTyp`
   if it is not.
   -/
-  partial def isSort (expr : Expr) : TypecheckM (Expr × Univ) := do
+  partial def isSort (expr : Expr) : TypecheckM (TypedExpr × Univ) := do
     let (expr, typ) ← infer expr
     match typ.get with
     | .sort u => pure (expr, u)
@@ -214,7 +212,8 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := do
+  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := withResetCtx do
+    --dbg_trace s!"Checking: {c.name}"
     match (← get).tcConsts.get? idx with
     | .some .none =>
       let univs := c.levels.foldr
@@ -222,46 +221,91 @@ mutual
         (fun _ => []) 0
       withEnv ⟨ [], univs ⟩ $ do
         match c with
-        | .theorem    struct
-        | .opaque     struct
-        | .definition struct => do
-          let (type, _) ← isSort struct.type
+        | .theorem    data
+        | .opaque     data
+        | .definition data => do
+          let (type, _) ← isSort data.type
           let typeSus := suspend type (← read) (← get)
-          let value ← check struct.value typeSus
+          let value ← match c with
+          | .definition data => match data.safety with
+            | .partial =>
+              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc k => do
+                let const ← derefConst default k
+                -- TODO avoid repeated work here
+                let (type, _) ← isSort data.type
+                let ctx ← read
+                let stt ← get
+                let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+                match const with
+                | .theorem    data
+                | .opaque     data
+                | .definition data => pure $ acc.insert k typeSus
+                | _ => throw .impossible -- FIXME better error
+              withMutTypes mutTypes $ check data.value typeSus
+            | _ => check data.value typeSus
+          | _ => check data.value typeSus
 
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts
           if h : idx < tcConsts.size then
             let newConst ← match c with
-            | .theorem    struct => pure $ Const.theorem {struct with value := value, type := type}
-            | .opaque     struct => pure $ .opaque {struct with value := value, type := type}
-            | .definition struct => pure $ .definition {struct with value := value, type := type}
+            | .theorem    data => pure $ TypedConst.theorem type value
+            | .opaque     data => pure $ TypedConst.opaque type value
+            | .definition data => pure $ TypedConst.definition type value data.safety
             | _ => throw .impossible
             modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
           else
             throw $ .impossible
-        -- TODO: check that inductives, constructors and recursors are well-formed
+        -- TODO: check that inductives, condataors and recursors are well-formed
         -- TODO: check that quotient is well-formed. I guess it is possible to do this
         -- while converting from Ipld by checking the cids of the quotient constants
         -- with precomputed ones
-        | .axiom       struct
-        | .inductive   struct
-        | .constructor struct
-        | .extRecursor struct
-        | .intRecursor struct
-        | .quotient    struct =>
-          let (type, _)  ← isSort struct.type
+        | .axiom       data
+        | .inductive   data
+        | .constructor data
+        | .extRecursor data
+        | .intRecursor data
+        | .quotient    data =>
+          --dbg_trace s!"checking constant type: {data.name}"
+          let (type, _)  ← isSort data.type
+          --dbg_trace s!"done checking constant type: {data.name}"
 
           -- update the typechecked consts with the annotated values/types
           let tcConsts := (← get).tcConsts
           if h : idx < tcConsts.size then
-            let newConst ← match c with 
-            | .axiom       struct => pure $ Const.axiom {struct with type := type}
-            | .inductive   struct => pure $ Const.inductive {struct with type := type}
-            | .constructor struct => pure $ Const.constructor {struct with type := type}
-            | .extRecursor struct => pure $ Const.extRecursor {struct with type := type}
-            | .intRecursor struct => pure $ Const.intRecursor {struct with type := type}
-            | .quotient    struct => pure $ Const.quotient {struct with type := type}
+            let newConst ← match c with
+            | .axiom       _ => pure $ TypedConst.axiom type
+            | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
+            | .constructor data =>
+              -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
+              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
+                match (← read).store.consts.get? idx with
+                | .some (.intRecursor data)
+                | .some (.extRecursor data)
+                | .some (.inductive data)
+                | .some (.constructor data) =>
+                  -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
+                  let (type, _)  ← withMutTypes acc $ isSort data.type
+                  let ctx ← read
+                  let stt ← get
+                  let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+                  pure $ acc.insert idx typeSus
+                | _ => throw .impossible
+              --dbg_trace s!"rhs: {data.rhs}"
+              let (rhs, _) ← withMutTypes (mutTypes) $ infer data.rhs
+              pure $ TypedConst.constructor type rhs data.idx data.fields
+            | .extRecursor data =>
+              let rules ← data.rules.mapM fun rule => do
+                let ctx ← read
+                let stt ← get
+                let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+                -- rhs` can have recursive references to `c`, so we must `withMutTypes`
+                let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
+                let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
+                pure (rule.ctor.idx, rule.fields, rhs)
+              pure $ .extRecursor type data.params data.motives data.minors data.indices rules
+            | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k
+            | .quotient    data => pure $ .quotient type data.kind
             | _ => throw $ .impossible
             modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
           else

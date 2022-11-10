@@ -20,10 +20,11 @@ The context available to the typechecker monad. The available fields are
 * `store : Array Const` : An array of known constants in the context that can be referred to by their index.
 -/
 structure TypecheckCtx where
-  lvl    : Nat
-  env    : Env
-  types  : List SusValue
-  store  : Store
+  lvl       : Nat
+  env       : Env
+  types     : List SusValue
+  store     : Store
+  mutTypes  : Std.RBMap ConstIdx (List Univ → SusValue) compare
   deriving Inhabited
 
 /--
@@ -31,7 +32,7 @@ The state available to the typechecker monad. The available fields are
 * `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their types and values annotated
 -/
 structure TypecheckState where
-  tcConsts : Array (Option Const)
+  tcConsts : Array (Option TypedConst)
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular `store : Array Const` -/
@@ -61,6 +62,18 @@ def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM �
 /-- Evaluates a `TypecheckM` computation with an `TypecheckCtx` whose environment is fixed by `env` -/
 def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env }
+
+/--
+Evaluates a `TypecheckM` computation with a reset `TypecheckCtx`.
+-/
+def withResetCtx : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, mutTypes := default}
+
+/--
+Evaluates a `TypecheckM` computation with the given `mutTypes`.
+-/
+def withMutTypes (mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare) : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => {ctx with mutTypes}
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` which has been extended with an additional
@@ -121,16 +134,38 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
     | _, _ => pure none
+  | .natDecLt => .mk fun vs => do
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    match v.get, v'.get with
+    | .lit (.natVal v), .lit (.natVal v') =>
+      if h : v < v' then do
+        pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
+          [(.mk .proof $ .mk fun _ => .litProp $ .natLt v v' h, .none)]
+      else do
+        pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
+          [(.mk .proof $ .mk fun _ => .litProp $ .natNLt v v' h, .none)]
+    | _, _ => pure none
+  | .natDecLe => .mk fun vs => do
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    match v.get, v'.get with
+    | .lit (.natVal v), .lit (.natVal v') =>
+      if h : v ≤ v' then do
+        pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
+          [(.mk .proof $ .mk fun _ => .litProp $ .natLe v v' h, .none)]
+      else do
+        pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
+          [(.mk .proof $ .mk fun _ => .litProp $ .natNLe v v' h, .none)]
+    | _, _ => pure none
   | .natDecEq => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
-      if h : v' = v then do
+      if h : v = v' then do
         pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [.mk {proof? := true} $ .mk fun _ => .litProp $ .natEq v' v h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natEq v v' h, .none)]
       else do
         pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [.mk {proof? := true} $ .mk fun _ => .litProp $ .natNEq v' v h]
+          [(.mk .proof $ .mk fun _ => .litProp $ .natNEq v v' h, .none)]
     | _, _ => pure none
 
 end Yatima.Typechecker

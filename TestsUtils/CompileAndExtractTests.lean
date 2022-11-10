@@ -94,18 +94,18 @@ def pairConstants (x y : Array Const) :
 
 def reindexExpr (map : NatNatMap) : Expr → Expr
   | e@(.var ..)
-  | e@(.sort _ _)
+  | e@(.sort _)
   | e@(.lit ..) => e
-  | .const _ n i ls => .const default n (map.find! i) ls
-  | .app _ e₁ e₂ => .app default (reindexExpr map e₁) (reindexExpr map e₂)
-  | .lam _ n bi e₁ e₂ => .lam default n bi (reindexExpr map e₁) (reindexExpr map e₂)
-  | .pi _ n bi e₁ e₂ => .pi default n bi (reindexExpr map e₁) (reindexExpr map e₂)
-  | .letE _ n e₁ e₂ e₃ =>
-    .letE default n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
-  | .proj _ n e => .proj default n (reindexExpr map e)
+  | .const n i ls => .const n (map.find! i) ls
+  | .app e₁ e₂ => .app (reindexExpr map e₁) (reindexExpr map e₂)
+  | .lam n bi e₁ e₂ => .lam n bi (reindexExpr map e₁) (reindexExpr map e₂)
+  | .pi n bi e₁ e₂ => .pi n bi (reindexExpr map e₁) (reindexExpr map e₂)
+  | .letE n e₁ e₂ e₃ =>
+    .letE n (reindexExpr map e₁) (reindexExpr map e₂) (reindexExpr map e₃)
+  | .proj n e => .proj n (reindexExpr map e)
 
 def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
-  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs }
+  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs, all := ctor.all.map map.find!}
 
 def reindexConst (map : NatNatMap) : Const → Const
   | .axiom x => .axiom { x with type := reindexExpr map x.type }
@@ -120,8 +120,7 @@ def reindexConst (map : NatNatMap) : Const → Const
     type := reindexExpr map x.type,
     value := reindexExpr map x.value,
     all := x.all.map map.find! }
-  | .constructor x => .constructor { x with
-    type := reindexExpr map x.type, rhs := reindexExpr map x.rhs }
+  | .constructor x => .constructor $ reindexCtor map x
   | .extRecursor x =>
     let rules := x.rules.map fun r => { r with
       rhs := reindexExpr map r.rhs,
@@ -166,8 +165,11 @@ instance : Testable (FoundConstFailure constName) :=
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConst stt.tcStore const.name) fun _ => .done
+    if true then
+    --if const.name == `Or.inl then
+      tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+        (typecheckConst stt.tcStore const.name) fun _ => .done
+    else tSeq
 
 end Typechecking
 

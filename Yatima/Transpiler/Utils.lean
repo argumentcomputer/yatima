@@ -104,8 +104,8 @@ where
   telescopeAux (expr : Expr) (bindAcc : List (Name × Expr)) (pi? : Bool) : 
       Expr × List (Name × Expr) :=
     match expr, pi? with 
-    | .pi _ name _ ty body, true => telescopeAux body ((name, ty) :: bindAcc) true
-    | .lam _ name _ ty body, false => telescopeAux body ((name, ty) :: bindAcc) false
+    | .pi name _ ty body, true => telescopeAux body ((name, ty) :: bindAcc) true
+    | .lam name _ ty body, false => telescopeAux body ((name, ty) :: bindAcc) false
     | _, _ => (expr, bindAcc.reverse)
 
 end Yatima.Transpiler

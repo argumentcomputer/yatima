@@ -18,7 +18,7 @@ mutual
   /--
     Replace free variables in `e` with values from `env.exprs`.
   -/
-  partial def replaceFvars (consts : Array Const) (env : Env) (e : Expr) : Option Expr :=
+  partial def replaceFvars (consts : Array Const) (env : Env) (e : TypedExpr) : Option TypedExpr :=
     let replace expr := replaceFvars consts env expr
     match e with
     | .var _ _ idx => readBack consts (env.exprs.get! idx).get
@@ -30,7 +30,7 @@ mutual
         $ .mk default $ .pure $ Value.app (.fvar n 0) []
       return .lam default n bin (← replace ty) (← replaceFvars consts lamEnv b)
     | .letE _ n e ty b  => return .letE default n (← replace e) (← replace ty) (← replace b)
-    | .proj _ n e  => return .proj default n (← replace e)
+    | .proj _ s n e  => return .proj default s n (← replace e)
     | e => pure e
 
   /--
@@ -45,10 +45,10 @@ mutual
       we're testing as part of the testing infractructure. E.g. a bug that causes
       all expressions to reduce to the same thing would make everything pass.
   -/
-  partial def readBack (consts : Array Const) : Value → Option Expr
+  partial def readBack (consts : Array Const) : Value → Option TypedExpr
     | .sort univ => pure $ .sort default univ
     | .app neu args => do args.foldlM (init := ← readBackNeutral consts neu) fun acc arg => do
-      pure $ Expr.app default acc $ ← readBack consts arg.get
+      pure $ TypedExpr.app default acc $ ← readBack consts arg.1.get
     | .lam name binfo dom bod env => do
       -- any neutral fvars in the environment are now additionally nested,
       -- and so must have their de bruijn indices incremented
@@ -69,17 +69,17 @@ mutual
     | .litProp _ => none -- FIXME
     | .exception _ => none
 
-  partial def readBackNeutral (consts : Array Const) : Neutral → Option Expr
+  partial def readBackNeutral (consts : Array Const) : Neutral → Option TypedExpr
     | .fvar name idx => pure $ .var default name idx
     | .const name idx univs => pure $ .const default name idx univs
-    | .proj idx val => do
-      let val ← readBack consts val.get
-      pure $ .proj default idx val
+    | .proj s idx val => do
+      let val ← readBack consts val.value
+      pure $ .proj default s idx val
 
 end
 
 def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
-    Except String (Array ((Name × Expr) × (Name × Expr))) := do
+    Except String (Array ((Name × TypedExpr) × (Name × TypedExpr))) := do
   let mut pairList := #[]
   let mut notFound := #[]
   for (constName, rconstName) in consts do
@@ -91,18 +91,18 @@ def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name))
       | some (_, ridx)  =>
         let some (.definition const) ← pure state.tcStore.consts[idx]? | throw "invalid definition index"
         let some (.definition rconst) ← pure state.tcStore.consts[ridx]? | throw "invalid definition index"
-        match TypecheckM.run (.init state.tcStore) (.init state.tcStore) $ eval const.value with
-        | .ok value =>
+        match TypecheckM.run (.init state.tcStore) (.init state.tcStore) do eval (← infer const.value).1, TypecheckM.run (.init state.tcStore) (.init state.tcStore) do pure (← infer rconst.value).1 with
+        | .ok value, .ok rexpr =>
           -- dbg_trace s!"READBACK ------------------------------------------------------------------------------------------"
           let some expr ← pure $ readBack state.tcStore.consts value | throw s!"failed to read back value {value}"
-          pairList := pairList.push ((constName, expr), (rconstName, rconst.value))
-        | _ => .error "failed to evaluate value"
+          pairList := pairList.push ((constName, expr), (rconstName, rexpr))
+        | _, _ => .error "failed to evaluate value"
   if notFound.isEmpty then
     return pairList
   else
     throw s!"Not found: {", ".intercalate (notFound.data.map toString)}"
 
-def makeTcTests (pairs : Array ((Name × Expr) × (Name × Expr))) : TestSeq :=
+def makeTcTests (pairs : Array ((Name × TypedExpr) × (Name × TypedExpr))) : TestSeq :=
   pairs.foldl (init := .done) fun tSeq ((nameReduced, constReduced), (nameExpected, constExpected)) =>
     tSeq ++ test s!"Comparing {nameReduced} to {nameExpected}:\n  Reduced:\t{constReduced}\n  Expected:\t{constExpected}"
       (constReduced == constExpected)
@@ -129,5 +129,5 @@ def tcExtractor := extractTcTests [
 def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/Typechecker/Reduction.lean"
-    [extractIpldTests, tcExtractor, extractConverterTests]
+    [extractIpldTests/-, tcExtractor-/, extractConverterTests]
   lspecIO tSeq

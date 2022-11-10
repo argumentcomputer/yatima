@@ -163,7 +163,11 @@ mutual
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
       | [ctorAnon], [ctorMeta] => do
-        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩)
+        let all ← ind.meta.ctors.mapM fun ctor =>
+          getConstIdx ctor.name
+        let all := (← getConstIdx ind.meta.name) :: all
+        let all := all ++ (← ind.meta.recrs.mapM fun r => getConstIdx r.2.name)
+        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩ all)
       | _, _ => pure none
 
   /--
@@ -179,44 +183,44 @@ mutual
         if !lvlsAnon.isEmpty then
           -- bound free variables should never have universe levels
           throw $ .invalidIndexDepth idx.projₗ depth
-        pure $ .var default name.projᵣ idx
+        pure $ .var name.projᵣ idx
       else
         -- this free variable came from recrCtx, and thus represents a mutual reference
         let lvls ← lvlsAnon.zip lvlsMeta |>.mapM
           fun (anon, meta) => univFromIR ⟨anon, meta⟩
         match (← read).recrCtx.find? (idx.projₗ - depth, idx') with
-        | some (constIdx, name) => pure $ .const default name constIdx lvls
+        | some (constIdx, name) => pure $ .const name constIdx lvls
         | none => throw $ .mutRefFVNotFound (idx.projₗ - depth)
     | ⟨.sort uAnonCid, .sort uMetaCid⟩ =>
-      pure $ .sort default (← univFromIR ⟨uAnonCid, uMetaCid⟩)
+      pure $ .sort (← univFromIR ⟨uAnonCid, uMetaCid⟩)
     | ⟨.const () cAnonCid uAnonCids, .const name cMetaCid uMetaCids⟩ =>
       let const ← constFromIR ⟨cAnonCid, cMetaCid⟩
       let univs ← zipWith univFromIR ⟨uAnonCids, uMetaCids⟩
-      pure $ .const default name const univs
+      pure $ .const name const univs
     | ⟨.app fncAnon argAnon, .app fncMeta argMeta⟩ =>
       let fnc ← exprFromIR ⟨fncAnon, fncMeta⟩
       let arg ← exprFromIR ⟨argAnon, argMeta⟩
-      pure $ .app default fnc arg
+      pure $ .app fnc arg
     | ⟨.lam () binfo domAnon bodAnon, .lam name () domMeta bodMeta⟩ =>
       let dom ← exprFromIR ⟨domAnon, domMeta⟩
       withNewBind do
         let bod ← exprFromIR ⟨bodAnon, bodMeta⟩
-        pure $ .lam default name binfo dom bod
+        pure $ .lam name binfo dom bod
     | ⟨.pi () binfo domAnon codAnon, .pi name () domMeta codMeta⟩ =>
       let dom ← exprFromIR ⟨domAnon, domMeta⟩
       withNewBind do
         let cod ← exprFromIR ⟨codAnon, codMeta⟩
-        pure $ .pi default name binfo dom cod
+        pure $ .pi name binfo dom cod
     | ⟨.letE () typAnon valAnon bodAnon, .letE name typMeta valMeta bodMeta⟩ =>
       let typ ← exprFromIR ⟨typAnon, typMeta⟩
       let val ← exprFromIR ⟨valAnon, valMeta⟩
       withNewBind do
         let bod ← exprFromIR ⟨bodAnon, bodMeta⟩
-        pure $ .letE default name typ val bod
-    | ⟨.lit lit, .lit ()⟩ => pure $ .lit default lit
+        pure $ .letE name typ val bod
+    | ⟨.lit lit, .lit ()⟩ => pure $ .lit lit
     | ⟨.proj idx bodAnon, .proj () bodMeta⟩ =>
       let bod ← exprFromIR ⟨bodAnon, bodMeta⟩
-      pure $ .proj default idx bod
+      pure $ .proj idx bod
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
   /-- Converts a `IR.BothConstCid` and return its constant index -/
@@ -289,6 +293,10 @@ mutual
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
+          let all ← induct.meta.ctors.mapM fun ctor =>
+            getConstIdx ctor.name
+          let all := (← getConstIdx induct.meta.name) :: all
+          let all := all ++ (← induct.meta.recrs.mapM fun r => getConstIdx r.2.name)
           let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
           let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
           let name   := constructorMeta.name
@@ -303,7 +311,7 @@ mutual
           withRecrs recrCtx do
             let type ← exprFromIR ⟨constructorAnon.type, constructorMeta.type⟩
             let rhs ← exprFromIR ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe }
+            pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe, all}
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
@@ -351,7 +359,7 @@ mutual
         pure constIdx
 
   /-- Converts a `IR.Both IR.Constructor` into a `Constructor` -/
-  partial def ctorFromIR (ctor : IR.Both IR.Constructor) :
+  partial def ctorFromIR (ctor : IR.Both IR.Constructor) (all : List Nat):
       ConvertM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
@@ -361,7 +369,7 @@ mutual
     let params := ctor.anon.params
     let fields := ctor.anon.fields
     let safe := ctor.anon.safe
-    pure { name, lvls, type, idx, params, fields, rhs, safe }
+    pure { name, lvls, type, idx, params, fields, rhs, safe, all}
 
   /-- Converts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
   partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :

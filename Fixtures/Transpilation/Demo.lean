@@ -2,7 +2,7 @@ import Lean.Data.RBMap
 import Yatima
 
 def expr : Yatima.TC.Expr := 
-  .lam default `x default (.sort default Yatima.TC.Univ.zero) (.var default `x 1)
+  .lam `x default (.sort Yatima.TC.Univ.zero) (.var `x 1)
 
 def univ := @Yatima.IR.Univ.zero Yatima.IR.Kind.meta
 def univCtor := univ.ctorName

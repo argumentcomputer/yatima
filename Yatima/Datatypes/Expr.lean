@@ -60,86 +60,54 @@ namespace TC
 /-- Points to a constant in an array of constants -/
 abbrev ConstIdx := Nat
 
-/--
-  The type info is a simplified form of the value's type, with only relevant
-  information for conversion checking, in order to get proof irrelevance and equality
-  of unit-like values. Expressions starts with default values in all nodes until they
-  are correctly populated by the typechecker.
-
-  - `struct? idx` gives the structure index of the expression's type
-     in case it is a structure
-  - `unit?` tells us if the expression's type is unit-like
-  - `proof?` tells us if the expression's type is a proposition (belong to `Prop`)
-  - `prop?` tells us if the expression's type is `Prop` itself
--/
-structure TypeInfo where
-  struct? : Option Nat := none
-  unit?   : Bool := false
-  proof?  : Bool := false
-  prop?   : Bool := false
-  deriving Inhabited
-
-instance : BEq TypeInfo where beq _ _ := true
-
-/-- Representation of expressions for typechecking and transpilation -/
+/-- Representation of expressions for typechecking -/
 inductive Expr
-  | var   : TypeInfo → Name → Nat → Expr
-  | sort  : TypeInfo → Univ → Expr
-  | const : TypeInfo → Name → ConstIdx → List Univ → Expr
-  | app   : TypeInfo → Expr → Expr → Expr
-  | lam   : TypeInfo → Name → BinderInfo → Expr → Expr → Expr
-  | pi    : TypeInfo → Name → BinderInfo → Expr → Expr → Expr
-  | letE  : TypeInfo → Name → Expr → Expr → Expr → Expr
-  | lit   : TypeInfo → Literal → Expr
-  | proj  : TypeInfo → Nat → Expr → Expr
-  deriving BEq, Inhabited
+  | var   : Name → Nat → Expr
+  | sort  : Univ → Expr
+  | const : Name → ConstIdx → List Univ → Expr
+  | app   : Expr → Expr → Expr
+  | lam   : Name → BinderInfo → Expr → Expr → Expr
+  | pi    : Name → BinderInfo → Expr → Expr → Expr
+  | letE  : Name → Expr → Expr → Expr → Expr
+  | lit   : Literal → Expr
+  | proj  : Nat → Expr → Expr
+  deriving BEq, Inhabited, Repr
 
 namespace Expr
 
-def info : Expr → TypeInfo
-  | var   info ..
-  | sort  info ..
-  | const info ..
-  | app   info ..
-  | lam   info ..
-  | pi    info ..
-  | letE  info ..
-  | lit   info ..
-  | proj  info .. => info
-
 def name : Expr → Option Name
-  | var   _ n _
-  | const _ n ..
-  | lam   _ n ..
-  | pi    _ n ..
-  | letE  _ n .. => some n
+  | var   n _
+  | const n ..
+  | lam   n ..
+  | pi    n ..
+  | letE  n .. => some n
   | _ => none
 
 def bInfo : Expr → Option BinderInfo
-  | lam _ _ b ..
-  | pi  _ _ b .. => some b
+  | lam _ b ..
+  | pi  _ b .. => some b
   | _ => none
 
 def type : Expr → Option Expr
-  | lam  _ _ _ t _
-  | pi   _ _ _ t _
-  | letE _ _ t _ _ => some t
+  | lam  _ _ t _
+  | pi   _ _ t _
+  | letE _ t _ _ => some t
   | _ => none
 
 def body : Expr → Option Expr
-  | lam  _ _ _ _ b
-  | pi   _ _ _ _ b
-  | letE _ _ _ _ b => some b
+  | lam  _ _ _ b
+  | pi   _ _ _ b
+  | letE _ _ _ b => some b
   | _ => none
 
 /-- Whether a variable is free -/
 def isVarFree (name : Name) : Expr → Bool
-  | var _ name' _ => name == name'
-  | app _ func input => isVarFree name func || isVarFree name input
-  | lam _ name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
-  | pi _ name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
-  | letE _ name' type value body => isVarFree name type || isVarFree name value || (name != name' && isVarFree name body)
-  | proj _ _ body => isVarFree name body
+  | var name' _ => name == name'
+  | app func input => isVarFree name func || isVarFree name input
+  | lam name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
+  | pi name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
+  | letE name' type value body => isVarFree name type || isVarFree name value || (name != name' && isVarFree name body)
+  | proj _ body => isVarFree name body
   | _ => false
 
 /--
@@ -147,22 +115,22 @@ Get the list of de Bruijn indices of all the variables of a `Yatima.Expr`
 (helpful for debugging later)
 -/
 def getIndices : Expr → List Nat
-  | var _ _ idx => [idx]
-  | app _ func input => getIndices func ++ getIndices input
-  | lam _ _ _ type body => getIndices type ++ getIndices body
-  | pi _ _ _ type body => getIndices type ++ getIndices body
-  | letE _ _ type value body => getIndices type ++ getIndices value ++ getIndices body
-  | proj _ _ body => getIndices body
+  | var _ idx => [idx]
+  | app func input => getIndices func ++ getIndices input
+  | lam _ _ type body => getIndices type ++ getIndices body
+  | pi _ _ type body => getIndices type ++ getIndices body
+  | letE _ type value body => getIndices type ++ getIndices value ++ getIndices body
+  | proj _ body => getIndices body
   | _ => [] -- All the rest of the cases are treated at once
 
 /-- Get the list of bound variables in an expression -/
 def getBVars : Expr → List Name
-  | var _ name _ => [name]
-  | app _ func input => getBVars func ++ getBVars input
-  | lam _ _ _ type body => getBVars type ++ getBVars body
-  | pi _ _ _ type body => getBVars type ++ getBVars body
-  | letE _ _ type value body => getBVars type ++ getBVars value ++ getBVars body
-  | proj _ _ body => getBVars body
+  | var name _ => [name]
+  | app func input => getBVars func ++ getBVars input
+  | lam _ _ type body => getBVars type ++ getBVars body
+  | pi _ _ type body => getBVars type ++ getBVars body
+  | letE _ type value body => getBVars type ++ getBVars value ++ getBVars body
+  | proj _ body => getBVars body
   | _ => [] -- All the rest of the cases are treated at once
 
 def ctorName : Expr → String
@@ -178,9 +146,9 @@ def ctorName : Expr → String
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
 def numBinders : Expr → Nat
-  | lam  _ _ _ _ body
-  | pi   _ _ _ _ body
-  | letE _ _ _ _ body => 1 + numBinders body
+  | lam  _ _ _ body
+  | pi   _ _ _ body
+  | letE _ _ _ body => 1 + numBinders body
   | _ => 0
 
 /--
@@ -189,7 +157,7 @@ an "implicit lambda". This is useful for constructing the `rhs` of
 recursor rules.
 -/
 def toImplicitLambda : Expr → Expr
-  | .lam _ _ _ _ body => toImplicitLambda body
+  | .lam _ _ _ body => toImplicitLambda body
   | x => x
 
 end Expr

@@ -30,30 +30,53 @@ end
 
 /-- Printer of expressions -/
 def printExpr : Expr → String
-  | .var _ nam idx => s!"{nam}@{idx}"
-  | .sort _ u => s!"(Sort {printUniv u})"
-  | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
-  | .app _ fnc arg => s!"({printExpr fnc} {printExpr arg})"
-  | .lam _ nam binfo dom bod =>
+  | .var nam idx => s!"{nam}@{idx}"
+  | .sort u => s!"(Sort {printUniv u})"
+  | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+  | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
+  | .lam nam binfo dom bod =>
     match binfo with
     | .implicit => s!"(λ\{{nam}: {printExpr dom}}. {printExpr bod})"
     | .strictImplicit => s!"(λ⦃{nam}: {printExpr dom}⦄. {printExpr bod})"
     | .instImplicit => s!"(λ[{nam}: {printExpr dom}]. {printExpr bod})"
     | _ => s!"(λ({nam}: {printExpr dom}). {printExpr bod})"
-  | .pi _ nam binfo dom cod =>
+  | .pi nam binfo dom cod =>
     match binfo with
     | .implicit => s!"(\{{nam}: {printExpr dom}} → {printExpr cod})"
     | .strictImplicit => s!"(⦃{nam}: {printExpr dom}⦄ → {printExpr cod})"
     | .instImplicit => s!"([{nam}: {printExpr dom}] → {printExpr cod})"
     | _ => s!"(({nam}: {printExpr dom}) → {printExpr cod})"
-  | .letE _ nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
+  | .letE nam typ val bod => s!"let {nam} : {printExpr typ} := {printExpr val} in {printExpr bod}"
+  | .lit (.natVal x) => s!"{x}"
+  | .lit (.strVal x) => s!"\"{x}\""
+  | .proj idx val => s!"{printExpr val}.{idx}"
+
+/-- Printer of expressions -/
+def printTypedExpr : TypedExpr → String
+  | .var _ nam idx => s!"{nam}@{idx}"
+  | .sort _ u => s!"(Sort {printUniv u})"
+  | .const _ nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
+  | .app _ fnc arg => s!"({printTypedExpr fnc} {printTypedExpr arg})"
+  | .lam _ nam binfo dom bod =>
+    match binfo with
+    | .implicit => s!"(λ\{{nam}: {printTypedExpr dom}}. {printTypedExpr bod})"
+    | .strictImplicit => s!"(λ⦃{nam}: {printTypedExpr dom}⦄. {printTypedExpr bod})"
+    | .instImplicit => s!"(λ[{nam}: {printTypedExpr dom}]. {printTypedExpr bod})"
+    | _ => s!"(λ({nam}: {printTypedExpr dom}). {printTypedExpr bod})"
+  | .pi _ nam binfo dom cod =>
+    match binfo with
+    | .implicit => s!"(\{{nam}: {printTypedExpr dom}} → {printTypedExpr cod})"
+    | .strictImplicit => s!"(⦃{nam}: {printTypedExpr dom}⦄ → {printTypedExpr cod})"
+    | .instImplicit => s!"([{nam}: {printTypedExpr dom}] → {printTypedExpr cod})"
+    | _ => s!"(({nam}: {printTypedExpr dom}) → {printTypedExpr cod})"
+  | .letE _ nam typ val bod => s!"let {nam} : {printTypedExpr typ} := {printTypedExpr val} in {printTypedExpr bod}"
   | .lit _ (.natVal x) => s!"{x}"
   | .lit _ (.strVal x) => s!"\"{x}\""
-  | .proj _ idx val => s!"{printExpr val}.{idx}"
+  | .proj _ _ idx val => s!"{printTypedExpr val}.{idx}"
 
 mutual
   /-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
-  private partial def printLamBod (expr : Expr) (env : Env) : String :=
+  private partial def printLamBod (expr : TypedExpr) (env : Env) : String :=
     match expr with
     | .var _ nam 0 => s!"{nam}@0"
     | .var _ nam idx =>
@@ -78,18 +101,19 @@ mutual
     | .letE _ nam typ val bod => s!"let {nam} : {printLamBod typ env} := {printLamBod val env} in {printLamBod bod env}"
     | .lit _ (.natVal x) => s!"{x}"
     | .lit _ (.strVal x) => s!"\"{x}\""
-    | .proj _ idx val => s!"{printLamBod val env}.{idx}"
+    | .proj _ _ idx val => s!"{printLamBod val env}.{idx}"
 
   /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
   private partial def printSpine (neu : Neutral) (args : Args) : String :=
     let neu := match neu with
     | .fvar nam idx .. => s!"{nam}#{idx}"
     | .const nam k univs => s!"{nam}@{k}.{univs.map printUniv}"
-    | .proj idx val => s!"{printVal val.get}.{idx}"
-    List.foldr (fun arg str => s!"({str} {printVal arg.get})") neu args
+    | .proj _ idx val => s!"{printVal val.value}.{idx}"
+    List.foldr (fun arg str => s!"({str} {printVal arg.1.get})") neu args
 
   /-- Printer of typechecker values -/
-  partial def printVal : Value → String
+  partial def printVal (val : Value) : String :=
+    match val with
     | .sort u => s!"(Sort {printUniv u})"
     | .app neu args => printSpine neu args
     | .lam nam binfo dom bod ctx =>
@@ -109,9 +133,14 @@ mutual
     | .lit (.strVal x) => s!"\"{x}\""
     | .litProp (.natNEq x y _) => s!"(? : {x} ≠ {y})"
     | .litProp (.natEq x y _) => s!"(? : {x} = {y})"
+    | .litProp (.natLe x y _) => s!"(? : {x} ≤ {y})"
+    | .litProp (.natNLe x y _) => s!"(? : ¬ {x} ≤ {y})"
+    | .litProp (.natLt x y _) => s!"(? : {x} < {y})"
+    | .litProp (.natNLt x y _) => s!"(? : ¬ {x} < {y})"
     | .exception e => s!"exception {e}"
 end
 
+instance : ToString TypedExpr  where toString := printTypedExpr
 instance : ToString Expr  where toString := printExpr
 instance : ToString Univ  where toString := printUniv
 instance : ToString Value where toString := printVal

@@ -394,10 +394,10 @@ mutual
     -- dbg_trace ">> mkLurkExpr: "
     match e with
     | .sort  .. => return ⟦nil⟧
-    | .var _ name _     =>
+    | .var name _     =>
       -- dbg_trace s!"var {name}"
       mkName name
-    | .const _ name idx .. => do
+    | .const name idx .. => do
       -- dbg_trace s!"const {name} {idx}"
       if !(← get).visited.contains name then
         match (← read).builtins.find? (fun (n, _) => n == name) with
@@ -407,7 +407,7 @@ mutual
           let const := (← read).tcStore.consts[idx]! -- TODO: Add proof later
           mkConst const
       mkName name
-    | .app _ fn arg =>
+    | .app fn arg =>
       let e := .app (← mkLurkExpr fn) (.some $ ← mkLurkExpr arg)
       -- TODO: this may be super efficient, need to analyze
       match Simp.getOfNatLit e with
@@ -417,12 +417,12 @@ mutual
       -- dbg_trace s!"lam"
       mkLambda e
     | .pi    .. => return ⟦nil⟧
-    | .letE _ name _ value body  => do
+    | .letE name _ value body  => do
       -- dbg_trace s!"let {name}"
       let val ← mkLurkExpr value
       let body ← mkLurkExpr body
       return .letE [(name, val)] body
-    | .lit _ lit  => match lit with
+    | .lit lit  => match lit with
       -- TODO: need to include `Int` somehow
       | .natVal n =>
         -- dbg_trace s!"lit {n}";
@@ -430,7 +430,7 @@ mutual
       | .strVal s =>
         -- dbg_trace s!"lit {s}";
         return ⟦$s⟧
-    | .proj _ idx e => do
+    | .proj idx e => do
       -- dbg_trace s!"proj {idx}";
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection
