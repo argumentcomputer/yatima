@@ -165,6 +165,8 @@ mutual
       | [ctorAnon], [ctorMeta] => do
         let all ← ind.meta.ctors.mapM fun ctor =>
           getConstIdx ctor.name
+        let all := (← getConstIdx ind.meta.name) :: all
+        let all := all ++ (← ind.meta.recrs.mapM fun r => getConstIdx r.2.name)
         pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩ all)
       | _, _ => pure none
 
@@ -293,6 +295,8 @@ mutual
           let induct ← getInductive indBlock anon.idx
           let all ← induct.meta.ctors.mapM fun ctor =>
             getConstIdx ctor.name
+          let all := (← getConstIdx induct.meta.name) :: all
+          let all := all ++ (← induct.meta.recrs.mapM fun r => getConstIdx r.2.name)
           let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
           let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
           let name   := constructorMeta.name
