@@ -39,6 +39,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
       let (ptr, store) :=  toAST stt.lurkStore |>.encode
       let irPath : FilePath := "lurk"/p.getFlagD "output" "lurk_store.ir"
       IO.FS.writeBinFile irPath (Lurk.SerDe.serialize [ptr] store)
+      -- TODO: write precompiled with the ir root hash to uniquely identify it with each run
       let (ptr, store) :=  toAST stt.cidCache |>.encode
       let cachePath : FilePath := "lurk"/p.getFlagD "output" "precompiled.ir"
       IO.FS.writeBinFile cachePath (Lurk.SerDe.serialize [ptr] store)
