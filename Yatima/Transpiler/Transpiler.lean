@@ -363,7 +363,7 @@ mutual
           | none => return
             -- TODO: better detection of what to compile, use this carefully for now
             -- throw $ .custom s!"built constant contains unknown symbol {name}"
-      | .num n | .char c | .str s => return
+      | .num _ | .char _ | .str _ => return
       | .cons e₁ e₂ => do go e₁; go e₂
 
   partial def mkLurkExpr (e : Expr) : TranspileM AST := do

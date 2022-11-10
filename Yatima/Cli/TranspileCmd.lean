@@ -15,9 +15,10 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
     | .error msg => IO.eprintln msg; return 1
     | .ok exp =>
       IO.FS.writeFile (p.getFlagD "output" "output.lurk")
-        ((exp.pprint false).pretty 70)
-      if p.hasFlag "run" then
-        IO.println $ ← Lurk.Evaluation.ppEval exp
+        (toString exp)
+      -- TODO support running
+      -- if p.hasFlag "run" then
+      --   IO.println $ ← exp.eval
       return 0
 
 def transpileCmd : Cli.Cmd := `[Cli|
