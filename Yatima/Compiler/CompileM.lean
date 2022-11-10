@@ -1,12 +1,12 @@
 import Yatima.Datatypes.Store
 import Yatima.Compiler.CompileError
-import Yatima.LurkData.ToLurkData
+import Yatima.Lurk.ToLurkData
 import Yatima.Compiler.Utils
 
 namespace Yatima.Compiler
 
 open Std (RBMap)
-open Lurk.Syntax AST
+open Lurk.Hashing Lurk.Syntax AST
 
 /--
 The state for the `Yatima.Compiler.CompileM` monad.
@@ -20,8 +20,8 @@ The IPLD arrays are used for the later encoding of the IR store in IPLD
 structure CompileState where
   irStore : IR.Store
   tcStore : TC.Store
-  cache   : RBMap Name (IR.BothConstCid × TC.ConstIdx) compare
-  -- find better names
+  cache   : RBMap Name (IR.BothConstScalar × TC.ConstIdx) compare
+  -- objects represented in `Lurk.Syntax.AST`
   consts    : Array AST
   univAnon  : Array AST
   exprAnon  : Array AST
@@ -29,9 +29,11 @@ structure CompileState where
   univMeta  : Array AST
   exprMeta  : Array AST
   constMeta : Array AST
+  -- contains cached data to speed up the encoding of Lurk data
+  encodeState : EncodeState
   deriving Inhabited
 
-def CompileState.lurkStore (s : CompileState) : LurkStore :=
+def CompileState.lurkStore (s : CompileState) : Lurk.Store :=
   ⟨s.consts,
     s.univAnon, s.exprAnon, s.constAnon,
     s.univMeta, s.exprMeta, s.constMeta⟩
@@ -129,57 +131,62 @@ def getFromRecrCtx! (name : Name) : CompileM $ RecrCtxEntry := do
 
 /-- Auxiliary type to standardize additions of CIDs to the store -/
 inductive StoreEntry : Type → Type
-  | univ  : IR.Both IR.Univ  → StoreEntry IR.BothUnivCid
-  | expr  : IR.Both IR.Expr  → StoreEntry IR.BothExprCid
-  | const : IR.Both IR.Const → StoreEntry IR.BothConstCid
+  | univ  : IR.Both IR.Univ  → StoreEntry IR.BothUnivScalar
+  | expr  : IR.Both IR.Expr  → StoreEntry IR.BothExprScalar
+  | const : IR.Both IR.Const → StoreEntry IR.BothConstScalar
 
 /-- Adds CID data to the store, but also returns it for practical reasons -/
 def addToStore : StoreEntry A → CompileM A
-  | .univ obj =>
-    let (ipldAnon, cidAnon) := obj.anon.toCid
-    let (ipldMeta, cidMeta) := obj.meta.toCid
-    modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
+  | .univ obj => do
+    let (astAnon, ptrAnon, encStt) := obj.anon.encode (← get).encodeState
+    let (astMeta, ptrMeta, encStt) := obj.meta.encode encStt
+    modifyGet fun stt => (⟨ptrAnon, ptrMeta⟩, { stt with
       irStore := { stt.irStore with
-        univAnon := stt.irStore.univAnon.insert cidAnon obj.anon,
-        univMeta := stt.irStore.univMeta.insert cidMeta obj.meta }
-      univAnon := stt.univAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
-      univMeta := stt.univMeta.push $ ~[~[.comm, .num cidMeta.data], ipldMeta] })
-  | .expr obj =>
-    let (ipldAnon, cidAnon) := obj.anon.toCid
-    let (ipldMeta, cidMeta) := obj.meta.toCid
-    modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
+        univAnon := stt.irStore.univAnon.insert ptrAnon obj.anon,
+        univMeta := stt.irStore.univMeta.insert ptrMeta obj.meta }
+      univAnon := stt.univAnon.push $ ~[ToAST.toAST ptrAnon, astAnon]
+      univMeta := stt.univMeta.push $ ~[ToAST.toAST ptrMeta, astMeta]
+      encodeState := encStt })
+  | .expr obj => do
+    let (astAnon, ptrAnon, encStt) := obj.anon.encode (← get).encodeState
+    let (astMeta, ptrMeta, encStt) := obj.meta.encode encStt
+    modifyGet fun stt => (⟨ptrAnon, ptrMeta⟩, { stt with
       irStore := { stt.irStore with
-        exprAnon := stt.irStore.exprAnon.insert cidAnon obj.anon,
-        exprMeta := stt.irStore.exprMeta.insert cidMeta obj.meta }
-      exprAnon := stt.exprAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
-      exprMeta := stt.exprMeta.push $ ~[.comm, .num cidMeta.data, ipldMeta] })
-  | .const obj =>
-    let (ipldAnon, cidAnon) := obj.anon.toCid
-    let (ipldMeta, cidMeta) := obj.meta.toCid
-    let cid := ⟨cidAnon, cidMeta⟩
+        exprAnon := stt.irStore.exprAnon.insert ptrAnon obj.anon,
+        exprMeta := stt.irStore.exprMeta.insert ptrMeta obj.meta }
+      exprAnon := stt.exprAnon.push $ ~[ToAST.toAST ptrAnon, astAnon]
+      exprMeta := stt.exprMeta.push $ ~[ToAST.toAST ptrMeta, astMeta]
+      encodeState := encStt })
+  | .const obj => do
+    let (astAnon, ptrAnon, encStt) := obj.anon.encode (← get).encodeState
+    let (astMeta, ptrMeta, encStt) := obj.meta.encode encStt
     match obj.anon, obj.meta with
     -- Mutual definition/inductive blocks do not get added to the set of constants
     | .mutDefBlock .., .mutDefBlock ..
     | .mutIndBlock .., .mutIndBlock .. =>
-      modifyGet fun stt => (cid, { stt with
+      modifyGet fun stt => (⟨ptrAnon, ptrMeta⟩, { stt with
         irStore := { stt.irStore with
-          constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
-          constMeta := stt.irStore.constMeta.insert cidMeta obj.meta }
-        constAnon := stt.constAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
-        constMeta := stt.constMeta.push $ ~[~[.comm, .num cidMeta.data], ipldMeta] })
+          constAnon := stt.irStore.constAnon.insert ptrAnon obj.anon,
+          constMeta := stt.irStore.constMeta.insert ptrMeta obj.meta }
+        constAnon := stt.constAnon.push $ ~[ToAST.toAST ptrAnon, astAnon]
+        constMeta := stt.constMeta.push $ ~[ToAST.toAST ptrMeta, astMeta]
+        encodeState := encStt })
     | _, _ =>
+      let cid := ⟨ptrAnon, ptrMeta⟩
+      let prtAnonAST := ToAST.toAST ptrAnon
+      let prtMetaAST := ToAST.toAST ptrMeta
       modifyGet fun stt => (cid, { stt with
         irStore := { stt.irStore with
-          constAnon := stt.irStore.constAnon.insert cidAnon obj.anon,
-          constMeta := stt.irStore.constMeta.insert cidMeta obj.meta,
+          constAnon := stt.irStore.constAnon.insert ptrAnon obj.anon,
+          constMeta := stt.irStore.constMeta.insert ptrMeta obj.meta,
           consts    := stt.irStore.consts.insert cid }
-        constAnon := stt.constAnon.push $ ~[~[.comm, .num cidAnon.data], ipldAnon]
-        constMeta := stt.constMeta.push $ ~[~[.comm, .num cidMeta.data], ipldMeta]
-        consts    := stt.consts.push    $
-          ~[~[.comm, .num cidAnon.data], ~[.comm, .num cidMeta.data]] })
+        constAnon := stt.constAnon.push $ ~[prtAnonAST, astAnon]
+        constMeta := stt.constMeta.push $ ~[prtMetaAST, astMeta]
+        consts    := stt.consts.push    $ ~[prtAnonAST, prtMetaAST]
+        encodeState := encStt })
 
 /-- Adds data associated with a name to the cache -/
-def addToCache (name : Name) (c : IR.BothConstCid × TC.ConstIdx) : CompileM Unit :=
+def addToCache (name : Name) (c : IR.BothConstScalar × TC.ConstIdx) : CompileM Unit :=
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
 /-- Adds a constant to the array of constants at a given index -/

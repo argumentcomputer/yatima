@@ -2,7 +2,7 @@ import Yatima.Datatypes.Store
 import Yatima.Compiler.Utils
 import Yatima.Converter.ConvertError
 import YatimaStdLib.RBMap
-import YatimaStdLib.Option
+import YatimaStdLib.Ord
 
 namespace Yatima
 
@@ -44,8 +44,8 @@ Contains the progress of the conversion process.
 * `constsIdx` contains auxiliary data to recover a constant index by its name using the order in `consts`
 -/
 structure ConvertState where
-  univCache  : RBMap IR.BothUnivCid TC.Univ compare
-  constCache : RBMap IR.BothConstCid TC.ConstIdx compare
+  univCache  : RBMap IR.BothUnivScalar TC.Univ compare
+  constCache : RBMap IR.BothConstScalar TC.ConstIdx compare
   tcStore    : TC.Store
   constsIdx  : RBMap Name TC.ConstIdx compare
   deriving Inhabited

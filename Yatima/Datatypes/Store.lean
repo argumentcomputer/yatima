@@ -10,15 +10,15 @@ namespace IR
 open Std (RBMap RBSet) in
 /-- The end result of the compilation process -/
 structure Store where
-  consts : RBSet (Both ConstCid) compare
+  consts : RBSet (Both ConstScalar) compare
 
-  univAnon  : RBMap (UnivCid  .anon) (Univ  .anon) compare
-  exprAnon  : RBMap (ExprCid  .anon) (Expr  .anon) compare
-  constAnon : RBMap (ConstCid .anon) (Const .anon) compare
+  univAnon  : RBMap (UnivScalar  .anon) (Univ  .anon) compare
+  exprAnon  : RBMap (ExprScalar  .anon) (Expr  .anon) compare
+  constAnon : RBMap (ConstScalar .anon) (Const .anon) compare
 
-  univMeta  : RBMap (UnivCid  .meta) (Univ  .meta) compare
-  exprMeta  : RBMap (ExprCid  .meta) (Expr  .meta) compare
-  constMeta : RBMap (ConstCid .meta) (Const .meta) compare
+  univMeta  : RBMap (UnivScalar  .meta) (Univ  .meta) compare
+  exprMeta  : RBMap (ExprScalar  .meta) (Expr  .meta) compare
+  constMeta : RBMap (ConstScalar .meta) (Const .meta) compare
   deriving Inhabited
 
 instance : BEq Store where
@@ -47,15 +47,15 @@ namespace TC
 open Typechecker in
 /-- Keeps track of the data used for typechecking -/
 structure Store where
-  consts       : Array Const
-  primIdxs     : Std.RBMap PrimConst Nat compare
-  idxsToPrims  : Std.RBMap Nat PrimConst compare
+  consts      : Array Const
+  primIdxs    : Std.RBMap PrimConst Nat compare
+  idxsToPrims : Std.RBMap Nat PrimConst compare
   deriving Inhabited
 
 end TC
 
 /-- Contains `IR.Store` data encoded in `Lurk.Syntax.AST` -/
-structure LurkStore where
+structure Lurk.Store where
   consts    : Array Lurk.Syntax.AST
   univAnon  : Array Lurk.Syntax.AST
   exprAnon  : Array Lurk.Syntax.AST

@@ -2,7 +2,7 @@ import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
 import Yatima.Converter.ConvertError
 import Yatima.Converter.ConvertM
-import Yatima.LurkData.PrimConsts
+import Yatima.Lurk.PrimConsts
 
 namespace Yatima
 
@@ -10,11 +10,11 @@ namespace Converter
 
 /-- Represents information used to retrieve data from the cache or from store -/
 inductive Key : Type → Type
-  | univCache  : IR.BothUnivCid  → Key TC.Univ
-  | constCache : IR.BothConstCid → Key TC.ConstIdx
-  | univStore  : IR.BothUnivCid  → Key (IR.Both IR.Univ)
-  | exprStore  : IR.BothExprCid  → Key (IR.Both IR.Expr)
-  | constStore : IR.BothConstCid → Key (IR.Both IR.Const)
+  | univCache  : IR.BothUnivScalar  → Key TC.Univ
+  | constCache : IR.BothConstScalar → Key TC.ConstIdx
+  | univStore  : IR.BothUnivScalar  → Key (IR.Both IR.Univ)
+  | exprStore  : IR.BothExprScalar  → Key (IR.Both IR.Expr)
+  | constStore : IR.BothConstScalar → Key (IR.Both IR.Const)
 
 namespace Key
 
@@ -96,7 +96,7 @@ instance : Coe (Split A B .true)  A := ⟨Split.projₗ⟩
 instance : Coe (Split A B .false) B := ⟨Split.projᵣ⟩
 
 /-- Extracts an `Univ` from an `IR.BothUnivCid` -/
-partial def univFromIR (cid : IR.BothUnivCid) : ConvertM TC.Univ := do
+partial def univFromIR (cid : IR.BothUnivScalar) : ConvertM TC.Univ := do
   match ← Key.find? $ .univCache $ cid with
   | some univ => pure univ
   | none =>
@@ -167,10 +167,10 @@ mutual
       | _, _ => pure none
 
   /--
-  Extracts an `Expr` given a `IR.BothExprCid` representing an expression with
+  Extracts an `Expr` given a `IR.BothExprScalar` representing an expression with
   the caveat that the `.var` case may represent a recursive reference.
   -/
-  partial def exprFromIR (cid : IR.BothExprCid) : ConvertM TC.Expr := do
+  partial def exprFromIR (cid : IR.BothExprScalar) : ConvertM TC.Expr := do
     match ← Key.find $ .exprStore cid with
     | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
       let depth := (← read).bindDepth
@@ -220,7 +220,7 @@ mutual
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
   /-- Converts a `IR.BothConstCid` and return its constant index -/
-  partial def constFromIR (cid : IR.BothConstCid) :
+  partial def constFromIR (cid : IR.BothConstScalar) :
       ConvertM TC.ConstIdx := do
     match ← Key.find? (.constCache cid) with
     | some constIdx => pure constIdx
@@ -394,11 +394,10 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
         constsIdx := state.constsIdx.insert meta.name idx })
     (← read).store.consts.forM fun cid => discard $ constFromIR cid
     (← get).constCache.forM fun cid idx => do
-      match IR.primCidsMap.find? cid.anon.data with
-      | some .nat     => modify fun stt => { stt with tcStore := { stt.tcStore with natIdx     := some idx } }
-      | some .natZero => modify fun stt => { stt with tcStore := { stt.tcStore with natZeroIdx := some idx } }
-      | some .natSucc => modify fun stt => { stt with tcStore := { stt.tcStore with natSuccIdx := some idx } }
-      | some .string  => modify fun stt => { stt with tcStore := { stt.tcStore with stringIdx  := some idx } }
+      match IR.primConstsMap.find? cid.anon.data with
+      | some pc => modify fun stt => { stt with tcStore := { stt.tcStore with
+        primIdxs := stt.tcStore.primIdxs.insert pc idx
+        idxsToPrims := stt.tcStore.idxsToPrims.insert idx pc } }
       | none => pure ()
 
 /--
