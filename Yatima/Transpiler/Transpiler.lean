@@ -525,6 +525,7 @@ def transpile (store : IR.Store) (root : Name := `root) :
   match Converter.extractPureStore store with
   | .error err => .error err
   | .ok pStore =>
+    dbg_trace s!"HERE"
     let map := pStore.consts.foldl (init := default)
       fun acc const => acc.insert const.name const
     let env := ⟨store, pStore, map, builtins⟩
