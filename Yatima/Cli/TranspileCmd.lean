@@ -1,6 +1,7 @@
 import Yatima.Cli.Utils
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
+import Lurk.Evaluation.FromAST
 import Lurk.Evaluation.Eval
 
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler in
@@ -13,11 +14,14 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
     let declaration : Lean.Name := .mkSimple $ p.getFlagD "declaration" "root"
     match transpile store declaration with
     | .error msg => IO.eprintln msg; return 1
-    | .ok exp =>
-      IO.FS.writeFile (p.getFlagD "output" "output.lurk")
-        ((exp.pprint false).pretty 70)
+    | .ok ast =>
+      IO.FS.writeFile (p.getFlagD "output" "output.lurk") (toString ast)
       if p.hasFlag "run" then
-        IO.println $ ← Lurk.Evaluation.ppEval exp
+        match ast.toExpr with
+        | .error err => IO.eprintln err; return 1
+        | .ok expr => match expr.eval with
+          | .error err => IO.eprintln err; return 1
+          | .ok val => IO.println val
       return 0
 
 def transpileCmd : Cli.Cmd := `[Cli|

@@ -9,7 +9,7 @@ def main := do
     [
       extractTranspilationTests [
       -- it's easier to comment out tests with this comma placement lol
-        (`natAdd, some ⟦300⟧)
+        (`natAdd, some $ .lit $ .num (.ofNat 300))
       -- , (`natSub1, some ⟦98⟧)
       -- , (`natSub2, some ⟦0⟧)
       -- , (`natMul, some ⟦1024⟧)

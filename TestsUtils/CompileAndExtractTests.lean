@@ -1,5 +1,6 @@
 import LSpec
 import Lurk.Evaluation.Eval
+import Lurk.Evaluation.FromAST
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
@@ -183,16 +184,16 @@ instance [BEq α] [BEq β] : BEq (Except α β) where
     | .error x, .error y => x == y
     | _, _ => false
 
-def extractTranspilationTests (expect : _root_.List (Lean.Name × Option Lurk.Syntax.Expr))
+def extractTranspilationTests (expect : List (Name × Option Value))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun expr =>
-      let val := eval expr
-      match expected with
-        | some expected =>
-          let exVal := eval expected
-          tSeq ++ test s!"Evaluation of {root} yields {val}" (val == exVal)
-        | none => tSeq
+    withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun ast =>
+      withExceptOk "Conversion to expression succeeds" ast.toExpr fun expr =>
+        withExceptOk "Evaluation succeeds" expr.eval fun val =>
+          match expected with
+          | some expected =>
+            tSeq ++ test s!"Evaluation of {root} yields {val}" (val == expected)
+          | none => tSeq
 
 end Transpilation
 

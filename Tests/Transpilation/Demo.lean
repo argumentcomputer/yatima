@@ -11,9 +11,9 @@ def main := do
       extractConverterTests,
       extractTranspilationTests [
         (`expr, none),
-        (`univCtor, some ⟦"zero"⟧),
+        (`univCtor, some $ .sym "zero"),
         (`mapInsert, none),
-        (`treeSize, some ⟦1⟧)
+        (`treeSize, some $ .lit $ .num (.ofNat 1))
       ]
     ]
   lspecIO tSeq
