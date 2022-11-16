@@ -232,7 +232,7 @@ mutual
               let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc k => do
                 let const ← derefConst default k
                 -- TODO avoid repeated work here
-                let (type, _) ← isSort data.type
+                let (type, _) ← isSort const.type
                 let ctx ← read
                 let stt ← get
                 let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
@@ -285,7 +285,9 @@ mutual
                 | .some (.inductive data)
                 | .some (.constructor data) =>
                   -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
+                  --dbg_trace s!"checking constant type: {data.name} : {data.type}"
                   let (type, _)  ← withMutTypes acc $ isSort data.type
+                  --dbg_trace s!"done checking constant type: {data.name}"
                   let ctx ← read
                   let stt ← get
                   let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
