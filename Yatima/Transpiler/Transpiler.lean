@@ -217,9 +217,6 @@ namespace Yatima.Transpiler
 
 open TC Lurk.Syntax AST DSL
 
--- instance (priority := high) : ToAST Lean.Name where
---   toAST n := .sym $ "|" ++ (n.toString false) ++ "|"
-
 def replaceName (name : Name) : TranspileM Name := do
   if name.isHygenic then
     match (← get).replaced.find? name with
@@ -245,7 +242,6 @@ def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
   let (indices, args) := rest.splitAt i
   [params, indices, args]
 
--- TODO: move
 scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where 
   toAST x := ~[toAST x.1, toAST x.2]
 
@@ -258,19 +254,20 @@ mutual
     let fn ← mkLurkExpr expr
     return ⟦(lambda $binds $fn)⟧
 
-  /-- Construct a Lurk function representing a Yatima constructor.
-    Let `ind` be the inductive parent of `ctor` and `idx` be its index.
+  /--
+  Construct a Lurk function representing a Yatima constructor.
+  Let `ind` be the inductive parent of `ctor` and `idx` be its index.
 
-    * Data (0-ary) constructors are represented as `((ind <params> <indices>) idx)`.
-    * Function constructors are represented as
-      `(lambda (a₁ a₂ ..) ((ind <params> <indices>) idx a₁ a₂ ..))`
+  * Data (0-ary) constructors are represented as `((ind <params> <indices>) idx)`.
+  * Function constructors are represented as
+    `(lambda (a₁ a₂ ..) ((ind <params> <indices>) idx a₁ a₂ ..))`
 
-    Recall that when `ind` has parameters and indices, it is represented as a function.
-    Hence we must apply arguments to access the inductive data. This is required for
-    projections.
+  Recall that when `ind` has parameters and indices, it is represented as a function.
+  Hence we must apply arguments to access the inductive data. This is required for
+  projections.
 
-    The `indices` argument is necessary since `Constructor` contains the
-    `params` field of its parent's inductive, but not the `indices` field. -/
+  The `indices` argument is necessary since `Constructor` contains the
+  `params` field of its parent's inductive, but not the `indices` field. -/
   partial def mkConstructor (ctor : Constructor) (indLit : AST) (indices : Nat) : TranspileM Unit := do
     let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
     let (_, bindings) := telescope type
@@ -282,7 +279,7 @@ mutual
       ⟦(cons $indLit (cons $idx nil))⟧
     else
       ⟦(lambda $ctorArgs $ctorData)⟧
-    appendYatimaBinding (name, body)
+    appendBinding (name, body)
 
   partial def mkListRecursor (recrType : Expr) (recrName : Name) (rhs : List Constructor) :
       TranspileM (String × AST) := do
@@ -298,11 +295,12 @@ mutual
     let nilRHS ← mkLurkExpr nilRHS.toImplicitLambda
     let consRHS ← mkLurkExpr consRHS.toImplicitLambda
     let cases := ⟦
-      (if $(argName)
-          (let ((head (car $(argName)))
-                (tail (cdr $(argName))))
-            $(consRHS))
-          $(nilRHS))
+      (if $argName
+          (let (
+              (head (car $argName))
+              (tail (cdr $argName)))
+            $consRHS)
+          $nilRHS)
     ⟧
     return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
 
@@ -322,13 +320,15 @@ mutual
         let (rhs, binds) := telescope rhs
 
         let rhs ← mkLurkExpr rhs
-        let _lurk_ctor_args := ⟦($(`getelem) (cdr (cdr $argName)) 2)⟧
-        let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦($(`getelem) _lurk_ctor_args $n)⟧
+        let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
+        let ctorArgs := (List.range fields).map
+          fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
         let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
         let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
 
-        let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
+        let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) ::
+          rhsCtorArgNames.zip ctorArgs
         return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧) -- extract snd element
 
       let cases := AST.mkIfElses ifThens ⟦nil⟧
@@ -337,53 +337,37 @@ mutual
   partial def mkInductiveBlock (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) :
       TranspileM Unit := do
     for (ind, ctors, irecr, erecrs) in inds do
-      if (← get).visited.contains ind.name then
+      if ← isVisited ind.name then
         break
-      appendYatimaBinding (ind.name, ← mkIndLiteral ind)
+      appendBinding (ind.name, ← mkIndLiteral ind)
       for ctor in ctors do
-        mkConstructor ctor ⟦,($(toString ind.name) $(ind.params) $(ind.indices))⟧ ind.indices
+        mkConstructor ctor ⟦,($ind.name $ind.params $ind.indices)⟧ ind.indices
       let erecrs ← erecrs.mapM fun erecr =>
         mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
       match mkMutualBlock (irecr::erecrs) with
-        | .ok xs => xs.forM fun (n, e) => appendYatimaBinding (n, e) false
-        | .error e => throw $ .custom e
-
-  -- partial def mkStructure
-
-  -- partial def indInfoToLurkExpr (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) :
-  --     TranspileM Unit := do match inds with
-  --   | [(ind, ctors, irecr, erecr)] =>
-  --     match ind.struct, erecr with
-  --     | some ctor, [] => _
-  --     | _, _ => _
-  --   | inds => mutIndBlockToLurkExpr inds
+      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e) false
+      | .error e => throw $ .custom e
 
   partial def builtinInitialize (name : Name) (func : AST) : TranspileM Unit := do
     visit name
     go func
-    appendYatimaBinding (name, func) (vst := false)
+    appendBinding (name, func) (vst := false)
   where
     go : AST → TranspileM Unit
+      | .num _ | .char _ | .str _ => return
+      | .cons e₁ e₂ => do go e₁; go e₂
       | .sym n => do
-        if !(← get).visited.contains n then
+        -- TODO: better detection of what to compile, use this carefully for now
+        if !(← isVisited n) then
           match (← read).map.find? n with
           | some const => mkConst const
           | none => return
-            -- TODO: better detection of what to compile, use this carefully for now
-            -- throw $ .custom s!"built constant contains unknown symbol {name}"
-      | .num _ | .char _ | .str _ => return
-      | .cons e₁ e₂ => do go e₁; go e₂
 
-  partial def mkLurkExpr (e : Expr) : TranspileM AST := do
-    -- dbg_trace ">> mkLurkExpr: {repr e}"
-    match e with
+  partial def mkLurkExpr : Expr → TranspileM AST
     | .sort  .. => return ⟦nil⟧
-    | .var name _ =>
-      -- dbg_trace s!"var {name}"
-      mkName name
+    | .var name _ => mkName name
     | .const name idx .. => do
-      -- dbg_trace s!"const {name} {idx}"
       if !(← get).visited.contains name then
         match (← read).builtins.find? (fun (n, _) => n == name) with
         | some (n, e) =>
@@ -399,30 +383,21 @@ mutual
       match Simp.getOfNatLit e with
       | some n => return .num n
       | none => return e
-    | e@(.lam ..) =>
-      -- dbg_trace s!"lam"
-      mkLambda e
-    | .pi    .. => return ⟦nil⟧
+    | e@(.lam ..) => mkLambda e
+    | .pi .. => return ⟦nil⟧
     | .letE name _ value body  => do
-      -- dbg_trace s!"let {name}"
       let val ← mkLurkExpr value
       let body ← mkLurkExpr body
       return ⟦(let $([(name, val)]) $body)⟧
     | .lit lit  => match lit with
-      -- TODO: need to include `Int` somehow
-      | .natVal n =>
-        -- dbg_trace s!"lit {n}";
-        return ⟦$n⟧
-      | .strVal s =>
-        -- dbg_trace s!"lit {s}";
-        return ⟦$s⟧
+      | .natVal n => return ⟦$n⟧
+      | .strVal s => return ⟦$s⟧
     | .proj idx e => do
-      -- dbg_trace s!"proj {idx}";
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection
       let e ← mkLurkExpr e
-      let args := ⟦($(`getelem) (cdr (cdr $e)) 2)⟧
-      return ⟦($(`getelem) $args $idx)⟧
+      let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
+      return ⟦(getelem $args $idx)⟧
 
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
@@ -432,33 +407,28 @@ mutual
   the same block more than once.
   -/
   partial def mkConst (c : Const) : TranspileM Unit := do
-    if (← get).visited.contains c.name then return
-    -- dbg_trace ">> mkConst {c.name} : {c.ctorName}"
+    if ← isVisited c.name then return
     match c with
     | .axiom    _
     | .quotient _ => return
     | .theorem  x =>
-      if !(← get).visited.contains x.name then
-        let (_, binds) := telescope x.type
-        let binds : List AST ← binds.mapM fun (n, _) => mkName n
-        appendYatimaBinding (← replaceName x.name, ⟦(lambda $binds t)⟧)
+      let (_, binds) := telescope x.type
+      let binds : List AST ← binds.mapM fun (n, _) => mkName n
+      appendBinding (← replaceName x.name, ⟦(lambda $binds t)⟧)
     | .opaque x =>
-      if !(← get).visited.contains x.name then
-        visit x.name -- force cache update before `mkLurkExpr` to prevent looping
-        appendYatimaBinding (← replaceName x.name, ← mkLurkExpr x.value) false
-    | .definition x =>
-      if !(← get).visited.contains x.name then
-        match ← getMutualDefInfo x with
-        | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
-        | [d] =>
-          visit d.name -- force cache update before `mkLurkExpr` to prevent looping
-          appendYatimaBinding (← replaceName d.name, ← mkLurkExpr d.value) false
-        | defs =>
-          defs.forM fun d => visit d.name
-          let pairs ← defs.mapM fun d => return (d.name.toString false, ← mkLurkExpr d.value)
-          match mkMutualBlock pairs with
-          | .ok block => block.forM fun (n, e) => do appendYatimaBinding (← replaceName n, e) false
-          | .error err => throw $ .custom err
+      visit x.name -- force cache update before `mkLurkExpr` to prevent looping
+      appendBinding (← replaceName x.name, ← mkLurkExpr x.value) false
+    | .definition x => match ← getMutualDefInfo x with
+      | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
+      | [d] =>
+        visit d.name -- force cache update before `mkLurkExpr` to prevent looping
+        appendBinding (← replaceName d.name, ← mkLurkExpr d.value) false
+      | defs =>
+        defs.forM fun d => visit d.name
+        let pairs ← defs.mapM fun d => return (d.name.toString false, ← mkLurkExpr d.value)
+        match mkMutualBlock pairs with
+        | .ok block => block.forM fun (n, e) => do appendBinding (← replaceName n, e) false
+        | .error err => throw $ .custom err
     | .inductive x =>
       let u ← getMutualIndInfo x
       mkInductiveBlock u
@@ -515,7 +485,7 @@ def initializePrimitives : TranspileM Unit := do
     Lurk.Functions.lurk_string_data
   ]
   for (n, e) in decls do
-    appendBuiltinBinding (n, e)
+    appendBinding (n, e)
 
 /-- Main translation function -/
 def transpileM (root : Name) : TranspileM Unit := do

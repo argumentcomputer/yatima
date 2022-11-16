@@ -15,8 +15,9 @@ structure TranspileEnv where
 
 structure TranspileState where
   appendedBindings : Array (Name × AST)
-  /-- Contains constants that have already been processed -/
+  /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
+  /-- These will help us replace hygienic names -/
   ngen     : Lean.NameGenerator
   replaced : Lean.NameMap Name
   deriving Inhabited
@@ -29,27 +30,20 @@ instance : Lean.MonadNameGenerator TranspileM where
   setNGen ngen := modify fun s => { s with ngen := ngen }
 
 /-- Set `name` as a visited node -/
-def visit (name : Name) : TranspileM Unit := do
-  -- dbg_trace s!">> visit {name}"
+def visit (name : Name) : TranspileM Unit :=
   modify fun s => { s with visited := s.visited.insert name }
 
 /-- Create a fresh variable `_x_n` to replace `name` and update `replaced` -/
 def replaceFreshId (name : Name) : TranspileM Name := do
   let name' ← Lean.mkFreshId
-  -- dbg_trace s!">> mk fresh name {name'}"
-  set $ { (← get) with replaced := (← get).replaced.insert name name'}
-  return name'
+  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name'})
 
-def appendBuiltinBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
-  let s ← get
-  set $ { s with appendedBindings := s.appendedBindings.push b }
+def appendBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
   if vst then visit b.1
+  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
-def appendYatimaBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
-  let s ← get
-  -- let name := "|" ++ b.1.toString false ++ "|"
-  set $ { s with appendedBindings := s.appendedBindings.push b }
-  if vst then visit b.1
+def isVisited (n : Name) : TranspileM Bool :=
+  return (← get).visited.contains n
 
 def TranspileM.run (env : TranspileEnv) (ste : TranspileState)
     (m : TranspileM α) : Except String TranspileState := do

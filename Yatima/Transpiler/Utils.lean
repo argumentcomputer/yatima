@@ -38,9 +38,6 @@ def getMutualIndInfo (ind : Inductive) :
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let store := (← read).irStore
   let map := (← read).map
-  -- let cid : ConstCid := ← match cache.find? ind.name with
-  --   | some (cid, _) => return cid
-  --   | none => throw $ .notFoundInCache ind.name
   let cid : ConstCid ← match store.constMeta.toList.find?
       fun (_, meta) => meta.name == ind.name with
     | some (metaCid, _) => match store.consts.toList.find? fun ⟨_, meta⟩ =>
@@ -97,14 +94,14 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
   Telescopes pi type `(a₁ : α₁) → (a₂ : α₂) → .. → α` into `(α, [(a₁, α₁), (a₂, α₂), ..])` -/
 def telescope (expr : Expr) : Expr × List (Name × Expr) :=
   match expr with 
-    | .pi .. => telescopeAux expr [] true
-    | .lam .. => telescopeAux expr [] false
-    | _ => (expr, [])
+  | .pi .. => telescopeAux expr [] true
+  | .lam .. => telescopeAux expr [] false
+  | _ => (expr, [])
 where 
   telescopeAux (expr : Expr) (bindAcc : List (Name × Expr)) (pi? : Bool) : 
       Expr × List (Name × Expr) :=
     match expr, pi? with 
-    | .pi name _ ty body, true => telescopeAux body ((name, ty) :: bindAcc) true
+    | .pi  name _ ty body, true  => telescopeAux body ((name, ty) :: bindAcc) true
     | .lam name _ ty body, false => telescopeAux body ((name, ty) :: bindAcc) false
     | _, _ => (expr, bindAcc.reverse)
 
