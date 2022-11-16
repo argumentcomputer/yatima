@@ -19,9 +19,7 @@ open Yatima Lurk.Syntax DSL
 Technically only `getelem` is used right now, but maybe the others will find use.
 -/
 
-def hmm := ⟦(LAMBDA (|α| |append|) ((QUOTE ("Append" 1 0)) 0 (|α|) |NIL| (|append|)))⟧
-#print Append.mk
-def append : Name × AST := (`APPEND, ⟦
+def append : Name × AST := (`append, ⟦
   (lambda (xs ys) (
     if xs
       (cons (car xs) (append (cdr xs) ys))
@@ -29,7 +27,7 @@ def append : Name × AST := (`APPEND, ⟦
   ))
 ⟧) 
 
-def length : Name × AST := (`LENGTH, ⟦
+def length : Name × AST := (`length, ⟦
   (lambda (xs) (
     if xs (
       + 1 (length (cdr xs))
@@ -37,7 +35,7 @@ def length : Name × AST := (`LENGTH, ⟦
   ))
 ⟧)
 
-def take : Name × AST := (`TAKE, ⟦
+def take : Name × AST := (`take, ⟦
   (lambda (n xs) (
     if (= n 0) 
     nil (
@@ -48,7 +46,7 @@ def take : Name × AST := (`TAKE, ⟦
   ))
 ⟧)
 
-def drop : Name × AST := (`DROP, ⟦
+def drop : Name × AST := (`drop, ⟦
   (lambda (n xs) (
     if (= n 0) 
       xs
@@ -60,7 +58,7 @@ def drop : Name × AST := (`DROP, ⟦
   ))
 ⟧)
 
-def getelem : Name × AST := (`GETELEM, ⟦
+def getelem : Name × AST := (`getelem, ⟦
   (lambda (xs n) (
     if (= n 0) (
       car xs
@@ -70,14 +68,14 @@ def getelem : Name × AST := (`GETELEM, ⟦
   ))
 ⟧)
 
-def lurk_string_mk : Name × AST := (`LURK_STRING_MK, ⟦
+def lurk_string_mk : Name × AST := (`lurk_string_mk, ⟦
   (lambda (cs) 
     (if cs 
       (strcons (car cs) (lurk_string_mk (cdr cs))) 
       ""))
 ⟧)
 
-def lurk_string_data : Name × AST := (`LURK_STRING_DATA, ⟦
+def lurk_string_data : Name × AST := (`lurk_string_data, ⟦
   (lambda (s) 
     (if (eq s "") 
       nil
@@ -100,7 +98,7 @@ def NatRec : Name × AST := (``Nat.rec, ⟦
   (lambda (motive zero succ _t)
     (if (= _t 0)
      zero
-     (succ (- _t 1) (|Nat.rec| motive zero succ (- _t 1)))))
+     (succ (- _t 1) ($(``Nat.rec) motive zero succ (- _t 1)))))
 ⟧)
 
 def NatAdd : Name × AST := (``Nat.add, ⟦
@@ -125,7 +123,7 @@ def NatDiv : Name × AST := (``Nat.div, ⟦
         -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
         -- the elaborator is otherwise confused and tries to parse `Nat.div`
         -- as a `binop`. 
-        (+ 1 (|Nat.div| (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
+        (+ 1 ($(``Nat.div) (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
 ⟧)
 
 def NatMod : Name × AST := (``Nat.mod, ⟦
@@ -135,7 +133,7 @@ def NatMod : Name × AST := (``Nat.mod, ⟦
         -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
         -- the elaborator is otherwise confused and tries to parse `Nat.div`
         -- as a `binop`. 
-        (+ 1 (|Nat.div| (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
+        (+ 1 ($(``Nat.div) (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
 ⟧)
 
 def NatDecLe : Name × AST := (``Nat.decLe, ⟦
@@ -149,8 +147,8 @@ def NatDecLe : Name × AST := (``Nat.decLe, ⟦
 def NatBeq : Name × AST := (``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (
     if (= _x_lurk_1 _x_lurk_2) 
-      |Bool.true|
-      |Bool.false|
+      $(``true)
+      $(``false)
   ))
 ⟧)
 
@@ -165,7 +163,7 @@ def CharMk : Name × AST := (``Char.mk, ⟦
 
 def CharVal : Name × AST := (``Char.val, ⟦
   (lambda (self) 
-    (|UInt32.mk| (|Fin.mk| |UInt32.size| (num self) t)))
+    ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) (num self) t)))
 ⟧)
 
 def CharValid : Name × AST := (``Char.val, ⟦
@@ -174,7 +172,7 @@ def CharValid : Name × AST := (``Char.val, ⟦
 
 def CharRec : Name × AST := (``Char.rec, ⟦
   (lambda (motive mk _t) 
-    (mk (num (|UInt32.mk| (|Fin.mk| |UInt32.size| n t)))))
+    (mk (num ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) n t)))))
 ⟧)
 
 def List : Name × AST := (``List, ⟦
@@ -192,7 +190,7 @@ def ListCons : Name × AST := (``List.cons, ⟦
 def ListRec : Name × AST := (``List.rec, ⟦
   (lambda (_lurk_1 motive _nil _cons _t)
     (if _t
-     (_cons (car _t) (cdr _t) (|List.rec| _lurk_1 motive _nil _cons (cdr _t)))
+     (_cons (car _t) (cdr _t) ($(``List.rec) _lurk_1 motive _nil _cons (cdr _t)))
      _nil))
 ⟧)
 
@@ -206,14 +204,14 @@ def ListHasDecEq : Name × AST := (``List.hasDecEq, ⟦
 def ListMap : Name × AST := (``List.map, ⟦
   (lambda (α β f xs) 
     (if xs
-        (cons (f (car xs)) (|List.map| α β f (cdr xs)))
+        (cons (f (car xs)) ($(``List.map) α β f (cdr xs)))
         nil))
 ⟧)
 
 def ListFoldl : Name × AST := (``List.foldl, ⟦
   (lambda (α β f init xs) 
     (if xs
-        (|List.foldl| α β f (f init (car xs)) (cdr xs))
+        ($(``List.foldl) α β f (f init (car xs)) (cdr xs))
         init))
 ⟧)
 

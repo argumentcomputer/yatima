@@ -20,8 +20,8 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
       return 1
     | .ok ast =>
       IO.println "Transpilation result:"
-      IO.println (toString ast)
-      IO.FS.writeFile (p.getFlagD "output" "output.lurk") (toString ast)
+      IO.println (ast.toString true)
+      IO.FS.writeFile (p.getFlagD "output" "output.lurk") (ast.toString true)
       if p.hasFlag "run" then
         match ast.toExpr with
         | .error err => IO.eprintln err; return 1

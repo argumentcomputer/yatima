@@ -249,15 +249,6 @@ def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
 scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where 
   toAST x := ~[toAST x.1, toAST x.2]
 
--- TODO: move
-def mkConsListWith (xs : List AST) (tail : AST) : AST :=
-  xs.foldr (init := tail) fun x acc => ~[.sym "CONS", x, acc]
-
-def mkConsList (xs : List AST) : AST :=
-  mkConsListWith xs (.sym "NIL")
-
-#eval (~[.sym "CONS", .num 1, .sym "NIL"]).escapeSyms
-
 mutual
 
   /-- Converts Yatima lambda `fun x₁ x₂ .. => body` into `AST.lam [x₁, x₂, ..] body` -/
@@ -337,7 +328,7 @@ mutual
         let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
         let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
 
-        let bindings := (AST.sym "_LURK_CTOR_ARGS", _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
+        let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
         return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧) -- extract snd element
 
       let cases := AST.mkIfElses ifThens ⟦nil⟧
@@ -553,7 +544,7 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
       dbg_trace s!">> wat"
       dbg_trace s!"bindings:\n{s.appendedBindings.data}"
       let res := ~[.sym "LETREC", toAST s.appendedBindings.data, toAST root]
-      .ok res.escapeSyms
+      .ok res
     | .error e =>     
       dbg_trace s!">> transpile: error"
       .error e
