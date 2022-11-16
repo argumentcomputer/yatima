@@ -17,24 +17,6 @@ expression/environment pairs. They are also called *closures*
 
 open TC
 
-/-- 
-Representation of propositions involving primitives. These populate the `Value.litProp` variant,
-where normal evaluation would otherwise result in an amount of computation proportional to
-the size of the primitives involved. The evaluator must *only* produce such values after
-the correctness of the statement has been checked. This is enforced by making each variant
-also take a proof of the statement (which is not used for any other purpose).
--/
-inductive LiteralProp where
-  -- Natural number equality
-  | natEq (v1 v2 : Nat) (h : v1 = v2)
-  | natNEq (v1 v2 : Nat) (h : v1 ≠ v2)
-  -- Natural number less-than-or-equal
-  | natLe (v1 v2 : Nat) (h : v1 ≤ v2)
-  | natNLe (v1 v2 : Nat) (h : ¬ v1 ≤ v2)
-  -- Natural number less-than
-  | natLt (v1 v2 : Nat) (h : v1 < v2)
-  | natNLt (v1 v2 : Nat) (h : ¬ v1 < v2)
-
 /--
   The type info is a simplified form of the value's type, with only relevant
   information for conversion checking, in order to get proof irrelevance and equality
@@ -139,7 +121,6 @@ mutual
     -- analogous to lambda bodies for their codomains
     | pi : Name → BinderInfo → SusValue → TypedExpr → Env → Value
     | lit : Literal → Value
-    | litProp : LiteralProp → Value
     -- An exception constructor is used to catch bugs in the evaluator/typechecker
     | exception : TypecheckError → Value
     deriving Inhabited
@@ -229,7 +210,6 @@ def Value.ctorName : Value → String
   | .lam ..  => "lam"
   | .pi  ..  => "pi"
   | .lit ..  => "lit"
-  | .litProp ..  => "litProp"
   | .exception .. => "exception"
 
 def Neutral.ctorName : Neutral → String
@@ -265,36 +245,38 @@ def mkSusVar (info : TypeInfo) (name : Name) (idx : Nat) : SusValue :=
   .mk info (.mk fun _ => .app (.fvar name idx) [])
 
 inductive PrimConstOp
-  | natAdd | natMul | natPow | natDecLt | natDecLe | natDecEq  | natSucc
+  | natAdd | natMul | natPow | natBeq | natBle | natBlt  | natSucc
   deriving Ord
 
 inductive PrimConst
-  | nat 
-  | decT 
-  | decF 
-  | natZero 
+  | nat
+  | bool
+  | natZero
+  | boolTrue
+  | boolFalse
   | string
   | op : PrimConstOp → PrimConst
   deriving Ord
 
 def PrimConstOp.numArgs : PrimConstOp → Nat
-  | .natAdd | .natMul | .natPow | .natDecLe | .natDecLt | .natDecEq => 2 | .natSucc => 1
+  | .natAdd | .natMul | .natPow | .natBeq | .natBle | .natBlt => 2 | .natSucc => 1
 
 def PrimConstOp.reducible : PrimConstOp → Bool
-  | .natAdd | .natMul | .natPow | .natDecLe | .natDecLt | .natDecEq => true | .natSucc => false
+  | .natAdd | .natMul | .natPow | .natBeq | .natBlt | .natBle => true | .natSucc => false
 
 instance : ToString PrimConst where toString
 | .nat      => "Nat"
-| .decT     => "Decidable.isTrue"
-| .decF     => "Decidable.isFalse"
+| .bool     => "Bool"
+| .boolTrue     => "Bool.true"
+| .boolFalse     => "Bool.false"
 | .natZero  => "Nat.zero"
 | .string   => "String"
 | .op .natAdd   => "Nat.add"
 | .op .natMul   => "Nat.mul"
 | .op .natPow   => "Nat.pow"
-| .op .natDecLe => "Nat.decLe"
-| .op .natDecLt => "Nat.decLt"
-| .op .natDecEq => "Nat.decEq"
+| .op .natBeq => "Nat.beq"
+| .op .natBle => "Nat.ble"
+| .op .natBlt => "Nat.blt"
 | .op .natSucc  => "Nat.succ"
 
 end Yatima.Typechecker

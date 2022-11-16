@@ -134,38 +134,32 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
     | _, _ => pure none
-  | .natDecLt => .mk fun vs => do
+  | .natBeq => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
-      if h : v < v' then do
-        pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [(.mk .proof $ .mk fun _ => .litProp $ .natLt v v' h, .none)]
+      if v = v' then do
+        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
       else do
-        pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [(.mk .proof $ .mk fun _ => .litProp $ .natNLt v v' h, .none)]
+        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
     | _, _ => pure none
-  | .natDecLe => .mk fun vs => do
+  | .natBle => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
-      if h : v ≤ v' then do
-        pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [(.mk .proof $ .mk fun _ => .litProp $ .natLe v v' h, .none)]
+      if v ≤ v' then do
+        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
       else do
-        pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [(.mk .proof $ .mk fun _ => .litProp $ .natNLe v v' h, .none)]
+        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
     | _, _ => pure none
-  | .natDecEq => .mk fun vs => do
+  | .natBlt => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
-      if h : v = v' then do
-        pure $ .some $ .app (.const `Decidable.isTrue (← primIndex .decT) []) $
-          [(.mk .proof $ .mk fun _ => .litProp $ .natEq v v' h, .none)]
+      if v < v' then do
+        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
       else do
-        pure $ pure $ .app (.const `Decidable.isFalse (← primIndex .decF) []) $
-          [(.mk .proof $ .mk fun _ => .litProp $ .natNEq v v' h, .none)]
+        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
     | _, _ => pure none
 
 end Yatima.Typechecker
