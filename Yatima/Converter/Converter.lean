@@ -261,12 +261,12 @@ mutual
           let refl := induct.anon.refl
           let unit := inductiveIsUnit induct.anon
 
-          let (recrCtx, all) ← getIndRecrCtx indBlock
+          let (recrCtx, _) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             -- if this is a structure, the `struct` field will reference the inductive, hence the need for `recrCtx`
             let struct ← getStructure induct
-            pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, all, struct }
+            pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
         | .opaque opaqueAnon, .opaque opaqueMeta =>
           let name := opaqueMeta.name
           let lvls := opaqueMeta.lvls

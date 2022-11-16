@@ -413,7 +413,6 @@ mutual
       safe    := not ind.isUnsafe
       refl    := ind.isReflexive
       unit    := unit
-      all     := all
       struct  := struct
     }
     addToConsts indIdx tcInd

@@ -113,8 +113,7 @@ def reindexConst (map : NatNatMap) : Const → Const
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .inductive x => .inductive { x with
     type := reindexExpr map x.type,
-    struct := x.struct.map (reindexCtor map)
-    all := x.all.map (map.find!) }
+    struct := x.struct.map (reindexCtor map) }
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
