@@ -540,11 +540,9 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
     let state : TranspileState := ⟨#[], .empty, ⟨`x, 1⟩, .empty⟩
     match TranspileM.run env state (transpileM root) with
     | .ok    s => 
-      dbg_trace s!">> transpile: ok"
-      dbg_trace s!">> wat"
-      dbg_trace s!"bindings:\n{s.appendedBindings.data}"
-      let res := ~[.sym "LETREC", toAST s.appendedBindings.data, toAST root]
-      .ok res
+      let bindings := s.appendedBindings.data.map
+        fun (n, x) => (n.toString false, x)
+      .ok $ mkLetrec bindings (.sym $ root.toString false)
     | .error e =>     
       dbg_trace s!">> transpile: error"
       .error e
