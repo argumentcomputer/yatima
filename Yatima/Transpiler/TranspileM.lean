@@ -11,7 +11,7 @@ structure TranspileEnv where
   tcStore  : TC.Store
   /-- Used to speed up lookup by name -/
   map      : Std.RBMap Name TC.Const compare
-  builtins : List (Name × AST)
+  builtins : Std.RBMap Name AST compare
 
 structure TranspileState where
   appendedBindings : Array (Name × AST)
@@ -42,7 +42,7 @@ def appendBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
   if vst then visit b.1
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
-def isVisited (n : Name) : TranspileM Bool :=
+@[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n
 
 def TranspileM.run (env : TranspileEnv) (ste : TranspileState)
