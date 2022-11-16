@@ -533,7 +533,6 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
   match Converter.extractPureStore store with
   | .error err => .error err
   | .ok pStore =>
-    dbg_trace s!">> transpile"
     let map := pStore.consts.foldl (init := default)
       fun acc const => acc.insert const.name const
     let env := ⟨store, pStore, map, builtins⟩
@@ -543,6 +542,4 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
       let bindings := s.appendedBindings.data.map
         fun (n, x) => (n.toString false, x)
       .ok $ mkLetrec bindings (.sym $ root.toString false)
-    | .error e =>     
-      dbg_trace s!">> transpile: error"
-      .error e
+    | .error e => .error e
