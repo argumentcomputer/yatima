@@ -204,15 +204,15 @@ def ListHasDecEq : Name × AST := (``List.hasDecEq, ⟦
 def ListMap : Name × AST := (``List.map, ⟦
   (lambda (α β f xs) 
     (if xs
-        (cons (f (car xs)) (List.map α β f (cdr xs)))
-        nil))
+      (cons (f (car xs)) (List.map α β f (cdr xs)))
+      nil))
 ⟧)
 
 def ListFoldl : Name × AST := (``List.foldl, ⟦
   (lambda (α β f init xs) 
     (if xs
-        (List.foldl α β f (f init (car xs)) (cdr xs))
-        init))
+      (List.foldl α β f (f init (car xs)) (cdr xs))
+      init))
 ⟧)
 
 def String : Name × AST := (``String, ⟦

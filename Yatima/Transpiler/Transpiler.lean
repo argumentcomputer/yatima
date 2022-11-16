@@ -328,7 +328,7 @@ mutual
         let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
         let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
 
-        let bindings := (AST.sym "_LURK_CTOR_ARGS", _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
+        let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
         return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧) -- extract snd element
 
       let cases := AST.mkIfElses ifThens ⟦nil⟧
