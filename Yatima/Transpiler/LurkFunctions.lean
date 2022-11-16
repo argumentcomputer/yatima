@@ -19,7 +19,9 @@ open Yatima Lurk.Syntax DSL
 Technically only `getelem` is used right now, but maybe the others will find use.
 -/
 
-def append : Name × AST := (`append, ⟦
+def hmm := ⟦(LAMBDA (|α| |append|) ((QUOTE ("Append" 1 0)) 0 (|α|) |NIL| (|append|)))⟧
+#print Append.mk
+def append : Name × AST := (`APPEND, ⟦
   (lambda (xs ys) (
     if xs
       (cons (car xs) (append (cdr xs) ys))
@@ -27,7 +29,7 @@ def append : Name × AST := (`append, ⟦
   ))
 ⟧) 
 
-def length : Name × AST := (`length, ⟦
+def length : Name × AST := (`LENGTH, ⟦
   (lambda (xs) (
     if xs (
       + 1 (length (cdr xs))
@@ -35,7 +37,7 @@ def length : Name × AST := (`length, ⟦
   ))
 ⟧)
 
-def take : Name × AST := (`take, ⟦
+def take : Name × AST := (`TAKE, ⟦
   (lambda (n xs) (
     if (= n 0) 
     nil (
@@ -46,7 +48,7 @@ def take : Name × AST := (`take, ⟦
   ))
 ⟧)
 
-def drop : Name × AST := (`drop, ⟦
+def drop : Name × AST := (`DROP, ⟦
   (lambda (n xs) (
     if (= n 0) 
       xs
@@ -58,7 +60,7 @@ def drop : Name × AST := (`drop, ⟦
   ))
 ⟧)
 
-def getelem : Name × AST := (`getelem, ⟦
+def getelem : Name × AST := (`GETELEM, ⟦
   (lambda (xs n) (
     if (= n 0) (
       car xs
@@ -68,14 +70,14 @@ def getelem : Name × AST := (`getelem, ⟦
   ))
 ⟧)
 
-def lurk_string_mk : Name × AST := (`lurk_string_mk, ⟦
+def lurk_string_mk : Name × AST := (`LURK_STRING_MK, ⟦
   (lambda (cs) 
     (if cs 
       (strcons (car cs) (lurk_string_mk (cdr cs))) 
       ""))
 ⟧)
 
-def lurk_string_data : Name × AST := (`lurk_string_data, ⟦
+def lurk_string_data : Name × AST := (`LURK_STRING_DATA, ⟦
   (lambda (s) 
     (if (eq s "") 
       nil
@@ -83,7 +85,7 @@ def lurk_string_data : Name × AST := (`lurk_string_data, ⟦
 ⟧)
 
 def Nat : Name × AST := (``Nat, ⟦
-  ,(Nat 0 0)
+  ,("Nat" 0 0)
 ⟧)
 
 def NatZero : Name × AST := (``Nat.zero, ⟦
@@ -98,7 +100,7 @@ def NatRec : Name × AST := (``Nat.rec, ⟦
   (lambda (motive zero succ _t)
     (if (= _t 0)
      zero
-     (succ (- _t 1) (Nat.rec motive zero succ (- _t 1)))))
+     (succ (- _t 1) (|Nat.rec| motive zero succ (- _t 1)))))
 ⟧)
 
 def NatAdd : Name × AST := (``Nat.add, ⟦
@@ -123,7 +125,7 @@ def NatDiv : Name × AST := (``Nat.div, ⟦
         -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
         -- the elaborator is otherwise confused and tries to parse `Nat.div`
         -- as a `binop`. 
-        (+ 1 (($(``Nat.div) (- _x_lurk_1 _x_lurk_2)) _x_lurk_2))))
+        (+ 1 (|Nat.div| (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
 ⟧)
 
 def NatMod : Name × AST := (``Nat.mod, ⟦
@@ -133,27 +135,27 @@ def NatMod : Name × AST := (``Nat.mod, ⟦
         -- TODO: we write `((Nat.div x_1) x_2)` as a hack, 
         -- the elaborator is otherwise confused and tries to parse `Nat.div`
         -- as a `binop`. 
-        (+ 1 (($(``Nat.div) (- _x_lurk_1 _x_lurk_2)) _x_lurk_2))))
+        (+ 1 (|Nat.div| (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
 ⟧)
 
 def NatDecLe : Name × AST := (``Nat.decLe, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) 
     (if (<= _x_lurk_1 _x_lurk_2)
-        ,((Decidable 1 0) 1 (Nat.le 1 1) t)
-        ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 -- doesn't quite work yet because depends on `Bool`
 def NatBeq : Name × AST := (``Nat.beq, ⟦
   (lambda (_x_lurk_1 _x_lurk_2) (
     if (= _x_lurk_1 _x_lurk_2) 
-      $(``true)
-      $(``false)
+      |Bool.true|
+      |Bool.false|
   ))
 ⟧)
 
 def Char : Name × AST := (``Char, ⟦
-  ,(Char 0 0)
+  ,("Char" 0 0)
 ⟧)
 
 def CharMk : Name × AST := (``Char.mk, ⟦
@@ -163,7 +165,7 @@ def CharMk : Name × AST := (``Char.mk, ⟦
 
 def CharVal : Name × AST := (``Char.val, ⟦
   (lambda (self) 
-    ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) (num self) t)))
+    (|UInt32.mk| (|Fin.mk| |UInt32.size| (num self) t)))
 ⟧)
 
 def CharValid : Name × AST := (``Char.val, ⟦
@@ -172,11 +174,11 @@ def CharValid : Name × AST := (``Char.val, ⟦
 
 def CharRec : Name × AST := (``Char.rec, ⟦
   (lambda (motive mk _t) 
-    (mk (num ($(``UInt32.mk) ($(``Fin.mk) $(``UInt32.size) n t)))))
+    (mk (num (|UInt32.mk| (|Fin.mk| |UInt32.size| n t)))))
 ⟧)
 
 def List : Name × AST := (``List, ⟦
-  (lambda (_lurk_1) ,(List 1 0))
+  (lambda (_lurk_1) ,("List" 1 0))
 ⟧)
 
 def ListNil : Name × AST := (``List.nil, ⟦
@@ -190,33 +192,33 @@ def ListCons : Name × AST := (``List.cons, ⟦
 def ListRec : Name × AST := (``List.rec, ⟦
   (lambda (_lurk_1 motive _nil _cons _t)
     (if _t
-     (_cons (car _t) (cdr _t) ($(``List.rec) _lurk_1 motive _nil _cons (cdr _t)))
+     (_cons (car _t) (cdr _t) (|List.rec| _lurk_1 motive _nil _cons (cdr _t)))
      _nil))
 ⟧)
 
 def ListHasDecEq : Name × AST := (``List.hasDecEq, ⟦
   (lambda (α _inst a b) 
     (if (eq a b)
-        ,((Decidable 1 0) 1 (Nat.le 1 1) t)
-        ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 def ListMap : Name × AST := (``List.map, ⟦
   (lambda (α β f xs) 
     (if xs
-        (cons (f (car xs)) ($(``List.map) α β f (cdr xs)))
+        (cons (f (car xs)) (|List.map| α β f (cdr xs)))
         nil))
 ⟧)
 
 def ListFoldl : Name × AST := (``List.foldl, ⟦
   (lambda (α β f init xs) 
     (if xs
-        ($(``List.foldl) α β f (f init (car xs)) (cdr xs))
+        (|List.foldl| α β f (f init (car xs)) (cdr xs))
         init))
 ⟧)
 
 def String : Name × AST := (``String, ⟦
-  ,(String 0 0)
+  ,("String" 0 0)
 ⟧)
 
 def StringMk : Name × AST := (``String.mk, ⟦
@@ -235,8 +237,8 @@ def StringRec : Name × AST := (``String.rec, ⟦
 def StringDecEq : Name × AST := (``String.decEq, ⟦
   (lambda (s₁ s₂) 
     (if (eq s₁ s₂)
-        ,((Decidable 1 0) 1 (Nat.le 1 1) t)
-        ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
+        ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+        ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 namespace Example

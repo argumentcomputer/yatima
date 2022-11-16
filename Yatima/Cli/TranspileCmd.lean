@@ -14,8 +14,13 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
     let declaration : Lean.Name := .mkSimple $ p.getFlagD "declaration" "root"
     IO.println "Start transpilation."
     match transpile store declaration with
-    | .error msg => IO.eprintln msg; return 1
+    | .error msg => 
+      IO.println msg
+      IO.eprintln msg
+      return 1
     | .ok ast =>
+      IO.println "Transpilation result:"
+      IO.println (toString ast)
       IO.FS.writeFile (p.getFlagD "output" "output.lurk") (toString ast)
       if p.hasFlag "run" then
         match ast.toExpr with
