@@ -249,15 +249,6 @@ def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
 scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where 
   toAST x := ~[toAST x.1, toAST x.2]
 
--- TODO: move
-def mkConsListWith (xs : List AST) (tail : AST) : AST :=
-  xs.foldr (init := tail) fun x acc => ~[.sym "CONS", x, acc]
-
-def mkConsList (xs : List AST) : AST :=
-  mkConsListWith xs (.sym "NIL")
-
-#eval (~[.sym "CONS", .num 1, .sym "NIL"]).escapeSyms
-
 mutual
 
   /-- Converts Yatima lambda `fun x₁ x₂ .. => body` into `AST.lam [x₁, x₂, ..] body` -/
@@ -549,11 +540,9 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
     let state : TranspileState := ⟨#[], .empty, ⟨`x, 1⟩, .empty⟩
     match TranspileM.run env state (transpileM root) with
     | .ok    s => 
-      dbg_trace s!">> transpile: ok"
-      dbg_trace s!">> wat"
-      dbg_trace s!"bindings:\n{s.appendedBindings.data}"
-      let res := ~[.sym "LETREC", toAST s.appendedBindings.data, toAST root]
-      .ok res.escapeSyms
+      let bindings := s.appendedBindings.data.map
+        fun (n, x) => (n.toString false, x)
+      .ok $ mkLetrec bindings (.sym $ root.toString false)
     | .error e =>     
       dbg_trace s!">> transpile: error"
       .error e

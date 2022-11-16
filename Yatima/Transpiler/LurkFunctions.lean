@@ -60,7 +60,7 @@ def drop : Name × AST := (`DROP, ⟦
   ))
 ⟧)
 
-def getelem : Name × AST := (`GETELEM, ⟦
+def getelem : Name × AST := (`getelem, ⟦
   (lambda (xs n) (
     if (= n 0) (
       car xs
