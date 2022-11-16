@@ -331,8 +331,8 @@ mutual
         let (rhs, binds) := telescope rhs
 
         let rhs ← mkLurkExpr rhs
-        let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
-        let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
+        let _lurk_ctor_args := ⟦($(`getelem) (cdr (cdr $argName)) 2)⟧
+        let ctorArgs := (List.range fields).map fun (n : Nat) => ⟦($(`getelem) _lurk_ctor_args $n)⟧
 
         let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
         let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
@@ -385,7 +385,7 @@ mutual
       | .cons e₁ e₂ => do go e₁; go e₂
 
   partial def mkLurkExpr (e : Expr) : TranspileM AST := do
-    -- dbg_trace ">> mkLurkExpr: "
+    -- dbg_trace ">> mkLurkExpr: {repr e}"
     match e with
     | .sort  .. => return ⟦nil⟧
     | .var name _ =>
@@ -430,8 +430,8 @@ mutual
       -- this is very nifty; `e` contains its type information *at run time*
       -- which we can take advantage of to compute the projection
       let e ← mkLurkExpr e
-      let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
-      return ⟦(getelem $args $idx)⟧
+      let args := ⟦($(`getelem) (cdr (cdr $e)) 2)⟧
+      return ⟦($(`getelem) $args $idx)⟧
 
   /--
   We're trying to compile the mutual blocks at once instead of compiling each
@@ -441,7 +441,8 @@ mutual
   the same block more than once.
   -/
   partial def mkConst (c : Const) : TranspileM Unit := do
-    -- dbg_trace s!">> mkConst {c.name}"
+    if (← get).visited.contains c.name then return
+    -- dbg_trace ">> mkConst {c.name} : {c.ctorName}"
     match c with
     | .axiom    _
     | .quotient _ => return
@@ -537,8 +538,7 @@ Constructs a `AST.letRecE` whose body is the call to a `root` constant in
 a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
-def transpile (store : IR.Store) (root : Name := `root) :
-    Except String AST :=
+def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
   match Converter.extractPureStore store with
   | .error err => .error err
   | .ok pStore =>

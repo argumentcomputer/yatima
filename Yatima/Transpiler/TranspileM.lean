@@ -22,7 +22,7 @@ structure TranspileState where
   deriving Inhabited
 
 abbrev TranspileM := ReaderT TranspileEnv $
-  ExceptT TranspileError $ StateT TranspileState Id
+  ExceptT TranspileError $ StateM TranspileState
 
 instance : Lean.MonadNameGenerator TranspileM where
   getNGen := return (← get).ngen
@@ -43,7 +43,7 @@ def replaceFreshId (name : Name) : TranspileM Name := do
 def appendBuiltinBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
-  if vst then visit b.1
+  visit b.1
 
 def appendYatimaBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
   let s ← get

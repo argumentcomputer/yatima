@@ -65,7 +65,7 @@ def getelem : Name × AST := (`GETELEM, ⟦
     if (= n 0) (
       car xs
     ) (
-      getelem (cdr xs) (- n 1)
+      $(`getelem) (cdr xs) (- n 1)
     )
   ))
 ⟧)
