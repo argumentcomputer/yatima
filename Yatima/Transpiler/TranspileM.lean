@@ -43,7 +43,7 @@ def replaceFreshId (name : Name) : TranspileM Name := do
 def appendBuiltinBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
   let s ← get
   set $ { s with appendedBindings := s.appendedBindings.push b }
-  visit b.1
+  if vst then visit b.1
 
 def appendYatimaBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
   let s ← get
