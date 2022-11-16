@@ -369,7 +369,7 @@ mutual
       | .cons e₁ e₂ => do go e₁; go e₂
 
   partial def mkLurkExpr (e : Expr) : TranspileM AST := do
-    -- dbg_trace ">> mkLurkExpr: "
+    -- dbg_trace ">> mkLurkExpr: {repr e}"
     match e with
     | .sort  .. => return ⟦nil⟧
     | .var name _ =>
@@ -520,8 +520,7 @@ Constructs a `AST.letRecE` whose body is the call to a `root` constant in
 a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
-def transpile (store : IR.Store) (root : Name := `root) :
-    Except String AST :=
+def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
   match Converter.extractPureStore store with
   | .error err => .error err
   | .ok pStore =>

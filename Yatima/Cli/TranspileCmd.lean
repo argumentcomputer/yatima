@@ -10,7 +10,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
   match ← readStoreFromFile fileName with
   | .error err => IO.eprintln err; return 1
   | .ok store =>
-    let noEraseTypes := p.hasFlag "no-erase-types" -- TODO
+    -- let noEraseTypes := p.hasFlag "no-erase-types" -- TODO
     let declaration : Lean.Name := .mkSimple $ p.getFlagD "declaration" "root"
     match transpile store declaration with
     | .error msg => IO.eprintln msg; return 1

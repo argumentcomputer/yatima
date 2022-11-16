@@ -7,9 +7,9 @@ def expr : Yatima.TC.Expr :=
 def univ := @Yatima.IR.Univ.zero Yatima.IR.Kind.meta
 def univCtor := univ.ctorName
 
-def map : Std.RBMap Nat Nat compare :=
-  Std.RBMap.ofList [(0, 0), (1, 1), (2, 2)] _
-def mapInsert := map.insert 3 3
+-- def map : Std.RBMap Nat Nat compare :=
+--   Std.RBMap.ofList [(0, 0), (1, 1), (2, 2)] _
+-- def mapInsert := map.insert 3 3
 
 def strAppend := "abc" ++ "def"
 
