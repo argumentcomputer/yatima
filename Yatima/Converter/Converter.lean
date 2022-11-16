@@ -130,27 +130,29 @@ def getConstIdx (n : Name) : ConvertM Nat := do
   | none => throw $ .constIdxNotFound $ n.toString
 
 /-- Builds the `RecrCtx` for mutual inductives -/
-def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM RecrCtx := do
+def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM (RecrCtx × List Nat) := do
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
   let mut constList : List (Nat × Name) := []
+  let mut indTups : List (Nat × Name) := []
+  let mut ctorTups : List (Nat × Name) := []
+  let mut recTups : List (Nat × Name) := []
   for ind in indBlockMeta do
     let indIdx ← getConstIdx ind.name.projᵣ
-    let indTup := (indIdx, ind.name.projᵣ)
-    let ctorTups : List (Nat × Name) ← ind.ctors.mapM fun ctor => do
+    indTups := indTups ++ [(indIdx, ind.name.projᵣ)]
+    ctorTups := ctorTups ++ (← ind.ctors.mapM fun ctor => do
       let name := ctor.name
       let indIdx ← getConstIdx name
-      return (indIdx, name)
-    let recTups : List (Nat × Name) ← ind.recrs.mapM fun ⟨_, recr⟩ => do
+      return (indIdx, name))
+    recTups := recTups.append (← ind.recrs.mapM fun ⟨_, recr⟩ => do
       let name := recr.name
       let indIdx ← getConstIdx name
-      return (indIdx, name)
-    -- mirror the compiler order of inductive, then constuctors, then recursors
-    let addList := (indTup :: ctorTups).append recTups
-    constList := constList.append addList
-  return constList.enum.foldl (init := default)
-    fun acc (i, tup) => acc.insert (i, none) tup
+      return (indIdx, name))
+  -- mirror the compiler order of all inductives, then all constuctors, then all recursors
+  constList := indTups ++ ctorTups ++ recTups
+  return (constList.enum.foldl (init := default)
+    fun acc (i, tup) => acc.insert (i, none) tup, constList.map (·.1))
 
 mutual
 
@@ -259,12 +261,12 @@ mutual
           let refl := induct.anon.refl
           let unit := inductiveIsUnit induct.anon
 
-          let recrCtx ← getIndRecrCtx indBlock
+          let (recrCtx, all) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             -- if this is a structure, the `struct` field will reference the inductive, hence the need for `recrCtx`
             let struct ← getStructure induct
-            pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, struct }
+            pure $ .inductive { name, lvls, type, params, indices, recr, safe, refl, unit, all, struct }
         | .opaque opaqueAnon, .opaque opaqueMeta =>
           let name := opaqueMeta.name
           let lvls := opaqueMeta.lvls
@@ -293,10 +295,6 @@ mutual
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
-          let all ← induct.meta.ctors.mapM fun ctor =>
-            getConstIdx ctor.name
-          let all := (← getConstIdx induct.meta.name) :: all
-          let all := all ++ (← induct.meta.recrs.mapM fun r => getConstIdx r.2.name)
           let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
           let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
           let name   := constructorMeta.name
@@ -306,7 +304,7 @@ mutual
           let fields := constructorAnon.fields
           let safe   := constructorAnon.safe
 
-          let recrCtx ← getIndRecrCtx indBlock
+          let (recrCtx, all) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨constructorAnon.type, constructorMeta.type⟩
@@ -327,7 +325,7 @@ mutual
           let minors := recursorAnon.minors
           let k := recursorAnon.k
 
-          let recrCtx ← getIndRecrCtx indBlock
+          let (recrCtx, _) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩

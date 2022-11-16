@@ -113,7 +113,8 @@ def reindexConst (map : NatNatMap) : Const → Const
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .inductive x => .inductive { x with
     type := reindexExpr map x.type,
-    struct := x.struct.map (reindexCtor map) }
+    struct := x.struct.map (reindexCtor map)
+    all := x.all.map (map.find!) }
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
@@ -165,8 +166,8 @@ instance : Testable (FoundConstFailure constName) :=
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    if true then
-    --if const.name == `Or.inl then
+   if true then
+   --if const.name == `BLE.bli then
       tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
         (typecheckConst stt.tcStore const.name) fun _ => .done
     else tSeq

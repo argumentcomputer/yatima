@@ -283,24 +283,32 @@ mutual
   -/
   partial def compileInductive (initInd : Lean.InductiveVal) :
       CompileM (IR.BothConstCid × TC.ConstIdx) := do
-    -- `mutualConsts` is the list of the names of all constants associated with an
-    -- inductive block: the inductives themselves, the constructors and the recursors
-    let mut mutualConsts : List Lean.Name := []
+    let mut inds := []
+    let mut indCtors := []
+    let mut indRecs := []
+
     for indName in initInd.all do
       match ← getLeanConstant indName with
       | .inductInfo ind =>
         let leanRecs := ((← read).constMap.childrenOfWith ind.name
           fun c => match c with | .recInfo _ => true | _ => false).map (·.name)
-        mutualConsts := mutualConsts ++ (indName :: ind.ctors) ++ leanRecs
+        inds := inds ++ [indName]
+        indCtors := indCtors ++ ind.ctors
+        indRecs := indRecs ++ leanRecs
       | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+
+    let mut firstIdx : TC.ConstIdx := (← get).tcStore.consts.size
+
+    -- `mutualConsts` is the list of the names of all constants associated with an
+    -- inductive block: the inductives themselves, the constructors and the recursors
+    let mut mutualConsts := inds ++ indCtors ++ indRecs
+    let mut all := mutualConsts.enum.map (firstIdx + ·.1)
 
     -- All inductives, constructors and recursors are done in one go, so we must
     -- append an array of `mutualConsts.length` to `consts` and save the mapping
     -- of all names in `mutualConsts` to their respective indices
-    let mut firstIdx : TC.ConstIdx ← modifyGet fun stt =>
-      (stt.tcStore.consts.size,
-        { stt with tcStore := { stt.tcStore with
-          consts := stt.tcStore.consts ++ mkArray mutualConsts.length default } })
+    modify fun stt => { stt with tcStore := { stt.tcStore with
+      consts := stt.tcStore.consts ++ mkArray mutualConsts.length default } }
 
     let recrCtx := mutualConsts.enum.foldl (init := default)
       fun acc (i, n) => acc.insert n (i, none, firstIdx + i)
@@ -312,7 +320,7 @@ mutual
         match ← getLeanConstant name with
         | .inductInfo ind =>
           withRecrs recrCtx do
-            pure $ (← inductiveToIR ind) :: acc
+            pure $ (← inductiveToIR ind all) :: acc
         | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
     let indBlockCid ← addToStore $ .const
       ⟨.mutIndBlock $ irInds.map (·.anon), .mutIndBlock $ irInds.map (·.meta)⟩
@@ -335,6 +343,7 @@ mutual
       addToCache name (cid, constIdx)
       constIdx := constIdx + 1
 
+    for (indIdx, ⟨indAnon, indMeta⟩) in irInds.enum do
       for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
         -- Store and cache constructor projections
         let name := ctorMeta.name.projᵣ
@@ -345,6 +354,7 @@ mutual
         addToCache name (cid, constIdx)
         constIdx := constIdx + 1
 
+    for (indIdx, ⟨indAnon, indMeta⟩) in irInds.enum do
       for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
         -- Store and cache recursor projections
         let name := recrMeta.2.name.projᵣ
@@ -360,16 +370,11 @@ mutual
     | none => throw $ .constantNotCompiled initInd.name
 
   /-- Encodes a Lean inductive to IR -/
-  partial def inductiveToIR (ind : Lean.InductiveVal) :
+  partial def inductiveToIR (ind : Lean.InductiveVal) (all : List TC.ConstIdx) :
       CompileM $ IR.Both IR.Inductive := do
     let (_, _, indIdx) ← getFromRecrCtx! ind.name
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
-    let all ← ind.ctors.mapM fun name => do 
-      let (_, _, constIdx) ← getFromRecrCtx! name; pure constIdx
-    let all := indIdx :: all
-    let all := all ++ (← leanRecs.mapM fun r => do
-      let (_, _, constIdx) ← getFromRecrCtx! r.name; pure constIdx)
     let (recs, ctors) : (List $ IR.Both (Sigma fun x => IR.Recursor x ·)) ×
         (List $ IR.Both IR.Constructor) :=
       ← leanRecs.foldrM (init := ([], [])) fun r (recs, ctors) => do
@@ -408,6 +413,7 @@ mutual
       safe    := not ind.isUnsafe
       refl    := ind.isReflexive
       unit    := unit
+      all     := all
       struct  := struct
     }
     addToConsts indIdx tcInd

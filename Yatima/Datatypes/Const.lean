@@ -258,6 +258,7 @@ structure Inductive where
   safe    : Bool
   refl    : Bool
   unit    : Bool
+  all     : List ConstIdx
   struct  : Option Constructor
   deriving BEq
 
