@@ -12,7 +12,7 @@ def natBEqT := 5 == 5
 def natEqF := decide (3 == 1000)
 def natEqT := decide (3 == 3)
 
-def char := 'a'
+def charA := 'a'
 def charOfNat := Char.ofNat 97 
 def charToNat := Char.toNat 'a'
 

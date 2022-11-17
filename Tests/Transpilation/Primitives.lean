@@ -21,7 +21,7 @@ def main := do
       , (`natBEqT, some ⟦((Bool 0 0) 1)⟧)
       -- , (`natEqF, some ⟦((Bool 0 0) 0)⟧)
       -- , (`natEqT, some ⟦((Bool 0 0) 1)⟧)
-      -- , (`char, some 'a')
+      -- , (`charA, some 'a')
       -- , (`charOfNat, some 'a')
       -- , (`charToNat, some 97)
       , (`list, some ⟦(1 2 3 4 5 6)⟧)
