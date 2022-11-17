@@ -2,22 +2,24 @@ import TestsUtils.CompileAndExtractTests
 
 open Lurk.Syntax.DSL
 
+def toNum (n : Nat) : Option Lurk.Evaluation.Value :=
+  some $ .lit $ .num (.ofNat n)
+
 open LSpec in
 def main := do
   let tSeq ← compileAndExtractTests
-    "Fixtures/Transpilation/PrimitiveTests.lean"
+    "Fixtures/Transpilation/Primitives.lean"
     [
       extractTranspilationTests [
-      -- it's easier to comment out tests with this comma placement lol
-        (`natAdd, some $ .lit $ .num (.ofNat 300))
-      -- , (`natSub1, some ⟦98⟧)
-      -- , (`natSub2, some ⟦0⟧)
-      -- , (`natMul, some ⟦1024⟧)
-      -- , (`natDiv1, some ⟦0⟧)
-      -- , (`natDiv2, some ⟦33⟧)
-      -- , (`natMod1, some ⟦1⟧)
-      -- , (`natMod2, some ⟦37⟧)
-      -- , (`natLe, some ⟦$(``true)⟧)
+        (`natAdd,  toNum 300)
+      , (`natSub1, toNum 98)
+      -- , (`natSub2, toNum 0)
+      , (`natMul,  toNum 1024)
+      , (`natDiv1, toNum 0)
+      , (`natDiv2, toNum 33)
+      -- , (`natMod1, toNum 1)
+      -- , (`natMod2, toNum 37)
+      -- , (`natLe, some $ .sym $ "Bool.true")
       -- , (`natBeq, some ⟦$(``false)⟧)
       -- , (`natEq, some ⟦$(``false)⟧)
       -- , (`char, some ⟦'a'⟧)

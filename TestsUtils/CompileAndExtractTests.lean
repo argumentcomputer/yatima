@@ -178,11 +178,10 @@ section Transpilation
 
 open Transpiler Lurk Evaluation
 
-instance [BEq α] [BEq β] : BEq (Except α β) where 
-  beq x y := match x, y with 
-    | .ok x, .ok y => x == y 
-    | .error x, .error y => x == y
-    | _, _ => false
+instance [BEq α] [BEq β] : BEq (Except α β) where beq
+  | .ok x, .ok y => x == y
+  | .error x, .error y => x == y
+  | _, _ => false
 
 def extractTranspilationTests (expect : List (Name × Option Value))
     (stt : CompileState) : TestSeq :=
@@ -192,7 +191,8 @@ def extractTranspilationTests (expect : List (Name × Option Value))
         withExceptOk "Evaluation succeeds" expr.eval fun val =>
           match expected with
           | some expected =>
-            tSeq ++ test s!"Evaluation of {root} yields {val}" (val == expected)
+            tSeq ++ test s!"Evaluation of {root} ({val}) yields {expected}"
+              (val == expected)
           | none => tSeq
 
 end Transpilation

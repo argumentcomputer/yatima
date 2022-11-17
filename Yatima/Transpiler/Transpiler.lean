@@ -225,7 +225,7 @@ def mkName (name : Name) : TranspileM AST := do
   toAST <$> replaceName name
 
 def mkIndLiteral (ind : Inductive) : TranspileM AST := do
-  let (name, params, indices, type) := (toString ind.name, ind.params, ind.indices, ind.type)
+  let (name, params, indices, type) := (ind.name, ind.params, ind.indices, ind.type)
   let (_, args) := telescope type
   let args : List AST ← args.mapM fun (n, _) => mkName n
   if args.isEmpty then
@@ -270,7 +270,7 @@ mutual
     let (_, bindings) := telescope type
     let ctorArgs : List AST ← bindings.mapM fun (n, _) => mkName n
     let ctorData := splitCtorArgs ctorArgs ctor.params indices
-    let ctorDataAST := ctorData.map fun x => mkConsList x
+    let ctorDataAST := ctorData.map mkConsList
     let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
     let body := if ctorArgs.isEmpty then
       ⟦(cons $indLit (cons $idx nil))⟧
@@ -370,9 +370,7 @@ mutual
       if !(← isVisited name) then
         match (← read).builtins.find? name with
         | some ast => builtinInitialize name ast
-        | none =>
-          let const := (← read).tcStore.consts[idx]! -- TODO: Add proof later
-          mkConst const
+        | none => mkConst (← derefConst idx)
       mkName name
     | e@(.app ..) => do
       let (fn, args) := e.getAppFnArgs

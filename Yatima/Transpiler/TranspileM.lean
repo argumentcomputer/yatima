@@ -33,7 +33,7 @@ instance : Lean.MonadNameGenerator TranspileM where
 def visit (name : Name) : TranspileM Unit :=
   modify fun s => { s with visited := s.visited.insert name }
 
-/-- Create a fresh variable `_x_n` to replace `name` and update `replaced` -/
+/-- Create a fresh variable `x.n` to replace `name` and update `replaced` -/
 def replaceFreshId (name : Name) : TranspileM Name := do
   let name' ← Lean.mkFreshId
   modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name'})
@@ -44,6 +44,13 @@ def appendBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
 
 @[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n
+
+def derefConst (i : TC.ConstIdx) : TranspileM TC.Const := do
+  let consts := (← read).tcStore.consts
+  let size := consts.size
+  if h : i < size then
+    return consts[i]
+  else throw $ .custom s!"invalid index {i} for array of constats with size {size}"
 
 def TranspileM.run (env : TranspileEnv) (ste : TranspileState)
     (m : TranspileM α) : Except String TranspileState := do

@@ -82,12 +82,10 @@ def getMutualIndInfo (ind : Inductive) :
   | _ => throw $ .custom "blockCid not found in store"
 
 /-- Gets the list of definitions involved in the mutual block of a definition -/
-def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
-  let consts := (← read).tcStore.consts
-  defn.all.mapM fun constIdx =>
-    match consts[constIdx]! with
+def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition :=
+  defn.all.mapM fun constIdx => do match ← derefConst constIdx with
     | .definition d => pure d
-    | _ => throw $ .custom "Invalid constant type"
+    | x => throw $ .invalidConstantKind x.name "definition" x.ctorName
 
 /-- 
   Telescopes Yatima lambda `fun (x₁ : α₁) (x₂ : α₂) .. => body` into `(body, [(x₁, α₁), (x₂, α₂), ..])`
