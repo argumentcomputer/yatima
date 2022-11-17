@@ -24,12 +24,6 @@ open Yatima Lurk.Syntax DSL
 
 section Primitives
 
-/--
-Primitives will need to be escaped with french quotes (like in «$getelem») in
-the DSL. We use weird names to avoid clashes with Lean name the source writer
-may use.
--/
-
 def append : Name × AST := (`append, ⟦
   (lambda (xs ys) (
     if xs
@@ -100,7 +94,7 @@ end Primitives
 section Builtins
 
 def Nat : Name × AST := (``Nat, ⟦
-  ,("Nat" 0 0)
+  ,(Nat 0 0)
 ⟧)
 
 def NatZero : Name × AST := (``Nat.zero, ⟦
@@ -119,58 +113,57 @@ def NatRec : Name × AST := (``Nat.rec, ⟦
 ⟧)
 
 def NatAdd : Name × AST := (``Nat.add, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
+  (lambda (a b) (+ a b))
 ⟧)
 
 def NatSub : Name × AST := (``Nat.sub, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (< _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (< a b)
       0
-      (- _x_lurk_1 _x_lurk_2)))
+      (- a b)))
 ⟧)
 
 def NatMul : Name × AST := (``Nat.mul, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
+  (lambda (a b) (* a b))
 ⟧)
 
 def NatDiv : Name × AST := (``Nat.div, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (< _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (< a b)
       0
-      -- TODO: we write `((Nat.div x_1) x_2)` as a hack,
+      -- TODO: we write `((Nat.div a) b)` as a hack,
       -- the elaborator is otherwise confused and tries to parse `Nat.div`
       -- as a `binop`.
-      (+ 1 (Nat.div (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
+      (+ 1 (Nat.div (- a b) b))))
 ⟧)
 
 def NatMod : Name × AST := (``Nat.mod, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (< _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (< a b)
       0
-      -- TODO: we write `((Nat.div x_1) x_2)` as a hack,
+      -- TODO: we write `((Nat.div a) b)` as a hack,
       -- the elaborator is otherwise confused and tries to parse `Nat.div`
       -- as a `binop`.
-      (+ 1 (Nat.div (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
+      (+ 1 (Nat.div (- a b) b))))
 ⟧)
 
 def NatDecLe : Name × AST := (``Nat.decLe, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (<= _x_lurk_1 _x_lurk_2)
-      ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
-      ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+  (lambda (a b)
+    (if (<= a b)
+      ,((Decidable 1 0) 1 (Nat.le 1 1) t)
+      ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
 ⟧)
 
--- doesn't quite work yet because depends on `Bool`
 def NatBeq : Name × AST := (``Nat.beq, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2) (
-    if (= _x_lurk_1 _x_lurk_2)
-      Bool.true
-      Bool.false
+  (lambda (a b) (
+    if (= a b)
+      ,((Bool 0 0) 1)
+      ,((Bool 0 0) 0)
   ))
 ⟧)
 
 def Char : Name × AST := (``Char, ⟦
-  ,("Char" 0 0)
+  ,(Char 0 0)
 ⟧)
 
 def CharMk : Name × AST := (``Char.mk, ⟦
@@ -193,7 +186,7 @@ def CharRec : Name × AST := (``Char.rec, ⟦
 ⟧)
 
 def List : Name × AST := (``List, ⟦
-  (lambda (_lurk_1) ,("List" 1 0))
+  (lambda (_lurk_1) ,(List 1 0))
 ⟧)
 
 def ListNil : Name × AST := (``List.nil, ⟦
@@ -214,8 +207,8 @@ def ListRec : Name × AST := (``List.rec, ⟦
 def ListHasDecEq : Name × AST := (``List.hasDecEq, ⟦
   (lambda (α _inst a b)
     (if (eq a b)
-      ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
-      ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+      ,((Decidable 1 0) 1 (Nat.le 1 1) t)
+      ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
 ⟧)
 
 def ListMap : Name × AST := (``List.map, ⟦
@@ -233,7 +226,7 @@ def ListFoldl : Name × AST := (``List.foldl, ⟦
 ⟧)
 
 def String : Name × AST := (``String, ⟦
-  ,("String" 0 0)
+  ,(String 0 0)
 ⟧)
 
 def StringMk : Name × AST := (``String.mk, ⟦
@@ -252,8 +245,8 @@ def StringRec : Name × AST := (``String.rec, ⟦
 def StringDecEq : Name × AST := (``String.decEq, ⟦
   (lambda (s₁ s₂)
     (if (eq s₁ s₂)
-      ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
-      ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
+      ,((Decidable 1 0) 1 (Nat.le 1 1) t)
+      ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
 ⟧)
 
 end Builtins

@@ -491,7 +491,7 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
     let map := pStore.consts.foldl (init := default)
       fun acc const => acc.insert const.name const
     let env := ⟨store, pStore, map, .ofList builtins _⟩
-    let state : TranspileState := ⟨#[], .empty, ⟨`x, 1⟩, .empty⟩
+    let state : TranspileState := ⟨#[], .empty, ⟨`_hyg_, 1⟩, .empty⟩
     match TranspileM.run env state (transpileM root) with
     | .ok s =>
       let bindings := s.appendedBindings.data.map
