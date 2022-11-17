@@ -38,8 +38,7 @@ def replaceFreshId (name : Name) : TranspileM Name := do
   let name' ← Lean.mkFreshId
   modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name'})
 
-def appendBinding (b : Name × AST) (vst := true) : TranspileM Unit := do
-  if vst then visit b.1
+def appendBinding (b : Name × AST) : TranspileM Unit :=
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
 @[inline] def isVisited (n : Name) : TranspileM Bool :=

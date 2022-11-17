@@ -225,7 +225,8 @@ def mkName (name : Name) : TranspileM AST := do
   toAST <$> replaceName name
 
 def mkIndLiteral (ind : Inductive) : TranspileM AST := do
-  let (name, params, indices, type) := (ind.name, ind.params, ind.indices, ind.type)
+  let (name, params, indices, type) :=
+    (ind.name.toString false, ind.params, ind.indices, ind.type)
   let (_, args) := telescope type
   let args : List AST ← args.mapM fun (n, _) => mkName n
   if args.isEmpty then
@@ -336,29 +337,28 @@ mutual
   partial def mkInductiveBlock (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) :
       TranspileM Unit := do
     for (ind, ctors, irecr, erecrs) in inds do
-      if ← isVisited ind.name then
-        break
       appendBinding (ind.name, ← mkIndLiteral ind)
       for ctor in ctors do
-        mkConstructor ctor ⟦,($ind.name $ind.params $ind.indices)⟧ ind.indices
+        visit ctor.name
+        mkConstructor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
       let erecrs ← erecrs.mapM fun erecr =>
         mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
       match mkMutualBlock (irecr::erecrs) with
-      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e) false
+      | .ok xs => xs.forM fun (n, e) => do visit n; appendBinding (n, e)
       | .error e => throw $ .custom e
 
   partial def builtinInitialize (name : Name) (func : AST) : TranspileM Unit := do
     visit name
     go func
-    appendBinding (name, func) (vst := false)
+    appendBinding (name, func)
   where
     go : AST → TranspileM Unit
       | .num _ | .char _ | .str _ => return
       | .cons e₁ e₂ => do go e₁; go e₂
       | .sym n => do
         -- TODO: better detection of what to compile, use this carefully for now
-        if !(← isVisited n) then
+        if !(reservedSyms.contains n) && !(← isVisited n) then
           match (← read).map.find? n with
           | some const => mkConst const
           | none => return
@@ -398,6 +398,7 @@ mutual
   -/
   partial def mkConst (c : Const) : TranspileM Unit := do
     if ← isVisited c.name then return
+    visit c.name
     match c with
     | .axiom    _
     | .quotient _ => return
@@ -405,19 +406,16 @@ mutual
       let (_, binds) := telescope x.type
       let binds : List AST ← binds.mapM fun (n, _) => mkName n
       appendBinding (← replaceName x.name, ⟦(lambda $binds t)⟧)
-    | .opaque x =>
-      visit x.name -- force cache update before `mkAST` to prevent looping
-      appendBinding (← replaceName x.name, ← mkAST x.value) false
+    | .opaque x => appendBinding (← replaceName x.name, ← mkAST x.value)
     | .definition x => match ← getMutualDefInfo x with
       | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
-      | [d] =>
-        visit d.name -- force cache update before `mkAST` to prevent looping
-        appendBinding (← replaceName d.name, ← mkAST d.value) false
+      | [d] => appendBinding (← replaceName d.name, ← mkAST d.value)
       | defs =>
         defs.forM fun d => visit d.name
-        let pairs ← defs.mapM fun d => return (d.name.toString false, ← mkAST d.value)
+        let pairs ← defs.mapM fun d => do
+          pure $ (d.name.toString false, ← mkAST d.value)
         match mkMutualBlock pairs with
-        | .ok block => block.forM fun (n, e) => do appendBinding (← replaceName n, e) false
+        | .ok block => block.forM fun (n, e) => do appendBinding (← replaceName n, e)
         | .error err => throw $ .custom err
     | .inductive x =>
       let u ← getMutualIndInfo x

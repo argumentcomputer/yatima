@@ -94,7 +94,7 @@ end Primitives
 section Builtins
 
 def Nat : Name × AST := (``Nat, ⟦
-  ,(Nat 0 0)
+  ,("Nat" 0 0)
 ⟧)
 
 def NatZero : Name × AST := (``Nat.zero, ⟦
@@ -150,20 +150,20 @@ def NatMod : Name × AST := (``Nat.mod, ⟦
 def NatDecLe : Name × AST := (``Nat.decLe, ⟦
   (lambda (a b)
     (if (<= a b)
-      ,((Decidable 1 0) 1 (Nat.le 1 1) t)
-      ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
+      ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+      ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 def NatBeq : Name × AST := (``Nat.beq, ⟦
   (lambda (a b) (
     if (= a b)
-      ,((Bool 0 0) 1)
-      ,((Bool 0 0) 0)
+      ,(("Bool" 0 0) 1)
+      ,(("Bool" 0 0) 0)
   ))
 ⟧)
 
 def Char : Name × AST := (``Char, ⟦
-  ,(Char 0 0)
+  ,("Char" 0 0)
 ⟧)
 
 def CharMk : Name × AST := (``Char.mk, ⟦
@@ -186,7 +186,7 @@ def CharRec : Name × AST := (``Char.rec, ⟦
 ⟧)
 
 def List : Name × AST := (``List, ⟦
-  (lambda (_lurk_1) ,(List 1 0))
+  (lambda (_lurk_1) ,("List" 1 0))
 ⟧)
 
 def ListNil : Name × AST := (``List.nil, ⟦
@@ -207,8 +207,8 @@ def ListRec : Name × AST := (``List.rec, ⟦
 def ListHasDecEq : Name × AST := (``List.hasDecEq, ⟦
   (lambda (α _inst a b)
     (if (eq a b)
-      ,((Decidable 1 0) 1 (Nat.le 1 1) t)
-      ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
+      ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+      ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 def ListMap : Name × AST := (``List.map, ⟦
@@ -226,7 +226,7 @@ def ListFoldl : Name × AST := (``List.foldl, ⟦
 ⟧)
 
 def String : Name × AST := (``String, ⟦
-  ,(String 0 0)
+  ,("String" 0 0)
 ⟧)
 
 def StringMk : Name × AST := (``String.mk, ⟦
@@ -245,8 +245,8 @@ def StringRec : Name × AST := (``String.rec, ⟦
 def StringDecEq : Name × AST := (``String.decEq, ⟦
   (lambda (s₁ s₂)
     (if (eq s₁ s₂)
-      ,((Decidable 1 0) 1 (Nat.le 1 1) t)
-      ,((Decidable 1 0) 0 (Nat.le 1 1) t)))
+      ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
+      ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
 end Builtins
