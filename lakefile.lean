@@ -13,22 +13,22 @@ lean_exe yatima {
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "bf02714e216265b495636dd10f987ec32461dfd4"
+  "https://github.com/yatima-inc/Ipld.lean" @ "9ccb24133e8d06a268b823abd51df50c97cdede3"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "02e423d02d2ba1b76bed3cf6459a5c2d7a13afb8"
+  "https://github.com/yatima-inc/LSpec.git" @ "89798a6cb76b2b29469ff752af2fd8543b3a5515"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "8e90071add9c667f93289d4ab784756611b7c909"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "f905b68f529de2af44cf6ea63489b7e3cd090050"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "8e81b62cdeccbd972a1a8e1ddd0694b236ebf41a"
+  "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "ecb0a0622b06c0debe182315f4003895b4c6b608"
+  "https://github.com/yatima-inc/Lurk.lean" @ "ce6eba42afd9c8f97e2d097488cc666d532157b3"
 
 require std from git
-  "https://github.com/leanprover/std4/"@"f648e43ef696ce1cf7f6ec534ec44c06816380f9"
+  "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"
 
 section Testing
 
@@ -38,15 +38,15 @@ lean_lib Fixtures {
   roots := #[`Fixtures.AnonCidGroups.ToBeImported, `Fixtures.AnonCidGroups.ToImport]
 }
 
-lean_exe Tests.AnonCidGroups.Definitions    { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.Inductives     { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.ToImport       { supportInterpreter := true }
-lean_exe Tests.Termination.NastyInductives  { supportInterpreter := true }
-lean_exe Tests.Termination.Prelude          { supportInterpreter := true }
-lean_exe Tests.Roundtrip.Tricky             { supportInterpreter := true }
-lean_exe Tests.Typechecker.Reduction        { supportInterpreter := true }
-lean_exe Tests.Transpilation.Demo           { supportInterpreter := true }
-lean_exe Tests.Transpilation.PrimitiveTests { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
+lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
+lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
+lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
+lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
+lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
+lean_exe Tests.Transpilation.TrickyTypes   { supportInterpreter := true }
+lean_exe Tests.Transpilation.Primitives    { supportInterpreter := true }
 
 end Testing
 

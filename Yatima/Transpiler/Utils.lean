@@ -38,9 +38,6 @@ def getMutualIndInfo (ind : Inductive) :
     TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
   let store := (← read).irStore
   let map := (← read).map
-  -- let cid : ConstCid := ← match cache.find? ind.name with
-  --   | some (cid, _) => return cid
-  --   | none => throw $ .notFoundInCache ind.name
   let cid : ConstCid ← match store.constMeta.toList.find?
       fun (_, meta) => meta.name == ind.name with
     | some (metaCid, _) => match store.consts.toList.find? fun ⟨_, meta⟩ =>
@@ -85,26 +82,24 @@ def getMutualIndInfo (ind : Inductive) :
   | _ => throw $ .custom "blockCid not found in store"
 
 /-- Gets the list of definitions involved in the mutual block of a definition -/
-def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition := do
-  let consts := (← read).tcStore.consts
-  defn.all.mapM fun constIdx =>
-    match consts[constIdx]! with
+def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition :=
+  defn.all.mapM fun constIdx => do match ← derefConst constIdx with
     | .definition d => pure d
-    | _ => throw $ .custom "Invalid constant type"
+    | x => throw $ .invalidConstantKind x.name "definition" x.ctorName
 
 /-- 
   Telescopes Yatima lambda `fun (x₁ : α₁) (x₂ : α₂) .. => body` into `(body, [(x₁, α₁), (x₂, α₂), ..])`
   Telescopes pi type `(a₁ : α₁) → (a₂ : α₂) → .. → α` into `(α, [(a₁, α₁), (a₂, α₂), ..])` -/
 def telescope (expr : Expr) : Expr × List (Name × Expr) :=
   match expr with 
-    | .pi .. => telescopeAux expr [] true
-    | .lam .. => telescopeAux expr [] false
-    | _ => (expr, [])
+  | .pi .. => telescopeAux expr [] true
+  | .lam .. => telescopeAux expr [] false
+  | _ => (expr, [])
 where 
   telescopeAux (expr : Expr) (bindAcc : List (Name × Expr)) (pi? : Bool) : 
       Expr × List (Name × Expr) :=
     match expr, pi? with 
-    | .pi name _ ty body, true => telescopeAux body ((name, ty) :: bindAcc) true
+    | .pi  name _ ty body, true  => telescopeAux body ((name, ty) :: bindAcc) true
     | .lam name _ ty body, false => telescopeAux body ((name, ty) :: bindAcc) false
     | _, _ => (expr, bindAcc.reverse)
 
@@ -124,31 +119,3 @@ def Lean.Name.isHygenic : Name → Bool
   | str p s => if s == "_hyg" then true else p.isHygenic
   | num p _ => p.isHygenic
   | _       => false
-
-/-
-TODO : Re-visit whether these are actually necessary? 
-
-Presumably with the refactor of `Lurk.lean` there's no point in having these, but I included
-them so things compile
--/
-
-namespace Lurk.Syntax
-
-open DSL Expr Lean
-
-def Expr.mkMutualBlock (mutuals : List (Name × Syntax.Expr)) : List (Name × Syntax.Expr) :=
-  if mutuals.length == 1 then 
-    mutuals 
-  else 
-    let names := mutuals.map Prod.fst
-    let mutualName := names.foldl (init := `__mutual__) fun acc n => acc ++ n
-    let fnProjs := names.enum.map fun (i, (n : Name)) => (n, app ⟦$mutualName⟧ ⟦$i⟧)
-    let map := fnProjs.foldl (init := default) fun acc (n, e) => acc.insert n e
-    let mutualBlock := mkIfElses (mutuals.enum.map fun (i, _, e) =>
-        (⟦(= mutidx $i)⟧, replaceFreeVars map e)
-      ) ⟦nil⟧
-    (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
-
-def Expr.toImplicitLambda : Expr → Expr
-  | .lam _ body => toImplicitLambda body
-  | x => x

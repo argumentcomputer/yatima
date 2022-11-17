@@ -55,9 +55,11 @@ def Cli.Parsed.getArg! (p : Cli.Parsed) (arg : String) : String :=
   p.positionalArg! arg |>.as! String
 
 open Yatima.IR in
-def readStoreFromFile (fileName : String) : IO $ Except String Store :=
-  return match DagCbor.deserialize (← IO.FS.readBinFile fileName) with
+def readStoreFromFile (fileName : String) : IO $ Except String Store := do
+  let bytes ← IO.FS.readBinFile fileName
+  return match DagCbor.deserialize bytes with
   | .error err => .error (toString err)
-  | .ok ipld => match Yatima.Ipld.storeFromIpld ipld with
+  | .ok ipld =>
+    match Yatima.Ipld.storeFromIpld ipld with
     | none => .error "Error deserializing IPLD"
     | some store => .ok store
