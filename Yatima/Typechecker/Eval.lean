@@ -307,7 +307,6 @@ mutual
       let img ← quoteExpr (lvl+1) img (env'.extendWith var)
       pure $ .pi info name binfo dom img
     | .lit lit => pure $ .lit info lit
-    | .litProp _ => throw $ .custom "TODO"
     | .exception e => throw e
 
   partial def quoteExpr (lvl : Nat) (expr : TypedExpr) (env : Env) : TypecheckM TypedExpr :=

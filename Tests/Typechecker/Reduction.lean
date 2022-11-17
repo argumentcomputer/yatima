@@ -66,7 +66,6 @@ mutual
         $ .mk default $ .pure $ Value.app (.fvar name 0) []
       pure $ .lam default name binfo (← readBack consts dom.get) $ ← replaceFvars consts piEnv bod
     | .lit lit => pure $ .lit default lit
-    | .litProp _ => none -- FIXME
     | .exception _ => none
 
   partial def readBackNeutral (consts : Array Const) : Neutral → Option TypedExpr
