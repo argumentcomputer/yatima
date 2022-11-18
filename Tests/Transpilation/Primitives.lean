@@ -32,7 +32,7 @@ def main := do
       , (`listEqT, ⟦(("Bool" 0 0) 1)⟧)
       , (`abcd, "abcd")
       , (`efg, "efg")
-      -- , (`stringAppend, "abcdefg")
+      , (`stringAppend, "abcdefg")
       -- , (`stringLength, 4)
       -- , (`stringAppendLength, 7)
       -- , (`stringBEqF, ⟦(("Bool" 0 0) 0)⟧)

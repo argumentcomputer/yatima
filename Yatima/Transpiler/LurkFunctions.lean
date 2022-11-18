@@ -32,6 +32,15 @@ def append : Name × AST := (`append, ⟦
   ))
 ⟧)
 
+def str_append : Name × AST := (`str_append, ⟦
+  (lambda (xs ys)
+    (if (eq "" xs)
+      ys
+      (strcons
+        (car xs)
+        (str_append (cdr xs) ys))))
+⟧)
+
 def length : Name × AST := (`length, ⟦
   (lambda (xs) (
     if xs

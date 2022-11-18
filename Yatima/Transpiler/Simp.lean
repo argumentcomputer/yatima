@@ -11,10 +11,29 @@ A rudimentary simplifier for lurk expressions.
 -/
 namespace Yatima.Transpiler.Simp
 
-open Lurk.Syntax AST in
-def getOfNatLit : AST → AST
+open Lurk.Syntax AST
+
+def simpStep : AST → AST
   | x@~[sym "OfNat.ofNat", sym "Nat", num n, ~[sym "instOfNatNat", num m]] =>
     if n == m then num n else x
+  | ~[sym "HAdd.hAdd", .sym "Nat", .sym "Nat", .sym "Nat",
+      ~[.sym "instHAdd", .sym "Nat", .sym "instAddNat"], (.num x), (.num y)] =>
+    .num (x + y)
+  | ~[.sym "HMul.hMul", .sym "Nat", .sym "Nat", .sym "Nat",
+      ~[.sym "instHMul", .sym "Nat", .sym "instMulNat"], (.num x), (.num y)] =>
+    .num (x * y)
+  | ~[.sym "HAppend.hAppend", .sym "String", .sym "String", .sym "String",
+      ~[.sym "instHAppend", .sym "String", .sym "String.instAppendString"], x, y] =>
+    ~[.sym "str_append", x, y]
+  | .cons x y => .cons (simpStep x) (simpStep y)
   | x => x
+
+partial def simp (ast : AST) : AST := Id.run do
+  let mut ast  := ast
+  let mut ast' := simpStep ast
+  while ast' != ast do
+    ast := ast'
+    ast' := simpStep ast'
+  pure ast'
 
 end Yatima.Transpiler.Simp

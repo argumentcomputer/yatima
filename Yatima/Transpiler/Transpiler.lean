@@ -372,10 +372,9 @@ mutual
         | some ast => builtinInitialize name ast
         | none => mkConst (← derefConst idx)
       mkName name
-    | e@(.app ..) => do
+    | e@(.app ..) =>
       let (fn, args) := e.getAppFnArgs
-      let ast := .cons (← mkAST fn) $ toAST (← args.mapM mkAST)
-      return Simp.getOfNatLit ast
+      return .cons (← mkAST fn) $ toAST (← args.mapM mkAST)
     | e@(.lam ..) => mkLambda e
     | .pi .. => return ⟦nil⟧
     | .letE name _ value body => do
@@ -467,7 +466,8 @@ def builtins : List (Name × AST) := [
 def primitives : List (Name × AST) := [
   Lurk.Functions.getelem,
   Lurk.Functions.lurk_string_mk,
-  Lurk.Functions.lurk_string_data
+  Lurk.Functions.lurk_string_data,
+  Lurk.Functions.str_append
 ]
 
 /-- Main translation function -/
@@ -494,5 +494,5 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
     | .ok s =>
       let bindings := s.appendedBindings.data.map
         fun (n, x) => (n.toString false, x)
-      .ok $ mkLetrec bindings (.sym $ root.toString false)
+      .ok $ Simp.simp $ mkLetrec bindings (.sym $ root.toString false)
     | .error e => .error e
