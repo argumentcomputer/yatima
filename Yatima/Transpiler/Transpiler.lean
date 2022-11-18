@@ -337,6 +337,7 @@ mutual
   partial def mkInductiveBlock (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) :
       TranspileM Unit := do
     for (ind, ctors, irecr, erecrs) in inds do
+      visit ind.name
       appendBinding (ind.name, ← mkIndLiteral ind)
       for ctor in ctors do
         visit ctor.name
