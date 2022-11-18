@@ -251,6 +251,10 @@ def StringRec : Name × AST := (``String.rec, ⟦
     (mk (lurk_string_data _t)))
 ⟧)
 
+def StringAppend : Name × AST := (``String.append, ⟦
+  (lambda (s₁ s₂) (str_append s₁ s₂))
+⟧)
+
 def StringDecEq : Name × AST := (``String.decEq, ⟦
   (lambda (s₁ s₂)
     (if (eq s₁ s₂)

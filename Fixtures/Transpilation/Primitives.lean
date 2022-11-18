@@ -25,7 +25,8 @@ def listEqT := decide (list = [1, 2, 3, 4, 5, 6])
 
 def abcd := "abcd"
 def efg := "efg"
-def stringAppend := abcd ++ efg 
+def stringAppendInst := abcd ++ efg 
+def stringAppend := String.append abcd efg 
 def stringLength := abcd.length
 def stringAppendLength := stringAppend.length
 def stringBEqF := abcd == efg

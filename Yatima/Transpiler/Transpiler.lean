@@ -461,7 +461,8 @@ def builtins : List (Name × AST) := [
   Lurk.Functions.String,
   Lurk.Functions.StringMk,
   Lurk.Functions.StringData,
-  Lurk.Functions.StringRec
+  Lurk.Functions.StringRec,
+  Lurk.Functions.StringAppend
 ]
 
 def primitives : List (Name × AST) := [
