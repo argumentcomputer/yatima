@@ -19,6 +19,21 @@ def compileAndExtractTests (fixture : String)
     fun stt => (extractors.map fun extr => extr stt).foldl (init := .done)
       (· ++ ·)
 
+def compileAndExtractTests' (fixtures : Array String)
+  (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
+    IO TestSeq := do
+  if setPaths then setLibsPaths
+  let mut ret := .done
+  let mut compStt := default
+  for fixture in fixtures do
+    match (← compile (stt := compStt) fixture) with
+    | .ok stt =>
+      compStt := stt
+      ret := test s!"Compiles '{fixture}'" true $ (extractors.map fun extr => extr stt).foldl (init := ret)
+          (· ++ ·)
+    | .error e => ret := test s!"Compiles '{fixture}'" (ExpectationFailure "ok _" s!"error {e}")
+  return ret
+
 section AnonCidGroups
 
 /-
@@ -167,6 +182,7 @@ instance : Testable (FoundConstFailure constName) :=
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
     if true then
+    --if const.name == `instDecidableEqUSize then
       tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
         (typecheckConst stt.tcStore const.name) fun _ => .done
     else tSeq
