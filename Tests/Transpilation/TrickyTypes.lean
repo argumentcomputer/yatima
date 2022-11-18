@@ -8,10 +8,10 @@ def main := do
     "Fixtures/Transpilation/TrickyTypes.lean"
     [
       extractTranspilationTests [
-        -- (`exprCtor, some $ .lit $ .str "lam"),
-        -- (`univCtor, some $ .lit $ .str "zero"),
-        -- (`treeSize, some $ .lit $ .num (.ofNat 2)),
-        -- (`nameStr,  some $ .lit $ .str "this.is.a.name")
+        -- (`exprCtor, "lam"),
+        -- (`univCtor, "zero"),
+        -- (`treeSize, 2),
+        -- (`nameStr,  "this.is.a.name")
       ]
     ]
   lspecIO tSeq

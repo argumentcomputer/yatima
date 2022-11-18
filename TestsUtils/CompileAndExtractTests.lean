@@ -167,7 +167,6 @@ instance : Testable (FoundConstFailure constName) :=
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
     if true then
-    --if const.name == `BLE.bli then
       tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
         (typecheckConst stt.tcStore const.name) fun _ => .done
     else tSeq
@@ -183,17 +182,14 @@ instance [BEq α] [BEq β] : BEq (Except α β) where beq
   | .error x, .error y => x == y
   | _, _ => false
 
-def extractTranspilationTests (expect : List (Name × Option Value))
+def extractTranspilationTests (expect : List (Name × Value))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk "Transpilation succeeds" (transpile stt.irStore root) fun ast =>
-      withExceptOk "Conversion to expression succeeds" ast.toExpr fun expr =>
-        withExceptOk "Evaluation succeeds" expr.eval fun val =>
-          match expected with
-          | some expected =>
-            tSeq ++ test s!"Evaluation of {root} ({val}) yields {expected}"
-              (val == expected)
-          | none => tSeq
+    withExceptOk s!"Transpilation of {root} succeeds" (transpile stt.irStore root) fun ast =>
+      withExceptOk s!"Conversion of {root} to expression succeeds" ast.toExpr fun expr =>
+        withExceptOk s!"Evaluation of {root} succeeds" expr.eval fun val =>
+          tSeq ++ test s!"Evaluation of {root}, resulting in {val}, yields {expected}"
+            (val == expected)
 
 end Transpilation
 

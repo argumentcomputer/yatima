@@ -24,18 +24,21 @@ open Yatima Lurk.Syntax DSL
 
 section Primitives
 
-/--
-Primitives will need to be escaped with french quotes (like in «$getelem») in
-the DSL. We use weird names to avoid clashes with Lean name the source writer
-may use.
--/
-
 def append : Name × AST := (`append, ⟦
   (lambda (xs ys) (
     if xs
       (cons (car xs) (append (cdr xs) ys))
       ys
   ))
+⟧)
+
+def str_append : Name × AST := (`str_append, ⟦
+  (lambda (xs ys)
+    (if (eq "" xs)
+      ys
+      (strcons
+        (car xs)
+        (str_append (cdr xs) ys))))
 ⟧)
 
 def length : Name × AST := (`length, ⟦
@@ -119,53 +122,52 @@ def NatRec : Name × AST := (``Nat.rec, ⟦
 ⟧)
 
 def NatAdd : Name × AST := (``Nat.add, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2) (+ _x_lurk_1 _x_lurk_2))
+  (lambda (a b) (+ a b))
 ⟧)
 
 def NatSub : Name × AST := (``Nat.sub, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (< _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (< a b)
       0
-      (- _x_lurk_1 _x_lurk_2)))
+      (- a b)))
 ⟧)
 
 def NatMul : Name × AST := (``Nat.mul, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2) (* _x_lurk_1 _x_lurk_2))
+  (lambda (a b) (* a b))
 ⟧)
 
 def NatDiv : Name × AST := (``Nat.div, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (< _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (< a b)
       0
-      -- TODO: we write `((Nat.div x_1) x_2)` as a hack,
+      -- TODO: we write `((Nat.div a) b)` as a hack,
       -- the elaborator is otherwise confused and tries to parse `Nat.div`
       -- as a `binop`.
-      (+ 1 (Nat.div (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
+      (+ 1 (Nat.div (- a b) b))))
 ⟧)
 
 def NatMod : Name × AST := (``Nat.mod, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (< _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (< a b)
       0
-      -- TODO: we write `((Nat.div x_1) x_2)` as a hack,
+      -- TODO: we write `((Nat.div a) b)` as a hack,
       -- the elaborator is otherwise confused and tries to parse `Nat.div`
       -- as a `binop`.
-      (+ 1 (Nat.div (- _x_lurk_1 _x_lurk_2) _x_lurk_2))))
+      (+ 1 (Nat.div (- a b) b))))
 ⟧)
 
 def NatDecLe : Name × AST := (``Nat.decLe, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2)
-    (if (<= _x_lurk_1 _x_lurk_2)
+  (lambda (a b)
+    (if (<= a b)
       ,(("Decidable" 1 0) 1 ("Nat.le" 1 1) t)
       ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
--- doesn't quite work yet because depends on `Bool`
 def NatBeq : Name × AST := (``Nat.beq, ⟦
-  (lambda (_x_lurk_1 _x_lurk_2) (
-    if (= _x_lurk_1 _x_lurk_2)
-      Bool.true
-      Bool.false
+  (lambda (a b) (
+    if (= a b)
+      ,(("Bool" 0 0) 1)
+      ,(("Bool" 0 0) 0)
   ))
 ⟧)
 
@@ -247,6 +249,10 @@ def StringData : Name × AST := (``String.data, ⟦
 def StringRec : Name × AST := (``String.rec, ⟦
   (lambda (motive mk _t)
     (mk (lurk_string_data _t)))
+⟧)
+
+def StringAppend : Name × AST := (``String.append, ⟦
+  (lambda (s₁ s₂) (str_append s₁ s₂))
 ⟧)
 
 def StringDecEq : Name × AST := (``String.decEq, ⟦
