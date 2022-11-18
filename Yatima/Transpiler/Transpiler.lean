@@ -496,5 +496,6 @@ def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
     | .ok s =>
       let bindings := s.appendedBindings.data.map
         fun (n, x) => (n.toString false, x)
-      .ok $ Simp.simp $ mkLetrec bindings (.sym $ root.toString false)
+      let ast := Simp.simp $ mkLetrec bindings (.sym $ root.toString false)
+      ast.pruneBlocks
     | .error e => .error e

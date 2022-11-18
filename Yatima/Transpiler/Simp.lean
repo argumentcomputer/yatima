@@ -23,8 +23,7 @@ def simpStep : AST → AST
       ~[.sym "instHMul", .sym "Nat", .sym "instMulNat"], (.num x), (.num y)] =>
     .num (x * y)
   | ~[.sym "HAppend.hAppend", .sym "String", .sym "String", .sym "String",
-      ~[.sym "instHAppend", .sym "String", .sym "String.instAppendString"], x, y] =>
-    ~[.sym "str_append", x, y]
+      ~[.sym "instHAppend", .sym "String", .sym "String.instAppendString"], x, y]
   | ~[.sym "String.append", x, y] => ~[.sym "str_append", x, y]
   | .cons x y => .cons (simpStep x) (simpStep y)
   | x => x
