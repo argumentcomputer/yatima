@@ -7,17 +7,17 @@ namespace Yatima.Transpiler
 open Lurk.Syntax (AST)
 
 structure TranspileEnv where
-  irStore  : IR.Store
-  tcStore  : TC.Store
+  irStore : IR.Store
+  tcStore : TC.Store
   /-- Used to speed up lookup by name -/
-  map      : Std.RBMap Name TC.Const compare
-  builtins : Std.RBMap Name AST compare
+  map : Std.RBMap Name TC.Const compare
+  overrides : Std.RBMap Name AST compare
 
 structure TranspileState where
   appendedBindings : Array (Name × AST)
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
-  /-- These will help us replace hygienic names -/
+  /-- These will help us replace hygienic/clashing names -/
   ngen     : Lean.NameGenerator
   replaced : Lean.NameMap Name
   deriving Inhabited

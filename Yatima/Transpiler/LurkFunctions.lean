@@ -18,11 +18,11 @@ make things work. If there are better representations or we need more
 metadata it should be freely changed.
 -/
 
-namespace Lurk.Functions
+namespace Lurk
 
 open Yatima Lurk.Syntax DSL
 
-section Primitives
+namespace Preloads
 
 def append : Name × AST := (`append, ⟦
   (lambda (xs ys) (
@@ -98,9 +98,14 @@ def lurk_string_data : Name × AST := (`lurk_string_data, ⟦
   )
 ⟧)
 
-end Primitives
+end Preloads
 
-section Builtins
+namespace Overrides
+
+/-!
+It's important that all overrides match with existing Lean names, so using
+double backticks here can help mitigate some error.
+-/
 
 def Nat : Name × AST := (``Nat, ⟦
   ,("Nat" 0 0)
@@ -262,6 +267,4 @@ def StringDecEq : Name × AST := (``String.decEq, ⟦
       ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
-end Builtins
-
-end Lurk.Functions
+end Lurk.Overrides

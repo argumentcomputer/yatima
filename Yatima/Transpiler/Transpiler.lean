@@ -214,7 +214,42 @@ namespace Yatima.Transpiler
 
 open TC Lurk.Syntax AST DSL
 
-def replaceName (name : Name) : TranspileM Name := do
+/-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
+def overrides : List (Name × AST) := [
+  Lurk.Overrides.Nat,
+  Lurk.Overrides.NatZero,
+  Lurk.Overrides.NatSucc,
+  Lurk.Overrides.NatRec,
+  Lurk.Overrides.NatAdd,
+  Lurk.Overrides.NatMul,
+  Lurk.Overrides.NatDiv,
+  Lurk.Overrides.NatDecLe,
+  Lurk.Overrides.Char,
+  Lurk.Overrides.CharMk,
+  Lurk.Overrides.CharVal,
+  Lurk.Overrides.CharValid,
+  Lurk.Overrides.CharRec,
+  Lurk.Overrides.List,
+  Lurk.Overrides.ListNil,
+  Lurk.Overrides.ListCons,
+  Lurk.Overrides.ListRec,
+  -- Lurk.Overrides.ListMap,
+  -- Lurk.Overrides.ListFoldl,
+  Lurk.Overrides.String,
+  Lurk.Overrides.StringMk,
+  Lurk.Overrides.StringData,
+  Lurk.Overrides.StringRec,
+  Lurk.Overrides.StringAppend
+]
+
+def preloads : List (Name × AST) := [
+  Lurk.Preloads.getelem,
+  Lurk.Preloads.lurk_string_mk,
+  Lurk.Preloads.lurk_string_data,
+  Lurk.Preloads.str_append
+]
+
+def safeName (name : Name) : TranspileM Name := do
   if name.isHygenic then
     match (← get).replaced.find? name with
     | some n => return n
@@ -222,7 +257,7 @@ def replaceName (name : Name) : TranspileM Name := do
   else return name
 
 def mkName (name : Name) : TranspileM AST := do
-  toAST <$> replaceName name
+  toAST <$> safeName name
 
 def mkIndLiteral (ind : Inductive) : TranspileM AST := do
   let (name, params, indices, type) :=
@@ -266,7 +301,7 @@ mutual
 
   The `indices` argument is necessary since `Constructor` contains the
   `params` field of its parent's inductive, but not the `indices` field. -/
-  partial def mkConstructor (ctor : Constructor) (indLit : AST) (indices : Nat) : TranspileM Unit := do
+  partial def appendCtor (ctor : Constructor) (indLit : AST) (indices : Nat) : TranspileM Unit := do
     let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
     let (_, bindings) := telescope type
     let ctorArgs : List AST ← bindings.mapM fun (n, _) => mkName n
@@ -332,16 +367,17 @@ mutual
         return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
 
       let cases := AST.mkIfElses ifThens ⟦nil⟧
-      return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
+      return (recrName.toString, ⟦(lambda $recrArgs $cases)⟧)
 
-  partial def mkInductiveBlock (inds : List (Inductive × List Constructor × IntRecursor × List ExtRecursor)) :
+  partial def appendIndBlock
+    (inds : List $ Inductive × List Constructor × IntRecursor × List ExtRecursor) :
       TranspileM Unit := do
     for (ind, ctors, irecr, erecrs) in inds do
       visit ind.name
       appendBinding (ind.name, ← mkIndLiteral ind)
       for ctor in ctors do
         visit ctor.name
-        mkConstructor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
+        appendCtor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
       let erecrs ← erecrs.mapM fun erecr =>
         mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
@@ -349,19 +385,18 @@ mutual
       | .ok xs => xs.forM fun (n, e) => do visit n; appendBinding (n, e)
       | .error e => throw $ .custom e
 
-  partial def builtinInitialize (name : Name) (func : AST) : TranspileM Unit := do
+  partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
     visit name
-    go func
+    appendPreReqs func
     appendBinding (name, func)
   where
-    go : AST → TranspileM Unit
+    appendPreReqs : AST → TranspileM Unit
       | .num _ | .char _ | .str _ => return
-      | .cons e₁ e₂ => do go e₁; go e₂
+      | .cons e₁ e₂ => do appendPreReqs e₁; appendPreReqs e₂
       | .sym n => do
-        -- TODO: better detection of what to compile, use this carefully for now
         if !(reservedSyms.contains n) && !(← isVisited n) then
           match (← read).map.find? n with
-          | some const => mkConst const
+          | some const => appendConst const
           | none => return
 
   partial def mkAST : Expr → TranspileM AST
@@ -369,9 +404,9 @@ mutual
     | .var name _ => mkName name
     | .const name idx .. => do
       if !(← isVisited name) then
-        match (← read).builtins.find? name with
-        | some ast => builtinInitialize name ast
-        | none => mkConst (← derefConst idx)
+        match (← read).overrides.find? name with
+        | some ast => overrideWith name ast
+        | none => appendConst (← derefConst idx)
       mkName name
     | e@(.app ..) =>
       let (fn, args) := e.getAppFnArgs
@@ -396,7 +431,7 @@ mutual
   We're trying to compile the mutual blocks at once instead of compiling each
   projection separately to avoid some recursions.
   -/
-  partial def mkConst (c : Const) : TranspileM Unit := do
+  partial def appendConst (c : Const) : TranspileM Unit := do
     if ← isVisited c.name then return
     visit c.name
     match c with
@@ -405,78 +440,36 @@ mutual
     | .theorem  x =>
       let (_, binds) := telescope x.type
       let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      appendBinding (← replaceName x.name, ⟦(lambda $binds t)⟧)
-    | .opaque x => appendBinding (← replaceName x.name, ← mkAST x.value)
+      appendBinding (← safeName x.name, ⟦(lambda $binds t)⟧)
+    | .opaque x => appendBinding (← safeName x.name, ← mkAST x.value)
     | .definition x => match ← getMutualDefInfo x with
       | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
-      | [d] => appendBinding (← replaceName d.name, ← mkAST d.value)
+      | [d] => appendBinding (← safeName d.name, ← mkAST d.value)
       | defs =>
         defs.forM fun d => visit d.name
         let pairs ← defs.mapM fun d => do
           pure $ (d.name.toString false, ← mkAST d.value)
         match mkMutualBlock pairs with
-        | .ok block => block.forM fun (n, e) => do appendBinding (← replaceName n, e)
+        | .ok block => block.forM fun (n, e) => do appendBinding (← safeName n, e)
         | .error err => throw $ .custom err
-    | .inductive x =>
-      let u ← getMutualIndInfo x
-      mkInductiveBlock u
+    | .inductive x => appendIndBlock (← getMutualIndInfo x)
     | .constructor x
     | .extRecursor x
-    | .intRecursor x => processInductive x.name
-  where
-    getInductive (name : Name) : TranspileM Inductive := do
-      let indName := name.getPrefix
-      match (← read).map.find? indName with
-      | some (.inductive i) => return i
-      | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
-      | none => throw $ .notFoundInMap indName
-    processInductive (name : Name) : TranspileM Unit := do
-      let i ← getInductive name
-      let u ← getMutualIndInfo i
-      mkInductiveBlock u
+    | .intRecursor x =>
+      let indName := x.name.getPrefix
+      let ind ← match (← read).map.find? indName with
+        | some (.inductive i) => pure i
+        | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
+        | none => throw $ .notFoundInMap indName
+      appendIndBlock (← getMutualIndInfo ind)
 
 end
 
-/-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
-def builtins : List (Name × AST) := [
-  Lurk.Functions.Nat,
-  Lurk.Functions.NatZero,
-  Lurk.Functions.NatSucc,
-  Lurk.Functions.NatRec,
-  Lurk.Functions.NatAdd,
-  Lurk.Functions.NatMul,
-  Lurk.Functions.NatDiv,
-  Lurk.Functions.NatDecLe,
-  Lurk.Functions.Char,
-  Lurk.Functions.CharMk,
-  Lurk.Functions.CharVal,
-  Lurk.Functions.CharValid,
-  Lurk.Functions.CharRec,
-  Lurk.Functions.List,
-  Lurk.Functions.ListNil,
-  Lurk.Functions.ListCons,
-  Lurk.Functions.ListRec,
-  -- Lurk.Functions.ListMap,
-  -- Lurk.Functions.ListFoldl,
-  Lurk.Functions.String,
-  Lurk.Functions.StringMk,
-  Lurk.Functions.StringData,
-  Lurk.Functions.StringRec,
-  Lurk.Functions.StringAppend
-]
-
-def primitives : List (Name × AST) := [
-  Lurk.Functions.getelem,
-  Lurk.Functions.lurk_string_mk,
-  Lurk.Functions.lurk_string_data,
-  Lurk.Functions.str_append
-]
-
 /-- Main translation function -/
 def transpileM (root : Name) : TranspileM Unit := do
-  primitives.forM appendBinding
+  preloads.forM appendBinding
   match (← read).tcStore.consts.find? fun c => c.name == root with
-  | some c => mkConst c
+  | some c => appendConst c
   | none => throw $ .custom s!"Unknown const {root}"
 
 /--
@@ -484,18 +477,18 @@ Constructs a `AST.letRecE` whose body is the call to a `root` constant in
 a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
-def transpile (store : IR.Store) (root : Name := `root) : Except String AST :=
+def transpile (store : IR.Store) (root : String) : Except String AST :=
   match Converter.extractPureStore store with
   | .error err => .error err
   | .ok pStore =>
     let map := pStore.consts.foldl (init := default)
       fun acc const => acc.insert const.name const
-    let env := ⟨store, pStore, map, .ofList builtins _⟩
-    let state : TranspileState := ⟨#[], .empty, ⟨`_hyg_, 1⟩, .empty⟩
+    let env := ⟨store, pStore, map, .ofList overrides _⟩
+    let state : TranspileState := ⟨#[], .empty, ⟨"$hyg", 1⟩, .empty⟩
     match TranspileM.run env state (transpileM root) with
     | .ok s =>
       let bindings := s.appendedBindings.data.map
         fun (n, x) => (n.toString false, x)
-      let ast := Simp.simp $ mkLetrec bindings (.sym $ root.toString false)
+      let ast := Simp.simp $ mkLetrec bindings (.sym root)
       ast.pruneBlocks
     | .error e => .error e
