@@ -80,20 +80,20 @@ def getelem : Name × AST := (`getelem, ⟦
   )
 ⟧)
 
-def lurk_string_mk : Name × AST := (`lurk_string_mk, ⟦
+def str_mk : Name × AST := (`str_mk, ⟦
   (lambda (cs)
     (if cs
-      (strcons (car cs) (lurk_string_mk (cdr cs)))
+      (strcons (car cs) (str_mk (cdr cs)))
       ""
     )
   )
 ⟧)
 
-def lurk_string_data : Name × AST := (`lurk_string_data, ⟦
+def str_data : Name × AST := (`str_data, ⟦
   (lambda (s)
     (if (eq s "")
       nil
-      (cons (car s) (lurk_string_data (cdr s)))
+      (cons (car s) (str_data (cdr s)))
     )
   )
 ⟧)
@@ -244,16 +244,16 @@ def String : Name × AST := (``String, ⟦
 ⟧)
 
 def StringMk : Name × AST := (``String.mk, ⟦
-  (lambda (data) (lurk_string_mk data))
+  (lambda (data) (str_mk data))
 ⟧)
 
 def StringData : Name × AST := (``String.data, ⟦
-  (lambda (self) (lurk_string_data self))
+  (lambda (self) (str_data self))
 ⟧)
 
 def StringRec : Name × AST := (``String.rec, ⟦
   (lambda (motive mk _t)
-    (mk (lurk_string_data _t)))
+    (mk (str_data _t)))
 ⟧)
 
 def StringAppend : Name × AST := (``String.append, ⟦

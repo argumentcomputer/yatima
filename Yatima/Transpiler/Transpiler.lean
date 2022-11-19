@@ -244,20 +244,34 @@ def overrides : List (Name × AST) := [
 
 def preloads : List (Name × AST) := [
   Lurk.Preloads.getelem,
-  Lurk.Preloads.lurk_string_mk,
-  Lurk.Preloads.lurk_string_data,
+  Lurk.Preloads.str_mk,
+  Lurk.Preloads.str_data,
   Lurk.Preloads.str_append
 ]
 
-def safeName (name : Name) : TranspileM Name := do
-  if name.isHygenic then
-    match (← get).replaced.find? name with
+def preloadNames : Lean.NameSet :=
+  .ofList (preloads.map Prod.fst)
+
+def safeName (name : Name) : TranspileM Name :=
+  let nameStr := name.toString false
+  if name.isHygenic
+      || preloadNames.contains name
+      || reservedSyms.contains nameStr
+      || nameStr.contains '|' then do
+    match (← get).replacedMap.find? name with
     | some n => return n
-    | none   => replaceFreshId name
+    | none   => replace name
   else return name
 
 def mkName (name : Name) : TranspileM AST := do
   toAST <$> safeName name
+
+def appendBindingWithUnsafeName (b : Name × AST) : TranspileM Unit :=
+  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
+
+def appendBinding (b : Name × AST) : TranspileM Unit := do
+  let b := (← safeName b.1, b.2)
+  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
 def mkIndLiteral (ind : Inductive) : TranspileM AST := do
   let (name, params, indices, type) :=
@@ -367,11 +381,9 @@ mutual
         return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
 
       let cases := AST.mkIfElses ifThens ⟦nil⟧
-      return (recrName.toString, ⟦(lambda $recrArgs $cases)⟧)
+      return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
 
-  partial def appendIndBlock
-    (inds : List $ Inductive × List Constructor × IntRecursor × List ExtRecursor) :
-      TranspileM Unit := do
+  partial def appendIndBlock (inds : List MutualInfo) : TranspileM Unit := do
     for (ind, ctors, irecr, erecrs) in inds do
       visit ind.name
       appendBinding (ind.name, ← mkIndLiteral ind)
@@ -381,18 +393,18 @@ mutual
       let erecrs ← erecrs.mapM fun erecr =>
         mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
-      match mkMutualBlock (irecr::erecrs) with
+      match mkMutualBlock (irecr :: erecrs) with
       | .ok xs => xs.forM fun (n, e) => do visit n; appendBinding (n, e)
       | .error e => throw $ .custom e
 
   partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
     visit name
-    appendPreReqs func
+    appendPrereqs func
     appendBinding (name, func)
   where
-    appendPreReqs : AST → TranspileM Unit
+    appendPrereqs : AST → TranspileM Unit
       | .num _ | .char _ | .str _ => return
-      | .cons e₁ e₂ => do appendPreReqs e₁; appendPreReqs e₂
+      | .cons e₁ e₂ => do appendPrereqs e₁; appendPrereqs e₂
       | .sym n => do
         if !(reservedSyms.contains n) && !(← isVisited n) then
           match (← read).map.find? n with
@@ -414,6 +426,7 @@ mutual
     | e@(.lam ..) => mkLambda e
     | .pi .. => return ⟦nil⟧
     | .letE name _ value body => do
+      let name ← safeName name
       let val ← mkAST value
       let body ← mkAST body
       return ⟦(let $([(name, val)]) $body)⟧
@@ -440,17 +453,17 @@ mutual
     | .theorem  x =>
       let (_, binds) := telescope x.type
       let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      appendBinding (← safeName x.name, ⟦(lambda $binds t)⟧)
-    | .opaque x => appendBinding (← safeName x.name, ← mkAST x.value)
+      appendBinding (x.name, ⟦(lambda $binds t)⟧)
+    | .opaque x => appendBinding (x.name, ← mkAST x.value)
     | .definition x => match ← getMutualDefInfo x with
       | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
-      | [d] => appendBinding (← safeName d.name, ← mkAST d.value)
+      | [d] => appendBinding (d.name, ← mkAST d.value)
       | defs =>
         defs.forM fun d => visit d.name
         let pairs ← defs.mapM fun d => do
           pure $ (d.name.toString false, ← mkAST d.value)
         match mkMutualBlock pairs with
-        | .ok block => block.forM fun (n, e) => do appendBinding (← safeName n, e)
+        | .ok block => block.forM fun (n, e) => do appendBinding (n, e)
         | .error err => throw $ .custom err
     | .inductive x => appendIndBlock (← getMutualIndInfo x)
     | .constructor x
@@ -467,7 +480,7 @@ end
 
 /-- Main translation function -/
 def transpileM (root : Name) : TranspileM Unit := do
-  preloads.forM appendBinding
+  preloads.forM appendBindingWithUnsafeName
   match (← read).tcStore.consts.find? fun c => c.name == root with
   | some c => appendConst c
   | none => throw $ .custom s!"Unknown const {root}"
@@ -484,7 +497,7 @@ def transpile (store : IR.Store) (root : String) : Except String AST :=
     let map := pStore.consts.foldl (init := default)
       fun acc const => acc.insert const.name const
     let env := ⟨store, pStore, map, .ofList overrides _⟩
-    let state : TranspileState := ⟨#[], .empty, ⟨"$hyg", 1⟩, .empty⟩
+    let state : TranspileState := ⟨#[], .empty, ⟨"_hyg_", 1⟩, .empty, .empty⟩
     match TranspileM.run env state (transpileM root) with
     | .ok s =>
       let bindings := s.appendedBindings.data.map
