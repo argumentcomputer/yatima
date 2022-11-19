@@ -224,6 +224,7 @@ def overrides : List (Name × AST) := [
   Lurk.Overrides.NatMul,
   Lurk.Overrides.NatDiv,
   Lurk.Overrides.NatDecLe,
+  Lurk.Overrides.NatBeq,
   Lurk.Overrides.Char,
   Lurk.Overrides.CharMk,
   Lurk.Overrides.CharVal,
