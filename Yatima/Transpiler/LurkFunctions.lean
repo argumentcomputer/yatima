@@ -18,11 +18,11 @@ make things work. If there are better representations or we need more
 metadata it should be freely changed.
 -/
 
-namespace Lurk.Functions
+namespace Lurk
 
 open Yatima Lurk.Syntax DSL
 
-section Primitives
+namespace Preloads
 
 def append : Name × AST := (`append, ⟦
   (lambda (xs ys) (
@@ -80,27 +80,32 @@ def getelem : Name × AST := (`getelem, ⟦
   )
 ⟧)
 
-def lurk_string_mk : Name × AST := (`lurk_string_mk, ⟦
+def str_mk : Name × AST := (`str_mk, ⟦
   (lambda (cs)
     (if cs
-      (strcons (car cs) (lurk_string_mk (cdr cs)))
+      (strcons (car cs) (str_mk (cdr cs)))
       ""
     )
   )
 ⟧)
 
-def lurk_string_data : Name × AST := (`lurk_string_data, ⟦
+def str_data : Name × AST := (`str_data, ⟦
   (lambda (s)
     (if (eq s "")
       nil
-      (cons (car s) (lurk_string_data (cdr s)))
+      (cons (car s) (str_data (cdr s)))
     )
   )
 ⟧)
 
-end Primitives
+end Preloads
 
-section Builtins
+namespace Overrides
+
+/-!
+It's important that all overrides match with existing Lean names, so using
+double backticks here can help mitigate some error.
+-/
 
 def Nat : Name × AST := (``Nat, ⟦
   ,("Nat" 0 0)
@@ -195,21 +200,21 @@ def CharRec : Name × AST := (``Char.rec, ⟦
 ⟧)
 
 def List : Name × AST := (``List, ⟦
-  (lambda (_lurk_1) ,("List" 1 0))
+  (lambda (x) ,("List" 1 0))
 ⟧)
 
 def ListNil : Name × AST := (``List.nil, ⟦
-  (lambda (_lurk_1) nil)
+  (lambda (x) nil)
 ⟧)
 
 def ListCons : Name × AST := (``List.cons, ⟦
-  (lambda (_lurk_1 head tail) (cons head tail))
+  (lambda (x head tail) (cons head tail))
 ⟧)
 
 def ListRec : Name × AST := (``List.rec, ⟦
-  (lambda (_lurk_1 motive _nil _cons _t)
+  (lambda (x motive _nil _cons _t)
     (if _t
-      (_cons (car _t) (cdr _t) (List.rec _lurk_1 motive _nil _cons (cdr _t)))
+      (_cons (car _t) (cdr _t) (List.rec x motive _nil _cons (cdr _t)))
       _nil))
 ⟧)
 
@@ -239,16 +244,16 @@ def String : Name × AST := (``String, ⟦
 ⟧)
 
 def StringMk : Name × AST := (``String.mk, ⟦
-  (lambda (data) (lurk_string_mk data))
+  (lambda (data) (str_mk data))
 ⟧)
 
 def StringData : Name × AST := (``String.data, ⟦
-  (lambda (self) (lurk_string_data self))
+  (lambda (self) (str_data self))
 ⟧)
 
 def StringRec : Name × AST := (``String.rec, ⟦
   (lambda (motive mk _t)
-    (mk (lurk_string_data _t)))
+    (mk (str_data _t)))
 ⟧)
 
 def StringAppend : Name × AST := (``String.append, ⟦
@@ -262,6 +267,4 @@ def StringDecEq : Name × AST := (``String.decEq, ⟦
       ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧)
 
-end Builtins
-
-end Lurk.Functions
+end Lurk.Overrides
