@@ -258,7 +258,7 @@ def safeName (name : Name) : TranspileM Name :=
       || preloadNames.contains name
       || reservedSyms.contains nameStr
       || nameStr.contains '|' then do
-    match (← get).replacedMap.find? name with
+    match (← get).replaced.find? name with
     | some n => return n
     | none   => replace name
   else return name
@@ -294,13 +294,6 @@ scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where
 
 mutual
 
-  /-- Converts Yatima lambda `fun x₁ x₂ .. => body` into `AST.lam [x₁, x₂, ..] body` -/
-  partial def mkLambda (expr : Expr) : TranspileM AST := do
-    let (expr, binds) := telescope expr
-    let binds : List AST ← binds.mapM fun (n, _) => mkName n
-    let fn ← mkAST expr
-    return ⟦(lambda $binds $fn)⟧
-
   /--
   Construct a Lurk function representing a Yatima constructor.
   Let `ind` be the inductive parent of `ctor` and `idx` be its index.
@@ -334,9 +327,9 @@ mutual
     let (argName, _) : Name × Expr := bindings.last!
     let argName ← mkName argName
     let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-    let mut [(n₁, rhs₁), (n₂, rhs₂)] ← rhs.mapM fun c => return (c.name, c.rhs)
+    let [(n₁, rhs₁), (_, rhs₂)] ← rhs.mapM fun c => return (c.name, c.rhs)
       | throw $ .custom "`mkListRecursor` must receive list constructors"
-    let (nilRHS, consRHS) :=
+    let (nilRHS, consRHS) := -- Arthur: why so specific?
       if n₁ == ``List.nil then (rhs₁, rhs₂)
       else (rhs₂, rhs₁)
     let nilRHS ← mkAST nilRHS.toImplicitLambda
@@ -390,11 +383,13 @@ mutual
       for ctor in ctors do
         visit ctor.name
         appendCtor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
+      erecrs.forM fun r => visit r.name
       let erecrs ← erecrs.mapM fun erecr =>
         mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
+      visit irecr.name
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
       match mkMutualBlock (irecr :: erecrs) with
-      | .ok xs => xs.forM fun (n, e) => do visit n; appendBinding (n, e)
+      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
       | .error e => throw $ .custom e
 
   partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
@@ -412,7 +407,8 @@ mutual
           | none => return
 
   partial def mkAST : Expr → TranspileM AST
-    | .sort  .. => return ⟦nil⟧
+    | .sort ..
+    | .pi .. => pure .nil
     | .var name _ => mkName name
     | .const name idx .. => do
       if !(← isVisited name) then
@@ -423,8 +419,11 @@ mutual
     | e@(.app ..) =>
       let (fn, args) := e.getAppFnArgs
       return .cons (← mkAST fn) $ toAST (← args.mapM mkAST)
-    | e@(.lam ..) => mkLambda e
-    | .pi .. => return ⟦nil⟧
+    | e@(.lam ..) => do
+      let (e, binds) := telescope e
+      let binds : List AST ← binds.mapM fun (n, _) => mkName n
+      let fn ← mkAST e
+      return ⟦(lambda $binds $fn)⟧
     | .letE name _ value body => do
       let name ← safeName name
       let val ← mkAST value
@@ -440,10 +439,6 @@ mutual
       let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
       return ⟦(getelem $args $idx)⟧
 
-  /--
-  We're trying to compile the mutual blocks at once instead of compiling each
-  projection separately to avoid some recursions.
-  -/
   partial def appendConst (c : Const) : TranspileM Unit := do
     if ← isVisited c.name then return
     visit c.name
@@ -465,6 +460,8 @@ mutual
         match mkMutualBlock pairs with
         | .ok block => block.forM fun (n, e) => do appendBinding (n, e)
         | .error err => throw $ .custom err
+    -- We're trying to compile the mutual blocks at once instead of compiling
+    -- each projection separately to avoid some recursions.
     | .inductive x => appendIndBlock (← getMutualIndInfo x)
     | .constructor x
     | .extRecursor x
@@ -497,7 +494,7 @@ def transpile (store : IR.Store) (root : String) : Except String AST :=
     let map := pStore.consts.foldl (init := default)
       fun acc const => acc.insert const.name const
     let env := ⟨store, pStore, map, .ofList overrides _⟩
-    let state : TranspileState := ⟨#[], .empty, ⟨"_hyg_", 1⟩, .empty, .empty⟩
+    let state : TranspileState := ⟨#[], .empty, ⟨"_hyg_", 1⟩, .empty⟩
     match TranspileM.run env state (transpileM root) with
     | .ok s =>
       let bindings := s.appendedBindings.data.map

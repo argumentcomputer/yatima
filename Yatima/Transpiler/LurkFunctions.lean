@@ -200,21 +200,21 @@ def CharRec : Name × AST := (``Char.rec, ⟦
 ⟧)
 
 def List : Name × AST := (``List, ⟦
-  (lambda (_lurk_1) ,("List" 1 0))
+  (lambda (x) ,("List" 1 0))
 ⟧)
 
 def ListNil : Name × AST := (``List.nil, ⟦
-  (lambda (_lurk_1) nil)
+  (lambda (x) nil)
 ⟧)
 
 def ListCons : Name × AST := (``List.cons, ⟦
-  (lambda (_lurk_1 head tail) (cons head tail))
+  (lambda (x head tail) (cons head tail))
 ⟧)
 
 def ListRec : Name × AST := (``List.rec, ⟦
-  (lambda (_lurk_1 motive _nil _cons _t)
+  (lambda (x motive _nil _cons _t)
     (if _t
-      (_cons (car _t) (cdr _t) (List.rec _lurk_1 motive _nil _cons (cdr _t)))
+      (_cons (car _t) (cdr _t) (List.rec x motive _nil _cons (cdr _t)))
       _nil))
 ⟧)
 

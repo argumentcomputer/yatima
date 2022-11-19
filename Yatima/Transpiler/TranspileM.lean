@@ -18,9 +18,8 @@ structure TranspileState where
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
   /-- These will help us replace hygienic/clashing names -/
-  ngen         : Lean.NameGenerator
-  replacedMap  : Lean.NameMap Name
-  replacements : Lean.NameSet
+  ngen     : Lean.NameGenerator
+  replaced : Lean.NameMap Name
   deriving Inhabited
 
 abbrev TranspileM := ReaderT TranspileEnv $
@@ -34,15 +33,13 @@ instance : Lean.MonadNameGenerator TranspileM where
 def visit (name : Name) : TranspileM Unit :=
   modify fun s => { s with visited := s.visited.insert name }
 
-/-- Create a fresh variable `x.n` to replace `name` and update `replaced` -/
+/-- Create a fresh variable to replace `name` and update `replaced` -/
 def replace (name : Name) : TranspileM Name := do
   let mut name' ← Lean.mkFreshId
-  let replacements := (← get).replacements
-  while replacements.contains name' do
+  let map := (← read).map
+  while map.contains name' do -- making sure we don't hit an existing name
     name' ← Lean.mkFreshId
-  modifyGet fun stt => (name', { stt with
-    replacedMap  := stt.replacedMap.insert name name'
-    replacements := stt.replacements.insert name' })
+  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name' })
 
 @[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n
