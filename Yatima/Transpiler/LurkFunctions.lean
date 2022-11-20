@@ -16,6 +16,8 @@ Currently, inductives encode three pieces of information.
 This information is somewhat arbitrary. It's the bare minimum needed to
 make things work. If there are better representations or we need more
 metadata it should be freely changed.
+
+TODO: reuse 1 char-long symbol names
 -/
 
 namespace Lurk

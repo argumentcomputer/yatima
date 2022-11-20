@@ -230,10 +230,10 @@ def overrides : List (Name × AST) := [
   Lurk.Overrides.CharVal,
   Lurk.Overrides.CharValid,
   Lurk.Overrides.CharRec,
-  Lurk.Overrides.List,
-  Lurk.Overrides.ListNil,
-  Lurk.Overrides.ListCons,
-  Lurk.Overrides.ListRec,
+  -- Lurk.Overrides.List,
+  -- Lurk.Overrides.ListNil,
+  -- Lurk.Overrides.ListCons,
+  -- Lurk.Overrides.ListRec,
   -- Lurk.Overrides.ListMap,
   -- Lurk.Overrides.ListFoldl,
   Lurk.Overrides.String,
@@ -254,7 +254,7 @@ def preloadNames : Lean.NameSet :=
   .ofList (preloads.map Prod.fst)
 
 def safeName (name : Name) : TranspileM Name :=
-  let nameStr := name.toString false
+  let nameStr := name.toString false |>.toUpper
   if name.isHygenic
       || preloadNames.contains name
       || reservedSyms.contains nameStr
@@ -267,11 +267,8 @@ def safeName (name : Name) : TranspileM Name :=
 def mkName (name : Name) : TranspileM AST := do
   toAST <$> safeName name
 
-def appendBindingWithUnsafeName (b : Name × AST) : TranspileM Unit :=
-  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
-
-def appendBinding (b : Name × AST) : TranspileM Unit := do
-  let b := (← safeName b.1, b.2)
+def appendBinding (b : Name × AST) (safe := true) : TranspileM Unit := do
+  let b := if safe then (← safeName b.1, b.2) else b
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
 def mkIndLiteral (ind : Inductive) : TranspileM AST := do
@@ -330,7 +327,7 @@ mutual
     let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
     let [(n₁, rhs₁), (_, rhs₂)] ← rhs.mapM fun c => return (c.name, c.rhs)
       | throw $ .custom "`mkListRecursor` must receive list constructors"
-    let (nilRHS, consRHS) := -- Arthur: why so specific?
+    let (nilRHS, consRHS) :=
       if n₁ == ``List.nil then (rhs₁, rhs₂)
       else (rhs₂, rhs₁)
     let nilRHS ← mkAST nilRHS.toImplicitLambda
@@ -346,11 +343,10 @@ mutual
     return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
 
   partial def mkRecursor (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) :
-      TranspileM (String × AST) := do
-    let ctorName := rhs.head?.map Constructor.name
-    if ctorName = some ``List.nil || ctorName = some ``List.cons then
-      mkListRecursor recrType recrName rhs
-    else
+      TranspileM (String × AST) :=
+    match rhs.head?.map Constructor.name with
+    -- | some ``List.nil | some ``List.cons => mkListRecursor recrType recrName rhs
+    | _ => do
       let (_, bindings) := telescope recrType
       let (argName, _) : Name × Expr := bindings.last!
       let argName ← mkName argName
@@ -449,7 +445,8 @@ mutual
     | .theorem  x =>
       let (_, binds) := telescope x.type
       let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      appendBinding (x.name, ⟦(lambda $binds t)⟧)
+      let val ← mkAST x.value
+      appendBinding (x.name, ⟦(lambda $binds $val)⟧)
     | .opaque x => appendBinding (x.name, ← mkAST x.value)
     | .definition x => match ← getMutualDefInfo x with
       | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
@@ -478,7 +475,7 @@ end
 
 /-- Main translation function -/
 def transpileM (root : Name) : TranspileM Unit := do
-  preloads.forM appendBindingWithUnsafeName
+  preloads.forM (appendBinding · false)
   match (← read).tcStore.consts.find? fun c => c.name == root with
   | some c => appendConst c
   | none => throw $ .custom s!"Unknown const {root}"
