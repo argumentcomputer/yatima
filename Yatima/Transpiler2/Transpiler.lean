@@ -69,19 +69,18 @@ def appendBinding (b : Name × AST) (safe := true) : TranspileM Unit := do
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
-def mkIndLiteral (ind : Both Inductive) : TranspileM AST := do
+def mkIndLiteral (ind : Both Inductive) (indLit : AST) : TranspileM AST := do
   let type ← derefExpr ⟨ind.anon.type, ind.meta.type⟩
   match (← read).store.telescopeLamPi #[] type with
-  | some (as, _) => -- why do we ignore the body?
-    let as ← as.mapM mkName
-    let name := ind.meta.name.projᵣ
-    let params := ind.anon.params.projₗ
-    let indices := ind.anon.indices.projₗ
-    if as.isEmpty then
-      return ⟦,($name $params $indices)⟧
-    else
-      return ⟦(lambda $as ,($name $params $indices))⟧
+  | some (#[], _) => return indLit
+  | some (as,  _) => return ⟦(lambda $as $indLit)⟧
   | none => throw ""
+
+/-- TODO explain this; `p` is `params`, `i` is `indices` -/
+def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
+  let (params, rest) := args.splitAt p
+  let (indices, args) := rest.splitAt i
+  [params, indices, args]
 
 def mkRecursor (recr : Both $ Recursor r) : TranspileM $ String × AST := sorry
 
@@ -142,7 +141,20 @@ partial def mkAST : Both Expr → TranspileM AST
     return ⟦(getelem $args $idx.projₗ)⟧
   | _ => throw ""
 
-partial def appendCtor (ctor : Both Constructor) : TranspileM Unit := sorry
+partial def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
+    TranspileM Unit := do
+  let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
+  let name := ctor.meta.name.projᵣ
+  let idx := ctor.anon.idx.projₗ
+  match (← read).store.telescopeLamPi #[] type with
+  | some (#[], _) => appendBinding (name, ⟦(cons $indLit (cons $idx nil))⟧)
+  | some (as,  _) =>
+    let ctorArgs ← as.data.mapM mkName
+    let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
+    let ctorDataAST := ctorData.map mkConsList
+    let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
+    appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
+  | none => throw ""
 
 partial def appendConst (c : Both Const) : TranspileM Unit := do
   let constName := c.meta.name
@@ -156,7 +168,6 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
     appendBinding (constName, ← mkAST (← derefExpr ⟨anon.value, meta.value⟩))
   | ⟨.definitionProj anon, .definitionProj meta⟩ =>
     match ← derefDefBlock ⟨anon.block, meta.block⟩ with
-    | [ ] => throw ""
     | [d] => appendBinding (constName, ← mkAST (← derefExpr ⟨d.anon.value, d.meta.value⟩))
     | ds  =>
       ds.forM fun d => visit d.meta.name.projᵣ
@@ -174,11 +185,13 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
       let indAnon := ind.anon
       let indMeta := ind.meta
       let indName := indMeta.name.projᵣ
+      let indices := ind.anon.indices.projₗ
       visit indName
-      appendBinding (indName, ← mkIndLiteral ind)
+      let indLit := ⟦,($(indName.toString false) $ind.anon.params.projₗ $indices)⟧
+      appendBinding (indName, ← mkIndLiteral ind indLit)
       for ctor in (indAnon.ctors.zip indMeta.ctors).map fun (a, m) => ⟨a, m⟩ do
         visit ctor.meta.name.projᵣ
-        appendCtor ctor
+        appendCtor ctor indLit indices
       let mut recrs := []
       for pair in indAnon.recrs.zip indMeta.recrs do
         let meta := Sigma.snd pair.2
