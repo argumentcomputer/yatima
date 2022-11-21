@@ -70,9 +70,20 @@ def appendBinding (b : Name × AST) (safe := true) : TranspileM Unit := do
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
 def mkIndLiteral (ind : Both Inductive) : TranspileM AST := do
-  sorry
+  let type ← derefExpr ⟨ind.anon.type, ind.meta.type⟩
+  match (← read).store.telescopeLamPi #[] type with
+  | some (as, _) => -- why do we ignore the body?
+    let as ← as.mapM mkName
+    let name := ind.meta.name.projᵣ
+    let params := ind.anon.params.projₗ
+    let indices := ind.anon.indices.projₗ
+    if as.isEmpty then
+      return ⟦,($name $params $indices)⟧
+    else
+      return ⟦(lambda $as ,($name $params $indices))⟧
+  | none => throw ""
 
-def mkRecursor (recr : Both $ Recursor r) : TranspileM (String × AST) := sorry
+def mkRecursor (recr : Both $ Recursor r) : TranspileM $ String × AST := sorry
 
 mutual
 
