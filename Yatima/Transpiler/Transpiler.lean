@@ -254,7 +254,7 @@ def preloadNames : Lean.NameSet :=
   .ofList (preloads.map Prod.fst)
 
 def safeName (name : Name) : TranspileM Name :=
-  let nameStr := name.toString false |>.toUpper
+  let nameStr := name.toString false
   if name.isHygenic
       || preloadNames.contains name
       || reservedSyms.contains nameStr
