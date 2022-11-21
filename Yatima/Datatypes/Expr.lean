@@ -25,7 +25,7 @@ scoped notation "Nat?ₘ" => Split Unit (Option Nat)
 -- Carries a `Yatima.BinderInfo` for anon
 scoped notation "BinderInfoₐ" => Split BinderInfo Unit
 
-/-- Parametric representation of expressions for IPLD -/
+/-- Parametric representation of expressions -/
 inductive Expr (k : Kind)
   -- Variables are also used to represent recursive calls. For mutual
   -- definitions, so the second argument indicates the index of reference inside

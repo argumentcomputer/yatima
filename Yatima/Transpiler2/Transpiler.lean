@@ -69,6 +69,11 @@ def appendBinding (b : Name × AST) (safe := true) : TranspileM Unit := do
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
+def mkIndLiteral (ind : Both Inductive) : TranspileM AST := do
+  sorry
+
+def mkRecursor (recr : Both $ Recursor r) : TranspileM (String × AST) := sorry
+
 mutual
 
 partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
@@ -86,23 +91,47 @@ where
         | none => return
 
 partial def mkAST : Both Expr → TranspileM AST
-  | ⟨.sort .., .sort  ..⟩
-  | ⟨.pi   .., .pi    ..⟩ => return .nil
+  | ⟨.sort .., .sort  ..⟩ => return .nil -- TODO
   | ⟨.var  .., .var n ..⟩ => mkName n.projᵣ
   | ⟨.const _ anon _, .const n meta _⟩ => do
     let name := n.projᵣ
     match (← read).overrides.find? name with
     | some ast => overrideWith name ast
-    | none =>
-      let store := (← read).store
-      match (store.constAnon.find? anon, store.constMeta.find? meta) with
-      | (some anon, some meta) => appendConst ⟨anon, meta⟩
-      | _ => throw ""
+    | none => appendConst $ ← derefConst ⟨anon, meta⟩
     mkName name
+  | e@⟨.app .., .app ..⟩ => do
+    let store := (← read).store
+    match (store.getAppFn e, store.getAppArgs #[] e) with
+    | (some f, some as) =>
+      let tail ← as.foldrM (init := .nil) fun e acc => do
+        pure $ ~[← mkAST e, acc]
+      return ~[← mkAST f, tail]
+    | _ => throw ""
+  | e@⟨.pi  .., .pi  ..⟩
+  | e@⟨.lam .., .lam ..⟩ => do match (← read).store.telescopeLamPi #[] e with
+    | some (as, b) =>
+      let as ← as.mapM mkName
+      let fn ← mkAST e
+      return ⟦(lambda $as $fn)⟧
+    | _ => throw ""
+  | e@⟨.letE .., .letE ..⟩ => do match (← read).store.telescopeLetE #[] e with
+    | some (bs, b) =>
+      let bs ← bs.data.mapM fun (n, v) => do
+        pure (toString $ ← safeName n, ← mkAST v)
+      return .mkLet bs (← mkAST b)
+    | _ => throw ""
+  | ⟨.lit l, .lit _⟩ => match l.projₗ with
+    | .natVal n => return ⟦$n⟧
+    | .strVal s => return ⟦$s⟧
+  | ⟨.proj idx eAnon, .proj _ eMeta⟩ => do
+    -- this is very nifty; `e` contains its type information *at run time*
+    -- which we can take advantage of to compute the projection
+    let e ← mkAST $ ← derefExpr ⟨eAnon, eMeta⟩
+    let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
+    return ⟦(getelem $args $idx.projₗ)⟧
   | _ => throw ""
 
-partial def appendIndBlock (is : List $ Both Inductive) : TranspileM Unit :=
-  sorry
+partial def appendCtor (ctor : Both Constructor) : TranspileM Unit := sorry
 
 partial def appendConst (c : Both Const) : TranspileM Unit := do
   let constName := c.meta.name
@@ -130,7 +159,25 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
   | ⟨.inductiveProj   anon, .inductiveProj   meta⟩
   | ⟨.constructorProj anon, .constructorProj meta⟩
   | ⟨.recursorProj    anon, .recursorProj    meta⟩ =>
-    appendIndBlock (← derefIndBlock ⟨anon.block, meta.block⟩)
+    for ind in ← derefIndBlock ⟨anon.block, meta.block⟩ do
+      let indAnon := ind.anon
+      let indMeta := ind.meta
+      let indName := indMeta.name.projᵣ
+      visit indName
+      appendBinding (indName, ← mkIndLiteral ind)
+      for ctor in (indAnon.ctors.zip indMeta.ctors).map fun (a, m) => ⟨a, m⟩ do
+        visit ctor.meta.name.projᵣ
+        appendCtor ctor
+      let recrs ← (indAnon.recrs.zip indMeta.recrs).mapM fun pair => do
+        let meta := Sigma.snd pair.2
+        visit meta.name.projᵣ
+        if h : Sigma.fst pair.2 = Sigma.fst pair.1 then
+          let x := ⟨Sigma.snd pair.1, by rw [h] at meta; exact meta⟩
+          mkRecursor x
+        else throw ""
+      match mkMutualBlock recrs with
+      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
+      | .error e => throw ""
   | _ => throw ""
 
 end
@@ -148,9 +195,9 @@ a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
 def transpile (store : Store) (root : String) : Except String AST := do
-  let map ← store.consts.foldlM (init := default) fun acc ⟨anon, meta⟩ =>
-    match (store.constAnon.find? anon, store.constMeta.find? meta) with
-    | (some anon, some meta) => pure $ acc.insert meta.name ⟨anon, meta⟩
+  let map ← store.consts.foldlM (init := default) fun acc cid =>
+    match store.getConst? cid with
+    | some c => pure $ acc.insert c.meta.name c
     | _ => throw ""
   let env := ⟨store, map, .ofList overrides _⟩
   let stt := ⟨#[], .empty, ⟨"_x", 1⟩, .empty⟩

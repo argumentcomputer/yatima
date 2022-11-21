@@ -43,16 +43,19 @@ def replace (name : Name) : TranspileM Name := do
 @[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n
 
-def derefExpr (cid : Both ExprCid) : TranspileM $ Both Expr := do
-  let store := (← read).store
-  match (store.exprAnon.find? cid.anon, store.exprMeta.find? cid.meta) with
-  | (some anon, some meta) => pure ⟨anon, meta⟩
-  | _ => throw ""
+def derefExpr (cid : BothExprCid) : TranspileM $ Both Expr := do
+  match (← read).store.getExpr? cid with
+  | some e => pure e
+  | none => throw ""
 
-def derefDefBlock (cid : Both ConstCid) : TranspileM $ List (Both Definition) := do
-  let store := (← read).store
-  match (store.constAnon.find? cid.anon, store.constMeta.find? cid.meta) with
-  | (some $ .mutDefBlock anon, some $ .mutDefBlock meta) =>
+def derefConst (cid : BothConstCid) : TranspileM $ Both Const := do
+  match (← read).store.getConst? cid with
+  | some c => pure c
+  | none => throw ""
+
+def derefDefBlock (cid : BothConstCid) : TranspileM $ List (Both Definition) := do
+  match (← read).store.getConst? cid with
+  | some ⟨.mutDefBlock anon, .mutDefBlock meta⟩ =>
     let mut ret := []
     for (anon, metas) in anon.zip meta do
       let anon := anon.projₗ
@@ -64,8 +67,7 @@ def derefDefBlock (cid : Both ConstCid) : TranspileM $ List (Both Definition) :=
   | _ => throw ""
 
 def derefIndBlock (cid : Both ConstCid) : TranspileM $ List (Both Inductive) := do
-  let store := (← read).store
-  match (store.constAnon.find? cid.anon, store.constMeta.find? cid.meta) with
-  | (some $ .mutIndBlock anons, some $ .mutIndBlock metas) =>
+  match (← read).store.getConst? cid with
+  | some ⟨.mutIndBlock anons, .mutIndBlock metas⟩ =>
     return anons.zip metas |>.map fun (x, y) => ⟨x, y⟩
   | _ => throw ""
