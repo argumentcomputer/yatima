@@ -1,6 +1,6 @@
 import Yatima.Cli.Utils
 import Yatima.Typechecker.Typechecker
-import Yatima.Transpiler.Transpiler
+import Yatima.Transpiler2.Transpiler
 import Lurk.Evaluation.FromAST
 import Lurk.Evaluation.Eval
 

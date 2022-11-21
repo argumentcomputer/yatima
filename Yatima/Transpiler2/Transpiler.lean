@@ -1,12 +1,15 @@
-import Yatima.Transpiler.Simp
+import Yatima.Transpiler2.Simp
 import Yatima.Transpiler2.TranspileM
-import Yatima.Transpiler.LurkFunctions
+import Yatima.Transpiler2.LurkFunctions
 import Lurk.Syntax.ExprUtils
 
 def Lean.Name.isHygenic : Name → Bool
   | str p s => if s == "_hyg" then true else p.isHygenic
   | num p _ => p.isHygenic
   | _       => false
+
+def List.takeLast (xs : List α) (n : Nat) : List α :=
+  (xs.reverse.take n).reverse
 
 namespace Yatima.Transpiler
 
@@ -82,9 +85,59 @@ def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
   let (indices, args) := rest.splitAt i
   [params, indices, args]
 
-def mkRecursor (recr : Both $ Recursor r) : TranspileM $ String × AST := sorry
+partial def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
+    TranspileM Unit := do
+  let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
+  let name := ctor.meta.name.projᵣ
+  let idx := ctor.anon.idx.projₗ
+  match (← read).store.telescopeLamPi #[] type with
+  | some (#[], _) => appendBinding (name, ⟦(cons $indLit (cons $idx nil))⟧)
+  | some (as,  _) =>
+    let ctorArgs ← as.data.mapM mkName
+    let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
+    let ctorDataAST := ctorData.map mkConsList
+    let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
+    appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
+  | none => throw ""
+
+scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where
+  toAST x := ~[toAST x.1, toAST x.2]
 
 mutual
+
+partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor) :
+    TranspileM $ String × AST := do
+  let recrType ← derefExpr ⟨recr.anon.type, recr.meta.type⟩
+  match (← read).store.telescopeLamPi #[] recrType with
+  | none => throw ""
+  | some (as, _) => match as.data.reverse with
+    | [] => throw ""
+    | argName :: _ =>
+      let argName ← mkName argName
+      let recrArgs ← as.data.mapM mkName
+      let recrIndices := recr.anon.indices.projₗ
+      let store := (← read).store
+      let ifThens : List (AST × AST) ← rhs.mapM fun ctor => do
+        let (idx, fields) := (ctor.anon.idx.projₗ, ctor.anon.fields.projₗ)
+        let rhs ← derefExpr ⟨ctor.anon.rhs, ctor.meta.rhs⟩
+        match store.telescopeLamPi #[] rhs with
+        | none => throw ""
+        | some (as, rhs) =>
+          let rhs ← mkAST rhs
+          let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
+          let ctorArgs := (List.range fields).map
+            fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
+
+          let rhsCtorArgNames := as.data.takeLast (fields - recrIndices)
+          let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
+
+          let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) ::
+            rhsCtorArgNames.zip ctorArgs
+
+          -- extract snd element
+          return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
+      let cases := AST.mkIfElses ifThens .nil
+      return (recr.meta.name.projᵣ.toString false, ⟦(lambda $recrArgs $cases)⟧)
 
 partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
   visit name
@@ -121,8 +174,8 @@ partial def mkAST : Both Expr → TranspileM AST
   | e@⟨.lam .., .lam ..⟩ => do match (← read).store.telescopeLamPi #[] e with
     | some (as, b) =>
       let as ← as.mapM mkName
-      let fn ← mkAST e
-      return ⟦(lambda $as $fn)⟧
+      let b ← mkAST b
+      return ⟦(lambda $as $b)⟧
     | _ => throw ""
   | e@⟨.letE .., .letE ..⟩ => do match (← read).store.telescopeLetE #[] e with
     | some (bs, b) =>
@@ -140,21 +193,6 @@ partial def mkAST : Both Expr → TranspileM AST
     let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
     return ⟦(getelem $args $idx.projₗ)⟧
   | _ => throw ""
-
-partial def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
-    TranspileM Unit := do
-  let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
-  let name := ctor.meta.name.projᵣ
-  let idx := ctor.anon.idx.projₗ
-  match (← read).store.telescopeLamPi #[] type with
-  | some (#[], _) => appendBinding (name, ⟦(cons $indLit (cons $idx nil))⟧)
-  | some (as,  _) =>
-    let ctorArgs ← as.data.mapM mkName
-    let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
-    let ctorDataAST := ctorData.map mkConsList
-    let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
-    appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
-  | none => throw ""
 
 partial def appendConst (c : Both Const) : TranspileM Unit := do
   let constName := c.meta.name
@@ -186,10 +224,11 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
       let indMeta := ind.meta
       let indName := indMeta.name.projᵣ
       let indices := ind.anon.indices.projₗ
-      visit indName
       let indLit := ⟦,($(indName.toString false) $ind.anon.params.projₗ $indices)⟧
+      visit indName
       appendBinding (indName, ← mkIndLiteral ind indLit)
-      for ctor in (indAnon.ctors.zip indMeta.ctors).map fun (a, m) => ⟨a, m⟩ do
+      let ctors := (indAnon.ctors.zip indMeta.ctors).map fun (a, m) => ⟨a, m⟩
+      for ctor in ctors do
         visit ctor.meta.name.projᵣ
         appendCtor ctor indLit indices
       let mut recrs := []
@@ -198,7 +237,7 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
         visit meta.name.projᵣ
         if h : Sigma.fst pair.2 = Sigma.fst pair.1 then
           let x := ⟨Sigma.snd pair.1, by rw [h] at meta; exact meta⟩
-          recrs := (← mkRecursor x) :: recrs
+          recrs := (← mkRecursor x ctors) :: recrs
         else throw ""
       match mkMutualBlock recrs with
       | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
