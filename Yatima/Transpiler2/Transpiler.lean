@@ -168,12 +168,13 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
       for ctor in (indAnon.ctors.zip indMeta.ctors).map fun (a, m) => ⟨a, m⟩ do
         visit ctor.meta.name.projᵣ
         appendCtor ctor
-      let recrs ← (indAnon.recrs.zip indMeta.recrs).mapM fun pair => do
+      let mut recrs := []
+      for pair in indAnon.recrs.zip indMeta.recrs do
         let meta := Sigma.snd pair.2
         visit meta.name.projᵣ
         if h : Sigma.fst pair.2 = Sigma.fst pair.1 then
           let x := ⟨Sigma.snd pair.1, by rw [h] at meta; exact meta⟩
-          mkRecursor x
+          recrs := (← mkRecursor x) :: recrs
         else throw ""
       match mkMutualBlock recrs with
       | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
