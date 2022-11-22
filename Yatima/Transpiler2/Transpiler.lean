@@ -278,9 +278,9 @@ def telescopeLamPi (e : Both Expr) : TranspileM $ (Array Name) × Both Expr := d
 
 def mkIndLiteral (ind : Both Inductive) (indLit : AST) : TranspileM AST := do
   let type ← derefExpr ⟨ind.anon.type, ind.meta.type⟩
-  match ← telescopeLamPi type with
-  | (#[], _) => return indLit
-  | (as,  _) => return ⟦(lambda $as $indLit)⟧
+  let as := (← telescopeLamPi type).1
+  if as.isEmpty then return indLit
+  else return ⟦(lambda $as $indLit)⟧
 
 /-- TODO explain this; `p` is `params`, `i` is `indices` -/
 def splitCtorArgs (args : List Name) (p i : Nat) : List (List Name) :=
@@ -293,9 +293,10 @@ def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
   let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
   let name := ctor.meta.name.projᵣ
   let idx := ctor.anon.idx.projₗ
-  match ← telescopeLamPi type with
-  | (#[], _) => appendBinding (name, mkConsList [indLit, .num idx])
-  | (as,  _) =>
+  let as := (← telescopeLamPi type).1
+  if as.isEmpty then
+    appendBinding (name, mkConsList [indLit, .num idx])
+  else
     let ctorArgs ← as.data.mapM safeName
     let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
     let ctorData := ctorData.map (·.map toAST)
@@ -307,8 +308,6 @@ def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
 Transforms a list of named expressions that were mutually defined into a
 "switch" function `S` and a set of projections (named after the original names)
 that call `S` with their respective indices.
-
-Important: the resulting expressions must be bound in a `letrec`.
 -/
 def mkMutualBlock : List (Name × AST) → Except String (List $ Name × AST)
   | [] => throw "can't make a mutual block with an empty list of binders"
