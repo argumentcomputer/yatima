@@ -279,7 +279,7 @@ def mkIndLiteral (ind : Both Inductive) (indLit : AST) : TranspileM AST := do
   | none => throw ""
 
 /-- TODO explain this; `p` is `params`, `i` is `indices` -/
-def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
+def splitCtorArgs (args : List Name) (p i : Nat) : List (List Name) :=
   let (params, rest) := args.splitAt p
   let (indices, args) := rest.splitAt i
   [params, indices, args]
@@ -292,15 +292,13 @@ def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
   match (← read).store.telescopeLamPi #[] type with
   | some (#[], _) => appendBinding (name, mkConsList [indLit, .num idx])
   | some (as,  _) =>
-    let ctorArgs ← as.data.mapM mkName
+    let ctorArgs ← as.data.mapM safeName
     let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
+    let ctorData := ctorData.map (·.map toAST)
     let ctorDataAST := ctorData.map mkConsList
     let ctorData := mkConsList (indLit :: .num idx :: ctorDataAST)
     appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
   | none => throw ""
-
-scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where
-  toAST x := ~[toAST x.1, toAST x.2]
 
 mutual
 
@@ -313,7 +311,7 @@ partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor
     | [] => throw ""
     | argName :: _ =>
       let argName ← safeName argName
-      let recrArgs ← as.data.mapM mkName
+      let recrArgs ← as.mapM safeName
       let recrIndices := recr.anon.indices.projₗ
       let store := (← read).store
       let ifThens : List (AST × AST) ← rhs.mapM fun ctor => do
@@ -328,13 +326,13 @@ partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor
             fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
           let rhsCtorArgNames := as.data.takeLast (fields - recrIndices)
-          let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
+            |>.map fun n => n.toString false
 
-          let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) ::
+          let bindings := ("_lurk_ctor_args", _lurk_ctor_args) ::
             rhsCtorArgNames.zip ctorArgs
 
           -- extract snd element
-          pure (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
+          pure (⟦(= (car (cdr $argName)) $idx)⟧, .mkLet bindings rhs)
       let cases := AST.mkIfElses ifThens .nil
       return (recr.meta.name.projᵣ.toString false, ⟦(lambda $recrArgs $cases)⟧)
 
