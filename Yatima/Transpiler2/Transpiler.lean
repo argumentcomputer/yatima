@@ -85,7 +85,7 @@ def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
   let (indices, args) := rest.splitAt i
   [params, indices, args]
 
-partial def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
+def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
     TranspileM Unit := do
   let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
   let name := ctor.meta.name.projᵣ
