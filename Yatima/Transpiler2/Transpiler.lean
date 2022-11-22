@@ -278,7 +278,7 @@ def telescopeLamPi (e : Both Expr) : TranspileM $ (Array Name) × Both Expr := d
 
 def mkIndLiteral (ind : Both Inductive) (indLit : AST) : TranspileM AST := do
   let type ← derefExpr ⟨ind.anon.type, ind.meta.type⟩
-  let as := (← telescopeLamPi type).1
+  let as ← (← telescopeLamPi type).1.mapM safeName
   if as.isEmpty then return indLit
   else return ⟦(lambda $as $indLit)⟧
 
