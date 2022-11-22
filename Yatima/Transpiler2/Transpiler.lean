@@ -300,10 +300,31 @@ def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
     appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
   | none => throw ""
 
+/--
+Transforms a list of named expressions that were mutually defined into a
+"switch" function `S` and a set of projections (named after the original names)
+that call `S` with their respective indices.
+
+Important: the resulting expressions must be bound in a `letrec`.
+-/
+def mkMutualBlock : List (Name × AST) → Except String (List $ Name × AST)
+  | [] => throw "can't make a mutual block with an empty list of binders"
+  | x@([_]) => return x
+  | mutuals => do
+    let names := mutuals.map Prod.fst
+    let mutualName := names.foldl (fun acc n => acc ++ n) `__mutual__
+    let fnProjs := names.enum.map fun (i, n) => (n, ⟦($mutualName $i)⟧)
+    let map := fnProjs.foldl (init := default)
+      fun acc (n, e) => acc.insert (n.toString false) e
+    let ifThens ← mutuals.enum.mapM
+      fun (i, _, e) => do pure (⟦(= mutidx $i)⟧, ← replaceFreeVars map e)
+    let mutualBlock := mkIfElses ifThens
+    return (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
+
 mutual
 
-partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor) :
-    TranspileM $ String × AST := do
+partial def mkRecursor (recr : Both $ Recursor r) (ctors : List $ Both Constructor) :
+    TranspileM $ Name × AST := do
   let recrType ← derefExpr ⟨recr.anon.type, recr.meta.type⟩
   match (← read).store.telescopeLamPi #[] recrType with
   | none => throw ""
@@ -314,7 +335,7 @@ partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor
       let recrArgs ← as.mapM safeName
       let recrIndices := recr.anon.indices.projₗ
       let store := (← read).store
-      let ifThens : List (AST × AST) ← rhs.mapM fun ctor => do
+      let ifThens : List (AST × AST) ← ctors.mapM fun ctor => do
         let (idx, fields) := (ctor.anon.idx.projₗ, ctor.anon.fields.projₗ)
         let rhs ← derefExpr ⟨ctor.anon.rhs, ctor.meta.rhs⟩
         match store.telescopeLamPi #[] rhs with
@@ -326,15 +347,15 @@ partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor
             fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
           let rhsCtorArgNames := as.data.takeLast (fields - recrIndices)
-            |>.map fun n => n.toString false
 
-          let bindings := ("_lurk_ctor_args", _lurk_ctor_args) ::
-            rhsCtorArgNames.zip ctorArgs
+          let bindings :=
+            (`_lurk_ctor_args, _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
+            |>.map fun (n, e) => (n.toString false, e)
 
           -- extract snd element
           pure (⟦(= (car (cdr $argName)) $idx)⟧, .mkLet bindings rhs)
       let cases := AST.mkIfElses ifThens .nil
-      return (recr.meta.name.projᵣ.toString false, ⟦(lambda $recrArgs $cases)⟧)
+      return (recr.meta.name.projᵣ, ⟦(lambda $recrArgs $cases)⟧)
 
 partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
   visit name
@@ -401,16 +422,14 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
     appendBinding (constName, ← mkAST (← derefExpr ⟨anon.value, meta.value⟩))
   | ⟨.definitionProj anon, .definitionProj meta⟩ =>
     match ← derefDefBlock ⟨anon.block, meta.block⟩ with
+    | [ ] => throw ""
     | [d] => appendBinding (constName, ← mkAST (← derefExpr ⟨d.anon.value, d.meta.value⟩))
     | ds  =>
       ds.forM fun d => visit d.meta.name.projᵣ
       let pairs ← ds.mapM fun d => do
-        pure (
-          d.meta.name.projᵣ.toString false,
-          ← mkAST $ ← derefExpr ⟨d.anon.value, d.meta.value⟩)
-      match mkMutualBlock pairs with
-      | .ok block => block.forM fun (n, e) => appendBinding (n, e)
-      | .error err => throw err
+        let b ← mkAST $ ← derefExpr ⟨d.anon.value, d.meta.value⟩
+        pure (d.meta.name.projᵣ, b)
+      (← mkMutualBlock pairs).forM appendBinding
   | ⟨.inductiveProj   anon, .inductiveProj   meta⟩
   | ⟨.constructorProj anon, .constructorProj meta⟩
   | ⟨.recursorProj    anon, .recursorProj    meta⟩ =>
@@ -434,9 +453,7 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
           let x := ⟨Sigma.snd pair.1, by rw [h] at meta; exact meta⟩
           recrs := (← mkRecursor x ctors) :: recrs
         else throw ""
-      match mkMutualBlock recrs with
-      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
-      | .error e => throw ""
+      (← mkMutualBlock recrs).forM appendBinding
   | _ => throw ""
 
 end
