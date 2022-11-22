@@ -4,6 +4,212 @@ import Yatima.Transpiler2.LurkFunctions
 import Yatima.Transpiler2.Utils
 import Lurk.Syntax.ExprUtils
 
+/-!
+# The Transpiler
+
+This file provides all core functions needed to build Lurk expressions from raw
+Yatima IR.
+
+For many functions, we choose to return `TranspileM Unit` instead of
+`TranspileM AST`. This may be slightly strange as the naming suggests that we
+are producing Lurk expressions, but the final action is binding the transpiled
+result into the Lurk output, so `Unit` is often more natural to return.
+
+## Inductives
+
+Currently, inductives encode three pieces of information.
+1. The name of the inductive. This is not used anywhere in the transpiler,
+   but is useful to keep around for humans to debug and identify objects.
+2. The number of parameters. Used to generate projections.
+3. The number of indices. Also used to generate projections.
+
+This information is somewhat arbitrary. It's the bare minimum needed to
+make things work. If there are better representations or we need more
+metadata it should be freely changed.
+
+For example, the definition of `Nat` is (the comma is the Lurk `quote`)
+```
+,("Nat" 0 0)
+```
+
+For inductives with parameters and indices, we must encode the definitions
+as functions. When types are not erased, inductive types
+must be treated as meaningful functions. For example, `Prod` is
+```
+(lambda (:1 :2) ,("Prod" 2 0))
+```
+
+If types are erased, then these parameters and indices may be ignored.
+Perhaps with erased types, a different inductive representation could be used.
+
+## Constructors
+
+See the docstring for `ctorToLurkExpr`. Here are some examples:
+1. `Nat`
+  a. `Nat.zero` is `(Nat 0)`
+  b. `Nat.succ` is `(lambda n => (Nat 1 n))`
+
+So `2` is `(Nat 1 Nat 1 Nat 0)`.
+This clearly duplicates `Nat` a lot, so we should try to find an
+more compact representation for constructor/inductive data.
+
+2. `Prod`
+  a. `Prod.mk` is `(lambda (α β fst snd) ((Prod α β) 0 α β fst snd))`
+
+Note that `(Prod α β)` reduces to `("Prod" 2 0)`, allowing us to access
+the inductive data.
+
+## Recursors
+
+See the docstrings for `intRecrToLurkExpr` and `extRecrToLurkExpr`.
+Here are some examples:
+
+TODO
+
+## Projections
+
+Yatima projections are encoded by `.proj idx e`, where `e` is the expression
+and `idx` is the index of the data we want to extract out of `e`.
+
+Recall that we encode inductive constructors with a list: `ctorᵢ a₁ a₂ ..`.
+In particular, structures only have one constructor: `struct.mk`, and their
+data is simply recorded in a list. Hence, one may think that we can simply
+write `getelem e (idx + 2)` (the `+2` is to skip the name and constructor index).
+
+However! This fails because structures may have parameters. For example,
+the tuple `(1, 2)` is encoded in Lurk as `e := ((Prod Nat Nat) 0 Nat Nat 1 2)`.
+If we want `e.1`, then `getelem e (1 + 2)` is `Nat`. In general, constructor
+arguments will always first contain the parameters and indices, before the
+actual fields of the constructor. So we modify our first solution to include
+these. `let args := cdr (cdr e) in getelem args (idx + params + indices)`.
+
+Great! Now how do we find `params` and `indices`? We can simply look at the
+head of `e`: since `e` is an inductive, we know that the head holds some
+inductive type `((<ind> <args>) <params> <indices>)`! This is the reason we
+include the two `params` and `indices` in the inductive data.
+
+Note that because we don't know what the head of `e` is until we reduce it,
+this logic occurs *at run time*!
+
+# Example: Three
+inductive Three where
+  | A : Three
+  | B : Three
+  | C : Three
+
+## Translated Lurk Constructors
+
+`Three.A`:
+`["Three", 0]`
+
+`Three.B`:
+`["Three", 1]`
+
+`Three.C`:
+`["Three", 2]`
+
+## Recursor
+Three.rec :
+  {motive : Three → Sort u} →
+  motive Three.A →
+  motive Three.B →
+  motive Three.C →
+  (t : Three) →
+  motive t
+
+## Reduction Rules
+
+Three.rec {P} caseA caseB caseC Three.A = caseA
+Three.rec {P} caseA caseB caseC Three.B = caseB
+Three.rec {P} caseA caseB caseC Three.C = caseC
+
+## Translated Lurk Recursor
+
+`Three.rec`:
+lambda motive caseA caseB caseC three,
+  if three.cidx == 0
+    return caseA
+  else if three.cidx == 1
+    return caseB
+  else if three.cidx == 2
+    return caseC
+
+# Nat
+
+## Reduction Rules
+Nat.rec {P} caseZero caseSucc Nat.zero = caseZero
+Nat.rec {P} caseZero caseSucc (Nat.succ n) =
+  caseSucc n (Nat.rec {P} caseZero caseSucc n)
+
+## Translated Lurk Constructors
+
+`Nat.zero`:
+`["Nat", 0]`
+
+`Nat.succ`:
+`lambda n, ["Nat", 1, n]`
+
+### Yatima Compiled Reduction Rules
+Nat.zero 0
+λ (motive : Nat.0 -> (Sort)) (zero : motive.0 Nat.zero.2) (succ : Π (a._@._hyg.4 : Nat.2), (motive.2 a._@._hyg.4.0) -> (motive.3 (Nat.succ.6 a._@._hyg.4.1)))
+  => zero.1
+Nat.succ 1
+λ (motive : Nat.0 -> (Sort)) (zero : motive.0 Nat.zero.2) (succ : Π (a._@._hyg.4 : Nat.2), (motive.2 a._@._hyg.4.0) -> (motive.3 (Nat.succ.6 a._@._hyg.4.1))) (a._@._hyg.4 : Nat.3)
+  => succ.1 a._@._hyg.4.0 (Nat.rec.7 motive.3 zero.2 succ.1 a._@._hyg.4.0)
+
+## Translated Lurk Recursor
+lambda motive caseZero caseSucc n,
+  if n.cidx == 0
+    caseZero
+  else if n.cidx == 1
+    caseSucc n (Nat.rec motive caseZero caseSucc n.args)
+
+# Vector
+
+inductive Vector (A : Type) : (n : Nat) → Type where
+  | nil : Vector A 0
+  | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A (n+1)
+
+## Translated Lurk Constructors
+`Vector.nil`:
+`["Vector", 0]`
+
+`Vector.cons`:
+`lambda n a as, ["Vector", 1, n, a, as]`
+
+## Reduction Rules
+
+Vector.rec {A} {P} caseNil caseCons {m} (Vector.nil {A}) = caseNil     -- where m must be equal to 0
+Vector.rec {A} {P} caseNil caseCons {m} (Vector.cons {A} {n} a as) =   -- where m must be equal n+1
+  caseCons {n} a as (Vector.rec {A} {P} caseNil caseCons {n} as)
+
+### Yatima Compiled Reduction Rules
+
+Vector.nil 0
+λ (A : Sort)
+  (motive : Π (n : Nat),
+  (Vector.2 A.1 n.0) -> (Sort))
+  (nil : motive.0 Nat.zero (Vector.nil.3 A.1))
+  (cons : Π {n : Nat} (a : A.3) (as : Vector.5 A.4 n.1), (motive.4 n.2 as.0) -> (motive.5 (Nat.succ n.3) (Vector.cons.9 A.6 n.3 a.2 as.1)))
+  => nil.1
+Vector.cons 3
+λ (A : Sort)
+  (motive : Π (n : Nat),
+  (Vector.2 A.1 n.0) -> (Sort))
+  (nil : motive.0 Nat.zero (Vector.nil.3 A.1))
+  (cons : Π {n : Nat} (a : A.3) (as : Vector.5 A.4 n.1), (motive.4 n.2 as.0) -> (motive.5 (Nat.succ n.3) (Vector.cons.9 A.6 n.3 a.2 as.1))) {n : Nat} (a : A.4) (as : Vector.6 A.5 n.1)
+  => cons.3 n.2 a.1 as.0 (Vector.rec.10 A.6 motive.5 nil.4 cons.3 n.2 as.0)
+
+## Translated Lurk Recursor
+`Vector.rec`:
+lambda A motive caseNil caseCons m `v`,
+if `v`.cidx == 0
+  caseNil
+else if `v`.cidx == 1
+  (n, a, as) ← `v`.args
+  caseCons n a as (Vector.rec A motive caseNil caseCons n as)
+-/
+
 namespace Yatima.Transpiler
 
 open IR Lurk.Syntax AST DSL
