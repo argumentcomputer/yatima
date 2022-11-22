@@ -344,7 +344,8 @@ partial def mkRecursor (recr : Both $ Recursor r) (ctors : List $ Both Construct
         let ctorArgs := (List.range fields).map
           fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
-        let rhsCtorArgNames := as.data.takeLast (fields - recrIndices)
+        let rhsCtorArgNames ← as.data.takeLast (fields - recrIndices)
+          |>.mapM safeName
 
         let bindings :=
           (`_lurk_ctor_args, _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
