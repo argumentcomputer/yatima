@@ -56,33 +56,6 @@ def getConst? (store : Store) (cid : BothConstCid) : Option (Both Const) :=
   | (some anon, some meta) => some ⟨anon, meta⟩
   | _ => none
 
-def getAppFn (store : Store) : Both Expr → Option (Both Expr)
-  | ⟨.app fAnon _, .app fMeta _⟩ => store.getExpr? ⟨fAnon, fMeta⟩
-  | _ => none
-
-partial def getAppArgs (store : Store) (acc : Array $ Both Expr) :
-    Both Expr → Option (Array $ Both Expr)
-  | ⟨.app _ aAnon, .app _ aMeta⟩ => do
-    let a ← store.getExpr? ⟨aAnon, aMeta⟩
-    store.getAppArgs (acc.push a) a
-  | e => acc.push e
-
-partial def telescopeLamPi (store : Store) (acc : Array Name) :
-    Both Expr → Option ((Array Name) × Both Expr)
-  | ⟨.lam _ _ _ bAnon, .lam n _ _ bMeta⟩
-  | ⟨.pi  _ _ _ bAnon, .pi  n _ _ bMeta⟩ => do
-    let b ← store.getExpr? ⟨bAnon, bMeta⟩
-    store.telescopeLamPi (acc.push n.projᵣ) b
-  | e => some (acc, e)
-
-partial def telescopeLetE (store : Store) (acc : Array (Name × Both Expr)) :
-    Both Expr → Option ((Array (Name × Both Expr)) × Both Expr)
-  | ⟨.letE _ _ vAnon bAnon, .letE n _ vMeta bMeta⟩ => do
-    let v ← store.getExpr? ⟨vAnon, vMeta⟩
-    let b ← store.getExpr? ⟨bAnon, bMeta⟩
-    store.telescopeLetE (acc.push (n.projᵣ, v)) b
-  | e => some (acc, e)
-
 end IR.Store
 
 namespace TC

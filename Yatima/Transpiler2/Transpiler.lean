@@ -1,15 +1,8 @@
 import Yatima.Transpiler2.Simp
 import Yatima.Transpiler2.TranspileM
 import Yatima.Transpiler2.LurkFunctions
+import Yatima.Transpiler2.Utils
 import Lurk.Syntax.ExprUtils
-
-def Lean.Name.isHygenic : Name → Bool
-  | str p s => if s == "_hyg" then true else p.isHygenic
-  | num p _ => p.isHygenic
-  | _       => false
-
-def List.takeLast (xs : List α) (n : Nat) : List α :=
-  (xs.reverse.take n).reverse
 
 namespace Yatima.Transpiler
 
@@ -91,12 +84,12 @@ def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
   let name := ctor.meta.name.projᵣ
   let idx := ctor.anon.idx.projₗ
   match (← read).store.telescopeLamPi #[] type with
-  | some (#[], _) => appendBinding (name, ⟦(cons $indLit (cons $idx nil))⟧)
+  | some (#[], _) => appendBinding (name, mkConsList [indLit, .num idx])
   | some (as,  _) =>
     let ctorArgs ← as.data.mapM mkName
     let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
     let ctorDataAST := ctorData.map mkConsList
-    let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
+    let ctorData := mkConsList (indLit :: .num idx :: ctorDataAST)
     appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
   | none => throw ""
 
@@ -113,7 +106,7 @@ partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor
   | some (as, _) => match as.data.reverse with
     | [] => throw ""
     | argName :: _ =>
-      let argName ← mkName argName
+      let argName ← safeName argName
       let recrArgs ← as.data.mapM mkName
       let recrIndices := recr.anon.indices.projₗ
       let store := (← read).store
@@ -135,7 +128,7 @@ partial def mkRecursor (recr : Both $ Recursor r) (rhs : List $ Both Constructor
             rhsCtorArgNames.zip ctorArgs
 
           -- extract snd element
-          return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
+          pure (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
       let cases := AST.mkIfElses ifThens .nil
       return (recr.meta.name.projᵣ.toString false, ⟦(lambda $recrArgs $cases)⟧)
 
@@ -154,26 +147,23 @@ where
         | none => return
 
 partial def mkAST : Both Expr → TranspileM AST
-  | ⟨.sort .., .sort  ..⟩ => return .nil -- TODO
+  | ⟨.sort .., .sort  ..⟩ => return .nil -- TODO?
   | ⟨.var  .., .var n ..⟩ => mkName n.projᵣ
   | ⟨.const _ anon _, .const n meta _⟩ => do
     let name := n.projᵣ
-    match (← read).overrides.find? name with
-    | some ast => overrideWith name ast
-    | none => appendConst $ ← derefConst ⟨anon, meta⟩
+    if !(← isVisited name) then
+      match (← read).overrides.find? name with
+      | some ast => overrideWith name ast
+      | none => appendConst $ ← derefConst ⟨anon, meta⟩
     mkName name
-  | e@⟨.app .., .app ..⟩ => do
-    let store := (← read).store
-    match (store.getAppFn e, store.getAppArgs #[] e) with
-    | (some f, some as) =>
-      let tail ← as.foldrM (init := .nil) fun e acc => do
-        pure $ ~[← mkAST e, acc]
-      return ~[← mkAST f, tail]
-    | _ => throw ""
+  | ⟨.app fAnon aAnon, .app fMeta aMeta⟩ => do -- TODO : flatten
+    let f ← derefExpr ⟨fAnon, fMeta⟩
+    let a ← derefExpr ⟨aAnon, aMeta⟩
+    pure ~[← mkAST f, ← mkAST a]
   | e@⟨.pi  .., .pi  ..⟩
   | e@⟨.lam .., .lam ..⟩ => do match (← read).store.telescopeLamPi #[] e with
     | some (as, b) =>
-      let as ← as.mapM mkName
+      let as ← as.mapM safeName
       let b ← mkAST b
       return ⟦(lambda $as $b)⟧
     | _ => throw ""
@@ -191,7 +181,7 @@ partial def mkAST : Both Expr → TranspileM AST
     -- which we can take advantage of to compute the projection
     let e ← mkAST $ ← derefExpr ⟨eAnon, eMeta⟩
     let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
-    return ⟦(getelem $args $idx.projₗ)⟧
+    return ~[.sym "getelem", args, .num idx.projₗ]
   | _ => throw ""
 
 partial def appendConst (c : Both Const) : TranspileM Unit := do
