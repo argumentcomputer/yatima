@@ -26,4 +26,12 @@ partial def telescopeLetE (store : Store) (acc : Array (Name × Both Expr)) :
     store.telescopeLetE (acc.push (n.projᵣ, v)) b
   | e => some (acc, e)
 
+partial def telescopeApp (store : Store) (acc : List $ Both Expr) :
+    Both Expr → Option (List $ Both Expr)
+  | ⟨.app fAnon aAnon, .app fMeta aMeta⟩ => do
+    let f ← store.getExpr? ⟨fAnon, fMeta⟩
+    let a ← store.getExpr? ⟨aAnon, aMeta⟩
+    store.telescopeApp (a :: acc) f
+  | e => some $ e :: acc
+
 end Yatima.IR.Store

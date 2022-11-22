@@ -156,10 +156,11 @@ partial def mkAST : Both Expr → TranspileM AST
       | some ast => overrideWith name ast
       | none => appendConst $ ← derefConst ⟨anon, meta⟩
     mkName name
-  | ⟨.app fAnon aAnon, .app fMeta aMeta⟩ => do -- TODO : flatten
-    let f ← derefExpr ⟨fAnon, fMeta⟩
-    let a ← derefExpr ⟨aAnon, aMeta⟩
-    pure ~[← mkAST f, ← mkAST a]
+  | e@⟨.app .., .app ..⟩ => do match (← read).store.telescopeApp [] e with
+    | some as =>
+      let as ← as.mapM mkAST
+      return consWith as .nil
+    | none => throw ""
   | e@⟨.pi  .., .pi  ..⟩
   | e@⟨.lam .., .lam ..⟩ => do match (← read).store.telescopeLamPi #[] e with
     | some (as, b) =>
