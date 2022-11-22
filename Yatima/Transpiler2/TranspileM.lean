@@ -46,16 +46,16 @@ def replace (name : Name) : TranspileM Name := do
 def derefExpr (cid : BothExprCid) : TranspileM $ Both Expr := do
   match (← read).store.getExpr? cid with
   | some e => pure e
-  | none => throw ""
+  | none => throw "Couldn't retrieve expression in the store"
 
 def derefConst (cid : BothConstCid) : TranspileM $ Both Const := do
   match (← read).store.getConst? cid with
   | some c => pure c
-  | none => throw ""
+  | none => throw "Couldn't retrieve constant in the store"
 
 def derefDefBlock (cid : BothConstCid) : TranspileM $ List (Both Definition) := do
-  match (← read).store.getConst? cid with
-  | some ⟨.mutDefBlock anon, .mutDefBlock meta⟩ =>
+  match ← derefConst cid with
+  | ⟨.mutDefBlock anon, .mutDefBlock meta⟩ =>
     let mut ret := []
     for (anon, metas) in anon.zip meta do
       let anon := anon.projₗ
@@ -64,10 +64,10 @@ def derefDefBlock (cid : BothConstCid) : TranspileM $ List (Both Definition) := 
         fun (x, y) => ⟨x, y⟩
       ret := zip :: ret
     return ret.join
-  | _ => throw ""
+  | _ => throw "Incompatible constant for mutual definitions block"
 
 def derefIndBlock (cid : Both ConstCid) : TranspileM $ List (Both Inductive) := do
-  match (← read).store.getConst? cid with
-  | some ⟨.mutIndBlock anons, .mutIndBlock metas⟩ =>
+  match ← derefConst cid with
+  | ⟨.mutIndBlock anons, .mutIndBlock metas⟩ =>
     return anons.zip metas |>.map fun (x, y) => ⟨x, y⟩
-  | _ => throw ""
+  | _ => throw "Incompatible constant for mutual inductives block"

@@ -271,12 +271,16 @@ def appendBinding (b : Name × AST) (safe := true) : TranspileM Unit := do
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
+def telescopeLamPi (e : Both Expr) : TranspileM $ (Array Name) × Both Expr := do
+  match (← read).store.telescopeLamPi #[] e with
+  | some x => pure x
+  | none => throw "Error when telescoping lambda or pi"
+
 def mkIndLiteral (ind : Both Inductive) (indLit : AST) : TranspileM AST := do
   let type ← derefExpr ⟨ind.anon.type, ind.meta.type⟩
-  match (← read).store.telescopeLamPi #[] type with
-  | some (#[], _) => return indLit
-  | some (as,  _) => return ⟦(lambda $as $indLit)⟧
-  | none => throw ""
+  match ← telescopeLamPi type with
+  | (#[], _) => return indLit
+  | (as,  _) => return ⟦(lambda $as $indLit)⟧
 
 /-- TODO explain this; `p` is `params`, `i` is `indices` -/
 def splitCtorArgs (args : List Name) (p i : Nat) : List (List Name) :=
@@ -289,16 +293,15 @@ def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
   let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
   let name := ctor.meta.name.projᵣ
   let idx := ctor.anon.idx.projₗ
-  match (← read).store.telescopeLamPi #[] type with
-  | some (#[], _) => appendBinding (name, mkConsList [indLit, .num idx])
-  | some (as,  _) =>
+  match ← telescopeLamPi type with
+  | (#[], _) => appendBinding (name, mkConsList [indLit, .num idx])
+  | (as,  _) =>
     let ctorArgs ← as.data.mapM safeName
     let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
     let ctorData := ctorData.map (·.map toAST)
     let ctorDataAST := ctorData.map mkConsList
     let ctorData := mkConsList (indLit :: .num idx :: ctorDataAST)
     appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
-  | none => throw ""
 
 /--
 Transforms a list of named expressions that were mutually defined into a
@@ -326,34 +329,30 @@ mutual
 partial def mkRecursor (recr : Both $ Recursor r) (ctors : List $ Both Constructor) :
     TranspileM $ Name × AST := do
   let recrType ← derefExpr ⟨recr.anon.type, recr.meta.type⟩
-  match (← read).store.telescopeLamPi #[] recrType with
-  | none => throw ""
-  | some (as, _) => match as.data.reverse with
-    | [] => throw ""
+  match ← telescopeLamPi recrType with
+  | (as, _) => match as.data.reverse with
+    | [] => throw "Empty arguments for recursor type"
     | argName :: _ =>
       let argName ← safeName argName
       let recrArgs ← as.mapM safeName
       let recrIndices := recr.anon.indices.projₗ
-      let store := (← read).store
       let ifThens : List (AST × AST) ← ctors.mapM fun ctor => do
         let (idx, fields) := (ctor.anon.idx.projₗ, ctor.anon.fields.projₗ)
         let rhs ← derefExpr ⟨ctor.anon.rhs, ctor.meta.rhs⟩
-        match store.telescopeLamPi #[] rhs with
-        | none => throw ""
-        | some (as, rhs) =>
-          let rhs ← mkAST rhs
-          let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
-          let ctorArgs := (List.range fields).map
-            fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
+        let (as, rhs) ← telescopeLamPi rhs
+        let rhs ← mkAST rhs
+        let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
+        let ctorArgs := (List.range fields).map
+          fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
-          let rhsCtorArgNames := as.data.takeLast (fields - recrIndices)
+        let rhsCtorArgNames := as.data.takeLast (fields - recrIndices)
 
-          let bindings :=
-            (`_lurk_ctor_args, _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
-            |>.map fun (n, e) => (n.toString false, e)
+        let bindings :=
+          (`_lurk_ctor_args, _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
+          |>.map fun (n, e) => (n.toString false, e)
 
-          -- extract snd element
-          pure (⟦(= (car (cdr $argName)) $idx)⟧, .mkLet bindings rhs)
+        -- extract snd element
+        pure (⟦(= (car (cdr $argName)) $idx)⟧, .mkLet bindings rhs)
       let cases := AST.mkIfElses ifThens .nil
       return (recr.meta.name.projᵣ, ⟦(lambda $recrArgs $cases)⟧)
 
@@ -385,20 +384,19 @@ partial def mkAST : Both Expr → TranspileM AST
     | some as =>
       let as ← as.mapM mkAST
       return consWith as .nil
-    | none => throw ""
+    | none => throw "Error when telescoping app"
   | e@⟨.pi  .., .pi  ..⟩
-  | e@⟨.lam .., .lam ..⟩ => do match (← read).store.telescopeLamPi #[] e with
-    | some (as, b) =>
-      let as ← as.mapM safeName
-      let b ← mkAST b
-      return ⟦(lambda $as $b)⟧
-    | _ => throw ""
+  | e@⟨.lam .., .lam ..⟩ => do
+    let (as, b) ← telescopeLamPi e
+    let as ← as.mapM safeName
+    let b ← mkAST b
+    return ⟦(lambda $as $b)⟧
   | e@⟨.letE .., .letE ..⟩ => do match (← read).store.telescopeLetE #[] e with
     | some (bs, b) =>
       let bs ← bs.data.mapM fun (n, v) => do
         pure (toString $ ← safeName n, ← mkAST v)
       return .mkLet bs (← mkAST b)
-    | _ => throw ""
+    | _ => throw "Error when telescoping letE"
   | ⟨.lit l, .lit _⟩ => match l.projₗ with
     | .natVal n => return ⟦$n⟧
     | .strVal s => return ⟦$s⟧
@@ -408,7 +406,7 @@ partial def mkAST : Both Expr → TranspileM AST
     let e ← mkAST $ ← derefExpr ⟨eAnon, eMeta⟩
     let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
     return ~[.sym "getelem", args, .num idx.projₗ]
-  | _ => throw ""
+  | _ => throw "Ill-formed expression"
 
 partial def appendConst (c : Both Const) : TranspileM Unit := do
   let constName := c.meta.name
@@ -422,7 +420,7 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
     appendBinding (constName, ← mkAST (← derefExpr ⟨anon.value, meta.value⟩))
   | ⟨.definitionProj anon, .definitionProj meta⟩ =>
     match ← derefDefBlock ⟨anon.block, meta.block⟩ with
-    | [ ] => throw ""
+    | [ ] => throw "Empty mutual definition block"
     | [d] => appendBinding (constName, ← mkAST (← derefExpr ⟨d.anon.value, d.meta.value⟩))
     | ds  =>
       ds.forM fun d => visit d.meta.name.projᵣ
@@ -452,7 +450,7 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
         if h : Sigma.fst pair.2 = Sigma.fst pair.1 then
           let x := ⟨Sigma.snd pair.1, by rw [h] at meta; exact meta⟩
           recrs := (← mkRecursor x ctors) :: recrs
-        else throw ""
+        else throw "Incompatible RecTypes between anon and meta data"
       (← mkMutualBlock recrs).forM appendBinding
   | _ => throw ""
 
@@ -474,7 +472,7 @@ def transpile (store : Store) (root : String) : Except String AST := do
   let map ← store.consts.foldlM (init := default) fun acc cid =>
     match store.getConst? cid with
     | some c => pure $ acc.insert c.meta.name c
-    | _ => throw ""
+    | _ => throw "Couldn't retrieve constant from cid"
   let env := ⟨store, map, .ofList overrides _⟩
   let stt := ⟨#[], .empty, ⟨"_x", 1⟩, .empty⟩
   match StateT.run (ReaderT.run (transpileM root) env) stt with
