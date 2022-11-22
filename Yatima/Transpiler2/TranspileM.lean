@@ -9,7 +9,7 @@ open Lurk.Syntax (AST)
 structure TranspileEnv where
   store : Store
   /-- Used to speed up lookup by name -/
-  map : Std.RBMap Name (Both Const) compare
+  map : Std.RBMap String (Both Const) compare
   overrides : Std.RBMap Name AST compare
 
 structure TranspileState where
@@ -36,9 +36,11 @@ def visit (name : Name) : TranspileM Unit :=
 def replace (name : Name) : TranspileM Name := do
   let mut name' ← Lean.mkFreshId
   let map := (← read).map
-  while map.contains name' do -- making sure we don't hit an existing name
+  while map.contains (name'.toString false) do
+    -- making sure we don't hit an existing name
     name' ← Lean.mkFreshId
-  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name' })
+  modifyGet fun stt => (name', { stt with
+    replaced := stt.replaced.insert name name' })
 
 @[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n

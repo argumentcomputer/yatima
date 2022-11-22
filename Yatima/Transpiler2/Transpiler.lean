@@ -456,7 +456,7 @@ partial def appendConst (c : Both Const) : TranspileM Unit := do
 end
 
 /-- Main translation function -/
-def transpileM (root : Name) : TranspileM Unit := do
+def transpileM (root : String) : TranspileM Unit := do
   preloads.forM (appendBinding · false)
   match (← read).map.find? root with
   | some c => appendConst c
@@ -470,7 +470,7 @@ that are needed to define `root`.
 def transpile (store : Store) (root : String) : Except String AST := do
   let map ← store.consts.foldlM (init := default) fun acc cid =>
     match store.getConst? cid with
-    | some c => pure $ acc.insert c.meta.name c
+    | some c => pure $ acc.insert (c.meta.name.toString false) c
     | _ => throw "Couldn't retrieve constant from cid"
   let env := ⟨store, map, .ofList overrides _⟩
   let stt := ⟨#[], .empty, ⟨"_x", 1⟩, .empty⟩
