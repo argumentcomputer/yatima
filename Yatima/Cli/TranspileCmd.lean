@@ -12,7 +12,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
   | .ok store =>
     -- let noEraseTypes := p.hasFlag "no-erase-types" -- TODO
     let declaration := p.getFlagD "declaration" "root"
-    match transpile store declaration with
+    match transpile store declaration (p.hasFlag "anon") with
     | .error msg => IO.eprintln msg; return 1
     | .ok ast =>
       IO.FS.writeFile (p.getFlagD "output" "output.lurk") (ast.toString true)
@@ -31,6 +31,7 @@ def transpileCmd : Cli.Cmd := `[Cli|
   FLAGS:
     d, "declaration" : String; "Sets the root call for the Lurk evaluation (defaults to \"root\")"
     o, "output" : String;      "Specifies the target file name for the Lurk code (defaults to \"output.lurk\")"
+    a, "anon";                 "Anonimizes symbols in the generated Lurk code"
     r, "run";                  "Evaluates the resulting Lurk expression with the custom evaluator"
     "no-erase-types";          "Do not erase types from the Yatima source"
 

@@ -493,7 +493,8 @@ Constructs a `letrec` block whose body is the call to a `root` constant in
 a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
-def transpile (store : Store) (root : String) : Except String AST := do
+def transpile (store : Store) (root : String) (anon : Bool) :
+    Except String AST := do
   let map ← store.consts.foldlM (init := default) fun acc cid =>
     match store.getConst? cid with
     | some c => pure $ acc.insert (c.meta.name.toString false) c
@@ -506,6 +507,7 @@ def transpile (store : Store) (root : String) : Except String AST := do
     let bindings := stt.appendedBindings.data.map
       fun (n, x) => (n.toString false, x)
     let ast := Simp.simp $ mkLetrec bindings (.sym root)
-    ast.pruneBlocks
+    let ast ← ast.pruneBlocks
+    if anon then ast.anon else pure ast
 
 end Yatima.Transpiler
