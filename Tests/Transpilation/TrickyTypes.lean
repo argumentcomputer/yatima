@@ -8,8 +8,8 @@ def main := do
     "Fixtures/Transpilation/TrickyTypes.lean"
     [
       extractTranspilationTests [
-        -- ("exprCtor", "lam"),
-        -- ("univCtor", "zero"),
+        ("exprCtor", "lam"),
+        ("univCtor", "zero")
         -- ("treeSize", 2),
         -- ("nameStr",  "this.is.a.name")
       ]
