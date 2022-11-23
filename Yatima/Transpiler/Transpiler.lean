@@ -1,7 +1,7 @@
-import Yatima.Converter.Converter
 import Yatima.Transpiler.Simp
-import Yatima.Transpiler.Utils
+import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.LurkFunctions
+import Yatima.Transpiler.Utils
 import Lurk.Syntax.ExprUtils
 
 /-!
@@ -212,7 +212,7 @@ else if `v`.cidx == 1
 
 namespace Yatima.Transpiler
 
-open TC Lurk.Syntax AST DSL
+open IR Lurk.Syntax AST DSL
 
 /-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
 def overrides : List (Name × AST) := [
@@ -230,10 +230,10 @@ def overrides : List (Name × AST) := [
   Lurk.Overrides.CharVal,
   Lurk.Overrides.CharValid,
   Lurk.Overrides.CharRec,
-  -- Lurk.Overrides.List,
-  -- Lurk.Overrides.ListNil,
-  -- Lurk.Overrides.ListCons,
-  -- Lurk.Overrides.ListRec,
+  Lurk.Overrides.List,
+  Lurk.Overrides.ListNil,
+  Lurk.Overrides.ListCons,
+  Lurk.Overrides.ListRec,
   -- Lurk.Overrides.ListMap,
   -- Lurk.Overrides.ListFoldl,
   Lurk.Overrides.String,
@@ -271,232 +271,241 @@ def appendBinding (b : Name × AST) (safe := true) : TranspileM Unit := do
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
 
-def mkIndLiteral (ind : Inductive) : TranspileM AST := do
-  let (name, params, indices, type) :=
-    (ind.name.toString false, ind.params, ind.indices, ind.type)
-  let (_, args) := telescope type
-  let args : List AST ← args.mapM fun (n, _) => mkName n
-  if args.isEmpty then
-    return ⟦,($name $params $indices)⟧
-  else
-    return ⟦(lambda $args ,($name $params $indices))⟧
+def telescopeLamPi (e : Both Expr) : TranspileM $ (Array Name) × Both Expr := do
+  match (← read).store.telescopeLamPi #[] e with
+  | some x => pure x
+  | none => throw "Error when telescoping lambda or pi"
+
+def mkIndLiteral (ind : Both Inductive) (indLit : AST) : TranspileM AST := do
+  let type ← derefExpr ⟨ind.anon.type, ind.meta.type⟩
+  let as ← (← telescopeLamPi type).1.mapM safeName
+  if as.isEmpty then return indLit
+  else return ⟦(lambda $as $indLit)⟧
 
 /-- TODO explain this; `p` is `params`, `i` is `indices` -/
-def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
+def splitCtorArgs (args : List Name) (p i : Nat) : List (List Name) :=
   let (params, rest) := args.splitAt p
   let (indices, args) := rest.splitAt i
   [params, indices, args]
 
-scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where
-  toAST x := ~[toAST x.1, toAST x.2]
+def appendCtor (ctor : Both Constructor) (indLit : AST) (indices : Nat) :
+    TranspileM Unit := do
+  let type ← derefExpr ⟨ctor.anon.type, ctor.meta.type⟩
+  let name := ctor.meta.name.projᵣ
+  let idx := ctor.anon.idx.projₗ
+  let as := (← telescopeLamPi type).1
+  if as.isEmpty then
+    appendBinding (name, mkConsList [indLit, .num idx])
+  else
+    let ctorArgs ← as.data.mapM safeName
+    let ctorData := splitCtorArgs ctorArgs ctor.anon.params.projₗ indices
+    let ctorData := ctorData.map (·.map toAST)
+    let ctorDataAST := ctorData.map mkConsList
+    let ctorData := mkConsList (indLit :: .num idx :: ctorDataAST)
+    appendBinding (name, ⟦(lambda $ctorArgs $ctorData)⟧)
+
+/--
+Transforms a list of named expressions that were mutually defined into a
+"switch" function `S` and a set of projections (named after the original names)
+that call `S` with their respective indices.
+-/
+def mkMutualBlock : List (Name × AST) → Except String (List $ Name × AST)
+  | [] => throw "can't make a mutual block with an empty list of binders"
+  | x@([_]) => return x
+  | mutuals => do
+    let names := mutuals.map Prod.fst
+    let mutualName := names.foldl (fun acc n => acc ++ n) `__mutual__
+    let fnProjs := names.enum.map fun (i, n) => (n, ⟦($mutualName $i)⟧)
+    let map := fnProjs.foldl (init := default)
+      fun acc (n, e) => acc.insert (n.toString false) e
+    let ifThens ← mutuals.enum.mapM
+      fun (i, _, e) => do pure (⟦(= mutidx $i)⟧, ← replaceFreeVars map e)
+    let mutualBlock := mkIfElses ifThens
+    return (mutualName, ⟦(lambda (mutidx) $mutualBlock)⟧) :: fnProjs
 
 mutual
 
-  /--
-  Construct a Lurk function representing a Yatima constructor.
-  Let `ind` be the inductive parent of `ctor` and `idx` be its index.
+partial def mkListRecursor (recrName argName : Name) (recrArgs : Array Name)
+    (ctors : List $ Both Constructor) : TranspileM $ Name × AST := do
+  let [(n₁, rhs₁), (_, rhs₂)] ← ctors.mapM fun c => do
+      let rhs ← derefExpr ⟨c.anon.rhs, c.meta.rhs⟩
+      pure (c.meta.name.projᵣ, rhs)
+    | throw "`mkListRecursor` must receive list constructors"
+  let (nilRHS, consRHS) :=
+    if n₁ == ``List.nil then (rhs₁, rhs₂)
+    else (rhs₂, rhs₁)
+  let nilRHS  ← mkAST (← telescopeLamPi nilRHS).2
+  let consRHS ← mkAST (← telescopeLamPi consRHS).2
+  let cases := ⟦
+    (if $argName
+      (let (
+          (head (car $argName))
+          (tail (cdr $argName)))
+        $consRHS)
+      $nilRHS)⟧
+  return (recrName, ⟦(lambda $recrArgs $cases)⟧)
 
-  * Data (0-ary) constructors are represented as `((ind <params> <indices>) idx)`.
-  * Function constructors are represented as
-    `(lambda (a₁ a₂ ..) ((ind <params> <indices>) idx a₁ a₂ ..))`
+partial def mkRecursor (recr : Both $ Recursor r) (ctors : List $ Both Constructor) :
+    TranspileM $ Name × AST := do
+  let recrType ← derefExpr ⟨recr.anon.type, recr.meta.type⟩
+  match ← telescopeLamPi recrType with
+  | (as, _) => match as.data.reverse with
+    | [] => throw "Empty arguments for recursor type"
+    | argName :: _ =>
+      let argName ← safeName argName
+      let recrArgs ← as.mapM safeName
+      let recrName := recr.meta.name.projᵣ
+      match ctors.head?.map (·.meta.name.projᵣ) with
+      | some ``List.nil | some ``List.cons =>
+        mkListRecursor recrName argName recrArgs ctors
+      | _ =>
+        let recrIndices := recr.anon.indices.projₗ
+        let ifThens : List (AST × AST) ← ctors.mapM fun ctor => do
+          let (idx, fields) := (ctor.anon.idx.projₗ, ctor.anon.fields.projₗ)
+          let rhs ← derefExpr ⟨ctor.anon.rhs, ctor.meta.rhs⟩
+          let (as, rhs) ← telescopeLamPi rhs
+          let rhs ← mkAST rhs
+          let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
+          let ctorArgs := (List.range fields).map
+            fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
-  Recall that when `ind` has parameters and indices, it is represented as a function.
-  Hence we must apply arguments to access the inductive data. This is required for
-  projections.
+          let rhsCtorArgNames ← as.data.takeLast (fields - recrIndices)
+            |>.mapM safeName
 
-  The `indices` argument is necessary since `Constructor` contains the
-  `params` field of its parent's inductive, but not the `indices` field. -/
-  partial def appendCtor (ctor : Constructor) (indLit : AST) (indices : Nat) : TranspileM Unit := do
-    let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
-    let (_, bindings) := telescope type
-    let ctorArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-    let ctorData := splitCtorArgs ctorArgs ctor.params indices
-    let ctorDataAST := ctorData.map mkConsList
-    let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
-    let body := if ctorArgs.isEmpty then
-      ⟦(cons $indLit (cons $idx nil))⟧
-    else
-      ⟦(lambda $ctorArgs $ctorData)⟧
-    appendBinding (name, body)
+          let bindings :=
+            (`_lurk_ctor_args, _lurk_ctor_args) :: rhsCtorArgNames.zip ctorArgs
+            |>.map fun (n, e) => (n.toString false, e)
 
-  partial def mkListRecursor (recrType : Expr) (recrName : Name) (rhs : List Constructor) :
-      TranspileM (String × AST) := do
-    let (_, bindings) := telescope recrType
-    let (argName, _) : Name × Expr := bindings.last!
-    let argName ← mkName argName
-    let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-    let [(n₁, rhs₁), (_, rhs₂)] ← rhs.mapM fun c => return (c.name, c.rhs)
-      | throw $ .custom "`mkListRecursor` must receive list constructors"
-    let (nilRHS, consRHS) :=
-      if n₁ == ``List.nil then (rhs₁, rhs₂)
-      else (rhs₂, rhs₁)
-    let nilRHS ← mkAST nilRHS.toImplicitLambda
-    let consRHS ← mkAST consRHS.toImplicitLambda
-    let cases := ⟦
-      (if $argName
-        (let (
-            (head (car $argName))
-            (tail (cdr $argName)))
-          $consRHS)
-        $nilRHS)
-    ⟧
-    return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
+          -- extract snd element
+          pure (⟦(= (car (cdr $argName)) $idx)⟧, .mkLet bindings rhs)
+        let cases := AST.mkIfElses ifThens .nil
+        return (recrName, ⟦(lambda $recrArgs $cases)⟧)
 
-  partial def mkRecursor (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) :
-      TranspileM (String × AST) :=
-    match rhs.head?.map Constructor.name with
-    -- | some ``List.nil | some ``List.cons => mkListRecursor recrType recrName rhs
-    | _ => do
-      let (_, bindings) := telescope recrType
-      let (argName, _) : Name × Expr := bindings.last!
-      let argName ← mkName argName
-      let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-      let ifThens ← rhs.mapM fun ctor => do
-        let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
+partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
+  visit name
+  appendPrereqs func
+  appendBinding (name, func)
+where
+  appendPrereqs : AST → TranspileM Unit
+    | .num _ | .char _ | .str _ => return
+    | .cons e₁ e₂ => do appendPrereqs e₁; appendPrereqs e₂
+    | .sym n => do
+      if !(reservedSyms.contains n) && !(← isVisited n) then
+        match (← read).map.find? n with
+        | some const => appendConst const
+        | none => return
 
-        let (rhs, binds) := telescope rhs
+partial def mkAST : Both Expr → TranspileM AST
+  | ⟨.sort .., .sort  ..⟩ => return .nil -- TODO?
+  | ⟨.var  .., .var n ..⟩ => mkName n.projᵣ
+  | ⟨.const _ anon _, .const n meta _⟩ => do
+    let name := n.projᵣ
+    if !(← isVisited name) then
+      match (← read).overrides.find? name with
+      | some ast => overrideWith name ast
+      | none => appendConst $ ← derefConst ⟨anon, meta⟩
+    mkName name
+  | e@⟨.app .., .app ..⟩ => do match (← read).store.telescopeApp [] e with
+    | some as =>
+      let as ← as.mapM mkAST
+      return consWith as .nil
+    | none => throw "Error when telescoping app"
+  | e@⟨.pi  .., .pi  ..⟩
+  | e@⟨.lam .., .lam ..⟩ => do
+    let (as, b) ← telescopeLamPi e
+    let as ← as.mapM safeName
+    let b ← mkAST b
+    return ⟦(lambda $as $b)⟧
+  | e@⟨.letE .., .letE ..⟩ => do match (← read).store.telescopeLetE #[] e with
+    | some (bs, b) =>
+      let bs ← bs.data.mapM fun (n, v) => do
+        pure (toString $ ← safeName n, ← mkAST v)
+      return .mkLet bs (← mkAST b)
+    | _ => throw "Error when telescoping letE"
+  | ⟨.lit l, .lit _⟩ => match l.projₗ with
+    | .natVal n => return ⟦$n⟧
+    | .strVal s => return ⟦$s⟧
+  | ⟨.proj idx eAnon, .proj _ eMeta⟩ => do
+    -- this is very nifty; `e` contains its type information *at run time*
+    -- which we can take advantage of to compute the projection
+    let e ← mkAST $ ← derefExpr ⟨eAnon, eMeta⟩
+    let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
+    return ~[.sym "getelem", args, .num idx.projₗ]
+  | _ => throw "Ill-formed expression"
 
-        let rhs ← mkAST rhs
-        let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
-        let ctorArgs := (List.range fields).map
-          fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
-
-        let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
-        let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
-
-        let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) ::
-          rhsCtorArgNames.zip ctorArgs
-
-        -- extract snd element
-        return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
-
-      let cases := AST.mkIfElses ifThens ⟦nil⟧
-      return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
-
-  partial def appendIndBlock (inds : List MutualInfo) : TranspileM Unit := do
-    for (ind, ctors, irecr, erecrs) in inds do
-      visit ind.name
-      appendBinding (ind.name, ← mkIndLiteral ind)
+partial def appendConst (c : Both Const) : TranspileM Unit := do
+  let constName := c.meta.name
+  if ← isVisited constName then return
+  visit constName
+  match c with
+  | ⟨.axiom _, .axiom _⟩
+  | ⟨.quotient _, .quotient _⟩ => return
+  | ⟨.theorem anon, .theorem meta⟩
+  | ⟨.opaque anon, .opaque meta⟩ =>
+    appendBinding (constName, ← mkAST (← derefExpr ⟨anon.value, meta.value⟩))
+  | ⟨.definitionProj anon, .definitionProj meta⟩ =>
+    match ← derefDefBlock ⟨anon.block, meta.block⟩ with
+    | [ ] => throw "Empty mutual definition block"
+    | [d] => appendBinding (constName, ← mkAST (← derefExpr ⟨d.anon.value, d.meta.value⟩))
+    | ds  =>
+      ds.forM fun d => visit d.meta.name.projᵣ
+      let pairs ← ds.mapM fun d => do
+        let b ← mkAST $ ← derefExpr ⟨d.anon.value, d.meta.value⟩
+        pure (d.meta.name.projᵣ, b)
+      (← mkMutualBlock pairs).forM appendBinding
+  | ⟨.inductiveProj   anon, .inductiveProj   meta⟩
+  | ⟨.constructorProj anon, .constructorProj meta⟩
+  | ⟨.recursorProj    anon, .recursorProj    meta⟩ =>
+    for ind in ← derefIndBlock ⟨anon.block, meta.block⟩ do
+      let indAnon := ind.anon
+      let indMeta := ind.meta
+      let indName := indMeta.name.projᵣ
+      let indices := ind.anon.indices.projₗ
+      let indLit := ⟦,($(indName.toString false) $ind.anon.params.projₗ $indices)⟧
+      visit indName
+      appendBinding (indName, ← mkIndLiteral ind indLit)
+      let ctors := (indAnon.ctors.zip indMeta.ctors).map fun (a, m) => ⟨a, m⟩
       for ctor in ctors do
-        visit ctor.name
-        appendCtor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
-      erecrs.forM fun r => visit r.name
-      let erecrs ← erecrs.mapM fun erecr =>
-        mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
-      visit irecr.name
-      let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
-      match mkMutualBlock (irecr :: erecrs) with
-      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
-      | .error e => throw $ .custom e
-
-  partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
-    visit name
-    appendPrereqs func
-    appendBinding (name, func)
-  where
-    appendPrereqs : AST → TranspileM Unit
-      | .num _ | .char _ | .str _ => return
-      | .cons e₁ e₂ => do appendPrereqs e₁; appendPrereqs e₂
-      | .sym n => do
-        if !(reservedSyms.contains n) && !(← isVisited n) then
-          match (← read).map.find? n with
-          | some const => appendConst const
-          | none => return
-
-  partial def mkAST : Expr → TranspileM AST
-    | .sort ..
-    | .pi .. => pure .nil
-    | .var name _ => mkName name
-    | .const name idx .. => do
-      if !(← isVisited name) then
-        match (← read).overrides.find? name with
-        | some ast => overrideWith name ast
-        | none => appendConst (← derefConst idx)
-      mkName name
-    | e@(.app ..) =>
-      let (fn, args) := e.getAppFnArgs
-      return .cons (← mkAST fn) $ toAST (← args.mapM mkAST)
-    | e@(.lam ..) => do
-      let (e, binds) := telescope e
-      let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      let fn ← mkAST e
-      return ⟦(lambda $binds $fn)⟧
-    | .letE name _ value body => do
-      let name ← safeName name
-      let val ← mkAST value
-      let body ← mkAST body
-      return ⟦(let $([(name, val)]) $body)⟧
-    | .lit lit  => match lit with
-      | .natVal n => return ⟦$n⟧
-      | .strVal s => return ⟦$s⟧
-    | .proj idx e => do
-      -- this is very nifty; `e` contains its type information *at run time*
-      -- which we can take advantage of to compute the projection
-      let e ← mkAST e
-      let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
-      return ⟦(getelem $args $idx)⟧
-
-  partial def appendConst (c : Const) : TranspileM Unit := do
-    if ← isVisited c.name then return
-    visit c.name
-    match c with
-    | .axiom    _
-    | .quotient _ => return
-    | .theorem  x =>
-      let (_, binds) := telescope x.type
-      let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      let val ← mkAST x.value
-      appendBinding (x.name, ⟦(lambda $binds $val)⟧)
-    | .opaque x => appendBinding (x.name, ← mkAST x.value)
-    | .definition x => match ← getMutualDefInfo x with
-      | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
-      | [d] => appendBinding (d.name, ← mkAST d.value)
-      | defs =>
-        defs.forM fun d => visit d.name
-        let pairs ← defs.mapM fun d => do
-          pure $ (d.name.toString false, ← mkAST d.value)
-        match mkMutualBlock pairs with
-        | .ok block => block.forM fun (n, e) => do appendBinding (n, e)
-        | .error err => throw $ .custom err
-    -- We're trying to compile the mutual blocks at once instead of compiling
-    -- each projection separately to avoid some recursions.
-    | .inductive x => appendIndBlock (← getMutualIndInfo x)
-    | .constructor x
-    | .extRecursor x
-    | .intRecursor x =>
-      let indName := x.name.getPrefix
-      let ind ← match (← read).map.find? indName with
-        | some (.inductive i) => pure i
-        | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
-        | none => throw $ .notFoundInMap indName
-      appendIndBlock (← getMutualIndInfo ind)
+        visit ctor.meta.name.projᵣ
+        appendCtor ctor indLit indices
+      let mut recrs := []
+      for pair in indAnon.recrs.zip indMeta.recrs do
+        let meta := Sigma.snd pair.2
+        visit meta.name.projᵣ
+        if h : Sigma.fst pair.2 = Sigma.fst pair.1 then
+          let x := ⟨Sigma.snd pair.1, by rw [h] at meta; exact meta⟩
+          recrs := (← mkRecursor x ctors) :: recrs
+        else throw "Incompatible RecTypes between anon and meta data"
+      (← mkMutualBlock recrs).forM appendBinding
+  | _ => throw ""
 
 end
 
 /-- Main translation function -/
-def transpileM (root : Name) : TranspileM Unit := do
+def transpileM (root : String) : TranspileM Unit := do
   preloads.forM (appendBinding · false)
-  match (← read).tcStore.consts.find? fun c => c.name == root with
+  match (← read).map.find? root with
   | some c => appendConst c
-  | none => throw $ .custom s!"Unknown const {root}"
+  | none => throw s!"Unknown const {root}"
 
 /--
-Constructs a `AST.letRecE` whose body is the call to a `root` constant in
+Constructs a `letrec` block whose body is the call to a `root` constant in
 a context and whose bindings are the constants in the context (including `root`)
 that are needed to define `root`.
 -/
-def transpile (store : IR.Store) (root : String) : Except String AST :=
-  match Converter.extractPureStore store with
-  | .error err => .error err
-  | .ok pStore =>
-    let map := pStore.consts.foldl (init := default)
-      fun acc const => acc.insert const.name const
-    let env := ⟨store, pStore, map, .ofList overrides _⟩
-    let state : TranspileState := ⟨#[], .empty, ⟨"_hyg_", 1⟩, .empty⟩
-    match TranspileM.run env state (transpileM root) with
-    | .ok s =>
-      let bindings := s.appendedBindings.data.map
-        fun (n, x) => (n.toString false, x)
-      let ast := Simp.simp $ mkLetrec bindings (.sym root)
-      ast.pruneBlocks
-    | .error e => .error e
+def transpile (store : Store) (root : String) : Except String AST := do
+  let map ← store.consts.foldlM (init := default) fun acc cid =>
+    match store.getConst? cid with
+    | some c => pure $ acc.insert (c.meta.name.toString false) c
+    | _ => throw "Couldn't retrieve constant from cid"
+  let env := ⟨store, map, .ofList overrides _⟩
+  let stt := ⟨#[], .empty, ⟨"_x", 1⟩, .empty⟩
+  match StateT.run (ReaderT.run (transpileM root) env) stt with
+  | (.error err, _) => throw err
+  | (.ok _, stt) =>
+    let bindings := stt.appendedBindings.data.map
+      fun (n, x) => (n.toString false, x)
+    let ast := Simp.simp $ mkLetrec bindings (.sym root)
+    ast.pruneBlocks
+
+end Yatima.Transpiler

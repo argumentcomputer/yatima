@@ -1,16 +1,15 @@
-import Yatima.Transpiler.TranspileError
 import Yatima.Datatypes.Store
 import Lurk.Syntax.AST
 
 namespace Yatima.Transpiler
 
+open IR
 open Lurk.Syntax (AST)
 
 structure TranspileEnv where
-  irStore : IR.Store
-  tcStore : TC.Store
+  store : Store
   /-- Used to speed up lookup by name -/
-  map : Std.RBMap Name TC.Const compare
+  map : Std.RBMap String (Both Const) compare
   overrides : Std.RBMap Name AST compare
 
 structure TranspileState where
@@ -23,7 +22,7 @@ structure TranspileState where
   deriving Inhabited
 
 abbrev TranspileM := ReaderT TranspileEnv $
-  ExceptT TranspileError $ StateM TranspileState
+  ExceptT String $ StateM TranspileState
 
 instance : Lean.MonadNameGenerator TranspileM where
   getNGen := return (← get).ngen
@@ -37,24 +36,40 @@ def visit (name : Name) : TranspileM Unit :=
 def replace (name : Name) : TranspileM Name := do
   let mut name' ← Lean.mkFreshId
   let map := (← read).map
-  while map.contains name' do -- making sure we don't hit an existing name
+  while map.contains (name'.toString false) do
+    -- making sure we don't hit an existing name
     name' ← Lean.mkFreshId
-  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name' })
+  modifyGet fun stt => (name', { stt with
+    replaced := stt.replaced.insert name name' })
 
 @[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n
 
-def derefConst (i : TC.ConstIdx) : TranspileM TC.Const := do
-  let consts := (← read).tcStore.consts
-  let size := consts.size
-  if h : i < size then
-    return consts[i]
-  else throw $ .custom s!"invalid index {i} for array of constats with size {size}"
+def derefExpr (cid : BothExprCid) : TranspileM $ Both Expr := do
+  match (← read).store.getExpr? cid with
+  | some e => pure e
+  | none => throw "Couldn't retrieve expression in the store"
 
-def TranspileM.run (env : TranspileEnv) (ste : TranspileState)
-    (m : TranspileM α) : Except String TranspileState := do
-  match StateT.run (ReaderT.run m env) ste with
-  | (.ok _, ste)  => .ok ste
-  | (.error e, _) => .error (toString e)
+def derefConst (cid : BothConstCid) : TranspileM $ Both Const := do
+  match (← read).store.getConst? cid with
+  | some c => pure c
+  | none => throw "Couldn't retrieve constant in the store"
 
-end Yatima.Transpiler
+def derefDefBlock (cid : BothConstCid) : TranspileM $ List (Both Definition) := do
+  match ← derefConst cid with
+  | ⟨.mutDefBlock anon, .mutDefBlock meta⟩ =>
+    let mut ret := []
+    for (anon, metas) in anon.zip meta do
+      let anon := anon.projₗ
+      let metas := metas.projᵣ
+      let zip := (List.replicate metas.length anon).zip metas |>.map
+        fun (x, y) => ⟨x, y⟩
+      ret := zip :: ret
+    return ret.join
+  | _ => throw "Incompatible constant for mutual definitions block"
+
+def derefIndBlock (cid : Both ConstCid) : TranspileM $ List (Both Inductive) := do
+  match ← derefConst cid with
+  | ⟨.mutIndBlock anons, .mutIndBlock metas⟩ =>
+    return anons.zip metas |>.map fun (x, y) => ⟨x, y⟩
+  | _ => throw "Incompatible constant for mutual inductives block"

@@ -168,37 +168,4 @@ def constName? : Expr → Option Name
 def constName (e : Expr) : Name :=
   e.constName?.getD Lean.Name.anonymous
 
-/--
-If the given expression is a sequence of
-function applications `f a₁ .. aₙ`, return `f`.
-Otherwise return the input expression.
--/
-def getAppFn : Expr → Expr
-  | app f _ => getAppFn f
-  | e         => e
-
-private def getAppNumArgsAux : Expr → Nat → Nat
-  | app f _, n => getAppNumArgsAux f (n+1)
-  | _,       n => n
-
-/-- Counts the number `n` of arguments for an expression `f a₁ .. aₙ`. -/
-def getAppNumArgs (e : Expr) : Nat :=
-  getAppNumArgsAux e 0
-
-@[specialize] def withAppAux (k : Expr → Array Expr → α) : Expr → Array Expr → Nat → α
-  | app f a, as, i => withAppAux k f (as.set! i a) (i-1)
-  | f,       as, _ => k f as
-
-/-- Given `e = f a₁ a₂ ... aₙ`, returns `k f #[a₁, ..., aₙ]`. -/
-@[inline] def withApp (e : Expr) (k : Expr → Array Expr → α) : α :=
-  let nargs := e.getAppNumArgs
-  withAppAux k e (mkArray nargs default) (nargs-1)
-
-def getAppFnArgs (e : Expr) : Expr × Array Expr :=
-  withApp e λ e a => (e, a)
-
-end Expr
-
-end TC
-
-end Yatima
+end Yatima.TC.Expr
