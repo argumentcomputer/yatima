@@ -8,7 +8,7 @@ Notation for operators defined at Prelude.lean
 prelude
 import Fixtures.Termination.Init.Prelude
 import Fixtures.Termination.Init.Coe
-set_option linter.missingDocs true -- keep it documented
+set_option linter.all false -- prevent error messages from runFrontend
 
 namespace Lean
 

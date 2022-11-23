@@ -8,7 +8,7 @@ notation, basic datatypes and type classes
 prelude
 import Fixtures.Termination.Init.Prelude
 import Fixtures.Termination.Init.SizeOf
-set_option linter.missingDocs true -- keep it documented
+set_option linter.all false -- prevent error messages from runFrontend
 
 universe u v w
 
