@@ -82,7 +82,9 @@ deriving instance SizeOf for Array
 deriving instance SizeOf for Except
 deriving instance SizeOf for EStateM.Result
 
-@[simp] theorem Unit.sizeOf (u : Unit) : sizeOf u = 1 := rfl
+-- TODO fix this version
+-- @[simp] theorem Unit.sizeOf (u : Unit) : sizeOf u = 1 := rfl
+@[simp] theorem Unit.sizeOf (u : Unit) : sizeOf u = 1 := by cases u <;> rfl
 @[simp] theorem Bool.sizeOf_eq_one (b : Bool) : sizeOf b = 1 := by cases b <;> rfl
 
 namespace Lean
