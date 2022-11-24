@@ -230,8 +230,8 @@ mutual
           pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
         else
           match ← toCtorIfLit arg with
-          | .app (Neutral.const kName k _) args' => match ← derefConst kName k with
-            | .constructor (.mk _ _ _ _ idx _ _ _ _) =>
+          | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
+            | .constructor _ _ idx _ =>
               -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
               match rules.find? (fun r => r.fst == idx) with
               | some (_, fields, rhs) =>
