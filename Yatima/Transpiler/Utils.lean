@@ -31,11 +31,10 @@ def StoreKey.find! (key : StoreKey A) : TranspileM A := do
 
 open TC
 
-/--
-Return `List (Inductive × List Constructor × IntRecursor × List ExtRecursor)`
--/
-def getMutualIndInfo (ind : Inductive) : 
-    TranspileM $ List (Inductive × List Constructor × IntRecursor × List ExtRecursor) := do
+abbrev MutualInfo := Inductive × List Constructor × IntRecursor × List ExtRecursor
+
+/-- Retrieves all information from an inductige -/
+def getMutualIndInfo (ind : Inductive) : TranspileM $ List MutualInfo := do
   let store := (← read).irStore
   let map := (← read).map
   let cid : ConstCid ← match store.constMeta.toList.find?
@@ -45,37 +44,37 @@ def getMutualIndInfo (ind : Inductive) :
       | some cid => pure cid
       | none => throw $ .notFoundInStore ind.name
     | none => throw $ .notFoundInStore ind.name
-  let blockCid : IR.BothConstCid := ← match ← StoreKey.find! $ .const cid with 
-    | ⟨.inductiveProj indAnon, .inductiveProj indMeta⟩ => 
+  let blockCid : IR.BothConstCid := ← match ← StoreKey.find! $ .const cid with
+    | ⟨.inductiveProj indAnon, .inductiveProj indMeta⟩ =>
       return ⟨indAnon.block, indMeta.block⟩
     | _ => throw $ .custom "cid not found in store"
-  match ← StoreKey.find! $ .const blockCid with 
-  | ⟨.mutIndBlock blockAnon, .mutIndBlock blockMeta⟩ => 
+  match ← StoreKey.find! $ .const blockCid with
+  | ⟨.mutIndBlock blockAnon, .mutIndBlock blockMeta⟩ =>
     blockAnon.zip blockMeta |>.mapM fun (_, indMeta) => do
       let indName := indMeta.name.projᵣ
       let ctors := indMeta.ctors.map fun ctor => ctor.name.projᵣ
       let mut intR : Name := default
       let mut extRs : List Name := []
-      for ⟨b, recr⟩ in indMeta.recrs do 
-        match b with 
-        | .intr => intR := recr.name.projᵣ 
+      for ⟨b, recr⟩ in indMeta.recrs do
+        match b with
+        | .intr => intR := recr.name.projᵣ
         | .extr => extRs := recr.name.projᵣ :: extRs
       let ind : Inductive := ← match map.find? indName with
-        | some (.inductive ind) => return ind 
+        | some (.inductive ind) => return ind
         | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
         | none => throw $ .notFoundInMap intR
       let ctors ← ctors.mapM fun ctor =>
         match map.find? ctor with
-        | some (.constructor ctor) => return ctor 
+        | some (.constructor ctor) => return ctor
         | some x => throw $ .invalidConstantKind x.name "constructor" x.ctorName
         | none => throw $ .notFoundInMap ctor
       let irecr : IntRecursor := ← match map.find? intR with
-        | some (.intRecursor recr) => return recr 
+        | some (.intRecursor recr) => return recr
         | some x => throw $ .invalidConstantKind x.name "internal recursor" x.ctorName
         | none => throw $ .notFoundInMap intR
-      let erecrs ← extRs.mapM fun extR => 
+      let erecrs ← extRs.mapM fun extR =>
         match map.find? extR with
-        | some (.extRecursor extR) => return extR 
+        | some (.extRecursor extR) => return extR
         | some x => throw $ .invalidConstantKind x.name "external recursor" x.ctorName
         | none => throw $ .notFoundInMap extR
       return (ind, ctors, irecr, erecrs)
@@ -87,18 +86,18 @@ def getMutualDefInfo (defn : Definition) : TranspileM $ List Definition :=
     | .definition d => pure d
     | x => throw $ .invalidConstantKind x.name "definition" x.ctorName
 
-/-- 
+/--
   Telescopes Yatima lambda `fun (x₁ : α₁) (x₂ : α₂) .. => body` into `(body, [(x₁, α₁), (x₂, α₂), ..])`
   Telescopes pi type `(a₁ : α₁) → (a₂ : α₂) → .. → α` into `(α, [(a₁, α₁), (a₂, α₂), ..])` -/
 def telescope (expr : Expr) : Expr × List (Name × Expr) :=
-  match expr with 
+  match expr with
   | .pi .. => telescopeAux expr [] true
   | .lam .. => telescopeAux expr [] false
   | _ => (expr, [])
-where 
-  telescopeAux (expr : Expr) (bindAcc : List (Name × Expr)) (pi? : Bool) : 
+where
+  telescopeAux (expr : Expr) (bindAcc : List (Name × Expr)) (pi? : Bool) :
       Expr × List (Name × Expr) :=
-    match expr, pi? with 
+    match expr, pi? with
     | .pi  name _ ty body, true  => telescopeAux body ((name, ty) :: bindAcc) true
     | .lam name _ ty body, false => telescopeAux body ((name, ty) :: bindAcc) false
     | _, _ => (expr, bindAcc.reverse)
@@ -110,10 +109,10 @@ namespace List
 def last! [Inhabited α] (l : List α) : α :=
   l.reverse.head!
 
-def takeLast (xs : List α) (n : Nat) : List α := 
+def takeLast (xs : List α) (n : Nat) : List α :=
   (xs.reverse.take n).reverse
 
-end List 
+end List
 
 def Lean.Name.isHygenic : Name → Bool
   | str p s => if s == "_hyg" then true else p.isHygenic

@@ -198,7 +198,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where beq
   | .error x, .error y => x == y
   | _, _ => false
 
-def extractTranspilationTests (expect : List (Name × Value))
+def extractTranspilationTests (expect : List (String × Value))
     (stt : CompileState) : TestSeq :=
   expect.foldl (init := .done) fun tSeq (root, expected) =>
     withExceptOk s!"Transpilation of {root} succeeds" (transpile stt.irStore root) fun ast =>

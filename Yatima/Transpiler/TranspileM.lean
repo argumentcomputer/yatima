@@ -7,17 +7,17 @@ namespace Yatima.Transpiler
 open Lurk.Syntax (AST)
 
 structure TranspileEnv where
-  irStore  : IR.Store
-  tcStore  : TC.Store
+  irStore : IR.Store
+  tcStore : TC.Store
   /-- Used to speed up lookup by name -/
-  map      : Std.RBMap Name TC.Const compare
-  builtins : Std.RBMap Name AST compare
+  map : Std.RBMap Name TC.Const compare
+  overrides : Std.RBMap Name AST compare
 
 structure TranspileState where
   appendedBindings : Array (Name × AST)
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
-  /-- These will help us replace hygienic names -/
+  /-- These will help us replace hygienic/clashing names -/
   ngen     : Lean.NameGenerator
   replaced : Lean.NameMap Name
   deriving Inhabited
@@ -33,13 +33,13 @@ instance : Lean.MonadNameGenerator TranspileM where
 def visit (name : Name) : TranspileM Unit :=
   modify fun s => { s with visited := s.visited.insert name }
 
-/-- Create a fresh variable `x.n` to replace `name` and update `replaced` -/
-def replaceFreshId (name : Name) : TranspileM Name := do
-  let name' ← Lean.mkFreshId
-  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name'})
-
-def appendBinding (b : Name × AST) : TranspileM Unit :=
-  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
+/-- Create a fresh variable to replace `name` and update `replaced` -/
+def replace (name : Name) : TranspileM Name := do
+  let mut name' ← Lean.mkFreshId
+  let map := (← read).map
+  while map.contains name' do -- making sure we don't hit an existing name
+    name' ← Lean.mkFreshId
+  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name' })
 
 @[inline] def isVisited (n : Name) : TranspileM Bool :=
   return (← get).visited.contains n
