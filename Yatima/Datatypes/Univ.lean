@@ -36,7 +36,7 @@ inductive Univ where
   | max   : Univ → Univ → Univ
   | imax  : Univ → Univ → Univ
   | var   : Name → Nat → Univ
-  deriving BEq, Inhabited, Repr
+  deriving BEq, Inhabited, Repr, Ord
 
 namespace Univ
 

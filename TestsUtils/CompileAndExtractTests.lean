@@ -161,9 +161,22 @@ open Typechecker
 
 /-
 Here we define the following extractors:
+
 * `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
 false negatives by requiring that everything that typechecks in Lean 4 should
 also be accepted by our implementation
+
+* `extractNegativeTypecheckTests` filters constants with type/value pairs
+(theorems, opaques and definitions), skipping constants with repeated types,
+and scrambles type/value pairs with a certain number of List rotations. For
+example, if we have the pairs `(t₁, v₁)`, `(t₂, v₂)` and `(t₃, v₃)`, the first
+rotation of types gives us `(t₂, v₁)`, `(t₃, v₂)` and `(t₁, v₃)`, producing
+pairs that shouldn't typecheck. Similarly, the first rotation of values gives us
+`(t₁, v₂)`, `(t₂, v₃)` and `(t₃, v₁)`, which shouldn't typecheck either.
+Rotating types and values are different operations because constants have more
+attributes than just types and values (e.g. universe levels). Note that, with
+`n` pairs, we can't allow more than `n - 1` rotations because that would take us
+back to the original pairs.
 -/
 
 def typecheckConstByNameM (name : Name) : TypecheckM Unit := do
@@ -192,22 +205,25 @@ def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except St
 
 def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestSeq :=
   let store := stt.tcStore
-  let (testConsts, types, values, indices) := store.consts.toList.enum.foldl
-    (init := ([], [], [], []))
-    fun (consts, types, values, indices) (idx, c) => match c with
-      | c@(.theorem    ⟨_, _, type, value⟩)
-      | c@(.opaque     ⟨_, _, type, value, _⟩)
-      | c@(.definition ⟨_, _, type, value, _, _⟩) =>
-        (c :: consts, type :: types, value :: values, idx :: indices)
-      | _ => (consts, types, values, indices)
+  let (testConsts, types, values, indices, _) : (List TC.Const) ×
+      (List TC.Expr) × (List TC.Expr) × (List Nat) × Std.RBSet TC.Expr compare :=
+    store.consts.toList.enum.foldr (init := default)
+      fun (idx, c) x@(consts, types, values, indices, seenTypes) => match c with
+        | c@(.theorem    ⟨_, _, type, value⟩)
+        | c@(.opaque     ⟨_, _, type, value, _⟩)
+        | c@(.definition ⟨_, _, type, value, _, _⟩) =>
+          if !seenTypes.contains type then
+            (c::consts, type::types, value::values, idx::indices, seenTypes.insert type)
+          else x
+        | _ => x
 
   -- we can't allow the cycling to roundtrip
   let nRounds := min maxRounds (testConsts.length - 1)
 
-  -- messing types
+  -- rotating types
   let tSeq := List.range nRounds |>.foldl (init := .done) fun tSeq iRound =>
     let testPairs : List (TC.Const × Nat) :=
-      (testConsts.zip $ (types.rotate iRound).zip indices).map fun (c, t, i) =>
+      (testConsts.zip $ (types.rotate iRound.succ).zip indices).map fun (c, t, i) =>
         match c with
         | .theorem    x => (.theorem    { x with type := t }, i)
         | .opaque     x => (.opaque     { x with type := t }, i)
@@ -217,10 +233,10 @@ def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestS
       tSeq ++ withExceptError s!"{c.name} ({c.ctorName}) doesn't typecheck"
         (typecheckConst store c i) fun _ => .done
 
-  -- messing values
+  -- rotating values
   let tSeq := List.range nRounds |>.foldl (init := tSeq) fun tSeq iRound =>
     let testPairs : List (TC.Const × Nat) :=
-      (testConsts.zip $ (values.rotate iRound).zip indices).map fun (c, v, i) =>
+      (testConsts.zip $ (values.rotate iRound.succ).zip indices).map fun (c, v, i) =>
         match c with
         | .theorem    x => (.theorem    { x with value := v }, i)
         | .opaque     x => (.opaque     { x with value := v }, i)
