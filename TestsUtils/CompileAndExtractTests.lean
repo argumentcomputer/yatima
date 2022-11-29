@@ -166,11 +166,12 @@ false negatives by requiring that everything that typechecks in Lean 4 should
 also be accepted by our implementation
 -/
 
-def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).store.consts.toList.enum.filter (fun (_, const) => const.name == name)).forM fun (i, const) => checkConst const i
+def typecheckConstByNameM (name : Name) : TypecheckM Unit := do
+  ((← read).store.consts.toList.enum.filter fun (_, const) => const.name == name).forM
+    fun (i, const) => checkConst const i
 
-def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init store) (.init store) (typecheckConstM name) with
+def typecheckConstByName (store : TC.Store) (name : Name) : Except String Unit :=
+  match TypecheckM.run (.init store) (.init store) (typecheckConstByNameM name) with
   | .ok u => .ok u
   | .error err => throw $ toString err
 
@@ -181,11 +182,55 @@ instance : Testable (FoundConstFailure constName) :=
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    if true then
-    --if const.name == `instDecidableEqUSize then
-      tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-        (typecheckConst stt.tcStore const.name) fun _ => .done
-    else tSeq
+    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+      (typecheckConstByName stt.tcStore const.name) fun _ => .done
+
+def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except String Unit :=
+  match TypecheckM.run (.init store) (.init store) (checkConst const idx) with
+  | .ok u => .ok u
+  | .error err => throw $ toString err
+
+def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestSeq :=
+  let store := stt.tcStore
+  let (testConsts, types, values, indices) := store.consts.toList.enum.foldl
+    (init := ([], [], [], []))
+    fun (consts, types, values, indices) (idx, c) => match c with
+      | c@(.theorem    ⟨_, _, type, value⟩)
+      | c@(.opaque     ⟨_, _, type, value, _⟩)
+      | c@(.definition ⟨_, _, type, value, _, _⟩) =>
+        (c :: consts, type :: types, value :: values, idx :: indices)
+      | _ => (consts, types, values, indices)
+
+  -- we can't allow the cycling to roundtrip
+  let nRounds := min maxRounds (testConsts.length - 1)
+
+  -- messing types
+  let tSeq := List.range nRounds |>.foldl (init := .done) fun tSeq iRound =>
+    let testPairs : List (TC.Const × Nat) :=
+      (testConsts.zip $ (types.rotate iRound).zip indices).map fun (c, t, i) =>
+        match c with
+        | .theorem    x => (.theorem    { x with type := t }, i)
+        | .opaque     x => (.opaque     { x with type := t }, i)
+        | .definition x => (.definition { x with type := t }, i)
+        | _ => unreachable!
+    testPairs.foldl (init := tSeq) fun tSeq (c, i) =>
+      tSeq ++ withExceptError s!"{c.name} ({c.ctorName}) doesn't typecheck"
+        (typecheckConst store c i) fun _ => .done
+
+  -- messing values
+  let tSeq := List.range nRounds |>.foldl (init := tSeq) fun tSeq iRound =>
+    let testPairs : List (TC.Const × Nat) :=
+      (testConsts.zip $ (values.rotate iRound).zip indices).map fun (c, v, i) =>
+        match c with
+        | .theorem    x => (.theorem    { x with value := v }, i)
+        | .opaque     x => (.opaque     { x with value := v }, i)
+        | .definition x => (.definition { x with value := v }, i)
+        | _ => unreachable!
+    testPairs.foldl (init := tSeq) fun tSeq (c, i) =>
+      tSeq ++ withExceptError s!"{c.name} ({c.ctorName}) doesn't typecheck"
+        (typecheckConst store c i) fun _ => .done
+
+  tSeq
 
 end Typechecking
 

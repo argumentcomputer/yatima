@@ -55,6 +55,7 @@ lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
+lean_exe Tests.Typechecker.Negative        { supportInterpreter := true }
 lean_exe Tests.Transpilation.TrickyTypes   { supportInterpreter := true }
 lean_exe Tests.Transpilation.Primitives    { supportInterpreter := true }
 
