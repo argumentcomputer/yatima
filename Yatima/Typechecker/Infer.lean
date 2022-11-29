@@ -82,7 +82,7 @@ mutual
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
       --dbg_trace s!"mismatch (inferred, expected): {repr inferType.info}, {repr type.info}"
-      --dbg_trace s!"failed checking: {term} : {type.get}"
+      dbg_trace s!"failed checking {(← read).const}"
       throw $ .valueMismatch (toString type.get) (toString inferType.get)
     else
       --dbg_trace s!"done checking: {term} : {type.get}"
@@ -212,7 +212,7 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := withResetCtx do
+  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := withResetCtx c.name do
     --dbg_trace s!"Checking: {c.name}"
     match (← get).tcConsts.get? idx with
     | .some .none =>
