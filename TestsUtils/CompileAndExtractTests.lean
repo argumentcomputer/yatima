@@ -200,6 +200,7 @@ def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestS
         | c@(.theorem    ⟨_, _, type, value⟩)
         | c@(.opaque     ⟨_, _, type, value, _⟩)
         | c@(.definition ⟨_, _, type, value, _, _⟩) =>
+          -- FIX : this check is not sufficient
           if !seenTypes.contains type then
             (c::consts, type::types, value::values, idx::indices, seenTypes.insert type)
           else x
@@ -210,29 +211,31 @@ def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestS
 
   -- rotating types
   let tSeq := List.range nRounds |>.foldl (init := .done) fun tSeq iRound =>
-    let testPairs : List (TC.Const × Nat) :=
-      (testConsts.zip $ (types.rotate iRound.succ).zip indices).map fun (c, t, i) =>
-        match c with
-        | .theorem    x => (.theorem    { x with type := t }, i)
-        | .opaque     x => (.opaque     { x with type := t }, i)
-        | .definition x => (.definition { x with type := t }, i)
-        | _ => unreachable!
-    testPairs.foldl (init := tSeq) fun tSeq (c, i) => tSeq ++
-      withExceptError s!"{c.name} doesn't typecheck (round {iRound}, rotated types)"
-        (typecheckConst store c i) fun _ => .done
+    let testPairs : List (TC.Const × TC.Expr × Nat) :=
+      (testConsts.zip $ (types.rotate iRound.succ).zip $ values.zip indices).map
+        fun (c, t, v, i) => match c with
+          | .theorem    x => (.theorem    { x with type := t }, v, i)
+          | .opaque     x => (.opaque     { x with type := t }, v, i)
+          | .definition x => (.definition { x with type := t }, v, i)
+          | _ => unreachable!
+    testPairs.foldl (init := tSeq) fun tSeq (c, v, i) =>
+      match typecheckConst store c i with
+      | .ok _ => tSeq ++ test s!"{c.name} : {c.type} := {v}" false
+      | .error _ => tSeq
 
   -- rotating values
   let tSeq := List.range nRounds |>.foldl (init := tSeq) fun tSeq iRound =>
-    let testPairs : List (TC.Const × Nat) :=
-      (testConsts.zip $ (values.rotate iRound.succ).zip indices).map fun (c, v, i) =>
-        match c with
-        | .theorem    x => (.theorem    { x with value := v }, i)
-        | .opaque     x => (.opaque     { x with value := v }, i)
-        | .definition x => (.definition { x with value := v }, i)
-        | _ => unreachable!
-    testPairs.foldl (init := tSeq) fun tSeq (c, i) => tSeq ++
-      withExceptError s!"{c.name} doesn't typecheck (round {iRound}, rotated values)"
-        (typecheckConst store c i) fun _ => .done
+    let testPairs : List (TC.Const × TC.Expr × Nat) :=
+      (testConsts.zip $ (values.rotate iRound.succ).zip indices).map
+        fun (c, v, i) => match c with
+          | .theorem    x => (.theorem    { x with value := v }, v, i)
+          | .opaque     x => (.opaque     { x with value := v }, v, i)
+          | .definition x => (.definition { x with value := v }, v, i)
+          | _ => unreachable!
+    testPairs.foldl (init := tSeq) fun tSeq (c, v, i) =>
+      match typecheckConst store c i with
+      | .ok _ => tSeq ++ test s!"{c.name} : {c.type} := {v}" false
+      | .error _ => tSeq
 
   tSeq
 
