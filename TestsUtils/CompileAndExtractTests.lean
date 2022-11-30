@@ -166,12 +166,13 @@ Here we define the following extractors:
 false negatives by requiring that everything that typechecks in Lean 4 should
 also be accepted by our implementation
 
-* `extractNegativeTypecheckTests` filters constants with type/value pairs
-(theorems, opaques and definitions), skipping constants with repeated types,
-and scrambles type/value pairs with a certain number of List rotations. For
-example, if we have the pairs `(t₁, v₁)`, `(t₂, v₂)` and `(t₃, v₃)`, the first
-rotation of types gives us `(t₂, v₁)`, `(t₃, v₂)` and `(t₁, v₃)`, producing
-pairs that shouldn't typecheck. Similarly, the first rotation of values gives us
+* `extractNegativeTypecheckTests` asserts that our typechecker doesn't have
+false positives by filtering constants with type/value pairs (theorems, opaques
+and definitions), skipping constants with repeated types, and scrambles
+type/value pairs with a certain number of List rotations. For example, if we
+have the pairs `(t₁, v₁)`, `(t₂, v₂)` and `(t₃, v₃)`, the first rotation of
+types gives us `(t₂, v₁)`, `(t₃, v₂)` and `(t₁, v₃)`, producing pairs that
+shouldn't typecheck. Similarly, the first rotation of values gives us
 `(t₁, v₂)`, `(t₂, v₃)` and `(t₃, v₁)`, which shouldn't typecheck either.
 Rotating types and values are different operations because constants have more
 attributes than just types and values (e.g. universe levels). Note that, with
@@ -179,29 +180,16 @@ attributes than just types and values (e.g. universe levels). Note that, with
 back to the original pairs.
 -/
 
-def typecheckConstByNameM (name : Name) : TypecheckM Unit := do
-  ((← read).store.consts.toList.enum.filter fun (_, const) => const.name == name).forM
-    fun (i, const) => checkConst const i
-
-def typecheckConstByName (store : TC.Store) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init store) (.init store) (typecheckConstByNameM name) with
-  | .ok u => .ok u
-  | .error err => throw $ toString err
-
-inductive FoundConstFailure (constName : String) : Prop
-
-instance : Testable (FoundConstFailure constName) :=
-  .isFailure $ .some s!"Could not find constant {constName}"
-
-def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConstByName stt.tcStore const.name) fun _ => .done
-
 def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except String Unit :=
   match TypecheckM.run (.init store) (.init store) (checkConst const idx) with
   | .ok u => .ok u
   | .error err => throw $ toString err
+
+def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
+  let store := stt.tcStore
+  store.consts.data.enum.foldl (init := .done) fun tSeq (i, const) => tSeq ++
+    withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+      (typecheckConst store const i) fun _ => .done
 
 def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestSeq :=
   let store := stt.tcStore
@@ -229,8 +217,8 @@ def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestS
         | .opaque     x => (.opaque     { x with type := t }, i)
         | .definition x => (.definition { x with type := t }, i)
         | _ => unreachable!
-    testPairs.foldl (init := tSeq) fun tSeq (c, i) =>
-      tSeq ++ withExceptError s!"{c.name} ({c.ctorName}) doesn't typecheck"
+    testPairs.foldl (init := tSeq) fun tSeq (c, i) => tSeq ++
+      withExceptError s!"{c.name} doesn't typecheck (round {iRound}, rotated types)"
         (typecheckConst store c i) fun _ => .done
 
   -- rotating values
@@ -242,8 +230,8 @@ def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestS
         | .opaque     x => (.opaque     { x with value := v }, i)
         | .definition x => (.definition { x with value := v }, i)
         | _ => unreachable!
-    testPairs.foldl (init := tSeq) fun tSeq (c, i) =>
-      tSeq ++ withExceptError s!"{c.name} ({c.ctorName}) doesn't typecheck"
+    testPairs.foldl (init := tSeq) fun tSeq (c, i) => tSeq ++
+      withExceptError s!"{c.name} doesn't typecheck (round {iRound}, rotated values)"
         (typecheckConst store c i) fun _ => .done
 
   tSeq
