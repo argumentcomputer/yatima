@@ -11,5 +11,5 @@ def main := do
     [
       extractIpldTests,
       extractConverterTests,
-      extractPositiveTypecheckTests/-, extractNegativeTypecheckTests 5-/]
+      extractPositiveTypecheckTests]
   lspecIO tSeq

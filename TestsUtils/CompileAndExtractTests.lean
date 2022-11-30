@@ -178,6 +178,9 @@ Rotating types and values are different operations because constants have more
 attributes than just types and values (e.g. universe levels). Note that, with
 `n` pairs, we can't allow more than `n - 1` rotations because that would take us
 back to the original pairs.
+
+Note: `extractNegativeTypecheckTests` doesn't work on fixtures with constants
+that have equivalent types that are different terms of `TC.Expr`.
 -/
 
 def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except String Unit :=
@@ -200,7 +203,6 @@ def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestS
         | c@(.theorem    ⟨_, _, type, value⟩)
         | c@(.opaque     ⟨_, _, type, value, _⟩)
         | c@(.definition ⟨_, _, type, value, _, _⟩) =>
-          -- FIX : this check is not sufficient
           if !seenTypes.contains type then
             (c::consts, type::types, value::values, idx::indices, seenTypes.insert type)
           else x
