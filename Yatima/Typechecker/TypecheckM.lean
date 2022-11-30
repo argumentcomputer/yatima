@@ -24,6 +24,7 @@ structure TypecheckCtx where
   env       : Env
   types     : List SusValue
   store     : Store
+  const     : Name
   mutTypes  : Std.RBMap ConstIdx (List Univ → SusValue) compare
   deriving Inhabited
 
@@ -66,8 +67,8 @@ def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
 /--
 Evaluates a `TypecheckM` computation with a reset `TypecheckCtx`.
 -/
-def withResetCtx : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, mutTypes := default}
+def withResetCtx (const : Name) : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, const := const, mutTypes := default}
 
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
