@@ -313,6 +313,8 @@ mutual
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
+          let some ind := (← get).constsIdx.find? induct.meta.name
+            | throw $ .cannotFindNameIdx $ toString (induct.meta.name : Name)
           let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
           let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
           let recursorAnon := Sigma.snd pairAnon
@@ -331,10 +333,10 @@ mutual
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
             let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) →
               (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
-            | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k }
+            | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k, ind}
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
-              pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k }
+              pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k, ind}
             | _, _, _, _ => throw .irError
             casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
         | .quotient quotientAnon, .quotient quotientMeta =>

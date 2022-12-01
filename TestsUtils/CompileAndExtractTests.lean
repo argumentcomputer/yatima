@@ -142,8 +142,8 @@ def reindexConst (map : NatNatMap) : Const → Const
       rhs := reindexExpr map r.rhs,
       ctor := reindexCtor map r.ctor }
     .extRecursor { x with
-      type := reindexExpr map x.type, rules := rules }
-  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
+      type := reindexExpr map x.type, rules := rules, ind := map.find! x.ind}
+  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type, ind := map.find! x.ind }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def extractConverterTests (stt : CompileState) : TestSeq :=
@@ -195,8 +195,12 @@ instance : Testable (FoundConstFailure constName) :=
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-      (typecheckConstByName stt.tcStore const.name) fun _ => .done
+    --if true then
+    if const.name == `Prod.noConfusion then
+      tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+        (typecheckConstByName stt.tcStore const.name) fun _ => .done
+    else
+      tSeq
 
 def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except String Unit :=
   match TypecheckM.run (.init store) (.init store) (checkConst const idx) with
