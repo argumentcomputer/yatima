@@ -1,5 +1,4 @@
 import Yatima.Compiler.Compiler
-import Yatima.Transpiler.Transpiler
 import Yatima.Cli.Cronos
 import Yatima.Ipld.FromIpld
 import Cli

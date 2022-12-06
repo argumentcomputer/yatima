@@ -11,12 +11,20 @@ def natBEqF := 5 == 4
 def natBEqT := 5 == 5
 def natEqF := decide (3 == 1000)
 def natEqT := decide (3 == 3)
+def natMatch : Nat → Nat
+  | 0 => 0
+  | _ + 1 => 10
+def natMatchApp := natMatch 2
+def natMatchRec : Nat → Nat
+  | 0 => 0
+  | n + 1 => natMatchRec n + 2 
+def natMatchRecApp := natMatchRec 10
 
 def charA := 'a'
 def charOfNat := Char.ofNat 97 
 def charToNat := Char.toNat 'a'
 
-def list := [1, 2, 3, 4, 5, 6]
+def list : List Nat := [1, 2, 3, 4, 5, 6]
 def listMap := list.map fun x => x + 1
 def listFoldl := list.foldl (init := 0) fun acc x => acc + x
 def listBeq := list == [1, 2, 3, 4, 5, 6]
@@ -33,3 +41,11 @@ def stringBEqF := abcd == efg
 def stringBEqT := abcd == abcd
 def stringEqF := decide (abcd = efg)
 def stringEqT := decide (abcd = abcd)
+
+def name : Lean.Name := `hello
+def nameAppend : Lean.Name := `hello ++ `world
+def nameToString := nameAppend.toString
+
+def hmm (y : Nat) := 
+  let f x := x + x
+  f (f y)
