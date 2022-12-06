@@ -290,7 +290,9 @@ mutual
           match struct with
           | none => pure e
           | some ctor => do
-            let some ctorIdx := ctor.all.get? 0 | throw .impossible
+            -- index 0 is the inductive itself, index 1 is the constructor;
+            -- this is guaranteed because structs can't appear in mutual blocks
+            let some ctorIdx := ctor.all.get? 1 | throw .impossible
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut args : List SusValue := params
               for idx in [:ctor.fields] do
@@ -303,12 +305,16 @@ mutual
                 annotatedArgs := annotatedArgs ++ [(lastArg, info)]
               pure $ .app (.const ctor.name ctorIdx univs) $ annotatedArgs
             match e with
-            | .app (.const _ idx _) _ =>
+            | .app (.const n idx _) _ =>
+              --dbg_trace s!"constant head: {n}, {idx}, {ctorIdx}"
               -- FIXME do not `etaExpand` if the struct is in `Prop`
               if ctorIdx == idx then
+                --dbg_trace s!"not eta-expanding..."
                 -- this is already a constructor application
                 pure e
-              else etaExpand e
+              else 
+                --dbg_trace s!"eta-expanding..."
+                etaExpand e
             | _ => etaExpand e
         | _ => throw .impossible
 end

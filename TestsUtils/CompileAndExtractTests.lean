@@ -195,8 +195,8 @@ instance : Testable (FoundConstFailure constName) :=
 
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
   stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    --if true then
-    if const.name == `Prod.noConfusion then
+    if true then
+    --if const.name == `Prod.noConfusion then
       tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
         (typecheckConstByName stt.tcStore const.name) fun _ => .done
     else
