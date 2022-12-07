@@ -351,25 +351,24 @@ partial def mkRecursor (recr : Both $ Recursor r) (ctors : List $ Both Construct
   match ← telescopeLamPi recrType with
   | (as, _) => match as.data.reverse with
     | [] => throw "Empty arguments for recursor type"
-    | argName :: _ =>
-      let argName ← safeName argName
+    | majorName :: _ =>
+      let majorName ← safeName majorName
       let recrArgs ← as.mapM safeName
       let recrName := recr.meta.name.projᵣ
       match ctors.head?.map (·.meta.name.projᵣ) with
       | some ``List.nil | some ``List.cons =>
-        mkListRecursor recrName argName recrArgs ctors
+        mkListRecursor recrName majorName recrArgs ctors
       | _ =>
-        let recrIndices := recr.anon.indices.projₗ
         let ifThens : List (AST × AST) ← ctors.mapM fun ctor => do
           let (idx, fields) := (ctor.anon.idx.projₗ, ctor.anon.fields.projₗ)
           let rhs ← derefExpr ⟨ctor.anon.rhs, ctor.meta.rhs⟩
           let (as, rhs) ← telescopeLamPi rhs
           let rhs ← mkAST rhs
-          let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
+          let _lurk_ctor_args := ⟦(getelem (cdr (cdr $majorName)) 2)⟧
           let ctorArgs := (List.range fields).map
             fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
 
-          let rhsCtorArgNames ← as.data.takeLast (fields - recrIndices)
+          let rhsCtorArgNames ← as.data.takeLast fields
             |>.mapM safeName
 
           let bindings :=
@@ -377,7 +376,7 @@ partial def mkRecursor (recr : Both $ Recursor r) (ctors : List $ Both Construct
             |>.map fun (n, e) => (n.toString false, e)
 
           -- extract snd element
-          pure (⟦(= (car (cdr $argName)) $idx)⟧, .mkLet bindings rhs)
+          pure (⟦(= (car (cdr $majorName)) $idx)⟧, .mkLet bindings rhs)
         let cases := AST.mkIfElses ifThens .nil
         return (recrName, ⟦(lambda $recrArgs $cases)⟧)
 
