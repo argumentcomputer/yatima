@@ -14,8 +14,11 @@ def transpile2Run (p : Cli.Parsed) : IO UInt32 := do
   match transpile transpileEnv declaration with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>
-    let output := s!"lurk/out_{declaration}.lurk"
-    IO.FS.writeFile (p.getFlagD "output" output) (expr.toString true)
+    let output : System.FilePath := ⟨p.getFlagD "output" s!"lurk/{declaration}.lurk"⟩
+    match output.parent with
+    | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
+    | none => pure ()
+    IO.FS.writeFile output (expr.toString true)
     if p.hasFlag "run" then
       match expr.eval with
       | .error err => IO.eprintln err; return 1
