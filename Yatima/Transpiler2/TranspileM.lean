@@ -10,7 +10,6 @@ open Lurk.Syntax (AST)
 open Lean.Compiler.LCNF Lean.Core
 
 structure TranspileEnv where
-  lctx : LCtx
   decls : Lean.NameMap Decl
   constants : Lean.ConstMap
   overrides : Lean.NameMap Override
@@ -50,14 +49,15 @@ def visit (name : Lean.Name) : TranspileM Unit :=
   return (← get).visited.contains n
 
 def getBinderName (fvarId : Lean.FVarId) : TranspileM Lean.Name := do
-  let lctx := (← read).lctx
-  if let some decl := lctx.letDecls.find? fvarId then
-    return decl.binderName
-  else if let some decl := lctx.params.find? fvarId then
-    return decl.binderName
-  else if let some decl := lctx.funDecls.find? fvarId then
-    return decl.binderName
-  else throw s!"unknown free variable {fvarId.name}"
+  return fvarId.name
+  -- let lctx := (← read).lctx
+  -- if let some decl := lctx.letDecls.find? fvarId then
+  --   return decl.binderName
+  -- else if let some decl := lctx.params.find? fvarId then
+  --   return decl.binderName
+  -- else if let some decl := lctx.funDecls.find? fvarId then
+  --   return decl.binderName
+  -- else throw s!"unknown free variable {fvarId.name}"
 
 def withOverrides (overrides : Lean.NameMap Override) : TranspileM α → TranspileM α :=
   withReader fun env => { env with overrides := overrides }

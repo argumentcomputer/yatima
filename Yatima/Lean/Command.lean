@@ -1,5 +1,6 @@
 import Lean
-import Yatima.Transpiler2.Compile
+import Yatima.Lean.Compile
+import Yatima.Lean.RunFrontend
 
 open Lean Elab Command Term Meta
 
@@ -46,7 +47,6 @@ partial def Lean.Elab.Frontend.processCore (x : CoreM α) : FrontendM α := do
 def IO.processCore 
     (inputCtx : Parser.InputContext) (parserState : Parser.ModuleParserState) 
     (commandState : Command.State) (x : CoreM α) : IO (α × Frontend.State) := do
-  
   (Frontend.processCore x |>.run { inputCtx := inputCtx }).run 
     { commandState := commandState, parserState := parserState, cmdPos := parserState.pos }
 
@@ -65,6 +65,21 @@ def Lean.Elab.runCoreFrontend
 
   let a := if s.commandState.messages.hasErrors then none else some a
   pure (a, s.commandState.env)
+
+def Lean.Elab.runTestFrontend 
+    (input : String) (fileName : String := default) : IO (Bool × Environment) := do
+  let inputCtx := Parser.mkInputContext input fileName
+  let (header, parserState, messages) ← Parser.parseHeader inputCtx
+  let (env, messages) ← Yatima.processHeader header default messages inputCtx 0
+  let env := env.setMainModule default
+  let commandState := Command.mkState env messages default
+
+  let s ← IO.processCommands inputCtx parserState commandState
+  IO.println ">> runTestFrontend: print errors"
+  for msg in s.commandState.messages.toList do
+    IO.print (← msg.toString (includeEndPos := getPrintMessageEndPos default))
+
+  pure (!s.commandState.messages.hasErrors, s.commandState.env)
 
 def passes : Array Pass := #[
   init,
@@ -103,8 +118,8 @@ def passes : Array Pass := #[
 ]
 
 -- def natSub1 := 100 - 2
--- def list := [1, 2, 3, 4, 5, 6]
--- def listMap := list.map fun x => x + 1
+def list := [1, 2, 3, 4, 5, 6]
+def listMap := list.map fun x => x + 1
 -- def listBeq := list == [1, 2, 3, 4, 5, 6]
 -- def natMatch : Nat → Nat
 --   | 0 => 0
@@ -124,18 +139,32 @@ def passes : Array Pass := #[
 -- #eval Compiler.compileWithPasses #[``Lean.Name.str._override] passes
 
 def Lean.Elab.compile (filePath : System.FilePath) (decls : Array Name) (recurse? := true) : 
-    IO (Array Decl × CompilerM.State × Environment) := do
+    IO (Array Decl × Environment) := do
   let input ← IO.FS.readFile filePath
   Lean.setLibsPaths
-  let (a, env) ← runCoreFrontend input filePath.toString $ 
+  let (res, env) ← runCoreFrontend input filePath.toString $ 
     LCNF.compileWithPasses decls passes recurse?
-  match a with 
-  | some (decls, s) => return (decls, s, env)
+  match res with 
+  | some decls => return (decls, env)
   | none => throw $ .userError s!"failed to compile {decls}"
 
+
+def Lean.Elab.testFrontend (filePath : System.FilePath) (decls : Array Name) : 
+    IO Unit := do
+  let input ← IO.FS.readFile filePath
+  Lean.setLibsPaths
+  let (res, env) ← runTestFrontend input filePath.toString
+  IO.println ">> testFrontend"
+  IO.println s!"res: {res}"
+  IO.println s!"`List.map exists? {(Compiler.LCNF.getDeclCore? env Compiler.LCNF.monoExt `List.map).isSome}"
+  IO.println $ reprStr $ getDeclCore? env Compiler.LCNF.monoExt `listMap
+
+set_option trace.Compiler.result true
 def test : IO UInt32 := do
-  let res ← compile "Fixtures/Transpilation/Primitives.lean" #[`List.length]
-  IO.println $ reprStr res.1
+  let (res, env) ← Lean.Elab.compile "Fixtures/Transpilation/Primitives.lean" #[`name]
+  IO.println s!"res: "
+  IO.println $ reprStr res
+
   return 0
 
 #eval test

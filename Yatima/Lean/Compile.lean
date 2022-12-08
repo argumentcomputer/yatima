@@ -1,7 +1,18 @@
 import Lean.Compiler.LCNF.Main
-import Yatima.Transpiler2.Preprocess
+import Yatima.Lean.Preprocess
 
 namespace Lean.Compiler.LCNF
+
+def getDeclsCore? (env : Environment) (ext : DeclExt) (declName : Name) : Array Decl :=
+  match env.getModuleIdxFor? declName with
+  | some modIdx => ext.getModuleEntries env modIdx
+  | none        => 
+    ext.getState env |>.foldl (init := #[]) fun acc _ decl => acc.push decl
+
+def sanitizeName : Name → Name
+  | .str name "_redArg" => name
+  | x => x
+
 
 namespace PassManager
 
@@ -25,10 +36,10 @@ def runWithPasses (declNames : Array Name) (passes : Array Pass) (recurse? := tr
   and it often creates a very deep recursion.
   Moreover, some declarations get very big during simplification.
   -/
-  let declNames := if recurse? then
-    visitAll (← getEnv).constants declNames |>.toArray
-  else 
-    declNames
+  -- let declNames := if recurse? then
+  --   visitAll (← getEnv).constants declNames |>.toArray
+  -- else 
+  --   declNames
   dbg_trace s!">> runWithPasses declnames: {declNames}"
   let declNames ← declNames.filterM (shouldGenerateCode ·)
   if declNames.isEmpty then return #[]
@@ -50,9 +61,26 @@ def CompilerM.run' (x : CompilerM α) (s : State := {}) (phase : Phase := .base)
     CoreM (α × State) := do
   x { phase, config := toConfigOptions (← getOptions) } |>.run s
 
-def compileWithPasses (declNames : Array Name) (passes : Array Pass) (recurse? := true) : 
+def compileWithPassesCore (declNames : Array Name) (passes : Array Pass) (recurse? := true) : 
     CoreM (Array Decl × CompilerM.State) := do
   CompilerM.run' <| PassManager.runWithPasses declNames passes recurse?
+
+def compileWithPasses (declNames : Array Name) (passes : Array Pass) (recurse? := true) : 
+    CoreM (Array Decl) := do
+  let mut queue := declNames
+  let mut visited : NameSet := .empty
+  let mut res : Array Decl := #[]
+  while !queue.isEmpty do
+    dbg_trace s!">> compileWithPasses queue: {queue}"
+    let (decls, _) ← CompilerM.run' <| PassManager.runWithPasses queue passes recurse?
+    dbg_trace s!">> compileWithPasses generated: {decls.map Decl.name}"
+    for decl in decls do
+      visited := visited.insert decl.name
+      res := res.push decl
+    let decls := decls.concatMap (·.getUsedConstants)
+    let decls := decls.filter fun decl => !visited.contains decl
+    queue := decls.map sanitizeName
+  return res
 
 end LCNF
 

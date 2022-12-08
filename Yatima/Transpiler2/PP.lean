@@ -90,47 +90,4 @@ end
 def ppDecl (decl : Decl) : M Format :=
   return f!"def {decl.name}{← ppParams decl.params} : lcErasedType :={indentD (← ppCode decl.value)}"
 
-
--- def run (x : M α) : CompilerM α :=
---   withOptions (pp.sanitizeNames.set · false) do
---     x |>.run (← get).lctx.toLocalContext
-
--- def ppCode (code : Code) : CompilerM Format :=
---   PP.run <| PP.ppCode code
-
--- def ppLetValue (e : LetValue) : CompilerM Format :=
---   PP.run <| PP.ppLetValue e
-
--- def ppFunDecl (decl : FunDecl) : CompilerM Format :=
---   PP.run do
---     return f!"fun {← PP.ppFunDecl decl}"
-
--- /--
--- Execute `x` in `CoreM` without modifying `Core`s state.
--- This is useful if we want make sure we do not affect the next free variable id.
--- -/
--- def runCompilerWithoutModifyingState (x : CompilerM α) : CoreM α := do
---   let s ← get
---   try
---     x |>.run {}
---   finally
---     set s
-
--- /--
--- Similar to `ppDecl`, but in `CoreM`, and it does not assume
--- `decl` has already been internalized.
--- This function is used for debugging purposes.
--- -/
--- def ppDecl' (decl : Decl) : CoreM Format := do
---   runCompilerWithoutModifyingState do
---     ppDecl (← decl.internalize)
-
--- /--
--- Similar to `ppCode`, but in `CoreM`, and it does not assume
--- `code` has already been internalized.
--- -/
--- def ppCode' (code : Code) : CoreM Format := do
---   runCompilerWithoutModifyingState do
---     ppCode (← code.internalize)
-
 end Yatima.Transpiler2

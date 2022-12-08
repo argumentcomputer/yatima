@@ -1,5 +1,5 @@
 import Yatima.Cli.Utils
-import Yatima.Transpiler2.Command
+import Yatima.Lean.Command
 import Yatima.Transpiler2.Transpiler
 import Lurk.Evaluation.FromAST
 import Lurk.Evaluation.Eval
@@ -8,9 +8,9 @@ open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler2 in
 def transpile2Run (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
   let declaration := String.toName <| p.getFlagD "declaration" "root"
-  let (decls, s, env) ← Lean.Elab.compile fileName #[declaration]
+  let (decls, env) ← Lean.Elab.compile fileName #[declaration]
   let decls := decls.foldl (init := .empty) fun acc decl => acc.insert decl.name decl
-  let transpileEnv := ⟨s.lctx, decls, env.constants, .empty⟩
+  let transpileEnv := ⟨decls, env.constants, .empty⟩
   match transpile transpileEnv declaration with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>

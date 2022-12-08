@@ -3,7 +3,7 @@ import Std.Data.List.Basic
 import Lurk.Syntax.ExprUtils
 import Lurk.Evaluation.FromAST
 import Yatima.Transpiler2.PP
-import Yatima.Transpiler2.Compile
+import Yatima.Lean.Compile
 import Yatima.Transpiler2.LurkFunctions
 
 namespace Yatima.Transpiler2
@@ -162,8 +162,8 @@ def mkArg : Arg → TranspileM AST
   | .type _ => return toAST "lcErasedType"
 
 def mkParam : Param → TranspileM AST
-  | ⟨fvarId, binderName, type, borrow⟩ =>
-    mkName binderName
+  | ⟨fvarId, _, _, _⟩ =>
+    mkName fvarId.name
 
 def mkParams (params : Array Param) : TranspileM (Array AST) := do
   params.mapM mkParam
@@ -193,7 +193,7 @@ mutual
   partial def mkLetValue : LetValue → TranspileM AST
     | .value lit => return toAST lit
     | .erased => return toAST "lcErased"
-    | .proj typeName idx struct =>
+    | .proj _ idx struct =>
       -- TODO FIXME: use `typeName` to get params and add to `idx`
       return ⟦(getelem $idx $struct.name)⟧
     | .const declName _ args => do
@@ -206,19 +206,19 @@ mutual
       return (← mkFVarId fvarId).cons $ toAST (← args.mapM mkArg)
 
   partial def mkLetDecl : LetDecl → TranspileM AST
-    | ⟨fvarId, binderName, type, value⟩ => do
-      let binderName ← safeName binderName
-      dbg_trace s!">> mkLetDecl {binderName} {← ppLetValue value}"
+    | ⟨fvarId, _, _, value⟩ => do
+      let fvarId ← safeName fvarId.name
+      dbg_trace s!">> mkLetDecl {fvarId} {← ppLetValue value}"
       let value ← mkLetValue value
-      dbg_trace s!">> mkLetDecl {binderName} {value}"
-      return ⟦($binderName $value)⟧
+      dbg_trace s!">> mkLetDecl {fvarId} {value}"
+      return ⟦($fvarId $value)⟧
 
   partial def mkFunDecl : FunDecl → TranspileM AST
-    | ⟨fvarId, binderName, params, type, value⟩ => do
-      let binderName ← safeName binderName
+    | ⟨fvarId, _, params, _, value⟩ => do
+      let fvarId ← safeName fvarId.name
       let value ← mkCode value
       let params ← params.mapM mkParam
-      return ⟦($binderName (lambda $params $value))⟧
+      return ⟦($fvarId (lambda $params $value))⟧
 
   partial def mkOverrideAlt (indData : InductiveData) :
       Alt → TranspileM Override.Alt
@@ -226,7 +226,7 @@ mutual
     | .alt ctor params k => do
       let some cidx := indData.ctors.find? ctor |
         throw s!"{ctor} not a valid constructor for {indData.name}"
-      let params ← params.mapM fun p => safeName p.binderName
+      let params ← params.mapM fun p => safeName p.fvarId.name
       return .alt cidx params (← mkCode k)
 
   partial def mkOverrideAlts (indData : InductiveData) (alts : Array Alt) :
@@ -234,7 +234,7 @@ mutual
     alts.mapM $ mkOverrideAlt indData
 
   partial def mkCases (cases : Cases) : TranspileM AST := do
-    let ⟨typeName, resultType, discr, alts⟩ := cases
+    let ⟨typeName, _, discr, alts⟩ := cases
     appendName typeName
     let indData := ← match (← get).inductives.find? typeName with
       | some data => return data
@@ -248,22 +248,12 @@ mutual
 
   partial def mkCode : Code → TranspileM AST
     | .let decl k => do
-      dbg_trace s!">> mkCode let decl: {← ppLetDecl decl}, k: {← ppCode k}"
       let decl ← mkLetDecl decl
       let k ← mkCode k
-      dbg_trace s!">> mkCode let decl: {decl}, k: {k}"
       return ⟦(let ($decl) $k)⟧
-    | .fun decl k => do
-      dbg_trace s!">> mkCode fun decl: {← ppFunDecl decl}, k: {← ppCode k}"
+    | .fun decl k | .jp decl k => do -- `.fun` and `.jp` are the same case to Lurk
       let decl ← mkFunDecl decl
       let k ← mkCode k
-      dbg_trace s!">> mkCode fun decl: {decl}, k: {k}"
-      return ⟦(let ($decl) $k)⟧
-    | .jp decl k => do
-      dbg_trace s!">> mkCode fun decl: {← ppFunDecl decl}, k: {← ppCode k}"
-      let decl ← mkFunDecl decl
-      let k ← mkCode k
-      dbg_trace s!">> mkCode fun decl: {decl}, k: {k}"
       return ⟦(let ($decl) $k)⟧
     | .jmp fvarId args => do
       let fvarId ← mkFVarId fvarId
@@ -275,9 +265,9 @@ mutual
 
   partial def appendDecl (decl : Decl) : TranspileM Unit := do
     dbg_trace s!">> appendDecl\n{← ppDecl decl}\n"
-    let ⟨name, lvls, type, params, value, recr, safe, inlineAttr?⟩ := decl
+    let ⟨name, _, _, params, value, _, _, _⟩ := decl
     visit name
-    let params : Array AST := params.map fun p => toAST p.binderName
+    let params : Array AST := params.map fun p => toAST p.fvarId.name
     let value : AST ← mkCode value
     dbg_trace s!">> appendDecl value: {value}\n"
     let body := if params.isEmpty
