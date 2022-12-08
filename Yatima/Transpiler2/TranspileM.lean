@@ -20,9 +20,27 @@ structure TranspileState where
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
   inductives : Lean.NameMap InductiveData
+  ngen     : Lean.NameGenerator
+  replaced : Lean.NameMap Lean.Name
   deriving Inhabited
-  
+
 abbrev TranspileM := ReaderT TranspileEnv $ EStateM String TranspileState
+
+instance : Lean.MonadNameGenerator TranspileM where
+  getNGen := return (← get).ngen
+  setNGen ngen := modify fun s => { s with ngen := ngen }
+
+/-- Create a fresh variable to replace `name` and update `replaced` -/
+def replace (name : Lean.Name) : TranspileM Lean.Name := do
+  let mut name' ← Lean.mkFreshId
+  let env ← read
+  while env.decls.contains name'
+      || env.constants.contains name'
+      || env.overrides.contains name' do
+    -- making sure we don't hit an existing name
+    name' ← Lean.mkFreshId
+  modifyGet fun stt => (name', { stt with
+    replaced := stt.replaced.insert name name' })
 
 /-- Set `name` as a visited node -/
 def visit (name : Lean.Name) : TranspileM Unit :=
@@ -39,13 +57,12 @@ def getBinderName (fvarId : Lean.FVarId) : TranspileM Lean.Name := do
     return decl.binderName
   else if let some decl := lctx.funDecls.find? fvarId then
     return decl.binderName
-  else
-    throw "unknown free variable {fvarId.name}"
+  else throw s!"unknown free variable {fvarId.name}"
 
 def withOverrides (overrides : Lean.NameMap Override) : TranspileM α → TranspileM α :=
-  fun x => withReader (fun env => { env with overrides := overrides }) x
+  withReader fun env => { env with overrides := overrides }
 
-def TranspileM.run (env : TranspileEnv) (s : TranspileState) (m : TranspileM α) : 
+def TranspileM.run (env : TranspileEnv) (s : TranspileState) (m : TranspileM α) :
     EStateM.Result String TranspileState α :=
   m env |>.run s
 
