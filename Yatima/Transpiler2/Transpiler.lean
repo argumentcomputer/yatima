@@ -245,8 +245,16 @@ mutual
       let k ← mkCode k
       dbg_trace s!">> mkCode fun decl: {decl}, k: {k}"
       return ⟦(let ($decl) $k)⟧
-    | .jp decl k => return .nil
-    | .jmp fvarId args => return .nil
+    | .jp decl k => do
+      dbg_trace s!">> mkCode fun decl: {← ppFunDecl decl}, k: {← ppCode k}"
+      let decl ← mkFunDecl decl
+      let k ← mkCode k
+      dbg_trace s!">> mkCode fun decl: {decl}, k: {k}"
+      return ⟦(let ($decl) $k)⟧
+    | .jmp fvarId args => do
+      let fvarId ← mkFVarId fvarId
+      let args ← args.mapM mkArg
+      return .cons fvarId (toAST args)
     | .cases cases => mkCases cases
     | .return fvarId => mkFVarId fvarId
     | .unreach _ => return toAST "lcUnreachable"
@@ -336,6 +344,7 @@ def transpile (env : TranspileEnv) (root : Lean.Name) : Except String Lurk.Evalu
     let ast := mkLetrec bindings (.sym $ root.toString false)
     -- let ast := ast.pruneBlocks
     dbg_trace s!">> transpile result:\n{ast}\n"
+    -- .ok ast
     ast.toExpr
   | .error e _ => .error e
 

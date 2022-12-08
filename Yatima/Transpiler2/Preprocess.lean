@@ -1,4 +1,5 @@
 import Lean
+import Std.Lean.TagAttribute
 
 namespace Lean
 
@@ -27,13 +28,41 @@ partial def visit (c : Name) : VisitM Unit := do
   for name in consts do
     visit name
 
-partial def visitAll (cs : Array Name) : VisitM Unit := do
+def visitAll (cs : Array Name) : VisitM Unit := do
   for c in cs do visit c
 
 end VisitM
 
-partial def visitAll (constants : ConstMap) (cs : Array Name) : NameSet :=
+def visitAll (constants : ConstMap) (cs : Array Name) : NameSet :=
   let (_, res) := (VisitM.visitAll cs).run constants |>.run .empty
   res
+
+/-- Unfortunately must be hard coded -/
+def visitComputedFields (env : Environment) : NameSet :=
+  let decls := Elab.ComputedFields.computedFieldAttr.getDecls env
+  let decls := decls ++ decls.map fun decl => decl ++ `_override
+  visitAll env.constants decls
+
+namespace Compiler.LCNF
+
+def LetValue.getUsedConstant : LetValue → Array Name
+  | .value _ | .erased | .proj .. | .fvar .. => #[]
+  | .const declName .. => #[declName]  
+
+partial def Code.getUsedConstants : Code → Array Name
+  | .let decl k => k.getUsedConstants ++ decl.value.getUsedConstant
+  | .fun decl k => k.getUsedConstants ++ decl.value.getUsedConstants
+  | .jp decl k => k.getUsedConstants ++ decl.value.getUsedConstants
+  | .cases cs => cs.alts.concatMap fun alt => alt.getCode.getUsedConstants
+  | .jmp .. | .return _ | .unreach _ => #[]
+
+def Decl.getUsedConstants (decl : Decl) : Array Name :=
+  let (name, type, value) := (decl.name, decl.type, decl.value)
+  value.getUsedConstants ++ type.getUsedConstants ++ #[name]
+
+end Compiler.LCNF
+
+def RBMap.toArray (self : RBMap α β cmp) : Array (α × β) :=
+  self.fold (fun r a b => r.push (a, b)) #[]
 
 end Lean
