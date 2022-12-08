@@ -107,7 +107,7 @@ It's important that all overrides match with existing Lean names, so using
 double backticks here can help mitigate some error.
 -/
 
-def NatInductiveData : InductiveData := 
+def NatInductiveData : InductiveData :=
   ⟨``Nat, 0, 0, .ofList [(``Nat.zero, 0), (``Nat.succ, 1)]⟩
 
 def NatCore : Override.Decl := ⟨``Nat, ⟦
@@ -125,24 +125,24 @@ def NatSucc : Override.Decl := ⟨``Nat.succ, ⟦
 def NatMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
   let mut defaultElse : AST := .nil
   let mut ifThens : Array (AST × AST) := #[]
-  for alt in alts do match alt with 
+  for alt in alts do match alt with
     | .default k => defaultElse := k
     | .alt cidx params k =>
       if cidx == 0 then
-        unless params.isEmpty do 
+        unless params.isEmpty do
           throw s!"`Nat.zero` case expects exactly 0 params, got\n {params}"
         ifThens := ifThens.push (⟦(= $discr 0)⟧, k)
       else if cidx == 1 then
-        let #[param] := params | 
+        let #[param] := params |
           throw "`Nat.succ` case expects exactly 1 param, got\n {params}"
         let case : AST := ⟦(let (($param (- $discr 1))) $k)⟧
         ifThens := ifThens.push (⟦(neq $discr 0)⟧, case)
-      else 
+      else
         throw "{cidx} is not a valid `Nat` constructor index"
   let cases := mkIfElses ifThens.toList defaultElse
   return cases
 
-def Nat : Override := Override.ind 
+def Nat : Override := Override.ind
   ⟨NatInductiveData, NatCore, #[NatZero, NatSucc], NatMkCases⟩
 
 def NatAdd : Override := Override.decl ⟨``Nat.add, ⟦
@@ -188,7 +188,7 @@ def NatBeq : Override := Override.decl ⟨``Nat.beq, ⟦
       ,(("Bool" 0 0) 0)))
 ⟧⟩
 
-def ListInductiveData : InductiveData := 
+def ListInductiveData : InductiveData :=
   ⟨``List, 0, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
 
 def ListCore : Override.Decl := ⟨``List, ⟦
@@ -206,19 +206,19 @@ def ListCons : Override.Decl := ⟨``List.cons, ⟦
 def ListMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
   let mut defaultElse : AST := .nil
   let mut ifThens : Array (AST × AST) := #[]
-  for alt in alts do match alt with 
+  for alt in alts do match alt with
     | .default k => defaultElse := k
     | .alt cidx params k =>
       if cidx == 0 then
-        unless params.isEmpty do 
+        unless params.isEmpty do
           throw s!"`List.nil` case expects exactly 0 params, got\n {params}"
         ifThens := ifThens.push (⟦(eq $discr nil)⟧, k)
       else if cidx == 1 then
-        let #[head, tail] := params | 
+        let #[head, tail] := params |
           throw "`List.cons` case expects exactly 2 params, got\n {params}"
         let case : AST := ⟦(let (($head (car $discr)) ($tail (cdr $discr))) $k)⟧
         ifThens := ifThens.push (⟦(neq $discr nil)⟧, case)
-      else 
+      else
         throw "{cidx} is not a valid `List` constructor index"
   let cases := mkIfElses ifThens.toList defaultElse
   return cases
@@ -254,7 +254,7 @@ def ListBeq : Override := Override.decl ⟨``List.beq, ⟦
       ,(("Bool" 0 0) 0)))
 ⟧⟩
 
-def CharInductiveData : InductiveData := 
+def CharInductiveData : InductiveData :=
   ⟨``Char, 0, 0, .ofList [(``Char.mk, 2)]⟩
 
 def CharCore : Override.Decl := ⟨``Char, ⟦
@@ -278,19 +278,22 @@ def CharValid : Override.Decl := ⟨``Char.valid, ⟦
 def CharMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
   let mut defaultElse : AST := .nil
   let mut ifThens : Array (AST × AST) := #[]
-  for alt in alts do match alt with 
+  for alt in alts do match alt with
     | .default k => defaultElse := k
     | .alt cidx params k =>
       if cidx == 0 then
-        unless params.size == 2 do 
+        unless params.size == 2 do
           throw s!"`Char.mk` case expects exactly 2 params, got\n {params}"
         ifThens := ifThens.push (⟦(eq $discr nil)⟧, k)
-      else 
-        throw "{cidx} is not a valid `Char` constructor index"
+      else
+        throw s!"{cidx} is not a valid `Char` constructor index"
   let cases := mkIfElses ifThens.toList defaultElse
   return cases
 
-def StringInductiveData : InductiveData := 
+def Char : Override := Override.ind
+  ⟨CharInductiveData, CharCore, #[CharMk], CharMkCases⟩
+
+def StringInductiveData : InductiveData :=
   ⟨``String, 0, 0, .ofList [(``String.mk, 1)]⟩
 
 def StringCore : Override.Decl := ⟨``String, ⟦
@@ -306,9 +309,9 @@ def StringData : Override.Decl := ⟨``String.data, ⟦
 ⟧⟩
 
 def StringMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
-  let #[.alt 0 params k] := alts | 
+  let #[.alt 0 params k] := alts |
     throw "we assume that structures only have one alternative never produce `default` match cases"
-  let #[param] := params | 
+  let #[param] := params |
     throw s!"`String.mk` case expects exactly 1 params, got\n {params}"
   return ⟦(let (($param (str_data $discr))) $k)⟧
 
@@ -321,7 +324,7 @@ def String : Override := Override.ind
 -- ⟧)
 
 def StringLength : Override := Override.decl ⟨``String.length, ⟦
-  (lambda (s) 
+  (lambda (s)
     (if (eq s "")
         0
         (+ 1 (String.length (cdr s)))))

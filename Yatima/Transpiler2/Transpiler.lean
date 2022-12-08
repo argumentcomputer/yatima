@@ -18,7 +18,7 @@ def overrides : List Override := [
   Lurk.Overrides2.NatDiv,
   Lurk.Overrides2.NatDecLe,
   Lurk.Overrides2.NatBeq,
-  -- Lurk.Overrides2.Char,
+  Lurk.Overrides2.Char,
   -- Lurk.Overrides2.CharMk,
   -- Lurk.Overrides2.CharVal,
   -- Lurk.Overrides2.CharValid,
@@ -259,8 +259,16 @@ mutual
       let k ← mkCode k
       dbg_trace s!">> mkCode fun decl: {decl}, k: {k}"
       return ⟦(let ($decl) $k)⟧
-    | .jp decl k => return .nil
-    | .jmp fvarId args => return .nil
+    | .jp decl k => do
+      dbg_trace s!">> mkCode fun decl: {← ppFunDecl decl}, k: {← ppCode k}"
+      let decl ← mkFunDecl decl
+      let k ← mkCode k
+      dbg_trace s!">> mkCode fun decl: {decl}, k: {k}"
+      return ⟦(let ($decl) $k)⟧
+    | .jmp fvarId args => do
+      let fvarId ← mkFVarId fvarId
+      let args ← args.mapM mkArg
+      return .cons fvarId (toAST args)
     | .cases cases => mkCases cases
     | .return fvarId => mkFVarId fvarId
     | .unreach _ => return toAST "lcUnreachable"

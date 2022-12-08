@@ -12,7 +12,7 @@ structure InductiveData where
   ctors : Lean.NameMap Nat
 
 structure Override.Decl where
-  declName : Name 
+  declName : Name
   decl : AST
 
 inductive Override.Alt where
