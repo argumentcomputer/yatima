@@ -181,11 +181,22 @@ def NatDecLe : Override := Override.decl ⟨``Nat.decLe, ⟦
       ,(("Decidable" 1 0) 0 ("Nat.le" 1 1) t)))
 ⟧⟩
 
+def NatDecLt : Override := Override.decl ⟨``Nat.decLt, ⟦
+  (lambda (a b)
+    (if (< a b)
+      ,(("Decidable" 1 0) 1 ("Nat.lt" 1 1) t)
+      ,(("Decidable" 1 0) 0 ("Nat.lt" 1 1) t)))
+⟧⟩
+
 def NatBeq : Override := Override.decl ⟨``Nat.beq, ⟦
   (lambda (a b) (
     if (= a b)
       ,(("Bool" 0 0) 1)
       ,(("Bool" 0 0) 0)))
+⟧⟩
+
+def UInt32ToNat : Override := .decl ⟨``UInt32.toNat, ⟦
+  (lambda (u) (num u))
 ⟧⟩
 
 def ListInductiveData : InductiveData :=
@@ -292,6 +303,10 @@ def CharMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST :=
 
 def Char : Override := Override.ind
   ⟨CharInductiveData, CharCore, #[CharMk], CharMkCases⟩
+
+def CharOfNat : Override := .decl ⟨``Char.ofNat, ⟦
+  (lambda (n) (char n))
+⟧⟩
 
 def StringInductiveData : InductiveData :=
   ⟨``String, 0, 0, .ofList [(``String.mk, 1)]⟩

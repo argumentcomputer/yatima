@@ -17,8 +17,11 @@ def overrides : List Override := [
   Lurk.Overrides2.NatMul,
   Lurk.Overrides2.NatDiv,
   Lurk.Overrides2.NatDecLe,
+  Lurk.Overrides2.NatDecLt,
   Lurk.Overrides2.NatBeq,
+  Lurk.Overrides2.UInt32ToNat,
   Lurk.Overrides2.Char,
+  Lurk.Overrides2.CharOfNat,
   -- Lurk.Overrides2.CharMk,
   -- Lurk.Overrides2.CharVal,
   -- Lurk.Overrides2.CharValid,
@@ -312,13 +315,11 @@ mutual
       return true
     | none => return false
   where
-    appendPrereqs : AST → TranspileM Unit
-      | .num _ | .char _ | .str _ => return
-      | .cons e₁ e₂ => do appendPrereqs e₁; appendPrereqs e₂
-      | .sym n => do
-        if !(reservedSyms.contains n) && !(← isVisited n) then
-          if (← read).decls.contains name then
-            appendName n
+    appendPrereqs (x : AST) : TranspileM Unit := do
+      if (← read).decls.contains name then match x.getFreeVars with
+        | .error err => throw err
+        | .ok fVars => fVars.toList.forM fun n => do
+          if !(← isVisited n) then appendName n
 
 end
 
@@ -327,7 +328,7 @@ def transpileM (root : Lean.Name) : TranspileM Unit :=
   let overrides := .ofList <| overrides.map fun o => (o.name, o)
   withOverrides overrides do
     dbg_trace s!">> transpileM overrides: {(← read).overrides.toList.map Prod.fst}"
-    for (name, preload) in preloads do
+    preloads.forM fun (name, preload) => do
       visit name
       appendBinding (name, preload) false
     appendName root
