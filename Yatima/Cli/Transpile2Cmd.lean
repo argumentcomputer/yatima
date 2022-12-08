@@ -7,7 +7,7 @@ import Lurk.Evaluation.Eval
 open System Yatima.Compiler Yatima.Typechecker Yatima.Transpiler2 in
 def transpile2Run (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
-  let declaration := String.toName <| p.getFlagD "declaration" "root"
+  let declaration := String.toNameSafe <| p.getFlagD "declaration" "root"
   let (decls, env) ← Lean.Elab.compile fileName #[declaration]
   let decls := decls.foldl (init := .empty) fun acc decl => acc.insert decl.name decl
   let transpileEnv := ⟨decls, env.constants, .empty⟩

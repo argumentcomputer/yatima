@@ -36,10 +36,6 @@ def runWithPasses (declNames : Array Name) (passes : Array Pass) (recurse? := tr
   and it often creates a very deep recursion.
   Moreover, some declarations get very big during simplification.
   -/
-  -- let declNames := if recurse? then
-  --   visitAll (← getEnv).constants declNames |>.toArray
-  -- else 
-  --   declNames
   dbg_trace s!">> runWithPasses declnames: {declNames}"
   let declNames ← declNames.filterM (shouldGenerateCode ·)
   if declNames.isEmpty then return #[]
@@ -78,15 +74,16 @@ def compileWithPasses (declNames : Array Name) (passes : Array Pass) (recurse? :
       visited := visited.insert decl.name
       res := res.push decl
     let decls := decls.concatMap (·.getUsedConstants)
+    let decls := decls.map sanitizeName
     let decls := decls.filter fun decl => !visited.contains decl
-    queue := decls.map sanitizeName
+    queue := decls
   return res
 
 end LCNF
 
 def compileWithPasses (declNames : Array Name) (passes : Array LCNF.Pass) (recurse? := true) : 
     CoreM Unit := do profileitM Exception "compiler new" (← getOptions) do
-  discard <| LCNF.compileWithPasses declNames passes recurse?
+  discard <| LCNF.compileWithPassesCore declNames passes recurse?
 
 def toDecl (declName : Name) : CoreM Unit := do
   let decl ← LCNF.CompilerM.run <| LCNF.toDecl declName

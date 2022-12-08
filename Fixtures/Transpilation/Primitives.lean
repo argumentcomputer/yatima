@@ -20,6 +20,10 @@ def natMatchRec : Nat → Nat
   | n + 1 => natMatchRec n + 2 
 def natMatchRecApp := natMatchRec 10
 
+def fin10 : (Fin 10) := 5
+def finAdd1 : (Fin 10) := 1 + 1
+def finAdd2 : (Fin 10) := 7 + 8
+
 def charA := 'a'
 def charOfNat := Char.ofNat 97 
 def charToNat := Char.toNat 'a'
@@ -45,7 +49,3 @@ def stringEqT := decide (abcd = abcd)
 def name : Lean.Name := `hello
 def nameAppend : Lean.Name := `hello ++ `world
 def nameToString := nameAppend.toString
-
-def hmm (y : Nat) := 
-  let f x := x + x
-  f (f y)

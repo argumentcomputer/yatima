@@ -111,7 +111,7 @@ def NatInductiveData : InductiveData :=
   ⟨``Nat, 0, 0, .ofList [(``Nat.zero, 0), (``Nat.succ, 1)]⟩
 
 def NatCore : Override.Decl := ⟨``Nat, ⟦
-  ,("Nat" 0 0)
+  ,("Nat" 0 0 Fin)
 ⟧⟩
 
 def NatZero : Override.Decl := ⟨``Nat.zero, ⟦
@@ -164,14 +164,16 @@ def NatDiv : Override := Override.decl ⟨``Nat.div, ⟦
   (lambda (a b)
     (if (< a b)
       0
-      (+ 1 (Nat.div (- a b) b))))
+      (+ 1 (|Nat.div| (- a b) b))))
 ⟧⟩
 
 def NatMod : Override := Override.decl ⟨``Nat.mod, ⟦
   (lambda (a b)
-    (if (< a b)
-      0
-      (+ 1 (Nat.div (- a b) b))))
+    (if (= b 0)
+        a
+        (if (< a b)
+            a
+            (- a (* (|Nat.div| a b) b)))))
 ⟧⟩
 
 def NatDecLe : Override := Override.decl ⟨``Nat.decLe, ⟦
@@ -193,10 +195,6 @@ def NatBeq : Override := Override.decl ⟨``Nat.beq, ⟦
     if (= a b)
       ,(("Bool" 0 0) 1)
       ,(("Bool" 0 0) 0)))
-⟧⟩
-
-def UInt32ToNat : Override := .decl ⟨``UInt32.toNat, ⟦
-  (lambda (u) (num u))
 ⟧⟩
 
 def ListInductiveData : InductiveData :=
@@ -265,8 +263,41 @@ def ListBeq : Override := Override.decl ⟨``List.beq, ⟦
       ,(("Bool" 0 0) 0)))
 ⟧⟩
 
+def FinInductiveData : InductiveData :=
+  ⟨``Fin, 1, 0, .ofList [(``Fin.mk, 0)]⟩
+
+def FinCore : Override.Decl := ⟨``Fin, ⟦
+  ,("Fin" 1 0)
+⟧⟩
+
+def FinMk : Override.Decl := ⟨``Fin.mk, ⟦
+  (lambda (n val isLt) val)
+⟧⟩
+
+def FinVal : Override.Decl := ⟨``Fin.val, ⟦
+  (lambda (n self) self)
+⟧⟩
+
+def FinValid : Override.Decl := ⟨``Fin.isLt, ⟦
+  (lambda (n self) t)
+⟧⟩
+
+def FinMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
+  let #[.alt 0 params k] := alts |
+    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+  let #[n, isLt] := params |
+    throw s!"`Fin.mk` case expects exactly 2 params, got\n {params}"
+  return ⟦(let (($n $discr) ($isLt t)) $k)⟧
+
+def Fin : Override := Override.ind
+  ⟨FinInductiveData, FinCore, #[FinMk], FinMkCases⟩
+
+def FinOfNat : Override := Override.decl ⟨``Fin.ofNat, ⟦
+  (lambda (n val) (Fin.mk (+ n 1) (Nat.mod val (+ n 1)) t))
+⟧⟩
+
 def CharInductiveData : InductiveData :=
-  ⟨``Char, 0, 0, .ofList [(``Char.mk, 2)]⟩
+  ⟨``Char, 0, 0, .ofList [(``Char.mk, 0)]⟩
 
 def CharCore : Override.Decl := ⟨``Char, ⟦
   ,("Char" 0 0)
@@ -325,18 +356,13 @@ def StringData : Override.Decl := ⟨``String.data, ⟦
 
 def StringMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
   let #[.alt 0 params k] := alts |
-    throw "we assume that structures only have one alternative never produce `default` match cases"
-  let #[param] := params |
-    throw s!"`String.mk` case expects exactly 1 params, got\n {params}"
-  return ⟦(let (($param (str_data $discr))) $k)⟧
+    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+  let #[data] := params |
+    throw s!"`String.mk` case expects exactly 1 param, got\n {params}"
+  return ⟦(let (($data (str_data $discr))) $k)⟧
 
 def String : Override := Override.ind
   ⟨StringInductiveData, StringCore, #[StringMk], StringMkCases⟩
-
--- def StringRec : Override := (``String.rec, ⟦
---   (lambda (motive mk _t)
---     (mk (str_data _t)))
--- ⟧)
 
 def StringLength : Override := Override.decl ⟨``String.length, ⟦
   (lambda (s)
@@ -348,6 +374,15 @@ def StringLength : Override := Override.decl ⟨``String.length, ⟦
 def StringAppend : Override := Override.decl ⟨``String.append, ⟦
   (lambda (s₁ s₂) (str_append s₁ s₂))
 ⟧⟩
+
+def String.hash : Override := Override.decl ⟨``String.hash, ⟦
+  (lambda (s) (num (commit s))) -- TODO this is hackish, but if it works hey it works
+⟧⟩
+
+def mixHash : Override := Override.decl ⟨``mixHash, ⟦
+  (lambda (x y) (num (commit ,(x . y)))) -- TODO this is hackish, but if it works hey it works
+⟧⟩
+
 
 -- def StringDecEq : Override := Override.decl ⟨``String.decEq, ⟦
 --   (lambda (s₁ s₂)

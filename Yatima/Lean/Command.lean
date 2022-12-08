@@ -102,17 +102,17 @@ def passes : Array Pass := #[
   cse (occurrence := 1),
   saveBase, -- End of base phase
   toMono,
-  simp (occurrence := 3) (phase := .mono),
+  -- simp (occurrence := 3) (phase := .mono),
   reduceJpArity (phase := .mono),
   extendJoinPointContext (phase := .mono) (occurrence := 0),
   floatLetIn (phase := .mono) (occurrence := 1),
-  reduceArity,
+  -- reduceArity,
   commonJoinPointArgs,
-  simp (occurrence := 4) (phase := .mono),
+  -- simp (occurrence := 4) (phase := .mono),
   floatLetIn (phase := .mono) (occurrence := 2),
   lambdaLifting,
   extendJoinPointContext (phase := .mono) (occurrence := 1),
-  simp (occurrence := 5) (phase := .mono),
+  -- simp (occurrence := 5) (phase := .mono),
   cse (occurrence := 2) (phase := .mono),
   saveMono  -- End of mono phase
 ]
@@ -133,10 +133,10 @@ def listMap := list.map fun x => x + 1
 -- def name : Lean.Name := `hello
 -- #print Name._impl
 -- #print Lean.Name.str._override
--- #print Lean.Name.mkStr1
+#print String.hash
 
--- set_option trace.Compiler.result true in
--- #eval Compiler.compileWithPasses #[``Lean.Name.str._override] passes
+set_option trace.Compiler.result true in
+#eval Compiler.compileWithPasses #[``Lean.Name.toString] passes
 
 def Lean.Elab.compile (filePath : System.FilePath) (decls : Array Name) (recurse? := true) : 
     IO (Array Decl × Environment) := do
@@ -147,7 +147,6 @@ def Lean.Elab.compile (filePath : System.FilePath) (decls : Array Name) (recurse
   match res with 
   | some decls => return (decls, env)
   | none => throw $ .userError s!"failed to compile {decls}"
-
 
 def Lean.Elab.testFrontend (filePath : System.FilePath) (decls : Array Name) : 
     IO Unit := do
@@ -161,7 +160,7 @@ def Lean.Elab.testFrontend (filePath : System.FilePath) (decls : Array Name) :
 
 set_option trace.Compiler.result true
 def test : IO UInt32 := do
-  let (res, env) ← Lean.Elab.compile "Fixtures/Transpilation/Primitives.lean" #[`name]
+  let (res, env) ← Lean.Elab.compile "Fixtures/Transpilation/Primitives.lean" #[`Fin.ofNat]
   IO.println s!"res: "
   IO.println $ reprStr res
 

@@ -1,10 +1,11 @@
-import Lean
 import Std.Data.List.Basic
 import Lurk.Syntax.ExprUtils
 import Lurk.Evaluation.FromAST
+import Yatima.Datatypes.Lean
 import Yatima.Transpiler2.PP
 import Yatima.Lean.Compile
 import Yatima.Transpiler2.LurkFunctions
+import Yatima.Transpiler2.UInt
 
 namespace Yatima.Transpiler2
 
@@ -16,10 +17,14 @@ def overrides : List Override := [
   Lurk.Overrides2.NatAdd,
   Lurk.Overrides2.NatMul,
   Lurk.Overrides2.NatDiv,
+  Lurk.Overrides2.NatMod,
   Lurk.Overrides2.NatDecLe,
   Lurk.Overrides2.NatDecLt,
   Lurk.Overrides2.NatBeq,
   Lurk.Overrides2.UInt32ToNat,
+  Lurk.Overrides2.UInt64.ofNatCore,
+  Lurk.Overrides2.Fin,
+  Lurk.Overrides2.FinOfNat,
   Lurk.Overrides2.Char,
   Lurk.Overrides2.CharOfNat,
   -- Lurk.Overrides2.CharMk,
@@ -32,9 +37,11 @@ def overrides : List Override := [
   -- Lurk.Overrides2.ListCons,
   -- Lurk.Overrides2.ListRec,
   -- Lurk.Overrides2.ListMap,
-  -- Lurk.Overrides2.ListFoldl,
+  Lurk.Overrides2.ListFoldl,
   Lurk.Overrides2.String,
-  Lurk.Overrides2.StringLength
+  Lurk.Overrides2.StringLength,
+  Lurk.Overrides2.String.hash,
+  Lurk.Overrides2.mixHash
   -- Lurk.Overrides2.StringMk,
   -- Lurk.Overrides2.StringData,
   -- Lurk.Overrides2.StringRec,
@@ -206,6 +213,9 @@ mutual
       else
         return (toAST declName).cons $ toAST (← args.mapM mkArg)
     | .fvar fvarId args =>
+      if args.isEmpty then
+        mkName fvarId.name
+      else
       return (← mkFVarId fvarId).cons $ toAST (← args.mapM mkArg)
 
   partial def mkLetDecl : LetDecl → TranspileM AST
@@ -319,6 +329,7 @@ mutual
       if (← read).decls.contains name then match x.getFreeVars with
         | .error err => throw err
         | .ok fVars => fVars.toList.forM fun n => do
+          let n := n.toNameSafe
           if !(← isVisited n) then appendName n
 
 end
