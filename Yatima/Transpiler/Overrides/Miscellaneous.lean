@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def mixHash : Override := Override.decl ⟨``mixHash, ⟦
   (lambda (x y) (num (commit ,(x . y)))) -- TODO this is hackish, but if it works hey it works
@@ -37,6 +37,6 @@ def Miscellaneous.module := [
   instDecidableNot
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

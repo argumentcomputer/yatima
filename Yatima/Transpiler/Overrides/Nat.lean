@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def NatInductiveData : InductiveData :=
   ⟨``Nat, 0, 0, .ofList [(``Nat.zero, 0), (``Nat.succ, 1)]⟩
@@ -95,7 +95,7 @@ def Nat.beq : Override := Override.decl ⟨``Nat.beq, ⟦
 ⟧⟩
 
 def Nat.module := [
-  Lurk.Overrides2.Nat,
+  Lurk.Overrides.Nat,
   Nat.add,
   Nat.sub,
   Nat.ml,
@@ -107,6 +107,6 @@ def Nat.module := [
   Nat.beq
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

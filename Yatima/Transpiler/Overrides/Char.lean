@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def CharInductiveData : InductiveData :=
   ⟨``Char, 0, 0, .ofList [(``Char.mk, 0)]⟩
@@ -62,12 +62,12 @@ def Char.ofNat : Override := .decl ⟨``Char.ofNat, ⟦
 ⟧⟩
 
 def Char.module := [
-  Lurk.Overrides2.Char,
+  Lurk.Overrides.Char,
   Char.val,
   Char.valid,
   Char.ofNat
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

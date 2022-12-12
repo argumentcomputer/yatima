@@ -4,7 +4,7 @@ import Lurk.Evaluation.FromAST
 import Lurk.Evaluation.Eval
 
 open System Yatima.Transpiler in
-def transpile2Run (p : Cli.Parsed) : IO UInt32 := do
+def transpileRun (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
   let declaration := String.toNameSafe <| p.getFlagD "declaration" "root"
   match ← transpile fileName declaration with
@@ -27,7 +27,7 @@ def transpile2Run (p : Cli.Parsed) : IO UInt32 := do
     return 0
 
 def transpileCmd : Cli.Cmd := `[Cli|
-  transpile VIA transpile2Run;
+  transpile VIA transpileRun;
   "Transpiles a Yatima IR store (from a file) to Lurk code"
   
   FLAGS:

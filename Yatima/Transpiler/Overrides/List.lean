@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def ListInductiveData : InductiveData :=
   ⟨``List, 0, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
@@ -60,9 +60,9 @@ def List.beq : Override := Override.decl ⟨``List.beq, ⟦
 ⟧⟩
 
 def List.module := [
-  Lurk.Overrides2.List
+  Lurk.Overrides.List
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk
