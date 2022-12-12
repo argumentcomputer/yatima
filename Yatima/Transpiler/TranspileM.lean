@@ -1,60 +1,71 @@
-import Yatima.Transpiler.TranspileError
-import Yatima.Datatypes.Store
 import Lurk.Syntax.AST
+import Lean.CoreM
+import Lean.Compiler.LCNF
+import Yatima.Transpiler.Override
 
 namespace Yatima.Transpiler
 
 open Lurk.Syntax (AST)
 
+open Lean.Compiler.LCNF Lean.Core
+
 structure TranspileEnv where
-  irStore : IR.Store
-  tcStore : TC.Store
-  /-- Used to speed up lookup by name -/
-  map : Std.RBMap Name TC.Const compare
-  overrides : Std.RBMap Name AST compare
+  env : Lean.Environment
+  overrides : Lean.NameMap Override
 
 structure TranspileState where
-  appendedBindings : Array (Name × AST)
+  appendedBindings : Array (Lean.Name × AST)
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
-  /-- These will help us replace hygienic/clashing names -/
+  inductives : Lean.NameMap InductiveData
   ngen     : Lean.NameGenerator
-  replaced : Lean.NameMap Name
+  replaced : Lean.NameMap Lean.Name
   deriving Inhabited
 
-abbrev TranspileM := ReaderT TranspileEnv $
-  ExceptT TranspileError $ StateM TranspileState
+abbrev TranspileM := ReaderT TranspileEnv $ EStateM String TranspileState
 
 instance : Lean.MonadNameGenerator TranspileM where
   getNGen := return (← get).ngen
   setNGen ngen := modify fun s => { s with ngen := ngen }
 
+/-- Create a fresh variable to replace `name` and update `replaced` -/
+def replace (name : Lean.Name) : TranspileM Lean.Name := do
+  let mut name' ← Lean.mkFreshId
+  let env ← read
+  while env.env.contains name' || env.overrides.contains name' do
+    -- making sure we don't hit an existing name
+    name' ← Lean.mkFreshId
+  modifyGet fun stt => (name', { stt with
+    replaced := stt.replaced.insert name name' })
+
 /-- Set `name` as a visited node -/
-def visit (name : Name) : TranspileM Unit :=
+def visit (name : Lean.Name) : TranspileM Unit :=
   modify fun s => { s with visited := s.visited.insert name }
 
-/-- Create a fresh variable to replace `name` and update `replaced` -/
-def replace (name : Name) : TranspileM Name := do
-  let mut name' ← Lean.mkFreshId
-  let map := (← read).map
-  while map.contains name' do -- making sure we don't hit an existing name
-    name' ← Lean.mkFreshId
-  modifyGet fun stt => (name', { stt with replaced := stt.replaced.insert name name' })
-
-@[inline] def isVisited (n : Name) : TranspileM Bool :=
+@[inline] def isVisited (n : Lean.Name) : TranspileM Bool :=
   return (← get).visited.contains n
 
-def derefConst (i : TC.ConstIdx) : TranspileM TC.Const := do
-  let consts := (← read).tcStore.consts
-  let size := consts.size
-  if h : i < size then
-    return consts[i]
-  else throw $ .custom s!"invalid index {i} for array of constats with size {size}"
+def getBinderName (fvarId : Lean.FVarId) : TranspileM Lean.Name := do
+  return fvarId.name
+  -- let lctx := (← read).lctx
+  -- if let some decl := lctx.letDecls.find? fvarId then
+  --   return decl.binderName
+  -- else if let some decl := lctx.params.find? fvarId then
+  --   return decl.binderName
+  -- else if let some decl := lctx.funDecls.find? fvarId then
+  --   return decl.binderName
+  -- else throw s!"unknown free variable {fvarId.name}"
 
-def TranspileM.run (env : TranspileEnv) (ste : TranspileState)
-    (m : TranspileM α) : Except String TranspileState := do
-  match StateT.run (ReaderT.run m env) ste with
-  | (.ok _, ste)  => .ok ste
-  | (.error e, _) => .error (toString e)
+def getMonoDecl (declName : Lean.Name) : TranspileM Decl := do
+  let some decl := getDeclCore? (← read).env monoExt declName |
+    throw s!"environment does not contain {declName}"
+  return decl
+
+def withOverrides (overrides : Lean.NameMap Override) : TranspileM α → TranspileM α :=
+  withReader fun env => { env with overrides := overrides }
+
+def TranspileM.run (env : TranspileEnv) (s : TranspileState) (m : TranspileM α) :
+    EStateM.Result String TranspileState α :=
+  m env |>.run s
 
 end Yatima.Transpiler

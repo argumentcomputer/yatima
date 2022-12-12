@@ -43,6 +43,23 @@ def runFrontend (input : String) (fileName : String := default) :
       (← msgs.toList.mapM (·.toString)).map String.trim
     else none
   return (errMsg, s.commandState.env)
+
+/--
+Sets the directories where `olean` files can be found.
+
+This function must be called before `compile` if the file to be compiled has
+imports (the automatic imports from `Init` also count).
+-/
+def setLibsPaths : IO Unit := do
+  let out ← IO.Process.output {
+    cmd := "lake"
+    args := #["print-paths"]
+  }
+  let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
+  let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
+  let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
+  Lean.initSearchPath (← Lean.findSysroot) paths
+
 end Lean
 
 instance : HMul Ordering Ordering Ordering where hMul

@@ -836,20 +836,4 @@ def compile (filePath : System.FilePath) (log : Bool := false)
     let delta := constants.map₂.filter fun n _ => !n.isInternal
     CompileM.run (.init constants log) stt (compileM $ delta.toList.map Prod.snd)
 
-/--
-Sets the directories where `olean` files can be found.
-
-This function must be called before `compile` if the file to be compiled has
-imports (the automatic imports from `Init` also count).
--/
-def setLibsPaths : IO Unit := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["print-paths"]
-  }
-  let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
-  let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
-  let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
-  Lean.initSearchPath (← Lean.findSysroot) paths
-
 end Yatima.Compiler

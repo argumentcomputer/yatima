@@ -1,7 +1,6 @@
 import Yatima.Cli.CompileCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.TranspileCmd
-import Yatima.Cli.Transpile2Cmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.VerifyCmd
 import Yatima.Cli.IpfsCmd
@@ -17,7 +16,6 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     compileCmd;
     typecheckCmd;
     transpileCmd;
-    transpile2Cmd;
     proveCmd;
     verifyCmd;
     ipfsCmd

@@ -14,7 +14,7 @@ open LSpec Yatima Compiler
 def compileAndExtractTests (fixture : String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
-  if setPaths then setLibsPaths
+  if setPaths then Lean.setLibsPaths
   return withExceptOk s!"Compiles '{fixture}'" (← compile fixture)
     fun stt => (extractors.map fun extr => extr stt).foldl (init := .done)
       (· ++ ·)

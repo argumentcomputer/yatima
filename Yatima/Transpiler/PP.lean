@@ -4,13 +4,13 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Leonardo de Moura
 -/
 import Lean.PrettyPrinter
-import Yatima.Transpiler2.TranspileM
+import Yatima.Transpiler.TranspileM
 import Lean.Compiler.LCNF.CompilerM
 import Lean.Compiler.LCNF.Internalize
 
 open Lean Compiler.LCNF
 
-namespace Yatima.Transpiler2
+namespace Yatima.Transpiler
 
 private abbrev indentD := Std.Format.indentD
 
@@ -90,4 +90,4 @@ end
 def ppDecl (decl : Decl) : M Format :=
   return f!"def {decl.name}{← ppParams decl.params} : lcErasedType :={indentD (← ppCode decl.value)}"
 
-end Yatima.Transpiler2
+end Yatima.Transpiler

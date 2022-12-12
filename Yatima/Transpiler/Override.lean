@@ -1,7 +1,8 @@
 import Lean.Compiler.LCNF.Main
 import Lurk.Syntax.ExprUtils
+import Yatima.Transpiler.MoveToLurk
 
-namespace Yatima.Transpiler2
+namespace Yatima.Transpiler
 open Lurk.Syntax AST DSL
 open Lean Compiler.LCNF
 
@@ -33,4 +34,4 @@ def Override.name : Override → Name
   | .decl odecl => odecl.declName
   | .ind oind => oind.ind.declName
 
-end Yatima.Transpiler2
+end Yatima.Transpiler
