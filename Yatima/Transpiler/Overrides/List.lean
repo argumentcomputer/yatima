@@ -59,8 +59,30 @@ def List.beq : Override := Override.decl ⟨``List.beq, ⟦
   --     ,(("Bool" 0 0) 0)))
 ⟧⟩
 
+def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, ⟦
+  (lambda (α inst h l₁ l₂)
+    (if l₁
+        (if l₂
+            (let ((a (car l₁))
+                  (as (cdr l₁))
+                  (b (car l₂))
+                  (bs (cdr l₂))
+                  (_lurk_idx (getelem (h a b) 1)))
+                (if (= _lurk_idx 1)
+                    Bool.true
+                    (let ((_lurk_idx (getelem (h b a) 1)))
+                        (if (= _lurk_idx 1)
+                            Bool.false
+                            (List.hasDecidableLt α inst h as bs)))))
+            Bool.false)
+        (if l₂
+            Bool.true
+            Bool.false)))
+⟧⟩
+
 def List.module := [
-  Lurk.Overrides2.List
+  Lurk.Overrides2.List,
+  List.hasDecidableLt
 ]
 
 end Overrides2

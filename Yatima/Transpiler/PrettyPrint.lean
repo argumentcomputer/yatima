@@ -50,17 +50,17 @@ def ppLetValue (e : LetValue) : Format :=
 
 def ppParam (param : Param) : Format :=
   let borrow := if param.borrow then "@&" else ""
-  format s!"{borrow}{param.binderName}"
+  format s!"{borrow}{param.fvarId.name}"
 
 def ppParams (params : Array Param) : Format :=
   prefixJoin " " params ppParam
 
 def ppLetDecl (letDecl : LetDecl) : Format :=
-  f!"let {letDecl.binderName} := {ppLetValue letDecl.value}"
+  f!"let {letDecl.fvarId.name} := {ppLetValue letDecl.value}"
 
 mutual
   partial def ppFunDecl (funDecl : FunDecl) : Format :=
-    f!"{funDecl.binderName}{ppParams funDecl.params} : lcErasedType :={indentD (ppCode funDecl.value)}"
+    f!"{funDecl.fvarId.name}{ppParams funDecl.params} : lcErasedType :={indentD (ppCode funDecl.value)}"
 
   partial def ppAlt (alt : Alt) : Format :=
     match alt with

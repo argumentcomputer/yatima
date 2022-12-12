@@ -190,6 +190,14 @@ def String.decEq : Override := Override.decl ⟨``String.decEq, ⟦
   (lambda (s₁ s₂) (to_bool (eq s₁ s₂)))
 ⟧⟩
 
+def String.decLt : Override := Override.decl ⟨``String.decLt, ⟦
+  (lambda (s₁ s₂)
+    (List.hasDecidableLt "lcErased" Nat.decLt Nat.decLt (String.data s₁) (String.data s₂)))
+⟧⟩
+
+set_option pp.all true
+#print _root_.String.decLt
+
 def String.module := [
   Lurk.Overrides2.String,
   String.data,
@@ -216,7 +224,8 @@ def String.module := [
   String.extract,
   String.extract,
   String.hash,
-  String.decEq
+  String.decEq,
+  String.decLt
 ]
 
 end Overrides2

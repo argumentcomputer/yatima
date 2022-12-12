@@ -65,6 +65,10 @@ def Array.set! : Override := Override.decl ⟨``Array.set!, ⟦
   (lambda (α a i v) (set! a i v))
 ⟧⟩
 
+def Array.mkArray : Override := Override.decl ⟨``Array.mkArray, ⟦
+  (lambda (α n v) (List.replicate α n v))
+⟧⟩
+
 def Array.module : List Override := [
   Lurk.Overrides2.Array, 
   Array.data,
@@ -74,7 +78,8 @@ def Array.module : List Override := [
   Array.get!,
   Array.push,
   Array.set,
-  Array.set!
+  Array.set!,
+  Array.mkArray
 ]
 
 end Overrides2

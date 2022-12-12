@@ -25,6 +25,10 @@ def UInt32.decLe : Override := .decl ⟨``UInt32.decLe, ⟦
   (lambda (a b) (to_bool (<= a b)))
 ⟧⟩
 
+def UInt32.decLt : Override := .decl ⟨``UInt32.decLt, ⟦
+  (lambda (a b) (to_bool (< a b)))
+⟧⟩
+
 def UInt32.decEq : Override := .decl ⟨``UInt32.decEq, ⟦
   (lambda (a b) (to_bool (= a b)))
 ⟧⟩
@@ -38,6 +42,7 @@ def UInt.module : List Override := [
   UInt32.ofNatCore,
   UInt32.ofNat,
   UInt32.decLe,
+  UInt32.decLt,
   UInt32.decEq,
   UInt64.ofNatCore
 ]
