@@ -29,14 +29,21 @@ def instDecidableNot : Override := Override.decl ⟨``instDecidableNot, ⟦
   (lambda (p dp) (not dp))
 ⟧⟩
 
+def instBEq : Override := Override.decl ⟨``instBEq, ⟦
+  (lambda (α inst) inst)
+⟧⟩
+
 def Miscellaneous.module := [
   mixHash,
   Decidable.decide,
   decEq,
   inferInstanceAs,
-  instDecidableNot
+  instDecidableNot,
+  instBEq
 ]
 
 end Overrides2
+
+#print Lean.HashMapImp
 
 end Lurk
