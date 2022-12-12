@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def ArrayInductiveData : InductiveData :=
   ⟨``Array, 0, 0, .ofList [(``Array.mk, 0)]⟩
@@ -70,7 +70,7 @@ def Array.mkArray : Override := Override.decl ⟨``Array.mkArray, ⟦
 ⟧⟩
 
 def Array.module : List Override := [
-  Lurk.Overrides2.Array, 
+  Lurk.Overrides.Array, 
   Array.data,
   Array.mkEmpty,
   Array.size,
@@ -82,6 +82,6 @@ def Array.module : List Override := [
   Array.mkArray
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

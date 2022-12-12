@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def StringInductiveData : InductiveData :=
   ⟨``String, 0, 0, .ofList [(``String.mk, 1)]⟩
@@ -199,7 +199,7 @@ set_option pp.all true
 #print _root_.String.decLt
 
 def String.module := [
-  Lurk.Overrides2.String,
+  Lurk.Overrides.String,
   String.data,
   String.utf8ByteSize,
   String.utf8ByteSize,
@@ -228,6 +228,6 @@ def String.module := [
   String.decLt
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

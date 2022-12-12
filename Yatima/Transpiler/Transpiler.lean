@@ -14,24 +14,24 @@ open Lurk.Syntax AST DSL
 open Lean Compiler.LCNF
 
 def preloads : List (Name × AST) := [
-  Lurk.Preloads2.reverse_aux,
-  Lurk.Preloads2.reverse,
-  Lurk.Preloads2.set,
-  Lurk.Preloads2.set!,
-  Lurk.Preloads2.push,
-  Lurk.Preloads2.append,
-  Lurk.Preloads2.getelem,
-  Lurk.Preloads2.getelem!,
-  Lurk.Preloads2.drop,
-  Lurk.Preloads2.neq,
-  Lurk.Preloads2.str_mk,
-  Lurk.Preloads2.str_data,
-  Lurk.Preloads2.str_push,
-  Lurk.Preloads2.str_append,
-  Lurk.Preloads2.to_bool,
-  Lurk.Preloads2.lor,
-  Lurk.Preloads2.land,
-  Lurk.Preloads2.lnot
+  Lurk.Preloads.reverse_aux,
+  Lurk.Preloads.reverse,
+  Lurk.Preloads.set,
+  Lurk.Preloads.set!,
+  Lurk.Preloads.push,
+  Lurk.Preloads.append,
+  Lurk.Preloads.getelem,
+  Lurk.Preloads.getelem!,
+  Lurk.Preloads.drop,
+  Lurk.Preloads.neq,
+  Lurk.Preloads.str_mk,
+  Lurk.Preloads.str_data,
+  Lurk.Preloads.str_push,
+  Lurk.Preloads.str_append,
+  Lurk.Preloads.to_bool,
+  Lurk.Preloads.lor,
+  Lurk.Preloads.land,
+  Lurk.Preloads.lnot
 ]
 
 def preloadNames : Lean.NameSet :=
@@ -335,7 +335,7 @@ end
 
 /-- Main translation function -/
 def transpileM (root : Lean.Name) : TranspileM Unit :=
-  let overrides := .ofList <| Lurk.Overrides2.All.module.map fun o => (o.name, o)
+  let overrides := .ofList <| Lurk.Overrides.All.module.map fun o => (o.name, o)
   withOverrides overrides do
     dbg_trace s!">> transpileM overrides: {(← read).overrides.toList.map Prod.fst}"
     preloads.forM fun (name, preload) => do

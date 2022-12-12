@@ -9,7 +9,7 @@ import Yatima.Transpiler.Overrides.Nat
 import Yatima.Transpiler.Overrides.String
 import Yatima.Transpiler.Overrides.UInt
 
-namespace Lurk.Overrides2
+namespace Lurk.Overrides
 
 def All.module :=
   Array.module ++
@@ -23,4 +23,4 @@ def All.module :=
   String.module ++
   UInt.module
 
-end Lurk.Overrides2
+end Lurk.Overrides

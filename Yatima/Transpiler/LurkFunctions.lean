@@ -14,7 +14,10 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Preloads2
+instance [ToAST α] [ToAST β] : ToAST (α × β) where
+  toAST x := ~[toAST x.1, toAST x.2]
+
+namespace Preloads
 
 def reverse_aux : Name × AST := (`reverse_aux, ⟦
   (lambda (xs ys) 
@@ -165,6 +168,6 @@ def lnot : Name × AST := (`lnot, ⟦
     (if x nil t))
 ⟧)
 
-end Preloads2
+end Preloads
 
 end Lurk

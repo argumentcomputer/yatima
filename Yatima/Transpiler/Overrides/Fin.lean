@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def FinInductiveData : InductiveData :=
   ⟨``Fin, 1, 0, .ofList [(``Fin.mk, 0)]⟩
@@ -43,12 +43,12 @@ def Fin.ofNat : Override := Override.decl ⟨``Fin.ofNat, ⟦
 ⟧⟩
 
 def Fin.module := [
-  Lurk.Overrides2.Fin,
+  Lurk.Overrides.Fin,
   Fin.val,
   Fin.valid,
   Fin.ofNat
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def UInt32.toNat : Override := .decl ⟨``UInt32.toNat, ⟦
   (lambda (u) (num u))
@@ -47,6 +47,6 @@ def UInt.module : List Override := [
   UInt64.ofNatCore
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

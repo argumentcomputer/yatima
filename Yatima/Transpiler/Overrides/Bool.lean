@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def not : Override := Override.decl ⟨``not, ⟦
   (lambda (x)
@@ -21,6 +21,6 @@ def Bool.module := [
   not
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk

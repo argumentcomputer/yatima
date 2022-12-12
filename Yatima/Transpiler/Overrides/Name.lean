@@ -7,7 +7,7 @@ open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
 
-namespace Overrides2
+namespace Overrides
 
 def NameInductiveData : InductiveData :=
   ⟨``Name, 0, 0, .ofList [(``Name.anonymous, 0), (``Name.str, 1), (``Name.num, 1)]⟩
@@ -47,9 +47,9 @@ protected def Name : Override := Override.ind
   ⟨NameInductiveData, NameCore, #[Name.anonymous, Name.str, Name.num], NameMkCases⟩
 
 def Name.module := [
-  Lurk.Overrides2.Name
+  Lurk.Overrides.Name
 ]
 
-end Overrides2
+end Overrides
 
 end Lurk
