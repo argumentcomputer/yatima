@@ -4,18 +4,8 @@ import Yatima.Transpiler.Override
 /-!
 # Helper Functions for the Transpiler and Examples
 
-This file provides all helper functions needed to construct Lurk functions
-from Yatima expressions.
-
-Currently, inductives encode three pieces of information.
-1. The name of the inductive. This is not used anywhere in the transpiler,
-    but is useful to keep around for humans to debug and identify objects.
-2. The number of parameters. Used to generate projections.
-3. The number of indices. Also used to generate projections.
-
-This information is somewhat arbitrary. It's the bare minimum needed to
-make things work. If there are better representations or we need more
-metadata it should be freely changed.
+This file provides Lurk "standard library" functions needed to 
+generally needed to write Lurk code.
 -/
 
 namespace Lurk
@@ -23,9 +13,6 @@ namespace Lurk
 open Lean Compiler.LCNF
 open Lurk.Syntax AST DSL
 open Yatima.Transpiler
-
-instance [ToAST α] [ToAST β] : ToAST (α × β) where
-  toAST x := ~[toAST x.1, toAST x.2]
 
 namespace Preloads2
 
