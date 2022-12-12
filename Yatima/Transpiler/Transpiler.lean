@@ -3,7 +3,8 @@ import Lurk.Syntax.ExprUtils
 import Lurk.Evaluation.FromAST
 import Yatima.Datatypes.Lean
 import Yatima.Lean.Utils
-import Yatima.Transpiler.PP
+import Yatima.Transpiler.TranspileM
+import Yatima.Transpiler.PrettyPrint
 import Yatima.Transpiler.LurkFunctions
 import Yatima.Transpiler.Overrides.All
 
@@ -142,7 +143,7 @@ def getMutuals (name : Name) : TranspileM (List Name) := do
   | _ => return [name]
 
 def mkFVarId : FVarId → TranspileM AST
-  | fvarId => do mkName $ ← getBinderName fvarId
+  | fvarId => do mkName fvarId.name
 
 def mkArg : Arg → TranspileM AST
   | .erased => return toAST "lcErased"
@@ -254,7 +255,7 @@ mutual
     | .unreach _ => return toAST "lcUnreachable"
 
   partial def appendDecl (decl : Decl) : TranspileM Unit := do
-    dbg_trace s!">> appendDecl\n{← ppDecl decl}\n"
+    dbg_trace s!">> appendDecl\n{ppDecl decl}\n"
     let ⟨name, _, _, params, value, _, _, _⟩ := decl
     visit name
     let params : Array AST := params.map fun p => toAST p.fvarId.name
@@ -269,7 +270,7 @@ mutual
     for decl in decls do
       visit decl.name
     let decls ← decls.mapM fun decl => do
-      dbg_trace ← ppDecl decl
+      dbg_trace ppDecl decl
       let ⟨name, _, _, params, value, _, _, _⟩ := decl
       let params : Array AST := params.map fun p => toAST p.fvarId.name
       let value : AST ← mkCode value

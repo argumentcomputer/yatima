@@ -45,17 +45,6 @@ def visit (name : Lean.Name) : TranspileM Unit :=
 @[inline] def isVisited (n : Lean.Name) : TranspileM Bool :=
   return (← get).visited.contains n
 
-def getBinderName (fvarId : Lean.FVarId) : TranspileM Lean.Name := do
-  return fvarId.name
-  -- let lctx := (← read).lctx
-  -- if let some decl := lctx.letDecls.find? fvarId then
-  --   return decl.binderName
-  -- else if let some decl := lctx.params.find? fvarId then
-  --   return decl.binderName
-  -- else if let some decl := lctx.funDecls.find? fvarId then
-  --   return decl.binderName
-  -- else throw s!"unknown free variable {fvarId.name}"
-
 def getMonoDecl (declName : Lean.Name) : TranspileM Decl := do
   let some decl := getDeclCore? (← read).env monoExt declName |
     throw s!"environment does not contain {declName}"
