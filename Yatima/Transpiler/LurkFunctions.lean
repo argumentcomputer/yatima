@@ -49,7 +49,7 @@ def set : Name × AST := (`set, ⟦
   (lambda (xs i x)
     (if (= i 0)
         (cons x (cdr xs))    
-        (cons (car xs) (set! (cdr xs) (- i 1) x))))
+        (cons (car xs) (set (cdr xs) (- i 1) x))))
 ⟧)
 
 def set! : Name × AST := (`set!, ⟦

@@ -33,13 +33,19 @@ def instBEq : Override := Override.decl ⟨``instBEq, ⟦
   (lambda (α inst) inst)
 ⟧⟩
 
+def outOfBounds : Override := Override.decl ⟨
+  .mkNum `_private.Init.Util 0 ++ `outOfBounds, ⟦
+  (lambda (α inst) ("panic!"))
+⟧⟩
+
 def Miscellaneous.module := [
   mixHash,
   Decidable.decide,
   decEq,
   inferInstanceAs,
   instDecidableNot,
-  instBEq
+  instBEq,
+  outOfBounds
 ]
 
 end Overrides

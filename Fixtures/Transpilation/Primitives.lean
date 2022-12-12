@@ -49,6 +49,11 @@ def listFoldl := list.foldl (init := 0) fun acc x => acc + x
 def listBeq := list == [1, 2, 3, 4, 5, 6]
 def listEqF := decide (list = [0, 1, 2])
 def listEqT := decide (list = [1, 2, 3, 4, 5, 6])
+def listGet := list[0]
+def listGet! := list[1]!
+def listGet!Out := list[10]!
+def listSet := list.set 0 0
+def listGet5 := listSet[5]
 
 def abcd := "abcd"
 def efg := "efg"

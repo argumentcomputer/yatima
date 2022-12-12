@@ -41,11 +41,11 @@ def Array.mkEmpty : Override := Override.decl ⟨``Array.mkEmpty, ⟦
 ⟧⟩
 
 def Array.size : Override := Override.decl ⟨``Array.size, ⟦
-  (lambda (α a) (List.length a))
+  (lambda (α a) (List.length α a))
 ⟧⟩
 
 def Array.get : Override := Override.decl ⟨``Array.get, ⟦
-  (lambda (α a i) (List.get a i))
+  (lambda (α a i) (getelem a i))
 ⟧⟩
 
 def Array.get! : Override := Override.decl ⟨``Array.get!, ⟦

@@ -81,7 +81,7 @@ def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, �
 ⟧⟩
 
 def List.module := [
-  Lurk.Overrides2.List,
+  Lurk.Overrides.List,
   List.hasDecidableLt
 ]
 
