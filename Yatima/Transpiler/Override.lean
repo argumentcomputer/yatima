@@ -54,7 +54,8 @@ open Lurk.Syntax AST DSL
 open Lean Compiler.LCNF
 
 /-- This holds the bare minimum amount of inductive 
-  data needed by the transpiler to do its job. -/
+  data needed by the transpiler to do its job. Used in compiling
+  `case` and `proj` statements. -/
 structure InductiveData where
   name : Lean.Name
   params : Nat

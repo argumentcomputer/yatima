@@ -38,7 +38,7 @@ def NatMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := 
         let #[param] := params |
           throw s!"`Nat.succ` case expects exactly 1 param, got\n {params}"
         let case : AST := ⟦(let (($param (- $discr 1))) $k)⟧
-        ifThens := ifThens.push (⟦(neq $discr 0)⟧, case)
+        ifThens := ifThens.push (⟦(lneq $discr 0)⟧, case)
       else
         throw "{cidx} is not a valid `Nat` constructor index"
   let cases := mkIfElses ifThens.toList defaultElse
@@ -62,11 +62,10 @@ def Nat.ml : Override := Override.decl ⟨``Nat.mul, ⟦
   (lambda (a b) (* a b))
 ⟧⟩
 
+/-- TODO FIXME: this is a hack for fast division.
+  This currently has no support in the evaluator. -/
 def Nat.div : Override := Override.decl ⟨``Nat.div, ⟦
-  (lambda (a b)
-    (if (< a b)
-      0
-      (+ 1 (|Nat.div| (- a b) b))))
+  (lambda (a b) (num (/ (u64 a) (u64 b))))
 ⟧⟩
 
 def Nat.mod : Override := Override.decl ⟨``Nat.mod, ⟦
@@ -94,6 +93,53 @@ def Nat.beq : Override := Override.decl ⟨``Nat.beq, ⟦
   (lambda (a b) (to_bool (= a b)))
 ⟧⟩
 
+-- not strictly needed for now, hopefully `lurk` can implement
+-- `land`, `lor`, and `xor` natively
+-- enabling this gives about 60% reduction in frame count
+
+-- def Nat.bitwise : Override := Override.decl ⟨``Nat.bitwise, ⟦
+--   (lambda (f n m)
+--     (if (= n 0)
+--         (if (eq (f Bool.false Bool.true) Bool.true) m 0)
+--         (if (= m 0)
+--             (if (eq (f Bool.true Bool.false) Bool.true) n 0)
+--             -- big else block
+--             (let ((n' (Nat.div n 2))
+--                   (m' (Nat.div m 2))
+--                   (b₁ (to_bool (= (Nat.mod n 2) 1)))
+--                   (b₂ (to_bool (= (Nat.mod m 2) 1)))
+--                   (r (Nat.bitwise f n' m')))
+--                 (if (eq (f b₁ b₂) Bool.true)
+--                     (+ r (+ r 1))
+--                     (+ r r))))))
+-- ⟧⟩
+
+def Nat.land : Override := Override.decl ⟨``Nat.land, ⟦
+  (Nat.bitwise and)
+⟧⟩
+
+def Nat.lor : Override := Override.decl ⟨``Nat.lor, ⟦
+  (Nat.bitwise or)
+⟧⟩
+
+def Nat.xor : Override := Override.decl ⟨``Nat.xor, ⟦
+  (Nat.bitwise bne)
+⟧⟩
+
+def Nat.shiftLeft : Override := Override.decl ⟨``Nat.shiftLeft, ⟦
+  (lambda (n m)
+    (if (= m 0)
+        n
+        (Nat.shiftLeft (* 2 n) (- m 1))))
+⟧⟩
+
+def Nat.shiftRight : Override := Override.decl ⟨``Nat.shiftRight, ⟦
+  (lambda (n m)
+    (if (= m 0)
+        n
+        (/ (Nat.shiftRight n (- m 1)) 2)))
+⟧⟩
+
 def Nat.module := [
   Lurk.Overrides.Nat,
   Nat.add,
@@ -104,7 +150,13 @@ def Nat.module := [
   Nat.decLe,
   Nat.decLt,
   Nat.decEq,
-  Nat.beq
+  Nat.beq,
+  -- Nat.bitwise,
+  Nat.land,
+  Nat.lor,
+  Nat.xor,
+  Nat.shiftLeft,
+  Nat.shiftRight
 ]
 
 end Overrides

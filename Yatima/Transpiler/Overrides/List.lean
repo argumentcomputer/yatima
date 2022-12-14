@@ -38,7 +38,7 @@ def ListMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST :=
         let #[head, tail] := params |
           throw "`List.cons` case expects exactly 2 params, got\n {params}"
         let case : AST := ⟦(let (($head (car $discr)) ($tail (cdr $discr))) $k)⟧
-        ifThens := ifThens.push (⟦(neq $discr nil)⟧, case)
+        ifThens := ifThens.push (⟦(lneq $discr nil)⟧, case)
       else
         throw "{cidx} is not a valid `List` constructor index"
   let cases := mkIfElses ifThens.toList defaultElse
@@ -55,8 +55,8 @@ def List.beq : Override := Override.decl ⟨``List.beq, ⟦
   () -- TODO FIXME: have to compare using `_inst`
   -- (lambda (α _inst xs ys) (
   --   if (_inst xs ys)
-  --     ,(("Bool" 0 0) 1)
-  --     ,(("Bool" 0 0) 0)))
+  --     ,("Bool" 1)
+  --     ,("Bool" 0)))
 ⟧⟩
 
 def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, ⟦

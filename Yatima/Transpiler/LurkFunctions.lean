@@ -105,10 +105,6 @@ def getelem! : Name × AST := (`getelem!, ⟦
       (getelem (cdr xs) (- n 1))))
 ⟧)
 
-def neq : Name × AST := (`neq, ⟦
-  (lambda (x y) (if (eq x y) nil t))
-⟧)
-
 def str_mk : Name × AST := (`str_mk, ⟦
   (lambda (cs)
     (if cs
@@ -146,8 +142,8 @@ def str_append : Name × AST := (`str_append, ⟦
 def to_bool : Name × AST := (`to_bool, ⟦
   (lambda (x) 
     (if x
-        ,(("Bool" 0 0) 1)
-        ,(("Bool" 0 0) 0)))
+        ,("Bool" 1)
+        ,("Bool" 0)))
 ⟧)
 
 -- TODO: We can't use any of these because they do not have
@@ -161,6 +157,10 @@ def lor : Name × AST := (`lor, ⟦
 def land : Name × AST := (`land, ⟦
   (lambda (x y) 
     (if x y nil))
+⟧)
+
+def lneq : Name × AST := (`lneq, ⟦
+  (lambda (x y) (if (eq x y) nil t))
 ⟧)
 
 def lnot : Name × AST := (`lnot, ⟦
