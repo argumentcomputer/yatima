@@ -20,7 +20,7 @@ set_option trace.Compiler.result true
 #eval compile #[``band]
 
 def test : MetaM Unit := do
-  let some decl ← Lean.Compiler.LCNF.getMonoDecl? `Nat.bitwise |
+  let some decl ← Lean.Compiler.LCNF.getMonoDecl? `Lean.AssocList.toList |
     throwError "what"
   IO.println $ Yatima.Transpiler.ppDecl decl
 
