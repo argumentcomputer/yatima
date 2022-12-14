@@ -2,6 +2,7 @@ import Yatima.Transpiler.Overrides.Array
 import Yatima.Transpiler.Overrides.Bool
 import Yatima.Transpiler.Overrides.Char
 import Yatima.Transpiler.Overrides.Fin
+import Yatima.Transpiler.Overrides.HashMap
 import Yatima.Transpiler.Overrides.List
 import Yatima.Transpiler.Overrides.Miscellaneous
 import Yatima.Transpiler.Overrides.Name
@@ -16,6 +17,7 @@ def All.module :=
   Bool.module ++
   Char.module ++
   Fin.module ++
+  HashMap.module ++
   List.module ++
   Miscellaneous.module ++
   Name.module ++

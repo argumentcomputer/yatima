@@ -69,6 +69,34 @@ def Array.mkArray : Override := Override.decl ⟨``Array.mkArray, ⟦
   (lambda (α n v) (List.replicate α n v))
 ⟧⟩
 
+def Array.uget : Override := Override.decl ⟨``Array.uget, ⟦
+  (lambda (α a i h) (getelem a i))
+⟧⟩
+
+def Array.uset : Override := Override.decl ⟨``Array.uset, ⟦
+  (lambda (α a i v h) (set a i v))
+⟧⟩
+
+def Array.swap : Override := Override.decl ⟨``Array.swap, ⟦
+  (lambda (α a i j) 
+    (let ((v₁ (getelem a i))
+          (v₂ (getelem a j))
+          (a' (set a i v₂)))
+        (set a' j v₁)))
+⟧⟩
+
+def Array.swap! : Override := Override.decl ⟨``Array.swap!, ⟦
+  (lambda (α a i j) 
+    (let ((v₁ (getelem a i))
+          (v₂ (getelem a j))
+          (a' (set a i v₂)))
+        (set a' j v₁)))
+⟧⟩
+
+def Array.pop : Override := Override.decl ⟨``Array.uset, ⟦
+  (lambda (α a) (List.dropLast α a))
+⟧⟩
+
 def Array.module : List Override := [
   Lurk.Overrides.Array, 
   Array.data,
@@ -79,7 +107,12 @@ def Array.module : List Override := [
   Array.push,
   Array.set,
   Array.set!,
-  Array.mkArray
+  Array.mkArray,
+  Array.uget,
+  Array.uset,
+  Array.swap,
+  Array.swap!,
+  Array.pop
 ]
 
 end Overrides
