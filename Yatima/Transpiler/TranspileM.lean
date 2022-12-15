@@ -45,10 +45,13 @@ def visit (name : Lean.Name) : TranspileM Unit :=
 @[inline] def isVisited (n : Lean.Name) : TranspileM Bool :=
   return (← get).visited.contains n
 
-def getMonoDecl (declName : Lean.Name) : TranspileM Decl := do
-  let some decl := getDeclCore? (← read).env monoExt declName |
+def getDecl (declName : Lean.Name) : TranspileM Decl := do
+  if let some decl := getDeclCore? (← read).env monoExt declName then
+    return decl 
+  else if let some decl := getDeclCore? (← read).env baseExt declName then
+    return decl
+  else
     throw s!"environment does not contain {declName}"
-  return decl
 
 def withOverrides (overrides : Lean.NameMap Override) : TranspileM α → TranspileM α :=
   withReader fun env => { env with overrides := overrides }

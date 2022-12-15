@@ -1,27 +1,16 @@
 import Lean
-import Yatima.Transpiler.PrettyPrint
 
-open Lean Meta
+open Lean Compiler
 
-def array := #[1, 2, 3, 4, 5, 6]
-def arrayGet1 := array.get ⟨0, by simp⟩
-def arrayGet2 := array[0]
-def arrayGet!1 := array.get! 0
-def arrayGet!2 := array[1]!
+def hmi : HashMapImp Nat String := mkHashMapImp
+def hmiInsert := (hmi.insert 1 "one").1
+-- def hmiFold := hmiInsert.a.fold (d := 0) fun acc k v => acc + k
+-- set_option trace.Compiler.result true in
+-- #eval compile #[``hmiFold]
 
-def band (n m : Nat) := 
-  let x := Nat.bitwise and n m
-  dbg_trace x
-  x
+def find (name : Name) : MetaM Unit := do
+  let some decl ← Lean.Compiler.LCNF.getMonoDecl? name |
+    IO.println s!"{name} was not found"
+  IO.println "found"
 
-open Lean.Compiler
-
-set_option trace.Compiler.result true
-#eval compile #[``band]
-
-def test : MetaM Unit := do
-  let some decl ← Lean.Compiler.LCNF.getMonoDecl? `Lean.AssocList.toList |
-    throwError "what"
-  IO.println $ Yatima.Transpiler.ppDecl decl
-
-#eval test
+#eval find ``Lean.AssocList.contains

@@ -182,9 +182,13 @@ mutual
   partial def mkLetValue : LetValue → TranspileM AST
     | .value lit => return toAST lit
     | .erased => return toAST "lcErased"
-    | .proj _ idx struct =>
+    | .proj typeName idx struct => do
+      appendName typeName
       -- TODO FIXME: use `typeName` to get params and add to `idx`
-      return ⟦(getelem $idx $struct.name)⟧
+      -- TODO FIXME: support overrides; this is somewhat non-trivial
+      let some indData := (← get).inductives.find? typeName |
+        throw s!"{typeName} is not an inductive"
+      return ⟦(getelem $(2 + indData.params + idx) $struct.name)⟧
     | .const declName _ args => do
       appendName declName
       if args.isEmpty then
@@ -297,10 +301,10 @@ mutual
       let names ← getMutuals name
       if let [name] := names then 
         if ← appendOverride name then return
-        appendDecl $ ← getMonoDecl name
+        appendDecl $ ← getDecl name
       else
         -- TODO FIXME: no support for mutual overrides
-        appendMutualDecls $ ← names.mapM getMonoDecl
+        appendMutualDecls $ ← names.mapM getDecl
 
   partial def appendOverride (name : Name) : TranspileM Bool := do
     dbg_trace s!">> appendOverride {name}"
