@@ -4256,6 +4256,7 @@ def matchesLit (stx : Syntax) (k : SyntaxNodeKind) (val : String) : Bool :=
     | _                  => false)
   | _                     => false
 
+
 end Syntax
 
 namespace Macro

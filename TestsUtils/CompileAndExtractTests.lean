@@ -142,8 +142,8 @@ def reindexConst (map : NatNatMap) : Const → Const
       rhs := reindexExpr map r.rhs,
       ctor := reindexCtor map r.ctor }
     .extRecursor { x with
-      type := reindexExpr map x.type, rules := rules }
-  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
+      type := reindexExpr map x.type, rules := rules, ind := map.find! x.ind}
+  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type, ind := map.find! x.ind }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def extractConverterTests (stt : CompileState) : TestSeq :=

@@ -381,11 +381,11 @@ mutual
         match r with
         | .recInfo rv =>
           if isInternalRec rv.type ind.name then
-            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors all r
+            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors all indIdx r
             let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else
-            let thisRec ← externalRecToIR r
+            let thisRec ← externalRecToIR indIdx r
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
@@ -439,7 +439,7 @@ mutual
     }
 
   /-- Encodes an internal recursor to IR -/
-  partial def internalRecToIR (ctors : List Lean.Name) (all : List TC.ConstIdx) :
+  partial def internalRecToIR (ctors : List Lean.Name) (all : List TC.ConstIdx) (ind : TC.ConstIdx) :
     Lean.ConstantInfo → CompileM
       (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
     | .recInfo rec => do
@@ -464,7 +464,8 @@ mutual
           indices := rec.numIndices
           motives := rec.numMotives
           minors  := rec.numMinors
-          k       := rec.k }
+          k       := rec.k
+          ind     := ind }
         let (_, _, constIdx) ← getFromRecrCtx! rec.name
         addToConsts constIdx tcRecr
         let recr := ⟨
@@ -530,7 +531,7 @@ mutual
     | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
   /-- Encodes an external recursor to IR -/
-  partial def externalRecToIR :
+  partial def externalRecToIR (ind : TC.ConstIdx) :
       Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
     | .recInfo rec => withLevels rec.levelParams do
       let (typeCid, type) ← compileExpr rec.type
@@ -548,6 +549,7 @@ mutual
         minors  := rec.numMinors
         rules   := tcRules
         k       := rec.k
+        ind     := ind
       }
       let (_, _, constIdx) ← getFromRecrCtx! rec.name
       addToConsts constIdx tcRecr

@@ -196,7 +196,7 @@ mutual
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
     else match ← derefConst name k with
-    | .intRecursor (.mk _ _ _ params indices motives minors isK) =>
+    | .intRecursor (.mk _ _ _ params indices motives minors isK indIdx) =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
@@ -211,7 +211,8 @@ mutual
           let some minor := args.get? minorIdx | throw .impossible
           pure minor.1.get
         else
-          match ← toCtorIfLit arg with
+          let params := args.take params
+          match ← toCtorIfLitOrStruct indIdx (params.map (·.1)) univs arg with
           | .app (Neutral.const kName k _) args' =>
             match ← derefConst kName k with
             | .constructor _ =>
@@ -222,14 +223,15 @@ mutual
               | _ => throw .impossible
             | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
           | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
-    | .extRecursor _  =>
+    | .extRecursor (.mk (ind := indIdx) ..)  =>
       match ← derefTypedConst name k with
       | .extRecursor _ params motives minors indices rules =>
         let majorIdx := params + motives + minors + indices
         if args.length != majorIdx then
           pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
         else
-          match ← toCtorIfLit arg with
+          let params := args.take params
+          match ← toCtorIfLitOrStruct indIdx (params.map (·.1)) univs arg with
           | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
             | .constructor _ _ idx _ =>
               -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
@@ -272,7 +274,7 @@ mutual
     else
       throw .impossible
 
-  partial def toCtorIfLit : SusValue → TypecheckM Value
+  partial def toCtorIfLitOrStruct (indIdx : ConstIdx) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
     | .mk info thunk => match thunk.get with
       | .lit (.natVal v) => do
         let zeroIdx ← primIndex .natZero
@@ -282,7 +284,39 @@ mutual
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
           pure $ .app (.const `Nat.succ succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
-      | e => pure e
+      | e => do
+        match ← derefConst `TODO indIdx with
+        | .inductive (.mk (struct := struct) ..) =>
+          match struct with
+          | none => pure e
+          | some ctor => do
+            -- index 0 is the inductive itself, index 1 is the constructor;
+            -- this is guaranteed because structs can't appear in mutual blocks
+            let some ctorIdx := ctor.all.get? 1 | throw .impossible
+            let etaExpand (e : Value) : TypecheckM Value := do
+              let mut args : List SusValue := params
+              for idx in [:ctor.fields] do
+                -- FIXME get the correct TypeInfo for the projection
+                args := args ++ [.mk .none $ .mk fun _ => .app (.proj indIdx idx $ .mk info e) []]
+              let mut annotatedArgs := []
+              if args.length > 0 then do
+                let some lastArg := args.get? (args.length - 1) | throw .impossible
+                annotatedArgs := args.take (args.length - 1) |>.map (·, .none)
+                annotatedArgs := annotatedArgs ++ [(lastArg, info)]
+              pure $ .app (.const ctor.name ctorIdx univs) $ annotatedArgs
+            match e with
+            | .app (.const n idx _) _ =>
+              --dbg_trace s!"constant head: {n}, {idx}, {ctorIdx}"
+              -- FIXME do not `etaExpand` if the struct is in `Prop`
+              if ctorIdx == idx then
+                --dbg_trace s!"not eta-expanding..."
+                -- this is already a constructor application
+                pure e
+              else 
+                --dbg_trace s!"eta-expanding..."
+                etaExpand e
+            | _ => etaExpand e
+        | _ => throw .impossible
 end
 
 mutual
