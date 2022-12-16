@@ -1,12 +1,10 @@
-import Lurk.Syntax.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
-
 namespace Overrides
 
 def StringInductiveData : InductiveData :=
@@ -20,12 +18,13 @@ def String.mk : Override.Decl := ⟨``String.mk, ⟦
   (lambda (data) (str_mk data))
 ⟧⟩
 
-def StringMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
+def StringMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
     throw "we assume that structures only have one alternative, and never produce `default` match cases"
   let #[data] := params |
     throw s!"`String.mk` case expects exactly 1 param, got\n {params}"
-  return ⟦(let (($data (String.data $discr))) $k)⟧
+  let data := data.toString false
+  return .let data ⟦(String.data $discr)⟧ k
 
 protected def String : Override := Override.ind
   ⟨StringInductiveData, StringCore, #[String.mk], StringMkCases⟩
@@ -150,7 +149,7 @@ def String.get' : Override := Override.decl ⟨``String.get', ⟦
 ⟧⟩
 
 def String.next' : Override := Override.decl ⟨``String.next', ⟦
-  (lambda (s p h) (p + (String.csize (String.get s p))))
+  (lambda (s p h) (+ p (String.csize (String.get s p))))
 ⟧⟩
 
 def String.extract.go₁ : Override := Override.decl ⟨``String.extract.go₁, ⟦

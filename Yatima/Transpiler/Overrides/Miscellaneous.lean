@@ -1,16 +1,15 @@
-import Lurk.Syntax.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
 namespace Overrides
 
 def mixHash : Override := Override.decl ⟨``mixHash, ⟦
-  (lambda (x y) (num (commit ,(x . y)))) -- TODO this is hackish, but if it works hey it works
+  (lambda (x y) (num (commit (cons x y)))) -- TODO this is hackish, but if it works hey it works
 ⟧⟩
 
 def Decidable.decide : Override := Override.decl ⟨``Decidable.decide, ⟦

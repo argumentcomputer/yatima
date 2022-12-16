@@ -1,10 +1,9 @@
-import Lurk.Syntax.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
 namespace Overrides
@@ -24,9 +23,9 @@ def Nat.succ : Override.Decl := ⟨``Nat.succ, ⟦
   (lambda (n) (+ n 1))
 ⟧⟩
 
-def NatMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
-  let mut defaultElse : AST := .nil
-  let mut ifThens : Array (AST × AST) := #[]
+def NatMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
+  let mut defaultElse : Expr := .atom .nil
+  let mut ifThens : Array (Expr × Expr) := #[]
   for alt in alts do match alt with
     | .default k => defaultElse := k
     | .alt cidx params k =>
@@ -37,11 +36,12 @@ def NatMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := 
       else if cidx == 1 then
         let #[param] := params |
           throw s!"`Nat.succ` case expects exactly 1 param, got\n {params}"
-        let case : AST := ⟦(let (($param (- $discr 1))) $k)⟧
+        let param := param.toString false
+        let case := .let param ⟦(- $discr 1)⟧ k
         ifThens := ifThens.push (⟦(lneq $discr 0)⟧, case)
       else
         throw "{cidx} is not a valid `Nat` constructor index"
-  let cases := mkIfElses ifThens.toList defaultElse
+  let cases := Expr.mkIfElses ifThens.toList defaultElse
   return cases
 
 protected def Nat : Override := Override.ind

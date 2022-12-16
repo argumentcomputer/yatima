@@ -1,9 +1,15 @@
-import Lurk.Syntax.DSL
+import Lurk.Backend.DSL
+import Lurk.Backend.ExprUtils
 
-namespace Lurk
-open Lurk.Syntax AST DSL
+namespace Lurk.Backend.Expr
+-- open Lurk.Frontend AST Macro DSL
 
-instance [ToAST α] [ToAST β] : ToAST (α × β) where
-  toAST x := ~[toAST x.1, toAST x.2]
+/-- This is a super dangerous instance, because of how tricky names are;
+  I'm just gonna turn it on for now, but may cause terrible bugs. -/
+instance (priority := low) : ToExpr Lean.Name where
+  toExpr name := .sym name.toString
 
-end Lurk
+def mkApp (f : Expr) (args : List Expr) : Expr :=
+  args.foldl (init := f) fun acc e => .app acc e
+
+end Lurk.Backend.Expr

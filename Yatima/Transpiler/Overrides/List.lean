@@ -1,10 +1,9 @@
-import Lurk.Syntax.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
 namespace Overrides
@@ -24,9 +23,9 @@ def List.cons : Override.Decl := ⟨``List.cons, ⟦
   (lambda (x head tail) (cons head tail))
 ⟧⟩
 
-def ListMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
-  let mut defaultElse : AST := .nil
-  let mut ifThens : Array (AST × AST) := #[]
+def ListMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
+  let mut defaultElse : Expr := .atom .nil
+  let mut ifThens : Array (Expr × Expr) := #[]
   for alt in alts do match alt with
     | .default k => defaultElse := k
     | .alt cidx params k =>
@@ -37,22 +36,24 @@ def ListMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST :=
       else if cidx == 1 then
         let #[head, tail] := params |
           throw "`List.cons` case expects exactly 2 params, got\n {params}"
-        let case : AST := ⟦(let (($head (car $discr)) ($tail (cdr $discr))) $k)⟧
+        let head := head.toString false
+        let tail := tail.toString false
+        let case := .mkLet [(head, ⟦(car $discr)⟧), (tail, ⟦(cdr $discr)⟧)] k
         ifThens := ifThens.push (⟦(lneq $discr nil)⟧, case)
       else
         throw "{cidx} is not a valid `List` constructor index"
-  let cases := mkIfElses ifThens.toList defaultElse
+  let cases := Expr.mkIfElses ifThens.toList defaultElse
   return cases
 
 protected def List : Override := Override.ind
   ⟨ListInductiveData, ListCore, #[List.nil, List.cons], ListMkCases⟩
 
 def List.hasDecEq : Override := Override.decl ⟨``List.hasDecEq, ⟦
-  () -- TODO FIXME
+  nil -- TODO FIXME
 ⟧⟩
 
 def List.beq : Override := Override.decl ⟨``List.beq, ⟦
-  () -- TODO FIXME: have to compare using `_inst`
+  nil -- TODO FIXME: have to compare using `_inst`
   -- (lambda (α _inst xs ys) (
   --   if (_inst xs ys)
   --     ,("Bool" 1)

@@ -1,10 +1,9 @@
-import Lurk.Syntax.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
 namespace Overrides
@@ -21,9 +20,9 @@ def Char.mk : Override.Decl := ⟨``Char.mk, ⟦
     (char (getelem (getelem val 2) 3)))
 ⟧⟩
 
-def CharMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
-  let mut defaultElse : AST := .nil
-  let mut ifThens : Array (AST × AST) := #[]
+def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
+  let mut defaultElse : Expr := .atom .nil
+  let mut ifThens : Array (Expr × Expr) := #[]
   for alt in alts do match alt with
     | .default k => defaultElse := k
     | .alt cidx params k =>
@@ -33,7 +32,7 @@ def CharMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST :=
         ifThens := ifThens.push (⟦(eq $discr nil)⟧, k)
       else
         throw s!"{cidx} is not a valid `Char` constructor index"
-  let cases := mkIfElses ifThens.toList defaultElse
+  let cases := Expr.mkIfElses ifThens.toList defaultElse
   return cases
 
 protected def Char : Override := Override.ind

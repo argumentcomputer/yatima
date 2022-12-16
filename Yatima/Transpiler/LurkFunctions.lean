@@ -1,4 +1,4 @@
-import Lurk.Syntax.DSL
+import Lurk.Backend.DSL
 import Yatima.Transpiler.Override
 
 /-!
@@ -10,34 +10,35 @@ generally needed to write Lurk code.
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
-instance [ToAST α] [ToAST β] : ToAST (α × β) where
-  toAST x := ~[toAST x.1, toAST x.2]
+-- instance [ToAST α] [ToAST β] : ToAST (α × β) where
+--   toAST x := ~[toAST x.1, toAST x.2]
+
 
 namespace Preloads
 
-def reverse_aux : Name × AST := (`reverse_aux, ⟦
+def reverse_aux : Lean.Name × Expr := (`reverse_aux, ⟦
   (lambda (xs ys) 
     (if xs
         (reverse_aux (cdr xs) (cons (car xs) ys))
         ys))
 ⟧)
 
-def reverse : Name × AST := (`reverse, ⟦
+def reverse : Lean.Name × Expr := (`reverse, ⟦
   (lambda (xs) (reverse_aux xs nil))
 ⟧)
 
-def push : Name × AST := (`push, ⟦
+def push : Lean.Name × Expr := (`push, ⟦
   (lambda (xs y) (
     if xs
       (cons (car xs) (push (cdr xs) y))
       (cons y nil)))
 ⟧)
 
-def append : Name × AST := (`append, ⟦
+def append : Lean.Name × Expr := (`append, ⟦
   (lambda (xs ys) (
     if xs
       (cons (car xs) (append (cdr xs) ys))
@@ -45,14 +46,14 @@ def append : Name × AST := (`append, ⟦
 ⟧)
 
 /-- Warning: if `i` is out of bounds, we push `x` to the back. -/
-def set : Name × AST := (`set, ⟦
+def set : Lean.Name × Expr := (`set, ⟦
   (lambda (xs i x)
     (if (= i 0)
         (cons x (cdr xs))    
         (cons (car xs) (set (cdr xs) (- i 1) x))))
 ⟧)
 
-def set! : Name × AST := (`set!, ⟦
+def set! : Lean.Name × Expr := (`set!, ⟦
   (lambda (xs i x)
     (if (= i 0)
         (if xs
@@ -61,14 +62,14 @@ def set! : Name × AST := (`set!, ⟦
         (cons (car xs) (set! (cdr xs) (- i 1) x))))
 ⟧)
 
-def length : Name × AST := (`length, ⟦
+def length : Lean.Name × Expr := (`length, ⟦
   (lambda (xs) (
     if xs
       (+ 1 (length (cdr xs)))
       0))
 ⟧)
 
-def take : Name × AST := (`take, ⟦
+def take : Lean.Name × Expr := (`take, ⟦
   (lambda (n xs) (
     if (= n 0)
       nil
@@ -79,7 +80,7 @@ def take : Name × AST := (`take, ⟦
   )
 ⟧)
 
-def drop : Name × AST := (`drop, ⟦
+def drop : Lean.Name × Expr := (`drop, ⟦
   (lambda (n xs)
     (if (= n 0)
       xs
@@ -89,14 +90,14 @@ def drop : Name × AST := (`drop, ⟦
 ⟧)
 
 /-- Note: this will not fail and return `nil` if `n` is out of bounds -/
-def getelem : Name × AST := (`getelem, ⟦
+def getelem : Lean.Name × Expr := (`getelem, ⟦
   (lambda (xs n)
     (if (= n 0)
       (car xs)
       (getelem (cdr xs) (- n 1))))
 ⟧)
 
-def getelem! : Name × AST := (`getelem!, ⟦
+def getelem! : Lean.Name × Expr := (`getelem!, ⟦
   (lambda (xs n)
     (if (= n 0)
       (if xs
@@ -105,7 +106,7 @@ def getelem! : Name × AST := (`getelem!, ⟦
       (getelem (cdr xs) (- n 1))))
 ⟧)
 
-def str_mk : Name × AST := (`str_mk, ⟦
+def str_mk : Lean.Name × Expr := (`str_mk, ⟦
   (lambda (cs)
     (if cs
       (strcons (char (car cs)) (str_mk (cdr cs)))
@@ -114,7 +115,7 @@ def str_mk : Name × AST := (`str_mk, ⟦
   )
 ⟧)
 
-def str_data : Name × AST := (`str_data, ⟦
+def str_data : Lean.Name × Expr := (`str_data, ⟦
   (lambda (s)
     (if (eq s "")
       nil
@@ -123,14 +124,14 @@ def str_data : Name × AST := (`str_data, ⟦
   )
 ⟧)
 
-def str_push : Name × AST := (`str_push, ⟦
+def str_push : Lean.Name × Expr := (`str_push, ⟦
   (lambda (xs y) (
     if xs
       (strcons (car xs) (push (cdr xs) y))
       (strcons (char y) nil)))
 ⟧)
 
-def str_append : Name × AST := (`str_append, ⟦
+def str_append : Lean.Name × Expr := (`str_append, ⟦
   (lambda (xs ys)
     (if (eq "" xs)
       ys
@@ -139,7 +140,7 @@ def str_append : Name × AST := (`str_append, ⟦
         (str_append (cdr xs) ys))))
 ⟧)
 
-def to_bool : Name × AST := (`to_bool, ⟦
+def to_bool : Lean.Name × Expr := (`to_bool, ⟦
   (lambda (x) 
     (if x
         ,("Bool" 1)
@@ -149,21 +150,21 @@ def to_bool : Name × AST := (`to_bool, ⟦
 -- TODO: We can't use any of these because they do not have
 -- the expected lazy behavior; we would need to write an inliner.
 
-def lor : Name × AST := (`lor, ⟦
+def lor : Lean.Name × Expr := (`lor, ⟦
   (lambda (x y) 
     (if x t y))
 ⟧)
 
-def land : Name × AST := (`land, ⟦
+def land : Lean.Name × Expr := (`land, ⟦
   (lambda (x y) 
     (if x y nil))
 ⟧)
 
-def lneq : Name × AST := (`lneq, ⟦
+def lneq : Lean.Name × Expr := (`lneq, ⟦
   (lambda (x y) (if (eq x y) nil t))
 ⟧)
 
-def lnot : Name × AST := (`lnot, ⟦
+def lnot : Lean.Name × Expr := (`lnot, ⟦
   (lambda (x) 
     (if x nil t))
 ⟧)

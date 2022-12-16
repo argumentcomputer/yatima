@@ -1,7 +1,7 @@
 import Yatima.Cli.Utils
 import Yatima.Transpiler.Transpiler
-import Lurk.Evaluation.FromAST
-import Lurk.Evaluation.Eval
+import Lurk.Frontend.ToExpr
+import Lurk.Backend.Eval
 
 open System Yatima.Transpiler in
 def transpileRun (p : Cli.Parsed) : IO UInt32 := do
@@ -14,6 +14,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
     match output.parent with
     | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
     | none => pure ()
+    IO.println s!"Writing output to {output}"
     IO.FS.writeFile output (expr.toString true)
     if p.hasFlag "run" then
       match expr.eval with
@@ -21,6 +22,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
       | .ok val => IO.println val
     else if p.hasFlag "lurkrs" then
       let lurkrs := s!"lurkrs lurk/{declaration}.lurk"
+      IO.println s!"Running `{lurkrs}`"
       match ← runCmd lurkrs with
       | .ok res => IO.println res; return 0
       | .error err => IO.eprintln err; return 1

@@ -1,5 +1,4 @@
 import Lean.Compiler.LCNF.Main
-import Lurk.Syntax.ExprUtils
 import Yatima.Transpiler.MoveToLurk
 
 /-!
@@ -50,8 +49,8 @@ This file defines the datatypes that encode override information.
 -/
 
 namespace Yatima.Transpiler
-open Lurk.Syntax AST DSL
-open Lean Compiler.LCNF
+open Lurk Backend DSL
+open Lean.Compiler.LCNF
 
 /-- This holds the bare minimum amount of inductive 
   data needed by the transpiler to do its job. Used in compiling
@@ -69,25 +68,25 @@ structure InductiveData where
 /-- A declaration override (a.k.a. type #3 in our list at the top).
   Just contains the name and a predefined replacement `AST`. -/
 structure Override.Decl where
-  declName : Name
-  decl : AST
+  declName : Lean.Name
+  decl : Expr
 
 inductive Override.Alt where
-  | alt (cidx : Nat) (params : Array Name) (code : AST)
-  | default (code : AST)
+  | alt (cidx : Nat) (params : Array Lean.Name) (code : Expr)
+  | default (code : Expr)
 
 /-- A inductive override (a.k.a. type #4 in our list at the top). -/
 structure Override.Inductive where
   indData : InductiveData
   ind : Override.Decl
   ctors : Array Override.Decl
-  mkCases : (discr : AST) → (alts : Array Override.Alt) → Except String AST
+  mkCases : (discr : Expr) → (alts : Array Override.Alt) → Except String Expr
 
 inductive Override where
   | decl (decl : Override.Decl) : Override
   | ind (ind : Override.Inductive) : Override
 
-def Override.name : Override → Name
+def Override.name : Override → Lean.Name
   | .decl odecl => odecl.declName
   | .ind oind => oind.ind.declName
 

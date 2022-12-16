@@ -1,6 +1,6 @@
 import LSpec
-import Lurk.Evaluation.Eval
-import Lurk.Evaluation.FromAST
+import Lurk.Backend.Eval
+import Lurk.Frontend.ToExpr
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
@@ -175,21 +175,19 @@ end Typechecking
 
 section Transpilation
 
-open Transpiler Lurk Evaluation
+open Transpiler Lurk Backend
 
 instance [BEq α] [BEq β] : BEq (Except α β) where beq
   | .ok x, .ok y => x == y
   | .error x, .error y => x == y
   | _, _ => false
 
-def extractTranspilationTests (expect : List (String × Value))
-    (stt : CompileState) : TestSeq :=
-  expect.foldl (init := .done) fun tSeq (root, expected) =>
-    withExceptOk s!"Transpilation of {root} succeeds" (transpile stt.irStore root) fun ast =>
-      withExceptOk s!"Conversion of {root} to expression succeeds" ast.toExpr fun expr =>
-        withExceptOk s!"Evaluation of {root} succeeds" expr.eval fun val =>
-          tSeq ++ test s!"Evaluation of {root}, resulting in {val}, yields {expected}"
-            (val == expected)
+def extractTranspilationTests (fixture : String) (expect : List (String × Value)) : IO TestSeq := do
+  expect.foldlM (init := .done) fun tSeq (root, expected) => do
+    return withExceptOk s!"Transpilation of {root} succeeds" (← transpile fixture root) fun expr => 
+      withExceptOk s!"Evaluation of {root} succeeds" expr.eval fun val =>
+        tSeq ++ test s!"Evaluation of {root}, resulting in {val}, yields {expected}"
+          (val == expected)
 
 end Transpilation
 

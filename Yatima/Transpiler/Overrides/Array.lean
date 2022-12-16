@@ -1,10 +1,10 @@
-import Lurk.Syntax.DSL
+import Lurk.Backend.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
 namespace Overrides
@@ -20,12 +20,15 @@ def Array.mk : Override.Decl := ⟨``Array.mk, ⟦
   (lambda (data) data)
 ⟧⟩
 
-def ArrayMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
+#synth Expr.ToExpr Lean.Name
+
+def ArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
     throw "we assume that structures only have one alternative, and never produce `default` match cases"
   let #[data] := params |
     throw s!"`Array.mk` case expects exactly 1 param, got\n {params}"
-  return ⟦(let (($data (Array.data $discr))) $k)⟧
+  let data := data.toString false
+  return .let data ⟦(Array.data $discr)⟧ k
 
 /-- We'll keep `Array` isomorphic to `List` for now, 
   but of course this is extremely inefficient. -/

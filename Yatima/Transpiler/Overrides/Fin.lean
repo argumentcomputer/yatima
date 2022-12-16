@@ -1,10 +1,9 @@
-import Lurk.Syntax.DSL
 import Yatima.Transpiler.Override
 
 namespace Lurk
 
-open Lean Compiler.LCNF
-open Lurk.Syntax AST DSL
+open Lean.Compiler.LCNF
+open Lurk.Backend DSL
 open Yatima.Transpiler
 
 namespace Overrides
@@ -20,12 +19,14 @@ def Fin.mk : Override.Decl := ⟨``Fin.mk, ⟦
   (lambda (n val isLt) val)
 ⟧⟩
 
-def FinMkCases (discr : AST) (alts : Array Override.Alt) : Except String AST := do
+def FinMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
     throw "we assume that structures only have one alternative, and never produce `default` match cases"
   let #[n, isLt] := params |
     throw s!"`Fin.mk` case expects exactly 2 params, got\n {params}"
-  return ⟦(let (($n $discr) ($isLt t)) $k)⟧
+  let n := n.toString false
+  let isLt := isLt.toString false
+  return .mkLet [(n, discr), (isLt, .atom .t)] k
 
 protected def Fin : Override := Override.ind
   ⟨FinInductiveData, FinCore, #[Fin.mk], FinMkCases⟩

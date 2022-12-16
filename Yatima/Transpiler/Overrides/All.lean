@@ -20,7 +20,7 @@ def All.module :=
   HashMap.module ++
   List.module ++
   Miscellaneous.module ++
-  Name.module ++
+  Lean.Name.module ++
   Nat.module ++
   String.module ++
   UInt.module

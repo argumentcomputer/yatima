@@ -1,11 +1,10 @@
-import Lurk.Syntax.AST
 import Lean.CoreM
 import Lean.Compiler.LCNF
 import Yatima.Transpiler.Override
 
 namespace Yatima.Transpiler
 
-open Lurk.Syntax (AST)
+open Lurk.Backend
 
 open Lean.Compiler.LCNF Lean.Core
 
@@ -14,7 +13,7 @@ structure TranspileEnv where
   overrides : Lean.NameMap Override
 
 structure TranspileState where
-  appendedBindings : Array (Lean.Name × AST)
+  appendedBindings : Array (Lean.Name × Expr)
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
   inductives : Lean.NameMap InductiveData
