@@ -13,7 +13,10 @@ def mixHash : Override := Override.decl ⟨``mixHash, ⟦
 ⟧⟩
 
 def Decidable.decide : Override := Override.decl ⟨``Decidable.decide, ⟦
-  (lambda (p h) h)
+  (lambda (p h) 
+    (if (= (getelem h 1) 0)
+        Bool.false
+        Bool.true))
 ⟧⟩
 
 def decEq : Override := Override.decl ⟨``decEq, ⟦

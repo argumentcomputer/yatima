@@ -1,17 +1,14 @@
 import TestsUtils.CompileAndExtractTests
 
-open Lurk.Syntax.DSL
+open Lurk.Backend.DSL
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← extractTranspilationTests
     "Fixtures/Transpilation/TrickyTypes.lean"
-    [
-      extractTranspilationTests [
-        -- ("exprCtor", "lam"),
-        -- ("univCtor", "zero"),
-        -- ("treeSize", 2),
-        -- ("nameStr",  "this.is.a.name")
-      ]
+    [ ("exprCtor", "lam"),
+      ("univCtor", "zero"),
+      ("treeSize", 2),
+      ("nameStr",  "this.is.a.name")
     ]
   lspecIO tSeq
