@@ -25,7 +25,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "bad5fe7983b4a4e4d56b229f9e024d01ff986d9a"
+  "https://github.com/yatima-inc/Lurk.lean" @ "fcc49d1522556c7a489c7b9e053b1c39fa440572"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"
