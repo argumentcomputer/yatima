@@ -40,7 +40,7 @@ def NatMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr :
         let case := .let param ⟦(- $discr 1)⟧ k
         ifThens := ifThens.push (⟦(lneq $discr 0)⟧, case)
       else
-        throw "{cidx} is not a valid `Nat` constructor index"
+        throw s!"{cidx} is not a valid `Nat` constructor index"
   let cases := Expr.mkIfElses ifThens.toList defaultElse
   return cases
 
@@ -58,7 +58,7 @@ def Nat.sub : Override := Override.decl ⟨``Nat.sub, ⟦
       (- a b)))
 ⟧⟩
 
-def Nat.ml : Override := Override.decl ⟨``Nat.mul, ⟦
+def Nat.mul : Override := Override.decl ⟨``Nat.mul, ⟦
   (lambda (a b) (* a b))
 ⟧⟩
 
@@ -144,7 +144,7 @@ def Nat.module := [
   Lurk.Overrides.Nat,
   Nat.add,
   Nat.sub,
-  Nat.ml,
+  Nat.mul,
   Nat.div,
   Nat.mod,
   Nat.decLe,

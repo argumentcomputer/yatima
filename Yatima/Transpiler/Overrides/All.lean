@@ -4,6 +4,7 @@ import Yatima.Transpiler.Overrides.ByteArray
 import Yatima.Transpiler.Overrides.Char
 import Yatima.Transpiler.Overrides.Fin
 import Yatima.Transpiler.Overrides.HashMap
+import Yatima.Transpiler.Overrides.Int
 import Yatima.Transpiler.Overrides.List
 import Yatima.Transpiler.Overrides.Miscellaneous
 import Yatima.Transpiler.Overrides.Name
@@ -21,6 +22,7 @@ def All.module :=
   Char.module ++
   Fin.module ++
   HashMap.module ++
+  Int.module ++
   List.module ++
   Miscellaneous.module ++
   Lean.Name.module ++
