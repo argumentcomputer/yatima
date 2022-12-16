@@ -74,7 +74,7 @@ def Nat.mod : Override := Override.decl ⟨``Nat.mod, ⟦
         a
         (if (< a b)
             a
-            (- a (* (|Nat.div| a b) b)))))
+            (- a (* (Nat.div a b) b)))))
 ⟧⟩
 
 def Nat.decLe : Override := Override.decl ⟨``Nat.decLe, ⟦
