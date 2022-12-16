@@ -213,21 +213,26 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := withResetCtx c.name do
-    --dbg_trace s!"Checking: {c.name}"
     match (← get).tcConsts.get? idx with
     | .some .none =>
       let univs := c.levels.foldr
         (fun name cont i => Univ.var name i :: (cont (i + 1)))
         (fun _ => []) 0
       withEnv ⟨ [], univs ⟩ $ do
-        match c with
-        | .theorem    data
-        | .opaque     data
-        | .definition data => do
-          let (type, _) ← isSort data.type
+        let (type, _) ← isSort c.type
+        let newConst ← match c with
+        | .axiom       _    => pure $ TypedConst.axiom type
+        | .opaque  data =>
           let typeSus := suspend type (← read) (← get)
-          let value ← match c with
-          | .definition data => match data.safety with
+          let value ← check data.value typeSus
+          pure $ TypedConst.opaque type value
+        | .theorem data =>
+          let typeSus := suspend type (← read) (← get)
+          let value ← check data.value typeSus
+          pure $ TypedConst.theorem type value
+        | .definition  data =>
+          let typeSus := suspend type (← read) (← get)
+          let value ← match data.safety with
             | .partial =>
               let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc k => do
                 let const ← derefConst default k
@@ -237,83 +242,50 @@ mutual
                 let stt ← get
                 let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
                 match const with
-                | .theorem    data
-                | .opaque     data
-                | .definition data => pure $ acc.insert k typeSus
+                | .definition _ => pure $ acc.insert k typeSus
                 | _ => throw .impossible -- FIXME better error
               withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
-          | _ => check data.value typeSus
-
-          -- update the typechecked consts with the annotated values/types
-          let tcConsts := (← get).tcConsts
-          if h : idx < tcConsts.size then
-            let newConst ← match c with
-            | .theorem    data => pure $ TypedConst.theorem type value
-            | .opaque     data => pure $ TypedConst.opaque type value
-            | .definition data => pure $ TypedConst.definition type value data.safety
+          pure $ TypedConst.definition type value data.safety
+        | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
+        | .constructor data => do
+          -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
+          let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
+            match (← read).store.consts.get? idx with
+            | .some (.intRecursor data)
+            | .some (.extRecursor data)
+            | .some (.inductive data)
+            | .some (.constructor data) =>
+              -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
+              --dbg_trace s!"checking constant type: {data.name} : {data.type}"
+              let (type, _)  ← withMutTypes acc $ isSort data.type
+              --dbg_trace s!"done checking constant type: {data.name}"
+              let ctx ← read
+              let stt ← get
+              let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+              pure $ acc.insert idx typeSus
             | _ => throw .impossible
-            modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
-          else
-            throw $ .impossible
-        -- TODO: check that inductives, condataors and recursors are well-formed
-        -- TODO: check that quotient is well-formed. I guess it is possible to do this
-        -- while converting from Ipld by checking the cids of the quotient constants
-        -- with precomputed ones
-        | .axiom       data
-        | .inductive   data
-        | .constructor data
-        | .extRecursor data
-        | .intRecursor data
-        | .quotient    data =>
-          --dbg_trace s!"checking constant type: {data.name}"
-          let (type, _)  ← isSort data.type
-          --dbg_trace s!"done checking constant type: {data.name}"
-
-          -- update the typechecked consts with the annotated values/types
-          let tcConsts := (← get).tcConsts
-          if h : idx < tcConsts.size then
-            let newConst ← match c with
-            | .axiom       _ => pure $ TypedConst.axiom type
-            | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
-            | .constructor data =>
-              -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
-              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
-                match (← read).store.consts.get? idx with
-                | .some (.intRecursor data)
-                | .some (.extRecursor data)
-                | .some (.inductive data)
-                | .some (.constructor data) =>
-                  -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
-                  --dbg_trace s!"checking constant type: {data.name} : {data.type}"
-                  let (type, _)  ← withMutTypes acc $ isSort data.type
-                  --dbg_trace s!"done checking constant type: {data.name}"
-                  let ctx ← read
-                  let stt ← get
-                  let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
-                  pure $ acc.insert idx typeSus
-                | _ => throw .impossible
-              --dbg_trace s!"rhs: {data.rhs}"
-              let (rhs, _) ← withMutTypes (mutTypes) $ infer data.rhs
-              pure $ TypedConst.constructor type rhs data.idx data.fields
-            | .extRecursor data =>
-              let rules ← data.rules.mapM fun rule => do
-                let ctx ← read
-                let stt ← get
-                let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
-                -- rhs` can have recursive references to `c`, so we must `withMutTypes`
-                let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
-                let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
-                pure (rule.ctor.idx, rule.fields, rhs)
-              pure $ .extRecursor type data.params data.motives data.minors data.indices rules
-            | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k
-            | .quotient    data => pure $ .quotient type data.kind
-            | _ => throw $ .impossible
-            modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
-          else
-            throw $ .impossible
-    | .none =>
-      throw .impossible
+          --dbg_trace s!"rhs: {data.rhs}"
+          let (rhs, _) ← withMutTypes (mutTypes) $ infer data.rhs
+          pure $ TypedConst.constructor type rhs data.idx data.fields
+        | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k
+        | .extRecursor data => do
+          let rules ← data.rules.mapM fun rule => do
+            let ctx ← read
+            let stt ← get
+            let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+            -- rhs` can have recursive references to `c`, so we must `withMutTypes`
+            let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
+            let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
+            pure (rule.ctor.idx, rule.fields, rhs)
+          pure $ TypedConst.extRecursor type data.params data.motives data.minors data.indices rules
+        | .quotient data => pure $ .quotient type data.kind
+        let tcConsts := (← get).tcConsts
+        if h : idx < tcConsts.size then
+          modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
+        else
+          throw $ .impossible
+    | .none => throw .impossible
     | _ => pure ()
 end
 
