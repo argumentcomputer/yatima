@@ -8,6 +8,24 @@ open Yatima.Transpiler
 
 namespace Overrides
 
+/-! # Some notes on `Char`
+
+In the Lean runtime, `Char` is just `UInt32`. This "representation flattening"
+occurs during the `simp` pass of the compiler, and generates `LCNF` declarations
+that eliminates the use of `Char`, replacing it with `UInt32`. This means that all
+`(c : Char)` arguments are replaced by `(c : UInt32)`. This flattening is automatic
+and cannot be disabled by us, so we just have to roll along with it and treat
+`Char` as `UInt32` as well. In particular, that means that the output of transpiling
+```
+def charA := 'a'
+```
+is not `#\a`, as you would expect, but instead `97`, which is the unicode for `'a'`.
+
+Keep this in mind as you look through the below overrides and write overrides yourself 
+-- everywhere, we must assume that our `char` input is actually a `u32`. 
+
+-/
+
 def CharInductiveData : InductiveData :=
   ⟨``Char, 0, 0, .ofList [(``Char.mk, 0)]⟩
 
@@ -20,21 +38,16 @@ def Char.mk : Override.Decl := ⟨``Char.mk, ⟦
     (char (getelem (getelem val 2) 3)))
 ⟧⟩
 
-def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
-  let mut defaultElse : Expr := .atom .nil
-  let mut ifThens : Array (Expr × Expr) := #[]
-  for alt in alts do match alt with
-    | .default k => defaultElse := k
-    | .alt cidx params k =>
-      if cidx == 0 then
-        unless params.size == 2 do
-          throw s!"`Char.mk` case expects exactly 2 params, got\n {params}"
-        ifThens := ifThens.push (⟦(eq $discr nil)⟧, k)
-      else
-        throw s!"{cidx} is not a valid `Char` constructor index"
-  let cases := Expr.mkIfElses ifThens.toList defaultElse
-  return cases
+def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do  
+  let #[.alt 0 params k] := alts |
+    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+  let #[val, valid] := params |
+    throw s!"`Char.mk` case expects exactly 2 param, got\n {params}"
+  let val := val.toString false
+  let valid := valid.toString false
+  return .mkLet [(val, discr), (valid, .atom .t)] k
 
+/-- Note: read the note on `Char` in the file where this is defined. -/
 protected def Char : Override := Override.ind
   ⟨CharInductiveData, CharCore, #[Char.mk], CharMkCases⟩
 

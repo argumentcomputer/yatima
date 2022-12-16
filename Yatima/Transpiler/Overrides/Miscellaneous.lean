@@ -12,6 +12,9 @@ def mixHash : Override := Override.decl ⟨``mixHash, ⟦
   (lambda (x y) (num (commit (cons x y)))) -- TODO this is hackish, but if it works hey it works
 ⟧⟩
 
+/-- TODO FIXME: This is not strictly needed, but in the future,
+  there are optimization oppotunties by flattening `Decidable` to `Bool`
+  sooner. This override is currently disabled. -/
 def Decidable.decide : Override := Override.decl ⟨``Decidable.decide, ⟦
   (lambda (p h) 
     (if (= (getelem h 1) 0)
@@ -42,7 +45,7 @@ def outOfBounds : Override := Override.decl ⟨
 
 def Miscellaneous.module := [
   mixHash,
-  Decidable.decide,
+  -- Decidable.decide, -- See the note on `Decidable.decide` override
   decEq,
   inferInstanceAs,
   instDecidableNot,

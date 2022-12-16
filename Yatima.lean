@@ -27,6 +27,9 @@ import Yatima.Ipld.FromIpld
 import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld
 import Yatima.Lean.Utils
+import Yatima.Transpiler.LurkFunctions
+import Yatima.Transpiler.MoveToLurk
+import Yatima.Transpiler.Override
 import Yatima.Transpiler.Overrides.All
 import Yatima.Transpiler.Overrides.Array
 import Yatima.Transpiler.Overrides.Bool
@@ -42,9 +45,6 @@ import Yatima.Transpiler.Overrides.Nat
 import Yatima.Transpiler.Overrides.String
 import Yatima.Transpiler.Overrides.Thunk
 import Yatima.Transpiler.Overrides.UInt
-import Yatima.Transpiler.LurkFunctions
-import Yatima.Transpiler.MoveToLurk
-import Yatima.Transpiler.Override
 import Yatima.Transpiler.PrettyPrint
 import Yatima.Transpiler.Test
 import Yatima.Transpiler.TranspileM
