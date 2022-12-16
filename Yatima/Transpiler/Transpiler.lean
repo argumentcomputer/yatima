@@ -36,7 +36,7 @@ def preloadNames : Lean.NameSet :=
   .ofList (preloads.map Prod.fst)
 
 def safeName (name : Name) : TranspileM Name :=
-  dbg_trace s!">> safeName {name}"
+  -- dbg_trace s!">> safeName {name}"
   let nameStr := name.toString false
   if preloadNames.contains name
       -- || reservedSyms.contains nameStr
@@ -45,11 +45,11 @@ def safeName (name : Name) : TranspileM Name :=
     | some n => return n
     | none   => replace name
   else 
-    dbg_trace s!">> safeName end {name}"
+    -- dbg_trace s!">> safeName end {name}"
     return name
 
 def mkName (name : Name) : TranspileM Expr := do
-  dbg_trace s!">> mkName {name}"
+  -- dbg_trace s!">> mkName {name}"
   toExpr <$> safeName name
 
 instance : ToExpr Lean.FVarId where
@@ -60,7 +60,7 @@ instance : ToExpr LitValue where toExpr
   | .strVal s => toExpr s
 
 def appendBinding (b : Name × Expr) (safe := true) : TranspileM Unit := do
-  dbg_trace s!">> appendBinding {b.1}"
+  -- dbg_trace s!">> appendBinding {b.1}"
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun s => { s with appendedBindings := s.appendedBindings.push b }
 
@@ -68,7 +68,7 @@ def appendInductiveData (data : InductiveData) : TranspileM Unit := do
   modify fun s => { s with inductives := s.inductives.insert data.name data }
 
 def mkIndLiteral (ind : Lean.InductiveVal) : TranspileM Expr := do
-  dbg_trace s!">> mkIndLiteral"
+  -- dbg_trace s!">> mkIndLiteral"
   let (name, params, indices, type) :=
     (ind.name.toString false, ind.numParams, ind.numIndices, ind.type)
   let args ← type.getForallBinderNames.mapM safeName
@@ -85,7 +85,7 @@ def splitCtorArgs (args : List Expr) (p i : Nat) : List (List Expr) :=
   [params, indices, args]
 
 def appendConstructor (ctor : Lean.ConstructorVal) : TranspileM Unit := do
-  dbg_trace s!">> appendConstructor"
+  -- dbg_trace s!">> appendConstructor"
   let (name, idx, type, ind) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
   visit ctor.name
   let ctorArgs ← type.getForallBinderNames.mapM safeName
@@ -99,7 +99,7 @@ def appendConstructor (ctor : Lean.ConstructorVal) : TranspileM Unit := do
 
 /-- Amazingly, we don't actually have to transpile recursors... -/
 def appendInductive (ind : Lean.InductiveVal) : TranspileM Unit := do
-  dbg_trace s!">> appendInductive"
+  -- dbg_trace s!">> appendInductive"
   let (name, params, indices) := (ind.name, ind.numParams, ind.numIndices)
   visit name
   let ctors : List Lean.ConstructorVal ← ind.ctors.mapM fun ctor => do
@@ -149,11 +149,11 @@ def getMutuals (name : Name) : TranspileM (List Name) := do
 
 def mkFVarId : Lean.FVarId → TranspileM Expr
   | fvarId => do 
-    dbg_trace s!">> mkFVarId"
+    -- dbg_trace s!">> mkFVarId"
     mkName fvarId.name
 
 def mkArg (arg : Arg) : TranspileM Expr := do
-  dbg_trace s!">> mkArg"
+  -- dbg_trace s!">> mkArg"
   match arg with
   | .erased => return toExpr "lcErased"
   | .fvar fvarId => mkFVarId fvarId
@@ -162,7 +162,7 @@ def mkArg (arg : Arg) : TranspileM Expr := do
 
 def mkParam : Param → TranspileM String
   | ⟨fvarId, _, _, _⟩ =>
-    dbg_trace s!">> mkParam"
+    -- dbg_trace s!">> mkParam"
     return (← safeName fvarId.name).toString false
 
 def mkParams (params : Array Param) : TranspileM (Array String) := do
@@ -170,7 +170,7 @@ def mkParams (params : Array Param) : TranspileM (Array String) := do
 
 def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.Alt) :
     Except String Expr := do  
-  dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
+  -- dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
   let mut defaultElse : Expr := .atom .nil
   let mut ifThens : Array (Expr × Expr) := #[]
   for alt in alts do match alt with
@@ -191,7 +191,7 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
 mutual
 
   partial def mkLetValue (letv : LetValue) : TranspileM Expr := do
-    dbg_trace s!">> mkLetValue"
+    -- dbg_trace s!">> mkLetValue"
     match letv with
     | .value lit => return toExpr lit
     | .erased => return toExpr "lcErased"
@@ -216,7 +216,7 @@ mutual
 
   partial def mkLetDecl : LetDecl → TranspileM (String × Expr)
     | ⟨fvarId, _, _, value⟩ => do
-      dbg_trace s!">> mkLetDecl"
+      -- dbg_trace s!">> mkLetDecl"
       let fvarId ← safeName fvarId.name
       let fvarId := fvarId.toString false
       let value ← mkLetValue value
@@ -224,7 +224,7 @@ mutual
 
   partial def mkFunDecl : FunDecl → TranspileM (String × Expr)
     | ⟨fvarId, _, params, _, value⟩ => do
-      dbg_trace s!">> mkFunDecl"
+      -- dbg_trace s!">> mkFunDecl"
       let fvarId ← safeName fvarId.name
       let fvarId := fvarId.toString false
       let value ← mkCode value
@@ -235,7 +235,7 @@ mutual
       Alt → TranspileM Override.Alt
     | .default k => .default <$> mkCode k
     | .alt ctor params k => do
-      dbg_trace s!">> mkOverrideAlt"
+      -- dbg_trace s!">> mkOverrideAlt"
       let some cidx := indData.ctors.find? ctor |
         throw s!"{ctor} not a valid constructor for {indData.name}"
       let params ← params.mapM fun p => safeName p.fvarId.name
@@ -248,7 +248,7 @@ mutual
   partial def mkCases (cases : Cases) : TranspileM Expr := do
     let ⟨typeName, _, discr, alts⟩ := cases
     appendName typeName
-    dbg_trace s!">> mkCases typeName: {typeName}"
+    -- dbg_trace s!">> mkCases typeName: {typeName}"
     let indData := ← match (← get).inductives.find? typeName with
       | some data => return data
       | none => throw s!"{typeName} is not an inductive"
@@ -262,30 +262,30 @@ mutual
   partial def mkCode (code : Code) : TranspileM Expr := do
     match code with
     | .let decl k => do
-      dbg_trace s!">> mkCode let"
+      -- dbg_trace s!">> mkCode let"
       let (name, decl) ← mkLetDecl decl
       let k ← mkCode k
       return .let name decl k
     | .fun decl k | .jp decl k => do -- `.fun` and `.jp` are the same case to Lurk
-      dbg_trace s!">> mkCode fun"
+      -- dbg_trace s!">> mkCode fun"
       let (name, decl) ← mkFunDecl decl
       let k ← mkCode k
       return .let name decl k
     | .jmp fvarId args => do
-      dbg_trace s!">> mkCode jmp"
+      -- dbg_trace s!">> mkCode jmp"
       let fvarId ← mkFVarId fvarId
       let args ← args.mapM mkArg
       return mkApp fvarId args.data
     | .cases cases => 
-      dbg_trace s!">> mkCode cases"
+      -- dbg_trace s!">> mkCode cases"
       mkCases cases
     | .return fvarId => 
-      dbg_trace s!">> mkCode return {fvarId.name}"
+      -- dbg_trace s!">> mkCode return {fvarId.name}"
       mkFVarId fvarId
     | .unreach _ => return toExpr "lcUnreachable"
 
   partial def appendDecl (decl : Decl) : TranspileM Unit := do
-    dbg_trace s!">> appendDecl\n{ppDecl decl}\n"
+    -- dbg_trace s!">> appendDecl\n{ppDecl decl}\n"
     let ⟨name, _, _, params, value, _, _, _⟩ := decl
     visit name
     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
@@ -296,11 +296,11 @@ mutual
     appendBinding (name, body)
   
   partial def appendMutualDecls (decls : List Decl) : TranspileM Unit := do
-    dbg_trace s!">> appendMutualDecls"
+    -- dbg_trace s!">> appendMutualDecls"
     for decl in decls do
       visit decl.name
     let decls ← decls.mapM fun decl => do
-      dbg_trace ppDecl decl
+      -- dbg_trace ppDecl decl
       let ⟨name, _, _, params, value, _, _, _⟩ := decl
       let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
       let value : Expr ← mkCode value
@@ -314,7 +314,7 @@ mutual
   partial def appendName (name : Name) : TranspileM Unit := do
     if (← get).visited.contains name then
       return
-    dbg_trace s!">> appendName new name {name}"
+    -- dbg_trace s!">> appendName new name {name}"
     match ← getCtorOrIndInfo? name with
     | some inds =>
       for ind in inds do
@@ -332,7 +332,7 @@ mutual
         appendMutualDecls $ ← names.mapM getDecl
 
   partial def appendOverride (name : Name) : TranspileM Bool := do
-    dbg_trace s!">> appendOverride {name}"
+    -- dbg_trace s!">> appendOverride {name}"
     match (← read).overrides.find? name with
     | some (.decl ⟨name, decl⟩) =>
       visit name
@@ -352,7 +352,7 @@ mutual
     | none => return false
   where
     appendPrereqs (x : Expr) : TranspileM Unit := do
-      dbg_trace s!">> appendPrereqs {x.getFreeVars default default |>.toList}"
+      -- dbg_trace s!">> appendPrereqs {x.getFreeVars default default |>.toList}"
       x.getFreeVars default default |>.toList.forM fun n => do
         let n := n.toNameSafe
         if !(← isVisited n) then appendName n
@@ -363,7 +363,7 @@ end
 def transpileM (root : Lean.Name) : TranspileM Unit :=
   let overrides := .ofList <| Lurk.Overrides.All.module.map fun o => (o.name, o)
   withOverrides overrides do
-    dbg_trace s!">> transpileM overrides: {(← read).overrides.toList.map Prod.fst}"
+    -- dbg_trace s!">> transpileM overrides: {(← read).overrides.toList.map Prod.fst}"
     preloads.forM fun (name, preload) => do
       visit name
       appendBinding (name, preload) false
@@ -389,7 +389,7 @@ def transpile (filePath : System.FilePath) (root : Name) :
           (n.toString false, x)
       let expr := mkLetrec bindings (.sym $ root.toString false)
       let expr := expr.pruneBlocks
-      dbg_trace s!"{expr}"
+      -- dbg_trace s!"{expr}"
       return .ok expr
     | .error e _ => .error e
 

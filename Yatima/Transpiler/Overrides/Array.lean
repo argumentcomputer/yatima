@@ -20,8 +20,6 @@ def Array.mk : Override.Decl := ⟨``Array.mk, ⟦
   (lambda (data) data)
 ⟧⟩
 
-#synth Expr.ToExpr Lean.Name
-
 def ArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
     throw "we assume that structures only have one alternative, and never produce `default` match cases"
@@ -96,7 +94,7 @@ def Array.swap! : Override := Override.decl ⟨``Array.swap!, ⟦
         (set a' j v₁)))
 ⟧⟩
 
-def Array.pop : Override := Override.decl ⟨``Array.uset, ⟦
+def Array.pop : Override := Override.decl ⟨``Array.pop, ⟦
   (lambda (α a) (List.dropLast α a))
 ⟧⟩
 
