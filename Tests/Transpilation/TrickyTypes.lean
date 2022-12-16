@@ -8,7 +8,7 @@ def main := do
     "Fixtures/Transpilation/TrickyTypes.lean"
     [ ("exprCtor", "lam"),
       ("univCtor", "zero"),
-      ("treeSize", 2),
-      ("nameStr",  "this.is.a.name")
+      ("treeSize", 2)
+      -- ("nameStr",  "this.is.a.name") -- needs `commit` on `Lurk.lean`
     ]
   lspecIO tSeq
