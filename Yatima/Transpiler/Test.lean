@@ -1,5 +1,5 @@
 import Lean
-import Lurk.Backend.DSL 
+import Lurk.Backend.DSL
 
 open Lean Compiler
 open Lurk.Backend DSL
@@ -22,10 +22,10 @@ def prog := ⟦
          (Nat_decLt (LAMBDA (a b) (to_bool (< a b))))
          (Nat_nextPowerOfTwo_go__redArg
             (LAMBDA (_uniq_1 _uniq_2)
-               (LET ((dbg (emit "nextPowerOfTwo_go")) 
+               (LET ((dbg (emit "nextPowerOfTwo_go"))
                      (dbg (emit _uniq_1))
                      (dbg (emit _uniq_2))
-                     (_uniq_3 (Nat_decLt _uniq_2 _uniq_1)) 
+                     (_uniq_3 (Nat_decLt _uniq_2 _uniq_1))
                      (_lurk_idx (getelem _uniq_3 1)))
                   (IF (= _lurk_idx 0)
                      _uniq_2

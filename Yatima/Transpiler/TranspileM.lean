@@ -46,7 +46,7 @@ def visit (name : Lean.Name) : TranspileM Unit :=
 
 def getDecl (declName : Lean.Name) : TranspileM Decl := do
   if let some decl := getDeclCore? (← read).env monoExt declName then
-    return decl 
+    return decl
   else if let some decl := getDeclCore? (← read).env baseExt declName then
     return decl
   else

@@ -18,7 +18,7 @@ def putRun (p : Cli.Parsed) : IO UInt32 := do
   match ← runCmd (buildPutCurlCommand fileName) with
   | .error err => IO.eprintln err; return 1
   | .ok res => IO.println (extractCid res); return 0
-    
+
 def putCmd : Cli.Cmd := `[Cli|
   put VIA putRun;
   "Uses `curl` to send a Yatima IR store from a file to IPFS"

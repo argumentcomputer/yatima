@@ -383,9 +383,9 @@ def USize.ofNatCore : Override := .decl ⟨``USize.ofNatCore, ⟦
   (lambda (n isLt) n)
 ⟧⟩
 
-/-- If we do `$(USize.size - 1)`, we get the error 
+/-- If we do `$(USize.size - 1)`, we get the error
 ```
-failed to compile definition, consider marking it as 'noncomputable' 
+failed to compile definition, consider marking it as 'noncomputable'
 because it depends on 'Nat.pow.match_1', and it does not have executable code
 ```
 -/
@@ -469,7 +469,7 @@ def USize.module : List Override := [
   USize.shiftRight
 ]
 
-def UInt.module : List Override := 
+def UInt.module : List Override :=
   UInt8.module ++
   UInt16.module ++
   UInt32.module ++

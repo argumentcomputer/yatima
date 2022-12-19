@@ -27,7 +27,7 @@ def getCmd : Cli.Cmd := `[Cli|
   FLAGS:
     o, "output" : String; "The name of the output binary file." ++
       " Defaults to \"output.ir\""
-    
+
   ARGS:
     cid : String; "CID of stored Yatima data"
 ]

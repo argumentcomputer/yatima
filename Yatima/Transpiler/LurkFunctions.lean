@@ -4,7 +4,7 @@ import Yatima.Transpiler.Override
 /-!
 # Helper Functions for the Transpiler and Examples
 
-This file provides Lurk "standard library" functions needed to 
+This file provides Lurk "standard library" functions needed to
 generally needed to write Lurk code.
 -/
 
@@ -21,7 +21,7 @@ open Yatima.Transpiler
 namespace Preloads
 
 def reverse_aux : Lean.Name × Expr := (`reverse_aux, ⟦
-  (lambda (xs ys) 
+  (lambda (xs ys)
     (if xs
         (reverse_aux (cdr xs) (cons (car xs) ys))
         ys))
@@ -49,7 +49,7 @@ def append : Lean.Name × Expr := (`append, ⟦
 def set : Lean.Name × Expr := (`set, ⟦
   (lambda (xs i x)
     (if (= i 0)
-        (cons x (cdr xs))    
+        (cons x (cdr xs))
         (cons (car xs) (set (cdr xs) (- i 1) x))))
 ⟧)
 
@@ -141,7 +141,7 @@ def str_append : Lean.Name × Expr := (`str_append, ⟦
 ⟧)
 
 def to_bool : Lean.Name × Expr := (`to_bool, ⟦
-  (lambda (x) 
+  (lambda (x)
     (if x
         ,("Bool" 1)
         ,("Bool" 0)))
@@ -151,12 +151,12 @@ def to_bool : Lean.Name × Expr := (`to_bool, ⟦
 -- the expected lazy behavior; we would need to write an inliner.
 
 def lor : Lean.Name × Expr := (`lor, ⟦
-  (lambda (x y) 
+  (lambda (x y)
     (if x t y))
 ⟧)
 
 def land : Lean.Name × Expr := (`land, ⟦
-  (lambda (x y) 
+  (lambda (x y)
     (if x y nil))
 ⟧)
 
@@ -165,7 +165,7 @@ def lneq : Lean.Name × Expr := (`lneq, ⟦
 ⟧)
 
 def lnot : Lean.Name × Expr := (`lnot, ⟦
-  (lambda (x) 
+  (lambda (x)
     (if x nil t))
 ⟧)
 

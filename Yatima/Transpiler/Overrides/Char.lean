@@ -21,8 +21,8 @@ def charA := 'a'
 ```
 is not `#\a`, as you would expect, but instead `97`, which is the unicode for `'a'`.
 
-Keep this in mind as you look through the below overrides and write overrides yourself 
--- everywhere, we must assume that our `char` input is actually a `u32`. 
+Keep this in mind as you look through the below overrides and write overrides yourself
+-- everywhere, we must assume that our `char` input is actually a `u32`.
 
 -/
 
@@ -38,7 +38,7 @@ def Char.mk : Override.Decl := ⟨``Char.mk, ⟦
     (char (getelem (getelem val 2) 3)))
 ⟧⟩
 
-def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do  
+def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
     throw "we assume that structures only have one alternative, and never produce `default` match cases"
   let #[val, valid] := params |
@@ -60,13 +60,13 @@ def Char.valid : Override := Override.decl ⟨``Char.valid, ⟦
   (lambda (self) t)
 ⟧⟩
 
-/-- 
-Convert a `Nat` into a `Char`. 
-If the `Nat` does not encode a valid unicode scalar value, `'\0'` is returned instead. 
+/--
+Convert a `Nat` into a `Char`.
+If the `Nat` does not encode a valid unicode scalar value, `'\0'` is returned instead.
 -/
 def Char.ofNat : Override := .decl ⟨``Char.ofNat, ⟦
   (lambda (n)
-    -- TODO: We contradict ourselves and use `or` and `and` here, 
+    -- TODO: We contradict ourselves and use `or` and `and` here,
     -- because the cost of strict behavior is minimal
     (if (lor (land (<= 0 n) (< n 0xd800)) (land (< 0xdfff n) (< n 0x110000)))
         n

@@ -184,7 +184,7 @@ instance [BEq α] [BEq β] : BEq (Except α β) where beq
 
 def extractTranspilationTests (fixture : String) (expect : List (String × Value)) : IO TestSeq := do
   expect.foldlM (init := .done) fun tSeq (root, expected) => do
-    return withExceptOk s!"Transpilation of {root} succeeds" (← transpile fixture root) fun expr => 
+    return withExceptOk s!"Transpilation of {root} succeeds" (← transpile fixture root) fun expr =>
       withExceptOk s!"Evaluation of {root} succeeds" expr.eval fun val =>
         tSeq ++ test s!"Evaluation of {root}, resulting in {val}, yields {expected}"
           (val == expected)

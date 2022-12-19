@@ -98,7 +98,7 @@ instance : BEq Lean.ConstantInfo where
 end Yatima
 
 def String.toNameSafe (name : String) : Lean.Name :=
-  if name.length >= 2 && name.front == '«' && name.back == '»' then 
+  if name.length >= 2 && name.front == '«' && name.back == '»' then
     .str .anonymous name
-  else 
+  else
     name.toName

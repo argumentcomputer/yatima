@@ -25,8 +25,8 @@ def main := do
   let tSeq ← compileAndExtractTests
     "Fixtures/AnonCidGroups/Definitions.lean" [
       extractIpldTests,
-      wellFoundedExtractor, 
-      partialExtractor, 
+      wellFoundedExtractor,
+      partialExtractor,
       unsafeExtractor,
       extractConverterTests
     ]
