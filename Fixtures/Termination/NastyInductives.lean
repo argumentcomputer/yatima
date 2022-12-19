@@ -6,11 +6,11 @@ inductive QWE (α : Sort u)
 inductive ASD (α : Sort u)
   | asd : α → ASD α
 
-inductive Option (α : Type u) where 
+inductive Option (α : Type u) where
   | none : Option α
   | some (a : α) : Option α
 
-inductive List (α : Type u) where 
+inductive List (α : Type u) where
   | nil : List α
   | cons (a : α) (as : List α) : List α
 

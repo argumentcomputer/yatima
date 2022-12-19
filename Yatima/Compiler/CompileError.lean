@@ -1,4 +1,4 @@
-import Yatima.Compiler.Utils
+import Yatima.Lean.Utils
 import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Const
 

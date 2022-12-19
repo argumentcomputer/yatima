@@ -1,504 +1,396 @@
-import Yatima.Converter.Converter
-import Yatima.Transpiler.Simp
-import Yatima.Transpiler.Utils
+import Std.Data.List.Basic
+import Yatima.Datatypes.Lean
+import Yatima.Lean.Utils
+import Yatima.Transpiler.TranspileM
+import Yatima.Transpiler.PrettyPrint
 import Yatima.Transpiler.LurkFunctions
-import Lurk.Syntax.ExprUtils
-
-/-!
-# The Transpiler
-
-This file provides all core functions needed to build Lurk expressions from raw
-Yatima IR.
-
-For many functions, we choose to return `TranspileM Unit` instead of
-`TranspileM AST`. This may be slightly strange as the naming suggests that we
-are producing Lurk expressions, but the final action is binding the transpiled
-result into the Lurk output, so `Unit` is often more natural to return.
-
-## Inductives
-
-Currently, inductives encode three pieces of information.
-1. The name of the inductive. This is not used anywhere in the transpiler,
-   but is useful to keep around for humans to debug and identify objects.
-2. The number of parameters. Used to generate projections.
-3. The number of indices. Also used to generate projections.
-
-This information is somewhat arbitrary. It's the bare minimum needed to
-make things work. If there are better representations or we need more
-metadata it should be freely changed.
-
-For example, the definition of `Nat` is (the comma is the Lurk `quote`)
-```
-,("Nat" 0 0)
-```
-
-For inductives with parameters and indices, we must encode the definitions
-as functions. When types are not erased, inductive types
-must be treated as meaningful functions. For example, `Prod` is
-```
-(lambda (:1 :2) ,("Prod" 2 0))
-```
-
-If types are erased, then these parameters and indices may be ignored.
-Perhaps with erased types, a different inductive representation could be used.
-
-## Constructors
-
-See the docstring for `ctorToLurkExpr`. Here are some examples:
-1. `Nat`
-  a. `Nat.zero` is `(Nat 0)`
-  b. `Nat.succ` is `(lambda n => (Nat 1 n))`
-
-So `2` is `(Nat 1 Nat 1 Nat 0)`.
-This clearly duplicates `Nat` a lot, so we should try to find an
-more compact representation for constructor/inductive data.
-
-2. `Prod`
-  a. `Prod.mk` is `(lambda (α β fst snd) ((Prod α β) 0 α β fst snd))`
-
-Note that `(Prod α β)` reduces to `("Prod" 2 0)`, allowing us to access
-the inductive data.
-
-## Recursors
-
-See the docstrings for `intRecrToLurkExpr` and `extRecrToLurkExpr`.
-Here are some examples:
-
-TODO
-
-## Projections
-
-Yatima projections are encoded by `.proj idx e`, where `e` is the expression
-and `idx` is the index of the data we want to extract out of `e`.
-
-Recall that we encode inductive constructors with a list: `ctorᵢ a₁ a₂ ..`.
-In particular, structures only have one constructor: `struct.mk`, and their
-data is simply recorded in a list. Hence, one may think that we can simply
-write `getelem e (idx + 2)` (the `+2` is to skip the name and constructor index).
-
-However! This fails because structures may have parameters. For example,
-the tuple `(1, 2)` is encoded in Lurk as `e := ((Prod Nat Nat) 0 Nat Nat 1 2)`.
-If we want `e.1`, then `getelem e (1 + 2)` is `Nat`. In general, constructor
-arguments will always first contain the parameters and indices, before the
-actual fields of the constructor. So we modify our first solution to include
-these. `let args := cdr (cdr e) in getelem args (idx + params + indices)`.
-
-Great! Now how do we find `params` and `indices`? We can simply look at the
-head of `e`: since `e` is an inductive, we know that the head holds some
-inductive type `((<ind> <args>) <params> <indices>)`! This is the reason we
-include the two `params` and `indices` in the inductive data.
-
-Note that because we don't know what the head of `e` is until we reduce it,
-this logic occurs *at run time*!
-
-# Example: Three
-inductive Three where
-  | A : Three
-  | B : Three
-  | C : Three
-
-## Translated Lurk Constructors
-
-`Three.A`:
-`["Three", 0]`
-
-`Three.B`:
-`["Three", 1]`
-
-`Three.C`:
-`["Three", 2]`
-
-## Recursor
-Three.rec :
-  {motive : Three → Sort u} →
-  motive Three.A →
-  motive Three.B →
-  motive Three.C →
-  (t : Three) →
-  motive t
-
-## Reduction Rules
-
-Three.rec {P} caseA caseB caseC Three.A = caseA
-Three.rec {P} caseA caseB caseC Three.B = caseB
-Three.rec {P} caseA caseB caseC Three.C = caseC
-
-## Translated Lurk Recursor
-
-`Three.rec`:
-lambda motive caseA caseB caseC three,
-  if three.cidx == 0
-    return caseA
-  else if three.cidx == 1
-    return caseB
-  else if three.cidx == 2
-    return caseC
-
-# Nat
-
-## Reduction Rules
-Nat.rec {P} caseZero caseSucc Nat.zero = caseZero
-Nat.rec {P} caseZero caseSucc (Nat.succ n) =
-  caseSucc n (Nat.rec {P} caseZero caseSucc n)
-
-## Translated Lurk Constructors
-
-`Nat.zero`:
-`["Nat", 0]`
-
-`Nat.succ`:
-`lambda n, ["Nat", 1, n]`
-
-### Yatima Compiled Reduction Rules
-Nat.zero 0
-λ (motive : Nat.0 -> (Sort)) (zero : motive.0 Nat.zero.2) (succ : Π (a._@._hyg.4 : Nat.2), (motive.2 a._@._hyg.4.0) -> (motive.3 (Nat.succ.6 a._@._hyg.4.1)))
-  => zero.1
-Nat.succ 1
-λ (motive : Nat.0 -> (Sort)) (zero : motive.0 Nat.zero.2) (succ : Π (a._@._hyg.4 : Nat.2), (motive.2 a._@._hyg.4.0) -> (motive.3 (Nat.succ.6 a._@._hyg.4.1))) (a._@._hyg.4 : Nat.3)
-  => succ.1 a._@._hyg.4.0 (Nat.rec.7 motive.3 zero.2 succ.1 a._@._hyg.4.0)
-
-## Translated Lurk Recursor
-lambda motive caseZero caseSucc n,
-  if n.cidx == 0
-    caseZero
-  else if n.cidx == 1
-    caseSucc n (Nat.rec motive caseZero caseSucc n.args)
-
-# Vector
-
-inductive Vector (A : Type) : (n : Nat) → Type where
-  | nil : Vector A 0
-  | cons : {n : Nat} → (a : A) → (as : Vector A n) → Vector A (n+1)
-
-## Translated Lurk Constructors
-`Vector.nil`:
-`["Vector", 0]`
-
-`Vector.cons`:
-`lambda n a as, ["Vector", 1, n, a, as]`
-
-## Reduction Rules
-
-Vector.rec {A} {P} caseNil caseCons {m} (Vector.nil {A}) = caseNil     -- where m must be equal to 0
-Vector.rec {A} {P} caseNil caseCons {m} (Vector.cons {A} {n} a as) =   -- where m must be equal n+1
-  caseCons {n} a as (Vector.rec {A} {P} caseNil caseCons {n} as)
-
-### Yatima Compiled Reduction Rules
-
-Vector.nil 0
-λ (A : Sort)
-  (motive : Π (n : Nat),
-  (Vector.2 A.1 n.0) -> (Sort))
-  (nil : motive.0 Nat.zero (Vector.nil.3 A.1))
-  (cons : Π {n : Nat} (a : A.3) (as : Vector.5 A.4 n.1), (motive.4 n.2 as.0) -> (motive.5 (Nat.succ n.3) (Vector.cons.9 A.6 n.3 a.2 as.1)))
-  => nil.1
-Vector.cons 3
-λ (A : Sort)
-  (motive : Π (n : Nat),
-  (Vector.2 A.1 n.0) -> (Sort))
-  (nil : motive.0 Nat.zero (Vector.nil.3 A.1))
-  (cons : Π {n : Nat} (a : A.3) (as : Vector.5 A.4 n.1), (motive.4 n.2 as.0) -> (motive.5 (Nat.succ n.3) (Vector.cons.9 A.6 n.3 a.2 as.1))) {n : Nat} (a : A.4) (as : Vector.6 A.5 n.1)
-  => cons.3 n.2 a.1 as.0 (Vector.rec.10 A.6 motive.5 nil.4 cons.3 n.2 as.0)
-
-## Translated Lurk Recursor
-`Vector.rec`:
-lambda A motive caseNil caseCons m `v`,
-if `v`.cidx == 0
-  caseNil
-else if `v`.cidx == 1
-  (n, a, as) ← `v`.args
-  caseCons n a as (Vector.rec A motive caseNil caseCons n as)
--/
+import Yatima.Transpiler.Overrides.All
 
 namespace Yatima.Transpiler
 
-open TC Lurk.Syntax AST DSL
+open Lurk.Backend Expr DSL
+open Lean.Compiler.LCNF
 
-/-- Initialize builtin lurk constants defined in `LurkFunctions.lean` -/
-def overrides : List (Name × AST) := [
-  Lurk.Overrides.Nat,
-  Lurk.Overrides.NatZero,
-  Lurk.Overrides.NatSucc,
-  Lurk.Overrides.NatRec,
-  Lurk.Overrides.NatAdd,
-  Lurk.Overrides.NatMul,
-  Lurk.Overrides.NatDiv,
-  Lurk.Overrides.NatDecLe,
-  Lurk.Overrides.Char,
-  Lurk.Overrides.CharMk,
-  Lurk.Overrides.CharVal,
-  Lurk.Overrides.CharValid,
-  Lurk.Overrides.CharRec,
-  Lurk.Overrides.List,
-  Lurk.Overrides.ListNil,
-  Lurk.Overrides.ListCons,
-  Lurk.Overrides.ListRec,
-  -- Lurk.Overrides.ListMap,
-  -- Lurk.Overrides.ListFoldl,
-  Lurk.Overrides.String,
-  Lurk.Overrides.StringMk,
-  Lurk.Overrides.StringData,
-  Lurk.Overrides.StringRec,
-  Lurk.Overrides.StringAppend
-]
-
-def preloads : List (Name × AST) := [
+def preloads : List (Name × Expr) := [
+  Lurk.Preloads.reverse_aux,
+  Lurk.Preloads.reverse,
+  Lurk.Preloads.set,
+  Lurk.Preloads.set!,
+  Lurk.Preloads.push,
+  Lurk.Preloads.append,
   Lurk.Preloads.getelem,
+  Lurk.Preloads.getelem!,
+  Lurk.Preloads.drop,
   Lurk.Preloads.str_mk,
   Lurk.Preloads.str_data,
-  Lurk.Preloads.str_append
+  Lurk.Preloads.str_push,
+  Lurk.Preloads.str_append,
+  Lurk.Preloads.to_bool,
+  Lurk.Preloads.lor,
+  Lurk.Preloads.land,
+  Lurk.Preloads.lnot,
+  Lurk.Preloads.lneq
 ]
 
 def preloadNames : Lean.NameSet :=
   .ofList (preloads.map Prod.fst)
 
 def safeName (name : Name) : TranspileM Name :=
+  -- dbg_trace s!">> safeName {name}"
   let nameStr := name.toString false
-  if name.isHygenic
-      || preloadNames.contains name
-      || reservedSyms.contains nameStr
+  if preloadNames.contains name
+      -- || reservedSyms.contains nameStr
       || nameStr.contains '|' then do
     match (← get).replaced.find? name with
     | some n => return n
     | none   => replace name
-  else return name
+  else
+    -- dbg_trace s!">> safeName end {name}"
+    return name
 
-def mkName (name : Name) : TranspileM AST := do
-  toAST <$> safeName name
+def mkName (name : Name) : TranspileM Expr := do
+  -- dbg_trace s!">> mkName {name}"
+  toExpr <$> safeName name
 
-def appendBindingWithUnsafeName (b : Name × AST) : TranspileM Unit :=
-  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
+instance : ToExpr Lean.FVarId where
+  toExpr fvarId := toExpr fvarId.name
 
-def appendBinding (b : Name × AST) : TranspileM Unit := do
-  let b := (← safeName b.1, b.2)
-  modify fun stt => { stt with appendedBindings := stt.appendedBindings.push b }
+instance : ToExpr LitValue where toExpr
+  | .natVal n => toExpr n
+  | .strVal s => toExpr s
 
-def mkIndLiteral (ind : Inductive) : TranspileM AST := do
+def appendBinding (b : Name × Expr) (safe := true) : TranspileM Unit := do
+  -- dbg_trace s!">> appendBinding {b.1}"
+  let b := if safe then (← safeName b.1, b.2) else b
+  modify fun s => { s with appendedBindings := s.appendedBindings.push b }
+
+def appendInductiveData (data : InductiveData) : TranspileM Unit := do
+  modify fun s => { s with inductives := s.inductives.insert data.name data }
+
+def mkIndLiteral (ind : Lean.InductiveVal) : TranspileM Expr := do
+  -- dbg_trace s!">> mkIndLiteral"
   let (name, params, indices, type) :=
-    (ind.name.toString false, ind.params, ind.indices, ind.type)
-  let (_, args) := telescope type
-  let args : List AST ← args.mapM fun (n, _) => mkName n
+    (ind.name.toString false, ind.numParams, ind.numIndices, ind.type)
+  let args ← type.getForallBinderNames.mapM safeName
+  let args := args.map (·.toString false)
   if args.isEmpty then
     return ⟦,($name $params $indices)⟧
   else
-    return ⟦(lambda $args ,($name $params $indices))⟧
+    return .mkLambda args ⟦,($name $params $indices)⟧
 
 /-- TODO explain this; `p` is `params`, `i` is `indices` -/
-def splitCtorArgs (args : List AST) (p i : Nat) : List (List AST) :=
+def splitCtorArgs (args : List Expr) (p i : Nat) : List (List Expr) :=
   let (params, rest) := args.splitAt p
   let (indices, args) := rest.splitAt i
   [params, indices, args]
 
-scoped instance [ToAST α] [ToAST β] : ToAST (α × β) where
-  toAST x := ~[toAST x.1, toAST x.2]
+def appendConstructor (ctor : Lean.ConstructorVal) : TranspileM Unit := do
+  -- dbg_trace s!">> appendConstructor"
+  let (name, idx, type, ind) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
+  visit ctor.name
+  let ctorArgs ← type.getForallBinderNames.mapM safeName
+  let ind := ind.toString false
+  let ctorData := ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorArgs.map toExpr)))⟧
+  let body := if ctorArgs.isEmpty then
+    ctorData
+  else
+    .mkLambda (ctorArgs.map (·.toString false)) ctorData
+  appendBinding (name, body)
+
+/-- Amazingly, we don't actually have to transpile recursors... -/
+def appendInductive (ind : Lean.InductiveVal) : TranspileM Unit := do
+  -- dbg_trace s!">> appendInductive"
+  let (name, params, indices) := (ind.name, ind.numParams, ind.numIndices)
+  visit name
+  let ctors : List Lean.ConstructorVal ← ind.ctors.mapM fun ctor => do
+    match (← read).env.constants.find? ctor with
+    | some (.ctorInfo ctor) => return ctor
+    | _ => throw s!"malformed environment, {ctor} is not a constructor or doesn't exist"
+  let ctorData := ctors.foldl (init := .empty)
+    fun acc ctor => acc.insert ctor.name ctor.cidx
+  appendInductiveData ⟨name, params, indices, ctorData⟩
+  appendBinding (name, ← mkIndLiteral ind)
+  for ctor in ctors do
+    appendConstructor ctor
+
+def getInductive (name : Name) : TranspileM Lean.InductiveVal := do
+  match (← read).env.constants.find? name with
+  | some (.inductInfo ind) => return ind
+  | _ => throw s!"{name} is not an inductive"
+
+def getCtorOrIndInfo? (name : Name) : TranspileM $ Option (List Name) := do
+  match (← read).env.constants.find? name with
+  | some (.inductInfo ind) => return some ind.all
+  | some (.ctorInfo ctor) =>
+    let ind ← getInductive ctor.induct
+    return some ind.all
+  | _ => return none
+
+def appendCtorOrInd (name : Name) : TranspileM Bool := do
+  match (← read).env.constants.find? name with
+  | some (.inductInfo ind) =>
+    for ind in ind.all do
+      let ind ← getInductive ind
+      appendInductive ind
+    return true
+  | some (.ctorInfo ctor) =>
+    let ind ← getInductive ctor.induct
+    for ind in ind.all do
+      let ind ← getInductive ind
+      appendInductive ind
+    return true
+  | _ => return false
+
+def getMutuals (name : Name) : TranspileM (List Name) := do
+  match (← read).env.constants.find? name with
+  -- TODO FIXME: support `| some (.inductInfo x)` case
+  | some (.defnInfo x) | some (.thmInfo x)| some (.opaqueInfo x) => return x.all
+  | _ => return [name]
+
+def mkFVarId : Lean.FVarId → TranspileM Expr
+  | fvarId => do
+    -- dbg_trace s!">> mkFVarId"
+    mkName fvarId.name
+
+def mkArg (arg : Arg) : TranspileM Expr := do
+  -- dbg_trace s!">> mkArg"
+  match arg with
+  | .erased => return toExpr "lcErased"
+  | .fvar fvarId => mkFVarId fvarId
+    -- TODO: Hopefully can erase types??
+  | .type _ => return toExpr "lcErasedType"
+
+def mkParam : Param → TranspileM String
+  | ⟨fvarId, _, _, _⟩ =>
+    -- dbg_trace s!">> mkParam"
+    return (← safeName fvarId.name).toString false
+
+def mkParams (params : Array Param) : TranspileM (Array String) := do
+  params.mapM mkParam
+
+def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.Alt) :
+    Except String Expr := do
+  -- dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
+  let mut defaultElse : Expr := .atom .nil
+  let mut ifThens : Array (Expr × Expr) := #[]
+  for alt in alts do match alt with
+    | .default k => defaultElse := k
+    | .alt cidx params k =>
+      if params.isEmpty then
+        ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, k)
+      else
+        let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
+          (param.toString false, ⟦(getelem _lurk_args $i)⟧)
+        let case := mkLet params k
+        ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
+  let cases := mkIfElses ifThens.toList defaultElse
+  return ⟦(let ((_lurk_idx (getelem $discr 1))
+                (_lurk_args (drop $(2 + indData.params) $discr)))
+            $cases)⟧
 
 mutual
 
-  /--
-  Construct a Lurk function representing a Yatima constructor.
-  Let `ind` be the inductive parent of `ctor` and `idx` be its index.
+  partial def mkLetValue (letv : LetValue) : TranspileM Expr := do
+    -- dbg_trace s!">> mkLetValue"
+    match letv with
+    | .value lit => return toExpr lit
+    | .erased => return toExpr "lcErased"
+    | .proj typeName idx struct => do
+      appendName typeName
+      -- TODO FIXME: use `typeName` to get params and add to `idx`
+      -- TODO FIXME: support overrides; this is somewhat non-trivial
+      let some indData := (← get).inductives.find? typeName |
+        throw s!"{typeName} is not an inductive"
+      return ⟦(getelem $(2 + indData.params + idx) $struct.name)⟧
+    | .const declName _ args => do
+      appendName declName
+      if args.isEmpty then
+        return toExpr declName
+      else
+        return mkApp (toExpr declName) $ (← args.mapM mkArg).data
+    | .fvar fvarId args =>
+      if args.isEmpty then
+        mkName fvarId.name
+      else
+        return mkApp (← mkFVarId fvarId) $ (← args.mapM mkArg).data
 
-  * Data (0-ary) constructors are represented as `((ind <params> <indices>) idx)`.
-  * Function constructors are represented as
-    `(lambda (a₁ a₂ ..) ((ind <params> <indices>) idx a₁ a₂ ..))`
+  partial def mkLetDecl : LetDecl → TranspileM (String × Expr)
+    | ⟨fvarId, _, _, value⟩ => do
+      -- dbg_trace s!">> mkLetDecl"
+      let fvarId ← safeName fvarId.name
+      let fvarId := fvarId.toString false
+      let value ← mkLetValue value
+      return (fvarId, value)
 
-  Recall that when `ind` has parameters and indices, it is represented as a function.
-  Hence we must apply arguments to access the inductive data. This is required for
-  projections.
+  partial def mkFunDecl : FunDecl → TranspileM (String × Expr)
+    | ⟨fvarId, _, params, _, value⟩ => do
+      -- dbg_trace s!">> mkFunDecl"
+      let fvarId ← safeName fvarId.name
+      let fvarId := fvarId.toString false
+      let value ← mkCode value
+      let ⟨params⟩ ← mkParams params
+      return (fvarId, mkLambda params value)
 
-  The `indices` argument is necessary since `Constructor` contains the
-  `params` field of its parent's inductive, but not the `indices` field. -/
-  partial def appendCtor (ctor : Constructor) (indLit : AST) (indices : Nat) : TranspileM Unit := do
-    let (name, idx, type) := (ctor.name, ctor.idx, ctor.type)
-    let (_, bindings) := telescope type
-    let ctorArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-    let ctorData := splitCtorArgs ctorArgs ctor.params indices
-    let ctorDataAST := ctorData.map mkConsList
-    let ctorData := mkConsList (indLit :: ⟦$idx⟧ :: ctorDataAST)
-    let body := if ctorArgs.isEmpty then
-      ⟦(cons $indLit (cons $idx nil))⟧
-    else
-      ⟦(lambda $ctorArgs $ctorData)⟧
+  partial def mkOverrideAlt (indData : InductiveData) :
+      Alt → TranspileM Override.Alt
+    | .default k => .default <$> mkCode k
+    | .alt ctor params k => do
+      -- dbg_trace s!">> mkOverrideAlt"
+      let some cidx := indData.ctors.find? ctor |
+        throw s!"{ctor} not a valid constructor for {indData.name}"
+      let params ← params.mapM fun p => safeName p.fvarId.name
+      return .alt cidx params (← mkCode k)
+
+  partial def mkOverrideAlts (indData : InductiveData) (alts : Array Alt) :
+      TranspileM (Array Override.Alt) := do
+    alts.mapM $ mkOverrideAlt indData
+
+  partial def mkCases (cases : Cases) : TranspileM Expr := do
+    let ⟨typeName, _, discr, alts⟩ := cases
+    appendName typeName
+    -- dbg_trace s!">> mkCases typeName: {typeName}"
+    let indData := ← match (← get).inductives.find? typeName with
+      | some data => return data
+      | none => throw s!"{typeName} is not an inductive"
+    let discr ← mkFVarId discr
+    let alts ← mkOverrideAlts indData alts
+    match (← read).overrides.find? typeName with
+    | some (.ind ind) => liftExcept <| ind.mkCases discr alts
+    | none            => liftExcept <| mkCasesCore indData discr alts
+    | some (.decl _)  => throw s!"found a declaration override for {typeName}"
+
+  partial def mkCode (code : Code) : TranspileM Expr := do
+    match code with
+    | .let decl k => do
+      -- dbg_trace s!">> mkCode let"
+      let (name, decl) ← mkLetDecl decl
+      let k ← mkCode k
+      return .let name decl k
+    | .fun decl k | .jp decl k => do -- `.fun` and `.jp` are the same case to Lurk
+      -- dbg_trace s!">> mkCode fun"
+      let (name, decl) ← mkFunDecl decl
+      let k ← mkCode k
+      return .let name decl k
+    | .jmp fvarId args => do
+      -- dbg_trace s!">> mkCode jmp"
+      let fvarId ← mkFVarId fvarId
+      let args ← args.mapM mkArg
+      return mkApp fvarId args.data
+    | .cases cases =>
+      -- dbg_trace s!">> mkCode cases"
+      mkCases cases
+    | .return fvarId =>
+      -- dbg_trace s!">> mkCode return {fvarId.name}"
+      mkFVarId fvarId
+    | .unreach _ => return toExpr "lcUnreachable"
+
+  partial def appendDecl (decl : Decl) : TranspileM Unit := do
+    -- dbg_trace s!">> appendDecl\n{ppDecl decl}\n"
+    let ⟨name, _, _, params, value, _, _, _⟩ := decl
+    visit name
+    let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
+    let value : Expr ← mkCode value
+    let body := if params.isEmpty
+      then value
+      else mkLambda params value
     appendBinding (name, body)
 
-  partial def mkListRecursor (recrType : Expr) (recrName : Name) (rhs : List Constructor) :
-      TranspileM (String × AST) := do
-    let (_, bindings) := telescope recrType
-    let (argName, _) : Name × Expr := bindings.last!
-    let argName ← mkName argName
-    let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-    let [(n₁, rhs₁), (_, rhs₂)] ← rhs.mapM fun c => return (c.name, c.rhs)
-      | throw $ .custom "`mkListRecursor` must receive list constructors"
-    let (nilRHS, consRHS) := -- Arthur: why so specific?
-      if n₁ == ``List.nil then (rhs₁, rhs₂)
-      else (rhs₂, rhs₁)
-    let nilRHS ← mkAST nilRHS.toImplicitLambda
-    let consRHS ← mkAST consRHS.toImplicitLambda
-    let cases := ⟦
-      (if $argName
-        (let (
-            (head (car $argName))
-            (tail (cdr $argName)))
-          $consRHS)
-        $nilRHS)
-    ⟧
-    return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
+  partial def appendMutualDecls (decls : List Decl) : TranspileM Unit := do
+    -- dbg_trace s!">> appendMutualDecls"
+    for decl in decls do
+      visit decl.name
+    let decls ← decls.mapM fun decl => do
+      -- dbg_trace ppDecl decl
+      let ⟨name, _, _, params, value, _, _, _⟩ := decl
+      let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
+      let value : Expr ← mkCode value
+      let body := if params.isEmpty
+        then value
+        else mkLambda params value
+      return (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
+    Expr.mkMutualBlock decls |>.forM
+      fun (n, e) => appendBinding (n, e)
 
-  partial def mkRecursor (recrType : Expr) (recrName : Name) (recrIndices : Nat) (rhs : List Constructor) :
-      TranspileM (String × AST) := do
-    let ctorName := rhs.head?.map Constructor.name
-    if ctorName = some ``List.nil || ctorName = some ``List.cons then
-      mkListRecursor recrType recrName rhs
-    else
-      let (_, bindings) := telescope recrType
-      let (argName, _) : Name × Expr := bindings.last!
-      let argName ← mkName argName
-      let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-      let ifThens ← rhs.mapM fun ctor => do
-        let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
+  partial def appendName (name : Name) : TranspileM Unit := do
+    if (← get).visited.contains name then
+      return
+    -- dbg_trace s!">> appendName new name {name}"
+    match ← getCtorOrIndInfo? name with
+    | some inds =>
+      for ind in inds do
+        if ← appendOverride ind then
+          continue
+        let ind ← getInductive ind
+        appendInductive ind
+    | none =>
+      let names ← getMutuals name
+      if let [name] := names then
+        if ← appendOverride name then return
+        appendDecl $ ← getDecl name
+      else
+        -- TODO FIXME: no support for mutual overrides
+        appendMutualDecls $ ← names.mapM getDecl
 
-        let (rhs, binds) := telescope rhs
-
-        let rhs ← mkAST rhs
-        let _lurk_ctor_args := ⟦(getelem (cdr (cdr $argName)) 2)⟧
-        let ctorArgs := (List.range fields).map
-          fun (n : Nat) => ⟦(getelem _lurk_ctor_args $n)⟧
-
-        let rhsCtorArgNames := binds.map Prod.fst |>.takeLast (fields - recrIndices)
-        let rhsCtorArgNames ← rhsCtorArgNames.mapM mkName
-
-        let bindings := (AST.sym "_lurk_ctor_args", _lurk_ctor_args) ::
-          rhsCtorArgNames.zip ctorArgs
-
-        -- extract snd element
-        return (⟦(= (car (cdr $argName)) $idx)⟧, ⟦(let $bindings $rhs)⟧)
-
-      let cases := AST.mkIfElses ifThens ⟦nil⟧
-      return (recrName.toString false, ⟦(lambda $recrArgs $cases)⟧)
-
-  partial def appendIndBlock (inds : List MutualInfo) : TranspileM Unit := do
-    for (ind, ctors, irecr, erecrs) in inds do
-      visit ind.name
-      appendBinding (ind.name, ← mkIndLiteral ind)
-      for ctor in ctors do
-        visit ctor.name
-        appendCtor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
-      erecrs.forM fun r => visit r.name
-      let erecrs ← erecrs.mapM fun erecr =>
-        mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
-      visit irecr.name
-      let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
-      match mkMutualBlock (irecr :: erecrs) with
-      | .ok xs => xs.forM fun (n, e) => appendBinding (n, e)
-      | .error e => throw $ .custom e
-
-  partial def overrideWith (name : Name) (func : AST) : TranspileM Unit := do
-    visit name
-    appendPrereqs func
-    appendBinding (name, func)
+  partial def appendOverride (name : Name) : TranspileM Bool := do
+    -- dbg_trace s!">> appendOverride {name}"
+    match (← read).overrides.find? name with
+    | some (.decl ⟨name, decl⟩) =>
+      visit name
+      appendPrereqs decl
+      appendBinding (name, decl)
+      return true
+    | some (.ind ⟨indData, ⟨name, decl⟩, ctors, _⟩) =>
+      visit name
+      appendInductiveData indData
+      appendPrereqs decl
+      appendBinding (name, decl)
+      for ⟨name, ctor⟩ in ctors do
+        visit name
+        appendPrereqs ctor
+        appendBinding (name, ctor)
+      return true
+    | none => return false
   where
-    appendPrereqs : AST → TranspileM Unit
-      | .num _ | .char _ | .str _ => return
-      | .cons e₁ e₂ => do appendPrereqs e₁; appendPrereqs e₂
-      | .sym n => do
-        if !(reservedSyms.contains n) && !(← isVisited n) then
-          match (← read).map.find? n with
-          | some const => appendConst const
-          | none => return
-
-  partial def mkAST : Expr → TranspileM AST
-    | .sort ..
-    | .pi .. => pure .nil
-    | .var name _ => mkName name
-    | .const name idx .. => do
-      if !(← isVisited name) then
-        match (← read).overrides.find? name with
-        | some ast => overrideWith name ast
-        | none => appendConst (← derefConst idx)
-      mkName name
-    | e@(.app ..) =>
-      let (fn, args) := e.getAppFnArgs
-      return .cons (← mkAST fn) $ toAST (← args.mapM mkAST)
-    | e@(.lam ..) => do
-      let (e, binds) := telescope e
-      let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      let fn ← mkAST e
-      return ⟦(lambda $binds $fn)⟧
-    | .letE name _ value body => do
-      let name ← safeName name
-      let val ← mkAST value
-      let body ← mkAST body
-      return ⟦(let $([(name, val)]) $body)⟧
-    | .lit lit  => match lit with
-      | .natVal n => return ⟦$n⟧
-      | .strVal s => return ⟦$s⟧
-    | .proj idx e => do
-      -- this is very nifty; `e` contains its type information *at run time*
-      -- which we can take advantage of to compute the projection
-      let e ← mkAST e
-      let args := ⟦(getelem (cdr (cdr $e)) 2)⟧
-      return ⟦(getelem $args $idx)⟧
-
-  partial def appendConst (c : Const) : TranspileM Unit := do
-    if ← isVisited c.name then return
-    visit c.name
-    match c with
-    | .axiom    _
-    | .quotient _ => return
-    | .theorem  x =>
-      let (_, binds) := telescope x.type
-      let binds : List AST ← binds.mapM fun (n, _) => mkName n
-      appendBinding (x.name, ⟦(lambda $binds t)⟧)
-    | .opaque x => appendBinding (x.name, ← mkAST x.value)
-    | .definition x => match ← getMutualDefInfo x with
-      | [ ] => throw $ .custom "empty `all` dereference; broken implementation"
-      | [d] => appendBinding (d.name, ← mkAST d.value)
-      | defs =>
-        defs.forM fun d => visit d.name
-        let pairs ← defs.mapM fun d => do
-          pure $ (d.name.toString false, ← mkAST d.value)
-        match mkMutualBlock pairs with
-        | .ok block => block.forM fun (n, e) => do appendBinding (n, e)
-        | .error err => throw $ .custom err
-    -- We're trying to compile the mutual blocks at once instead of compiling
-    -- each projection separately to avoid some recursions.
-    | .inductive x => appendIndBlock (← getMutualIndInfo x)
-    | .constructor x
-    | .extRecursor x
-    | .intRecursor x =>
-      let indName := x.name.getPrefix
-      let ind ← match (← read).map.find? indName with
-        | some (.inductive i) => pure i
-        | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
-        | none => throw $ .notFoundInMap indName
-      appendIndBlock (← getMutualIndInfo ind)
+    appendPrereqs (x : Expr) : TranspileM Unit := do
+      -- dbg_trace s!">> appendPrereqs {x.getFreeVars default default |>.toList}"
+      x.getFreeVars default default |>.toList.forM fun n => do
+        let n := n.toNameSafe
+        if !(← isVisited n) then appendName n
 
 end
 
 /-- Main translation function -/
-def transpileM (root : Name) : TranspileM Unit := do
-  preloads.forM appendBindingWithUnsafeName
-  match (← read).tcStore.consts.find? fun c => c.name == root with
-  | some c => appendConst c
-  | none => throw $ .custom s!"Unknown const {root}"
+def transpileM (decl : Lean.Name) : TranspileM Unit :=
+  let overrides := .ofList <| Lurk.Overrides.All.module.map fun o => (o.name, o)
+  withOverrides overrides do
+    -- dbg_trace s!">> transpileM overrides: {(← read).overrides.toList.map Prod.fst}"
+    preloads.forM fun (name, preload) => do
+      visit name
+      appendBinding (name, preload) false
+    appendName decl
 
 /--
-Constructs a `AST.letRecE` whose body is the call to a `root` constant in
-a context and whose bindings are the constants in the context (including `root`)
-that are needed to define `root`.
+Constructs a `Expr.letRecE` whose body is the call to a `decl` constant in
+a context and whose bindings are the constants in the context (including `decl`)
+that are needed to define `decl`.
 -/
-def transpile (store : IR.Store) (root : String) : Except String AST :=
-  match Converter.extractPureStore store with
-  | .error err => .error err
-  | .ok pStore =>
-    let map := pStore.consts.foldl (init := default)
-      fun acc const => acc.insert const.name const
-    let env := ⟨store, pStore, map, .ofList overrides _⟩
-    let state : TranspileState := ⟨#[], .empty, ⟨"_hyg_", 1⟩, .empty⟩
-    match TranspileM.run env state (transpileM root) with
-    | .ok s =>
+def transpile (filePath : System.FilePath) (decl : Name) :
+    IO $ Except String Expr := do
+  let filePathStr := filePath.toString
+  Lean.setLibsPaths
+  match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
+  | (some err, _) => return .error err
+  | (none, leanEnv) =>
+    let transpileEnv := ⟨leanEnv, .empty⟩
+    match TranspileM.run transpileEnv default (transpileM decl) with
+    | .ok _ s =>
       let bindings := s.appendedBindings.data.map
-        fun (n, x) => (n.toString false, x)
-      let ast := Simp.simp $ mkLetrec bindings (.sym root)
-      ast.pruneBlocks
-    | .error e => .error e
+        fun (n, x) =>
+          (n.toString false, x)
+      let expr := mkLetrec bindings (.sym $ decl.toString false)
+      let expr := expr.pruneBlocks
+      -- dbg_trace s!"{expr}"
+      return .ok expr
+    | .error e _ => .error e
+
+end Yatima.Transpiler

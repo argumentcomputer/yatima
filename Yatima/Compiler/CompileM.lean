@@ -1,7 +1,7 @@
 import Yatima.Datatypes.Store
 import Yatima.Compiler.CompileError
 import Yatima.Ipld.ToIpld
-import Yatima.Compiler.Utils
+import Yatima.Lean.Utils
 
 namespace Yatima.Compiler
 

@@ -1,7 +1,7 @@
 import Yatima.Datatypes.Expr
 import Lean.Data.RBMap
 
-def expr : Yatima.TC.Expr := 
+def expr : Yatima.TC.Expr :=
   .lam `x default (.sort Yatima.TC.Univ.zero) (.var `x 1)
 def exprCtor := expr.ctorName
 

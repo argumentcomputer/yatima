@@ -131,7 +131,7 @@ mutual
   partial def SusTypeInfo.update (univs : List Univ) : SusTypeInfo → TypeInfo
   | .sort lvl =>
     let lvl := Univ.instBulkReduce univs lvl
-    match lvl with 
+    match lvl with
     | .zero => .prop
     | _ => .none
   | .unit    => .unit

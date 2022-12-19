@@ -12,7 +12,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
-      if !(p.hasFlag "prelude") then setLibsPaths
+      if !(p.hasFlag "prelude") then Lean.setLibsPaths
       let mut stt : CompileState := default
       let log := p.hasFlag "log"
       let mut cronos := Cronos.new
