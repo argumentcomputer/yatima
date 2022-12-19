@@ -73,7 +73,7 @@ def Int.natAbs : Override := Override.decl ⟨``Int.natAbs, ⟦
 ⟧⟩
 
 def Int.div : Override := Override.decl ⟨``Int.div, ⟦
-  (lambda (a b) 
+  (lambda (a b)
     (let ((a (Int.natAbs a))
           (b (Int.natAbs b)))
         (if (= (<= 0 a) (<= 0 b))
@@ -82,7 +82,7 @@ def Int.div : Override := Override.decl ⟨``Int.div, ⟦
 ⟧⟩
 
 def Int.mod : Override := Override.decl ⟨``Int.mod, ⟦
-  (lambda (a b) 
+  (lambda (a b)
     (let ((a (Int.natAbs a))
           (b (Int.natAbs b)))
         (if (<= 0 a)

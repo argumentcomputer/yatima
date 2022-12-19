@@ -12,34 +12,34 @@ does not generate code for:
 1. All inductives and constructors. Inductives and constructors are the "primitive"
     objects in Lean, and they have special representations in memory determined by the
     `C/C++` runtime. This means that inductives and constructors have bare `C/C++`
-    implementations that manage their memory, and there is no need for `LCNF` here. 
-2. All declarations tagged `@[extern]`, since the compiler assumes that it will be 
+    implementations that manage their memory, and there is no need for `LCNF` here.
+2. All declarations tagged `@[extern]`, since the compiler assumes that it will be
     replaced with custom `C/C++` code anyway. `Nat.decLt` is a perfect example.
-3. All declarations tagged with `@[macro_inline]`, since these will be inlined 
+3. All declarations tagged with `@[macro_inline]`, since these will be inlined
     immediately in the code generation phase. `ite` and `dite` are immediate examples.
 4. All `match_<n>` declarations. e.g. stuff like `List.map.match_1`, etc.
-5. All `.rec`, `.recOn`, and `.casesOn` declarations, since all of these are compiled 
+5. All `.rec`, `.recOn`, and `.casesOn` declarations, since all of these are compiled
     to `case` statements in LCNF.
 6. Some weird rules for instances. TODO: I'm not exactly sure.
 
-The first two points are the most important ones. 
+The first two points are the most important ones.
 
 The first point means that we must determine our own inductive representation and
 write our own constructors. This creates a separation between how we handle
 declarations and inductives.
 
 The second point means that we must "override" some declarations with our own custom
-implementation. These apply to `@[extern]` declarations, but also to objects that have 
-a native runtime representation in `lurk`: `Nat`, `List`, and `Char` (and some more). 
-It would be terrible if we represented `2` as `Nat.succ (Nat.succ Nat.zero)` instead 
+implementation. These apply to `@[extern]` declarations, but also to objects that have
+a native runtime representation in `lurk`: `Nat`, `List`, and `Char` (and some more).
+It would be terrible if we represented `2` as `Nat.succ (Nat.succ Nat.zero)` instead
 of just `2` in `lurk`! Hence, we need to both override inductives and declarations.
 
 This creates 4 classes of "declarations" that we may have to deal with:
 
 1. Normal declarations
-2. Normal inductives 
+2. Normal inductives
    ^^ these exist in `(← read).env`
-  
+
 3. Override declarations
 4. Override inductives
    ^^ these exist in `(← read).overrides`
@@ -52,7 +52,7 @@ namespace Yatima.Transpiler
 open Lurk Backend DSL
 open Lean.Compiler.LCNF
 
-/-- This holds the bare minimum amount of inductive 
+/-- This holds the bare minimum amount of inductive
   data needed by the transpiler to do its job. Used in compiling
   `case` and `proj` statements. -/
 structure InductiveData where
@@ -60,8 +60,8 @@ structure InductiveData where
   params : Nat
   indices : Nat
   /-- A map from each constructor name to its index.
-    Here because for some reason `Lean.ConstructorVal` 
-    doesn't actually hold this information and we have 
+    Here because for some reason `Lean.ConstructorVal`
+    doesn't actually hold this information and we have
     to manually extract it ourselves. -/
   ctors : Lean.NameMap Nat
 

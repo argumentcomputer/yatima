@@ -59,7 +59,7 @@ def String.append : Override := Override.decl ⟨``String.append, ⟦
   (lambda (s₁ s₂) (str_append s₁ s₂))
 ⟧⟩
 
-/-- Note: `String.utf8GetAux` is a private Lean declaration so 
+/-- Note: `String.utf8GetAux` is a private Lean declaration so
   overriding this might cause some weird name clashes later. -/
 def String.utf8GetAux : Override := Override.decl ⟨`String.utf8GetAux, ⟦
   (lambda (cs i p)
@@ -74,7 +74,7 @@ def String.get : Override := Override.decl ⟨``String.get, ⟦
   (lambda (s p) (String.utf8GetAux (String.data s) 0 p))
 ⟧⟩
 
-/-- Note: `String.utf8GetAux?` is a private Lean declaration so 
+/-- Note: `String.utf8GetAux?` is a private Lean declaration so
   overriding this might cause some weird name clashes later. -/
 def String.utf8GetAux? : Override := Override.decl ⟨`String.utf8GetAux?, ⟦
   (lambda (cs i p)
@@ -89,7 +89,7 @@ def String.get? : Override := Override.decl ⟨``String.get?, ⟦
   (lambda (s p) (String.utf8GetAux? (String.data s) 0 p))
 ⟧⟩
 
-/-- Note: `String.utf8GetAux!` is a private Lean declaration so 
+/-- Note: `String.utf8GetAux!` is a private Lean declaration so
   overriding this might cause some weird name clashes later. -/
 def String.utf8GetAux! : Override := Override.decl ⟨`String.utf8GetAux!, ⟦
   (lambda (cs i p)
@@ -104,7 +104,7 @@ def String.get! : Override := Override.decl ⟨``String.get!, ⟦
   (lambda (s p) (String.utf8GetAux! (String.data s) 0 p))
 ⟧⟩
 
-/-- Note: `String.utf8SetAux` is a private Lean declaration so 
+/-- Note: `String.utf8SetAux` is a private Lean declaration so
   overriding this might cause some weird name clashes later. -/
 def String.utf8SetAux : Override := Override.decl ⟨`String.utf8GetAux!, ⟦
   (lambda (c cs i p)
@@ -124,7 +124,7 @@ def String.next : Override := Override.decl ⟨``String.next, ⟦
 ⟧⟩
 
 def String.utf8PrevAux : Override := Override.decl ⟨`String.utf8PrevAux, ⟦
-  (lambda (cs i p) 
+  (lambda (cs i p)
     (if cs
         (let ((i' (+ i (String.csize (car cs)))))
             (if (= i' p)
@@ -134,7 +134,7 @@ def String.utf8PrevAux : Override := Override.decl ⟨`String.utf8PrevAux, ⟦
 ⟧⟩
 
 def String.prev : Override := Override.decl ⟨``String.prev, ⟦
-  (lambda (s p) 
+  (lambda (s p)
     (if (= p 0)
         0
         (String.utf8PrevAux (String.data s) 0 p)))

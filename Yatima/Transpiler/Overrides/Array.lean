@@ -28,7 +28,7 @@ def ArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr
   let data := data.toString false
   return .let data ⟦(Array.data $discr)⟧ k
 
-/-- We'll keep `Array` isomorphic to `List` for now, 
+/-- We'll keep `Array` isomorphic to `List` for now,
   but of course this is extremely inefficient. -/
 protected def Array : Override := Override.ind
   ⟨ArrayInductiveData, ArrayCore, #[Array.mk], ArrayMkCases⟩
@@ -79,7 +79,7 @@ def Array.uset : Override := Override.decl ⟨``Array.uset, ⟦
 ⟧⟩
 
 def Array.swap : Override := Override.decl ⟨``Array.swap, ⟦
-  (lambda (α a i j) 
+  (lambda (α a i j)
     (let ((v₁ (getelem a i))
           (v₂ (getelem a j))
           (a' (set a i v₂)))
@@ -87,7 +87,7 @@ def Array.swap : Override := Override.decl ⟨``Array.swap, ⟦
 ⟧⟩
 
 def Array.swap! : Override := Override.decl ⟨``Array.swap!, ⟦
-  (lambda (α a i j) 
+  (lambda (α a i j)
     (let ((v₁ (getelem a i))
           (v₂ (getelem a j))
           (a' (set a i v₂)))
@@ -99,7 +99,7 @@ def Array.pop : Override := Override.decl ⟨``Array.pop, ⟦
 ⟧⟩
 
 def Array.module : List Override := [
-  Lurk.Overrides.Array, 
+  Lurk.Overrides.Array,
   Array.data,
   Array.mkEmpty,
   Array.size,

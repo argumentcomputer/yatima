@@ -16,7 +16,7 @@ def mixHash : Override := Override.decl ⟨``mixHash, ⟦
   there are optimization oppotunties by flattening `Decidable` to `Bool`
   sooner. This override is currently disabled. -/
 def Decidable.decide : Override := Override.decl ⟨``Decidable.decide, ⟦
-  (lambda (p h) 
+  (lambda (p h)
     (if (= (getelem h 1) 0)
         Bool.false
         Bool.true))

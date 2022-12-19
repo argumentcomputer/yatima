@@ -15,7 +15,7 @@ def proveCmd : Cli.Cmd := `[Cli|
 
   FLAGS:
     o, "output" : String; "Name of the JSON output file. Defaults to \"output.json\""
-    
+
   ARGS:
     input : String; "Input Lurk file"
 ]

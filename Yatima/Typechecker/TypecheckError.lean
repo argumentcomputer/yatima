@@ -3,8 +3,8 @@ import Yatima.Datatypes.Lean
 /-!
 # Typechecker errors
 
-This module defines the errors that can be thrown by the `TypecheckM` monad in the course of 
-typechecking a Yatima expression. 
+This module defines the errors that can be thrown by the `TypecheckM` monad in the course of
+typechecking a Yatima expression.
 -/
 
 namespace Yatima.Typechecker

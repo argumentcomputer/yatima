@@ -16,7 +16,7 @@ def not : Override := Override.decl ⟨``not, ⟦
             Bool.false)))
 ⟧⟩
 
-/-- TODO FIXME: This is a dangerous override because 
+/-- TODO FIXME: This is a dangerous override because
   we have strict behavior. Try to avoid using this. -/
 def and : Override := Override.decl ⟨``and, ⟦
   (lambda (x y)
@@ -25,7 +25,7 @@ def and : Override := Override.decl ⟨``and, ⟦
         y))
 ⟧⟩
 
-/-- TODO FIXME: This is a dangerous override because 
+/-- TODO FIXME: This is a dangerous override because
   we have strict behavior. Try to avoid using this. -/
 def or : Override := Override.decl ⟨``or, ⟦
   (lambda (x y)
@@ -34,7 +34,7 @@ def or : Override := Override.decl ⟨``or, ⟦
         y))
 ⟧⟩
 
-/-- TODO FIXME: This is a dangerous override because 
+/-- TODO FIXME: This is a dangerous override because
   we have strict behavior. Try to avoid using this. -/
 def bne : Override := Override.decl ⟨``bne, ⟦
   (lambda (α inst x y)

@@ -30,7 +30,7 @@ def ByteArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String 
   let data := data.toString false
   return .let data ⟦(ByteArray.data $discr)⟧ k
 
-/-- We'll keep `ByteArray` isomorphic to `List` for now, 
+/-- We'll keep `ByteArray` isomorphic to `List` for now,
   but of course this is extremely inefficient. -/
 protected def ByteArray : Override := Override.ind
   ⟨ByteArrayInductiveData, ByteArrayCore, #[ByteArray.mk], ByteArrayMkCases⟩
@@ -79,10 +79,10 @@ def ByteArray.uset : Override := Override.decl ⟨``ByteArray.uset, ⟦
 /-- Is this the efficient thing in the world? No. Does it work? Uh probably not.
   But it's good enough for now. -/
 def ByteArray.copySlice : Override := Override.decl ⟨``ByteArray.copySlice, ⟦
-  (lambda (src srcOff dest destOff len exact) 
-    (Array.append "lcErased" 
-      (Array.extract "lcErased" dest 0 destOff) 
-      (Array.append "lcErased" 
+  (lambda (src srcOff dest destOff len exact)
+    (Array.append "lcErased"
+      (Array.extract "lcErased" dest 0 destOff)
+      (Array.append "lcErased"
         (Array.extract "lcErased" src srcOff (+ srcOff len))
         (Array.extract "lcErased" dest (+ destOff len) (Array.size dest)))))
 ⟧⟩
@@ -96,7 +96,7 @@ def ByteArray.append : Override := Override.decl ⟨``ByteArray.append, ⟦
 ⟧⟩
 
 def ByteArray.module : List Override := [
-  Lurk.Overrides.ByteArray, 
+  Lurk.Overrides.ByteArray,
   ByteArray.data,
   ByteArray.mkEmpty,
   ByteArray.size,

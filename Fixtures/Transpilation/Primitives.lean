@@ -17,7 +17,7 @@ def natMatch : Nat → Nat
 def natMatchApp := natMatch 2
 def natMatchRec : Nat → Nat
   | 0 => 0
-  | n + 1 => natMatchRec n + 2 
+  | n + 1 => natMatchRec n + 2
 def natMatchRecApp := natMatchRec 10
 def natRepr := Nat.repr 0x16a8
 
@@ -26,14 +26,14 @@ def fin10 : (Fin 10) := 5
 def finAdd1 : (Fin 10) := 1 + 1
 def finAdd2 : (Fin 10) := 7 + 8
 
-def uint32If (n : UInt32) : UInt32 := 
+def uint32If (n : UInt32) : UInt32 :=
   if n ≥ 2 then 10 else 20
 
 def uint32If0 : UInt32 := uint32If 0
 def uint32If3 : UInt32 := uint32If 3
 
 def charA := 'a'
-def charOfNat := Char.ofNat 97 
+def charOfNat := Char.ofNat 97
 def charToNat := Char.toNat 'a'
 def charUTF8Size := Char.utf8Size 'a'
 def charToUpper := charA.toUpper
@@ -57,8 +57,8 @@ def listGet5 := listSet[5]
 
 def abcd := "abcd"
 def efg := "efg"
-def stringAppendInst := abcd ++ efg 
-def stringAppend := String.append abcd efg 
+def stringAppendInst := abcd ++ efg
+def stringAppend := String.append abcd efg
 def stringLength := abcd.length
 def stringAppendLength := stringAppend.length
 def stringBEqF := abcd == efg
@@ -76,10 +76,10 @@ def stringExtract := abcd.extract 0 ⟨4⟩
 def stringToSubstring := "hello".toSubstring
 def stringAny := "hello".any Char.isAlpha
 
-open Lean 
+open Lean
 def isIdLike (s : String) : Bool :=
-  s.length > 0 && 
-  isIdFirst (s.get 0) && 
+  s.length > 0 &&
+  isIdFirst (s.get 0) &&
   (s.toSubstring.drop 1).all isIdRest
 
 def stringIsIdLike := isIdLike "_ident?"

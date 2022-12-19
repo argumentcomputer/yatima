@@ -2,7 +2,7 @@ import Lake
 
 open Lake DSL
 
-package Yatima 
+package Yatima
 
 @[default_target]
 lean_exe yatima {

@@ -44,7 +44,7 @@ def safeName (name : Name) : TranspileM Name :=
     match (← get).replaced.find? name with
     | some n => return n
     | none   => replace name
-  else 
+  else
     -- dbg_trace s!">> safeName end {name}"
     return name
 
@@ -148,7 +148,7 @@ def getMutuals (name : Name) : TranspileM (List Name) := do
   | _ => return [name]
 
 def mkFVarId : Lean.FVarId → TranspileM Expr
-  | fvarId => do 
+  | fvarId => do
     -- dbg_trace s!">> mkFVarId"
     mkName fvarId.name
 
@@ -169,7 +169,7 @@ def mkParams (params : Array Param) : TranspileM (Array String) := do
   params.mapM mkParam
 
 def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.Alt) :
-    Except String Expr := do  
+    Except String Expr := do
   -- dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
   let mut defaultElse : Expr := .atom .nil
   let mut ifThens : Array (Expr × Expr) := #[]
@@ -276,10 +276,10 @@ mutual
       let fvarId ← mkFVarId fvarId
       let args ← args.mapM mkArg
       return mkApp fvarId args.data
-    | .cases cases => 
+    | .cases cases =>
       -- dbg_trace s!">> mkCode cases"
       mkCases cases
-    | .return fvarId => 
+    | .return fvarId =>
       -- dbg_trace s!">> mkCode return {fvarId.name}"
       mkFVarId fvarId
     | .unreach _ => return toExpr "lcUnreachable"
@@ -294,7 +294,7 @@ mutual
       then value
       else mkLambda params value
     appendBinding (name, body)
-  
+
   partial def appendMutualDecls (decls : List Decl) : TranspileM Unit := do
     -- dbg_trace s!">> appendMutualDecls"
     for decl in decls do
@@ -308,7 +308,7 @@ mutual
         then value
         else mkLambda params value
       return (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
-    Expr.mkMutualBlock decls |>.forM 
+    Expr.mkMutualBlock decls |>.forM
       fun (n, e) => appendBinding (n, e)
 
   partial def appendName (name : Name) : TranspileM Unit := do
@@ -324,7 +324,7 @@ mutual
         appendInductive ind
     | none =>
       let names ← getMutuals name
-      if let [name] := names then 
+      if let [name] := names then
         if ← appendOverride name then return
         appendDecl $ ← getDecl name
       else
@@ -360,21 +360,21 @@ mutual
 end
 
 /-- Main translation function -/
-def transpileM (root : Lean.Name) : TranspileM Unit :=
+def transpileM (decl : Lean.Name) : TranspileM Unit :=
   let overrides := .ofList <| Lurk.Overrides.All.module.map fun o => (o.name, o)
   withOverrides overrides do
     -- dbg_trace s!">> transpileM overrides: {(← read).overrides.toList.map Prod.fst}"
     preloads.forM fun (name, preload) => do
       visit name
       appendBinding (name, preload) false
-    appendName root
+    appendName decl
 
 /--
-Constructs a `Expr.letRecE` whose body is the call to a `root` constant in
-a context and whose bindings are the constants in the context (including `root`)
-that are needed to define `root`.
+Constructs a `Expr.letRecE` whose body is the call to a `decl` constant in
+a context and whose bindings are the constants in the context (including `decl`)
+that are needed to define `decl`.
 -/
-def transpile (filePath : System.FilePath) (root : Name) : 
+def transpile (filePath : System.FilePath) (decl : Name) :
     IO $ Except String Expr := do
   let filePathStr := filePath.toString
   Lean.setLibsPaths
@@ -382,16 +382,15 @@ def transpile (filePath : System.FilePath) (root : Name) :
   | (some err, _) => return .error err
   | (none, leanEnv) =>
     let transpileEnv := ⟨leanEnv, .empty⟩
-    match TranspileM.run transpileEnv default (transpileM root) with
+    match TranspileM.run transpileEnv default (transpileM decl) with
     | .ok _ s =>
       let bindings := s.appendedBindings.data.map
         fun (n, x) =>
           (n.toString false, x)
-      let expr := mkLetrec bindings (.sym $ root.toString false)
+      let expr := mkLetrec bindings (.sym $ decl.toString false)
       let expr := expr.pruneBlocks
       -- dbg_trace s!"{expr}"
       return .ok expr
     | .error e _ => .error e
-
 
 end Yatima.Transpiler

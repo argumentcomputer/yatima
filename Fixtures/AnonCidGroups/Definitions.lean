@@ -22,7 +22,7 @@ mutual
   | 0 => 0
   | n + 1 => C n + 2
 
-  def G : Nat → Nat 
+  def G : Nat → Nat
   | 0 => 0
   | n + 1 => B n + F n + H n + 2
 

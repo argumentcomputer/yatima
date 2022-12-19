@@ -89,7 +89,7 @@ def Lean.SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
   let m₂ := smap.map₂.map f
   ⟨smap.stage₁, m₁, m₂⟩
 
-end 
+end
 
 open Lean in
 def patchUnsafeRec (cs : ConstMap) : ConstMap :=
