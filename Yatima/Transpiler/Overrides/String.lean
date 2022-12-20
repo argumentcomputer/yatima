@@ -8,7 +8,7 @@ open Yatima.Transpiler
 namespace Overrides
 
 def StringInductiveData : InductiveData :=
-  ⟨``String, 0, 0, .ofList [(``String.mk, 1)]⟩
+  ⟨``String, 0, 0, .ofList [(``String.mk, 0)]⟩
 
 def StringCore : Override.Decl := ⟨``String, ⟦
   ,("String" 0 0)

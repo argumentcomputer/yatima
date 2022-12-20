@@ -9,7 +9,7 @@ open Yatima.Transpiler
 namespace Overrides
 
 def Lean.NameInductiveData : InductiveData :=
-  ⟨``Lean.Name, 0, 0, .ofList [(``Lean.Name.anonymous, 0), (``Lean.Name.str, 1), (``Lean.Name.num, 1)]⟩
+  ⟨``Lean.Name, 0, 0, .ofList [(``Lean.Name.anonymous, 0), (``Lean.Name.str, 1), (``Lean.Name.num, 2)]⟩
 
 def Lean.NameCore : Override.Decl := ⟨``Lean.Name, ⟦
   ,("Lean.Name" 0 0)
