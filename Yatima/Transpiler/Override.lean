@@ -75,6 +75,11 @@ inductive Override.Alt where
   | alt (cidx : Nat) (params : Array Lean.Name) (code : Expr)
   | default (code : Expr)
 
+instance : ToString Override.Alt where
+  toString
+  | .alt cidx params code => s!"Override.Alt.alt {cidx} {params} {code}"
+  | .default code => s!"Override.Alt.default {code}"
+
 /-- A inductive override (a.k.a. type #4 in our list at the top). -/
 structure Override.Inductive where
   indData : InductiveData

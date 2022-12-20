@@ -40,7 +40,7 @@ def Char.mk : Override.Decl := ⟨``Char.mk, ⟦
 
 def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
-    throw "CharMkCases assumes structures having only one alternative, and never produce `default` match, got\n {alts}"
+    throw s!"CharMkCases assumes structures having only one alternative, and never produce `default` match, got\n {alts}"
   let #[val, valid] := params |
     throw s!"`Char.mk` case expects exactly 2 param, got\n {params}"
   let val := val.toString false
