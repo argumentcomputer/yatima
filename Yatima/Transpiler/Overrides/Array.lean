@@ -22,7 +22,7 @@ def Array.mk : Override.Decl := ⟨``Array.mk, ⟦
 
 def ArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
-    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+    throw "ArrayMkCases assumes structures having only one alternative, and never produce `default` match, got\n {alts}"
   let #[data] := params |
     throw s!"`Array.mk` case expects exactly 1 param, got\n {params}"
   let data := data.toString false

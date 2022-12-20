@@ -21,7 +21,7 @@ def Fin.mk : Override.Decl := ⟨``Fin.mk, ⟦
 
 def FinMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
-    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+    throw "FinMkCases assumes structures having only one alternative, and never produce `default` match, got\n {alts}"
   let #[n, isLt] := params |
     throw s!"`Fin.mk` case expects exactly 2 params, got\n {params}"
   let n := n.toString false
