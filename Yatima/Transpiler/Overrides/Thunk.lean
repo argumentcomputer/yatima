@@ -21,7 +21,7 @@ def Thunk.mk : Override.Decl := ⟨``Thunk.mk, ⟦
 
 def ThunkMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
-    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+    throw s!"ThunkMkCases assumes structures having only one alternative, and never produce `default` match, got\n {alts}"
   let #[fn] := params |
     throw s!"`Thunk.mk` case expects exactly 1 param, got\n {params}"
   let fn := fn.toString false
