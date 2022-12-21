@@ -26,7 +26,10 @@ def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Uni
     match ← derefConst name k with
     | .inductive ind => do
       match ind.struct with
-        | some ctor =>
+        | some ctorIdx => do
+          let ctor ← match (← read).store.consts.get? ctorIdx with
+            | some (.constructor ctor) => pure ctor
+            | _ => throw .impossible
           -- Sanity check
           if ind.params != params.length then throw .impossible else
           pure (k, ctor, univs, (params.map (·.1)))
@@ -247,29 +250,9 @@ mutual
               withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
           pure $ TypedConst.definition type value data.safety
-        | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
-        | .constructor data => do
-          -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
-          let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
-            match (← read).store.consts.get? idx with
-            | .some (.intRecursor data)
-            | .some (.extRecursor data)
-            | .some (.inductive data)
-            | .some (.constructor data) =>
-              -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
-              --dbg_trace s!"checking constant type: {data.name} : {data.type}"
-              let (type, _)  ← withMutTypes acc $ isSort data.type
-              --dbg_trace s!"done checking constant type: {data.name}"
-              let ctx ← read
-              let stt ← get
-              let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
-              pure $ acc.insert idx typeSus
-            | _ => throw .impossible
-          --dbg_trace s!"rhs: {data.rhs}"
-          let (rhs, _) ← withMutTypes (mutTypes) $ infer data.rhs
-          pure $ TypedConst.constructor type rhs data.idx data.fields
-        | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k
-        | .extRecursor data => do
+        | .inductive   data => pure $ .inductive type data.struct.isSome
+        | .constructor data => pure $ .constructor type data.idx data.fields
+        | .recursor data => do
           let rules ← data.rules.mapM fun rule => do
             let ctx ← read
             let stt ← get
@@ -278,7 +261,7 @@ mutual
             let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
             let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
             pure (rule.ctor.idx, rule.fields, rhs)
-          pure $ TypedConst.extRecursor type data.params data.motives data.minors data.indices rules
+          pure $ TypedConst.recursor type data.params data.motives data.minors data.indices data.k data.ind rules
         | .quotient data => pure $ .quotient type data.kind
         let tcConsts := (← get).tcConsts
         if h : idx < tcConsts.size then

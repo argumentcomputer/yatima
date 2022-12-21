@@ -195,57 +195,34 @@ mutual
                    else pure $ .app (.const name k univs) newArgs
     -- Assumes a partial application of k to args, which means in particular,
     -- that it is in normal form
-    else match ← derefConst name k with
-    | .intRecursor (.mk _ _ _ params indices motives minors isK indIdx) =>
+    else match ← derefTypedConst name k with
+    | .recursor _ params motives minors indices isK indIdx rules =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
+      else if isK then
+        -- sanity check
+        if args.length < (params + motives + 1) then
+          throw .impossible
+        let minorIdx := args.length - (params + motives + 1)
+        let some minor := args.get? minorIdx | throw .impossible
+        pure minor.1.get
       else
-        if isK then
-          --dbg_trace s!"args: {args.map (·.get)} , {args.length}"
-          --dbg_trace s!"{recur.params} , {recur.motives} , {recur.minors} , {recur.indices}"
-          -- sanity check
-          if args.length < (params + motives + 1) then
-            throw .impossible
-          let minorIdx := args.length - (params + motives + 1)
-          let some minor := args.get? minorIdx | throw .impossible
-          pure minor.1.get
-        else
-          let params := args.take params
-          match ← toCtorIfLitOrStruct indIdx (params.map (·.1)) univs arg with
-          | .app (Neutral.const kName k _) args' =>
-            match ← derefConst kName k with
-            | .constructor _ =>
-              match ← derefTypedConst kName k with
-              | .constructor _ rhs _ fields =>
-                let exprs := (args'.take fields) ++ (args.drop indices)
-                withEnv ⟨exprs, univs⟩ $ eval $ rhs.toImplicitLambda
-              | _ => throw .impossible
-            | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
+        let params := args.take params
+        match ← toCtorIfLitOrStruct indIdx (params.map (·.1)) univs arg with
+        | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
+          | .constructor _ idx _ =>
+            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
+            match rules.find? (fun r => r.fst == idx) with
+            | some (_, fields, rhs) =>
+              let exprs := (args'.take fields) ++ (args.drop indices)
+              withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
+            -- Since we assume expressions are previously type checked, we know that this constructor
+            -- must have an associated recursion rule
+            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
           | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
-    | .extRecursor (.mk (ind := indIdx) ..)  =>
-      match ← derefTypedConst name k with
-      | .extRecursor _ params motives minors indices rules =>
-        let majorIdx := params + motives + minors + indices
-        if args.length != majorIdx then
-          pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
-        else
-          let params := args.take params
-          match ← toCtorIfLitOrStruct indIdx (params.map (·.1)) univs arg with
-          | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
-            | .constructor _ _ idx _ =>
-              -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-              match rules.find? (fun r => r.fst == idx) with
-              | some (_, fields, rhs) =>
-                let exprs := (args'.take fields) ++ (args.drop indices)
-                withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
-              -- Since we assume expressions are previously type checked, we know that this constructor
-              -- must have an associated recursion rule
-              | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
-            | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
-          | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
-      | _ => throw .impossible
-    | .quotient (.mk _ _ _ kind) => match kind with
+        | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
+    | .quotient _ kind => match kind with
       | .lift => applyQuot arg args 6 1 (.app (Neutral.const name k univs) ((arg, info) :: args)) info
       | .ind  => applyQuot arg args 5 0 (.app (Neutral.const name k univs) ((arg, info) :: args)) info
       | _ => pure $ .app (Neutral.const name k univs) ((arg, info) :: args)
@@ -285,14 +262,16 @@ mutual
           pure $ .app (.const `Nat.succ succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
       | e => do
-        match ← derefConst `TODO indIdx with
+        let some ind := (← read).store.consts.get? indIdx
+          | throw .impossible
+        match ind with
         | .inductive (.mk (struct := struct) ..) =>
           match struct with
           | none => pure e
-          | some ctor => do
-            -- index 0 is the inductive itself, index 1 is the constructor;
-            -- this is guaranteed because structs can't appear in mutual blocks
-            let some ctorIdx := ctor.all.get? 1 | throw .impossible
+          | some ctorIdx => do
+            let ctor ← match (← read).store.consts.get? ctorIdx with
+              | some (.constructor ctor) => pure ctor
+              | _ => throw .impossible
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut args : List SusValue := params
               for idx in [:ctor.fields] do
@@ -305,7 +284,7 @@ mutual
                 annotatedArgs := annotatedArgs ++ [(lastArg, info)]
               pure $ .app (.const ctor.name ctorIdx univs) $ annotatedArgs
             match e with
-            | .app (.const n idx _) _ =>
+            | .app (.const _n idx _) _ =>
               --dbg_trace s!"constant head: {n}, {idx}, {ctorIdx}"
               -- FIXME do not `etaExpand` if the struct is in `Prop`
               if ctorIdx == idx then

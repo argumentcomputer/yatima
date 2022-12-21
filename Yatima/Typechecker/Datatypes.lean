@@ -81,9 +81,8 @@ inductive TypedConst
   | «inductive» : (type : TypedExpr) → (struct : Bool) → TypedConst
   | «opaque»    : (type value : TypedExpr) → TypedConst
   | definition  : (type deref : TypedExpr) → (safety : DefinitionSafety) → TypedConst
-  | constructor : (type rhs : TypedExpr) → (idx fields : Nat) → TypedConst
-  | extRecursor : (type : TypedExpr) → (params motives minors indices : Nat) → (rules : List (Nat × Nat × TypedExpr)) → TypedConst
-  | intRecursor : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → TypedConst
+  | constructor : (type : TypedExpr) → (idx fields : Nat) → TypedConst
+  | recursor    : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → (ind :  ConstIdx) → (rules : List (Nat × Nat × TypedExpr)) → TypedConst
   | quotient    : (type : TypedExpr) → (kind : QuotKind) → TypedConst
   deriving Inhabited, BEq
 
@@ -94,8 +93,7 @@ def TypedConst.type : TypedConst → TypedExpr
   | «opaque»    type ..
   | definition  type ..
   | constructor type ..
-  | extRecursor type ..
-  | intRecursor type ..
+  | recursor type ..
   | quotient    type .. => type
 
 mutual
