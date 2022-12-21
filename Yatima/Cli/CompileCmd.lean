@@ -37,7 +37,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
       let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
-      IO.FS.writeBinFile (p.getFlagD "output" "output.ir") (DagCbor.serialize ipld)
+      IO.FS.writeBinFile (p.getStringFlagD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
     else
       IO.eprintln $ "No store argument was found.\n" ++

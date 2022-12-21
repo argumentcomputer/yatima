@@ -12,7 +12,7 @@ def buildGetCurlCommand (cid fileName : String) : String :=
 open System in
 def getRun (p : Cli.Parsed) : IO UInt32 := do
   let cid := p.getArg! "cid"
-  let fileName := p.getFlagD "output" "output.ir"
+  let fileName := p.getStringFlagD "output" "output.ir"
   match ← runCmd (buildGetCurlCommand cid fileName) with
   | .error err => IO.eprintln err; return 1
   | .ok _ => match ← readStoreFromFile fileName with

@@ -5,4 +5,5 @@
 /result
 *.ir
 *.lurk
+*.frames
 *.json
