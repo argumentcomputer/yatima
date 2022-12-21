@@ -320,7 +320,7 @@ mutual
         match ← getLeanConstant name with
         | .inductInfo ind =>
           withRecrs recrCtx do
-            pure $ (← inductiveToIR ind all) :: acc
+            pure $ (← inductiveToIR ind) :: acc
         | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
     let indBlockCid ← addToStore $ .const
       ⟨.mutIndBlock $ irInds.map (·.anon), .mutIndBlock $ irInds.map (·.meta)⟩
@@ -370,7 +370,7 @@ mutual
     | none => throw $ .constantNotCompiled initInd.name
 
   /-- Encodes a Lean inductive to IR -/
-  partial def inductiveToIR (ind : Lean.InductiveVal) (all : List TC.ConstIdx) :
+  partial def inductiveToIR (ind : Lean.InductiveVal) :
       CompileM $ IR.Both IR.Inductive := do
     let (_, _, indIdx) ← getFromRecrCtx! ind.name
     let leanRecs := (← read).constMap.childrenOfWith ind.name
@@ -381,7 +381,7 @@ mutual
         match r with
         | .recInfo rv =>
           if isInternalRec rv.type ind.name then
-            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors all indIdx r
+            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors indIdx r
             let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else
@@ -396,13 +396,14 @@ mutual
       -- Structures can only have one constructor
       | [ctorName] => do
         let (_, _, ctorIdx) ← getFromRecrCtx! ctorName
-        match ← derefConst ctorIdx with
-        | .constructor ctor => pure $ some ctor
-        | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
+        pure $ some ctorIdx
       | _ => pure none
-    let unit := match struct with
-      | some ctor => ctor.fields == 0
-      | none => false
+    let unit ← match struct with
+      | some ctor =>
+        match ← derefConst ctor with
+        | .constructor ctor => pure $ ctor.fields == 0
+        | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
+      | none => pure false
     let tcInd := .inductive {
       name    := ind.name
       lvls    := ind.levelParams
@@ -438,34 +439,76 @@ mutual
         , () , () , () ⟩
     }
 
+  /-- Encodes a Lean constructor to IR -/
+  partial def constructorToIR (rule : Lean.RecursorRule) :
+      CompileM $ IR.Both IR.Constructor := do
+    let (rhsCid, _rhs) ← compileExpr rule.rhs
+    match ← getLeanConstant rule.ctor with
+    | .ctorInfo ctor =>
+      withLevels ctor.levelParams do
+      let (typeCid, type) ← compileExpr ctor.type
+      let tcCtor := .constructor {
+        name    := ctor.name
+        lvls    := ctor.levelParams
+        type    := type
+        idx     := ctor.cidx
+        params  := ctor.numParams
+        fields  := ctor.numFields
+        safe    := not ctor.isUnsafe
+      }
+      let (_, _, constIdx) ← getFromRecrCtx! ctor.name
+      addToConsts constIdx tcCtor
+      return ⟨
+        { rhs    := rhsCid.anon
+          lvls   := ctor.levelParams.length
+          name   := ()
+          type   := typeCid.anon
+          idx    := ctor.cidx
+          params := ctor.numParams
+          fields := ctor.numFields
+          safe   := not ctor.isUnsafe },
+        { rhs    := rhsCid.meta
+          lvls   := ctor.levelParams
+          name   := ctor.name
+          type   := typeCid.meta
+          idx    := ()
+          params := ()
+          fields := ()
+          safe   := () } ⟩
+    | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
+
   /-- Encodes an internal recursor to IR -/
-  partial def internalRecToIR (ctors : List Lean.Name) (all : List TC.ConstIdx) (ind : TC.ConstIdx) :
-    Lean.ConstantInfo → CompileM
-      (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
+  partial def internalRecToIR (ctors : List Lean.Name) (ind : TC.ConstIdx) : Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← compileExpr rec.type
+        let tcRules := ← rec.rules.foldlM
+          (init := []) fun rules r => do
+            let (_recrRule, tcRecrRule) ← recRuleToIR r
+            return tcRecrRule::rules
         let ctorMap : RBMap Name (IR.Both IR.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             if ctors.contains r.ctor then
-              let ctor ← constructorToIR r all
-              return ctorMap.insert ctor.meta.name.projᵣ ctor
+              let ctor ← constructorToIR r
+              pure $ ctorMap.insert ctor.meta.name.projᵣ ctor
             -- this is an external recursor rule
-            else return ctorMap
+            else pure ctorMap
         let retCtors ← ctors.mapM fun ctorName => do
           match ctorMap.find? ctorName with
           | some thisCtor => pure thisCtor
           | none => throw $ .custom s!"Couldn't find constructor {ctorName}"
-        let tcRecr := .intRecursor {
-          name    := rec.name
-          lvls    := rec.levelParams
-          type    := type
-          params  := rec.numParams
-          indices := rec.numIndices
-          motives := rec.numMotives
-          minors  := rec.numMinors
-          k       := rec.k
-          ind     := ind }
+        let tcRecr := .recursor {
+          name     := rec.name
+          lvls     := rec.levelParams
+          type     := type
+          params   := rec.numParams
+          indices  := rec.numIndices
+          motives  := rec.numMotives
+          minors   := rec.numMinors
+          rules    := tcRules
+          k        := rec.k
+          ind      := ind
+          internal := true }
         let (_, _, constIdx) ← getFromRecrCtx! rec.name
         addToConsts constIdx tcRecr
         let recr := ⟨
@@ -490,92 +533,53 @@ mutual
         return (recr, retCtors)
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-  /-- Encodes a Lean constructor to IR -/
-  partial def constructorToIR (rule : Lean.RecursorRule) (all : List TC.ConstIdx) :
-      CompileM $ IR.Both IR.Constructor := do
-    let (rhsCid, rhs) ← compileExpr rule.rhs
-    match ← getLeanConstant rule.ctor with
-    | .ctorInfo ctor =>
-      withLevels ctor.levelParams do
-      let (typeCid, type) ← compileExpr ctor.type
-      let tcCtor := .constructor {
-        name    := ctor.name
-        lvls    := ctor.levelParams
-        type    := type
-        idx     := ctor.cidx
-        params  := ctor.numParams
-        fields  := ctor.numFields
-        rhs     := rhs
-        safe    := not ctor.isUnsafe
-        all     := all
-      }
-      let (_, _, constIdx) ← getFromRecrCtx! ctor.name
-      addToConsts constIdx tcCtor
-      return ⟨
-        { rhs    := rhsCid.anon
-          lvls   := ctor.levelParams.length
-          name   := ()
-          type   := typeCid.anon
-          idx    := ctor.cidx
-          params := ctor.numParams
-          fields := ctor.numFields
-          safe   := not ctor.isUnsafe },
-        { rhs    := rhsCid.meta
-          lvls   := ctor.levelParams
-          name   := ctor.name
-          type   := typeCid.meta
-          idx    := ()
-          params := ()
-          fields := ()
-          safe   := () } ⟩
-    | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
-
   /-- Encodes an external recursor to IR -/
-  partial def externalRecToIR (ind : TC.ConstIdx) :
-      Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
-    | .recInfo rec => withLevels rec.levelParams do
-      let (typeCid, type) ← compileExpr rec.type
-      let (rules, tcRules) : IR.Both (fun k => List $ IR.RecursorRule k) × List TC.RecursorRule := ← rec.rules.foldlM
-        (init := (⟨[], []⟩, [])) fun rules r => do
-          let (recrRule, tcRecrRule) ← externalRecRuleToIR r
-          return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
-      let tcRecr := .extRecursor {
-        name    := rec.name
-        lvls    := rec.levelParams
-        type    := type
-        params  := rec.numParams
-        indices := rec.numIndices
-        motives := rec.numMotives
-        minors  := rec.numMinors
-        rules   := tcRules
-        k       := rec.k
-        ind     := ind
-      }
-      let (_, _, constIdx) ← getFromRecrCtx! rec.name
-      addToConsts constIdx tcRecr
-      return ⟨
-        { name    := ()
-          lvls    := rec.levelParams.length
-          type    := typeCid.anon
-          params  := rec.numParams
-          indices := rec.numIndices
-          motives := rec.numMotives
-          minors  := rec.numMinors
-          rules   := rules.anon
-          k       := rec.k },
-        { name    := rec.name
-          lvls    := rec.levelParams
-          type    := typeCid.meta
-          params  := ()
-          indices := ()
-          motives := ()
-          minors  := ()
-          rules   := rules.meta
-          k       := () } ⟩
+  partial def externalRecToIR (ind : TC.ConstIdx) : Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
+    | .recInfo rec =>
+      withLevels rec.levelParams do
+        let (typeCid, type) ← compileExpr rec.type
+        let (rules, tcRules) : IR.Both (fun k => List $ IR.RecursorRule k) × List TC.RecursorRule := ← rec.rules.foldlM
+          (init := (⟨[], []⟩, [])) fun rules r => do
+            let (recrRule, tcRecrRule) ← recRuleToIR r
+            return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
+        let tcRecr := .recursor {
+          name     := rec.name
+          lvls     := rec.levelParams
+          type     := type
+          params   := rec.numParams
+          indices  := rec.numIndices
+          motives  := rec.numMotives
+          minors   := rec.numMinors
+          rules    := tcRules
+          k        := rec.k
+          ind      := ind
+          internal := false
+        }
+        let (_, _, constIdx) ← getFromRecrCtx! rec.name
+        addToConsts constIdx tcRecr
+        return ⟨
+          { name    := ()
+            lvls    := rec.levelParams.length
+            type    := typeCid.anon
+            params  := rec.numParams
+            indices := rec.numIndices
+            motives := rec.numMotives
+            minors  := rec.numMinors
+            rules   := rules.anon
+            k       := rec.k },
+          { name    := rec.name
+            lvls    := rec.levelParams
+            type    := typeCid.meta
+            params  := ()
+            indices := ()
+            motives := ()
+            minors  := ()
+            rules   := rules.meta
+            k       := () } ⟩
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-  /-- Encodes an external recursor rule to IPLD -/
-  partial def externalRecRuleToIR (rule : Lean.RecursorRule) :
+  /-- Encodes a recursor rule to IPLD -/
+  partial def recRuleToIR (rule : Lean.RecursorRule) :
       CompileM (IR.Both IR.RecursorRule × TC.RecursorRule) := do
     let (rhsCid, rhs) ← compileExpr rule.rhs
     let const ← getLeanConstant rule.ctor

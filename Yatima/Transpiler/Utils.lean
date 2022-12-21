@@ -31,7 +31,7 @@ def StoreKey.find! (key : StoreKey A) : TranspileM A := do
 
 open TC
 
-abbrev MutualInfo := Inductive × List Constructor × IntRecursor × List ExtRecursor
+abbrev MutualInfo := Inductive × (List Constructor) × Recursor × (List Recursor)
 
 /-- Retrieves all information from an inductige -/
 def getMutualIndInfo (ind : Inductive) : TranspileM $ List MutualInfo := do
@@ -68,13 +68,13 @@ def getMutualIndInfo (ind : Inductive) : TranspileM $ List MutualInfo := do
         | some (.constructor ctor) => return ctor
         | some x => throw $ .invalidConstantKind x.name "constructor" x.ctorName
         | none => throw $ .notFoundInMap ctor
-      let irecr : IntRecursor := ← match map.find? intR with
-        | some (.intRecursor recr) => return recr
+      let irecr : Recursor := ← match map.find? intR with
+        | some x@(.recursor recr) => if recr.internal then return recr else throw $ .invalidConstantKind x.name "internal recursor" x.ctorName
         | some x => throw $ .invalidConstantKind x.name "internal recursor" x.ctorName
         | none => throw $ .notFoundInMap intR
       let erecrs ← extRs.mapM fun extR =>
         match map.find? extR with
-        | some (.extRecursor extR) => return extR
+        | some x@(.recursor extR) => if extR.internal then throw $ .invalidConstantKind x.name "internal recursor" x.ctorName else return extR
         | some x => throw $ .invalidConstantKind x.name "external recursor" x.ctorName
         | none => throw $ .notFoundInMap extR
       return (ind, ctors, irecr, erecrs)

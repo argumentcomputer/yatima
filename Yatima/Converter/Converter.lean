@@ -161,15 +161,11 @@ mutual
   inductive, returns `none` otherwise.
   -/
   partial def getStructure (ind : IR.Both IR.Inductive) :
-      ConvertM (Option TC.Constructor) :=
+      ConvertM (Option TC.ConstIdx) :=
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
-      | [ctorAnon], [ctorMeta] => do
-        let all ← ind.meta.ctors.mapM fun ctor =>
-          getConstIdx ctor.name
-        let all := (← getConstIdx ind.meta.name) :: all
-        let all := all ++ (← ind.meta.recrs.mapM fun r => getConstIdx r.2.name)
-        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩ all)
+      | [_ctorAnon], [ctorMeta] => do
+        pure $ some (← getConstIdx ctorMeta.name)
       | _, _ => pure none
 
   /--
@@ -304,12 +300,11 @@ mutual
           let fields := constructorAnon.fields
           let safe   := constructorAnon.safe
 
-          let (recrCtx, all) ← getIndRecrCtx indBlock
+          let (recrCtx, _) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨constructorAnon.type, constructorMeta.type⟩
-            let rhs ← exprFromIR ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe, all}
+            pure $ .constructor { name, lvls, type, idx, params, fields, safe}
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
@@ -333,10 +328,13 @@ mutual
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
             let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) →
               (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
-            | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k, ind}
+            | .intr, .intr, _, _ =>
+              -- TODO
+              let rules := sorry
+              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := true}
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
-              pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k, ind}
+              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := false }
             | _, _, _, _ => throw .irError
             casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
         | .quotient quotientAnon, .quotient quotientMeta =>
@@ -359,17 +357,16 @@ mutual
         pure constIdx
 
   /-- Converts a `IR.Both IR.Constructor` into a `Constructor` -/
-  partial def ctorFromIR (ctor : IR.Both IR.Constructor) (all : List Nat):
+  partial def ctorFromIR (ctor : IR.Both IR.Constructor) :
       ConvertM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
     let type ← exprFromIR ⟨ctor.anon.type, ctor.meta.type⟩
-    let rhs ← exprFromIR ⟨ctor.anon.rhs, ctor.meta.rhs⟩
     let idx := ctor.anon.idx
     let params := ctor.anon.params
     let fields := ctor.anon.fields
     let safe := ctor.anon.safe
-    pure { name, lvls, type, idx, params, fields, rhs, safe, all}
+    pure { name, lvls, type, idx, params, fields, safe}
 
   /-- Converts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
   partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :

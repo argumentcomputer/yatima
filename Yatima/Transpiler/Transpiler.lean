@@ -327,9 +327,10 @@ mutual
     let (argName, _) : Name × Expr := bindings.last!
     let argName ← mkName argName
     let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
-    let [(n₁, rhs₁), (_, rhs₂)] ← rhs.mapM fun c => return (c.name, c.rhs)
-      | throw $ .custom "`mkListRecursor` must receive list constructors"
-    let (nilRHS, consRHS) := -- Arthur: why so specific?
+    -- TODO
+    let [(n₁, rhs₁), (_, rhs₂)] ← rhs.mapM fun c => return (c.name, sorry)
+      | throw $ TranspileError.custom "`mkListRecursor` must receive list constructors"
+    let (nilRHS, consRHS) : Expr × Expr := -- Arthur: why so specific?
       if n₁ == ``List.nil then (rhs₁, rhs₂)
       else (rhs₂, rhs₁)
     let nilRHS ← mkAST nilRHS.toImplicitLambda
@@ -355,7 +356,8 @@ mutual
       let argName ← mkName argName
       let recrArgs : List AST ← bindings.mapM fun (n, _) => mkName n
       let ifThens ← rhs.mapM fun ctor => do
-        let (idx, fields, rhs) := (ctor.idx, ctor.fields, ctor.rhs)
+        -- TODO
+        let (idx, fields, rhs) := (ctor.idx, ctor.fields, sorry)
 
         let (rhs, binds) := telescope rhs
 
@@ -464,8 +466,7 @@ mutual
     -- each projection separately to avoid some recursions.
     | .inductive x => appendIndBlock (← getMutualIndInfo x)
     | .constructor x
-    | .extRecursor x
-    | .intRecursor x =>
+    | .recursor x =>
       let indName := x.name.getPrefix
       let ind ← match (← read).map.find? indName with
         | some (.inductive i) => pure i
