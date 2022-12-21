@@ -8,7 +8,7 @@ open Yatima.Transpiler
 namespace Overrides
 
 def StringInductiveData : InductiveData :=
-  ⟨``String, 0, 0, .ofList [(``String.mk, 1)]⟩
+  ⟨``String, 0, 0, .ofList [(``String.mk, 0)]⟩
 
 def StringCore : Override.Decl := ⟨``String, ⟦
   ,("String" 0 0)
@@ -20,7 +20,7 @@ def String.mk : Override.Decl := ⟨``String.mk, ⟦
 
 def StringMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
-    throw "we assume that structures only have one alternative, and never produce `default` match cases"
+    throw s!"StringMkCases assumes structures having only one alternative, and never produce `default` match, got\n {alts}"
   let #[data] := params |
     throw s!"`String.mk` case expects exactly 1 param, got\n {params}"
   let data := data.toString false
