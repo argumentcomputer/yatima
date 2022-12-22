@@ -90,7 +90,7 @@ mutual
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
-    dbg_trace s!">> infer"
+    -- dbg_trace s!">> infer"
     match term with
     | .var name idx =>
       let types := (← read).types
