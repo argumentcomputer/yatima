@@ -181,6 +181,14 @@ def runEval := TypecheckM.run (.init store) (.init store) (eval typedExpr)
 
 #eval runEval
 
+def runSuspend := suspend typedExpr (.init store) (.init store)
+
+#eval runSuspend
+
+def runEqual := TypecheckM.run (.init store) (.init store) (equal 0 runSuspend runSuspend)
+
+#eval runEqual
+
 def test : Except String Unit :=
   match TypecheckM.run (.init store) (.init store) typecheckM with
   | .ok u => .ok u

@@ -39,6 +39,7 @@ def replace (name : Lean.Name) : TranspileM Lean.Name := do
 
 /-- Set `name` as a visited node -/
 def visit (name : Lean.Name) : TranspileM Unit :=
+  dbg_trace s!">> visit {name}"
   modify fun s => { s with visited := s.visited.insert name }
 
 @[inline] def isVisited (n : Lean.Name) : TranspileM Bool :=
