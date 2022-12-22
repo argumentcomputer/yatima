@@ -19,6 +19,21 @@ def compileAndExtractTests (fixture : String)
     fun stt => (extractors.map fun extr => extr stt).foldl (init := .done)
       (· ++ ·)
 
+def compileAndExtractTests' (fixtures : Array String)
+  (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
+    IO TestSeq := do
+  if setPaths then Lean.setLibsPaths
+  let mut ret := .done
+  let mut compStt := default
+  for fixture in fixtures do
+    match (← compile (stt := compStt) fixture) with
+    | .ok stt =>
+      compStt := stt
+      ret := test s!"Compiles '{fixture}'" true $ (extractors.map fun extr => extr stt).foldl (init := ret)
+          (· ++ ·)
+    | .error e => ret := test s!"Compiles '{fixture}'" (ExpectationFailure "ok _" s!"error {e}")
+  return ret
+
 section AnonCidGroups
 
 /-
@@ -127,8 +142,8 @@ def reindexConst (map : NatNatMap) : Const → Const
       rhs := reindexExpr map r.rhs,
       ctor := reindexCtor map r.ctor }
     .extRecursor { x with
-      type := reindexExpr map x.type, rules := rules }
-  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type }
+      type := reindexExpr map x.type, rules := rules, ind := map.find! x.ind}
+  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type, ind := map.find! x.ind }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def extractConverterTests (stt : CompileState) : TestSeq :=
@@ -146,30 +161,85 @@ open Typechecker
 
 /-
 Here we define the following extractors:
+
 * `extractPositiveTypecheckTests` asserts that our typechecker doesn't have
 false negatives by requiring that everything that typechecks in Lean 4 should
 also be accepted by our implementation
+
+* `extractNegativeTypecheckTests` asserts that our typechecker doesn't have
+false positives by filtering constants with type/value pairs (theorems, opaques
+and definitions), skipping constants with repeated types, and scrambles
+type/value pairs with a certain number of List rotations. For example, if we
+have the pairs `(t₁, v₁)`, `(t₂, v₂)` and `(t₃, v₃)`, the first rotation of
+types gives us `(t₂, v₁)`, `(t₃, v₂)` and `(t₁, v₃)`, producing pairs that
+shouldn't typecheck. Similarly, the first rotation of values gives us
+`(t₁, v₂)`, `(t₂, v₃)` and `(t₃, v₁)`, which shouldn't typecheck either.
+Rotating types and values are different operations because constants have more
+attributes than just types and values (e.g. universe levels). Note that, with
+`n` pairs, we can't allow more than `n - 1` rotations because that would take us
+back to the original pairs.
+
+Note: `extractNegativeTypecheckTests` doesn't work on fixtures with constants
+that have equivalent types that are different terms of `TC.Expr`.
 -/
 
-def typecheckConstM (name : Name) : TypecheckM Unit := do
-  ((← read).store.consts.toList.enum.filter (fun (_, const) => const.name == name)).forM fun (i, const) => checkConst const i
-
-def typecheckConst (store : TC.Store) (name : Name) : Except String Unit :=
-  match TypecheckM.run (.init store) (.init store) (typecheckConstM name) with
+def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except String Unit :=
+  match TypecheckM.run (.init store) (.init store) (checkConst const idx) with
   | .ok u => .ok u
   | .error err => throw $ toString err
 
-inductive FoundConstFailure (constName : String) : Prop
-
-instance : Testable (FoundConstFailure constName) :=
-  .isFailure $ .some s!"Could not find constant {constName}"
-
 def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
-  stt.tcStore.consts.foldl (init := .done) fun tSeq const =>
-    if true then
-      tSeq ++ withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
-        (typecheckConst stt.tcStore const.name) fun _ => .done
-    else tSeq
+  let store := stt.tcStore
+  store.consts.data.enum.foldl (init := .done) fun tSeq (i, const) => tSeq ++
+    withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
+      (typecheckConst store const i) fun _ => .done
+
+def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestSeq :=
+  let store := stt.tcStore
+  let (testConsts, types, values, indices, _) : (List TC.Const) ×
+      (List TC.Expr) × (List TC.Expr) × (List Nat) × Std.RBSet TC.Expr compare :=
+    store.consts.toList.enum.foldr (init := default)
+      fun (idx, c) x@(consts, types, values, indices, seenTypes) => match c with
+        | c@(.theorem    ⟨_, _, type, value⟩)
+        | c@(.opaque     ⟨_, _, type, value, _⟩)
+        | c@(.definition ⟨_, _, type, value, _, _⟩) =>
+          if !seenTypes.contains type then
+            (c::consts, type::types, value::values, idx::indices, seenTypes.insert type)
+          else x
+        | _ => x
+
+  -- we can't allow the cycling to roundtrip
+  let nRounds := min maxRounds (testConsts.length - 1)
+
+  -- rotating types
+  let tSeq := List.range nRounds |>.foldl (init := .done) fun tSeq iRound =>
+    let testPairs : List (TC.Const × TC.Expr × Nat) :=
+      (testConsts.zip $ (types.rotate iRound.succ).zip $ values.zip indices).map
+        fun (c, t, v, i) => match c with
+          | .theorem    x => (.theorem    { x with type := t }, v, i)
+          | .opaque     x => (.opaque     { x with type := t }, v, i)
+          | .definition x => (.definition { x with type := t }, v, i)
+          | _ => unreachable!
+    testPairs.foldl (init := tSeq) fun tSeq (c, v, i) =>
+      match typecheckConst store c i with
+      | .ok _ => tSeq ++ test s!"{c.name} : {c.type} := {v}" false
+      | .error _ => tSeq
+
+  -- rotating values
+  let tSeq := List.range nRounds |>.foldl (init := tSeq) fun tSeq iRound =>
+    let testPairs : List (TC.Const × TC.Expr × Nat) :=
+      (testConsts.zip $ (values.rotate iRound.succ).zip indices).map
+        fun (c, v, i) => match c with
+          | .theorem    x => (.theorem    { x with value := v }, v, i)
+          | .opaque     x => (.opaque     { x with value := v }, v, i)
+          | .definition x => (.definition { x with value := v }, v, i)
+          | _ => unreachable!
+    testPairs.foldl (init := tSeq) fun tSeq (c, v, i) =>
+      match typecheckConst store c i with
+      | .ok _ => tSeq ++ test s!"{c.name} : {c.type} := {v}" false
+      | .error _ => tSeq
+
+  tSeq
 
 end Typechecking
 

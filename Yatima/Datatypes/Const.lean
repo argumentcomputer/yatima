@@ -277,6 +277,7 @@ structure ExtRecursor where
   minors  : Nat
   rules   : List RecursorRule
   k       : Bool
+  ind     : ConstIdx
   deriving BEq
 
 structure IntRecursor where
@@ -288,6 +289,7 @@ structure IntRecursor where
   motives : Nat
   minors  : Nat
   k       : Bool
+  ind     : ConstIdx
   deriving BEq
 
 structure Quotient where
