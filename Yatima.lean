@@ -12,9 +12,6 @@ import Yatima.Compiler.CompileError
 import Yatima.Compiler.CompileM
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
-import Yatima.Converter.ConvertError
-import Yatima.Converter.ConvertM
-import Yatima.Converter.Converter
 import Yatima.Datatypes.Cid
 import Yatima.Datatypes.Const
 import Yatima.Datatypes.Expr
@@ -52,6 +49,9 @@ import Yatima.Transpiler.Transpiler
 import Yatima.Typechecker.Datatypes
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
+import Yatima.Typechecker.Extractor.ExtractError
+import Yatima.Typechecker.Extractor.ExtractM
+import Yatima.Typechecker.Extractor.Extractor
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.Printing
 import Yatima.Typechecker.TypecheckError

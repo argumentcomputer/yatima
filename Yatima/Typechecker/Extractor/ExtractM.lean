@@ -1,12 +1,8 @@
 import Yatima.Datatypes.Store
-import Yatima.Lean.Utils
-import Yatima.Converter.ConvertError
-import YatimaStdLib.RBMap
+import Yatima.Typechecker.Extractor.ExtractError
 import YatimaStdLib.Ord
 
-namespace Yatima
-
-namespace Converter
+namespace Yatima.Extractor
 
 open Std (RBMap)
 
@@ -20,62 +16,60 @@ equal definitions.
 abbrev RecrCtx := RBMap (Nat × Option Nat) (Nat × Name) compare
 
 /--
-The reader structure for the `ConvertM` monad contains:
+The reader structure for the `ExtractM` monad contains:
 * `store`, which has the initial data of constants to be extracted
 * `recrCtx` of type `RecrCtx`
 * `bindDepth`, which says how many `lam`, `pi` or `letE` binders we've gone
 through recursively; used to implement constant replacement of free variables
 -/
-structure ConvertEnv where
+structure ExtractEnv where
   store     : IR.Store
   recrCtx   : RecrCtx
   bindDepth : Nat
   deriving Inhabited
 
-/-- Starts a new `ConvertEnv` with a given `Yatima.IR.Store` -/
-def ConvertEnv.init (store : IR.Store) : ConvertEnv :=
+/-- Starts a new `ExtractEnv` with a given `Yatima.IR.Store` -/
+def ExtractEnv.init (store : IR.Store) : ExtractEnv :=
   ⟨store, default, 0⟩
 
 /--
-Contains the progress of the conversion process.
+Contains the progress of the extraction process.
 
 * `univCache` and `constCache` are optimization means
-* `tcStore` is the actual output of the conversion, whose order is pre-encoded based on the store
+* `tcStore` is the actual output of the extraction, whose order is pre-encoded based on the store
 * `constsIdx` contains auxiliary data to recover a constant index by its name using the order in `consts`
 -/
-structure ConvertState where
+structure ExtractState where
   univCache  : RBMap IR.BothUnivCid TC.Univ compare
   constCache : RBMap IR.BothConstCid TC.ConstIdx compare
   tcStore    : TC.Store
   constsIdx  : RBMap Name TC.ConstIdx compare
   deriving Inhabited
 
-/-- The monad in which conversion takes place -/
-abbrev ConvertM := ReaderT ConvertEnv $ EStateM ConvertError ConvertState
+/-- The monad in which extraction takes place -/
+abbrev ExtractM := ReaderT ExtractEnv $ EStateM ExtractError ExtractState
 
-/-- Runs a function in `ConvertM` given a `ConvertEnv` and a `ConvertState` -/
-def ConvertM.run (env : ConvertEnv) (ste : ConvertState) (m : ConvertM α) :
-    Except ConvertError ConvertState :=
+/-- Runs a function in `ExtractM` given a `ExtractEnv` and a `ExtractState` -/
+def ExtractM.run (env : ExtractEnv) (ste : ExtractState) (m : ExtractM α) :
+    Except ExtractError ExtractState :=
   match EStateM.run (ReaderT.run m env) ste with
   | .ok _ stt  => .ok stt
   | .error e _ => .error e
 
 /-- Extracts `x` from `some x` and throws an error otherwise -/
-def ConvertM.unwrap : Option α → ConvertM α :=
+def ExtractM.unwrap : Option α → ExtractM α :=
   Option.option (throw .irError) pure
 
 /-- Runs a computation with `bindDepth` reset to `0` -/
-def withResetBindDepth : ConvertM α → ConvertM α :=
+def withResetBindDepth : ExtractM α → ExtractM α :=
   withReader $ fun e => { e with bindDepth := 0 }
 
 /-- Runs a computation with a certain `RecrCtx` -/
-def withRecrs (recrCtx : RecrCtx) : ConvertM α → ConvertM α :=
+def withRecrs (recrCtx : RecrCtx) : ExtractM α → ExtractM α :=
   withReader $ fun e => { e with recrCtx }
 
 /-- Runs a computation with `bindDepth` increased by `1` -/
-def withNewBind : ConvertM α → ConvertM α :=
+def withNewBind : ExtractM α → ExtractM α :=
   withReader $ fun e => { e with bindDepth := e.bindDepth + 1 }
 
-namespace Converter
-
-namespace Yatima
+end Yatima.Extractor

@@ -1,20 +1,21 @@
-/-- The errors that can be thrown in the `Yatima.Converter.ConvertM` monad -/
-inductive ConvertError where
-  | irError : ConvertError
-  | cannotStoreValue : ConvertError
-  | mutDefBlockFound : ConvertError
-  | mutIndBlockFound : ConvertError
-  | anonMetaMismatch : String → String → ConvertError
-  | cannotFindNameIdx : String → ConvertError
-  | constIdxOutOfRange : Nat → Nat → ConvertError
-  | invalidIndexDepth : Nat → Nat → ConvertError
-  | invalidMutBlock : String → ConvertError
-  | unexpectedConst : String → String → ConvertError
-  | constIdxNotFound : String → ConvertError
-  | mutRefFVNotFound : Nat → ConvertError
+namespace Yatima.Extractor
+
+inductive ExtractError where
+  | irError : ExtractError
+  | cannotStoreValue : ExtractError
+  | mutDefBlockFound : ExtractError
+  | mutIndBlockFound : ExtractError
+  | anonMetaMismatch : String → String → ExtractError
+  | cannotFindNameIdx : String → ExtractError
+  | constIdxOutOfRange : Nat → Nat → ExtractError
+  | invalidIndexDepth : Nat → Nat → ExtractError
+  | invalidMutBlock : String → ExtractError
+  | unexpectedConst : String → String → ExtractError
+  | constIdxNotFound : String → ExtractError
+  | mutRefFVNotFound : Nat → ExtractError
   deriving Inhabited
 
-instance : ToString ConvertError where toString
+instance : ToString ExtractError where toString
   | .anonMetaMismatch anon meta => s!"Anon/Meta mismatch: Anon is of kind {anon} but Meta is of kind {meta}"
   | .irError => "IR broken"
   | .cannotStoreValue => "Cannot store value"
@@ -27,3 +28,5 @@ instance : ToString ConvertError where toString
   | .constIdxNotFound name => s!"Could not find {name} in index of definitions."
   | .mutRefFVNotFound i => s!"Could not find index {i} in index of mutual referencing free variables."
   | .unexpectedConst got exp => s!"Unexpected constant. Got {got} but expected {exp}"
+
+end Yatima.Extractor

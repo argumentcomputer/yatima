@@ -10,6 +10,6 @@ def main := do
       "Fixtures/Termination/Init/SizeOf.lean"]
     [
       extractIpldTests,
-      extractConverterTests,
+      extractExtractorTests,
       extractPositiveTypecheckTests]
   lspecIO tSeq

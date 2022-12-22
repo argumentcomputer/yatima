@@ -4,7 +4,7 @@ import Lurk.Frontend.ToExpr
 import Yatima.Datatypes.Cid
 import Yatima.Compiler.Compiler
 import Yatima.Compiler.Printing
-import Yatima.Converter.Converter
+import Yatima.Typechecker.Extractor.Extractor
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
 import Yatima.Ipld.FromIpld
@@ -72,12 +72,12 @@ def extractAnonCidGroupsTests (groups : List (List Lean.Name))
 
 end AnonCidGroups
 
-section Converting
+section Extracting
 
-open Converter
+open Extractor
 
 /-
-This section defines an extractor that validates that the Ipld conversion
+This section defines an extractor that validates that the Ipld data extraction
 roundtrips for every constant in the `CompileState.store`.
 -/
 
@@ -146,14 +146,14 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type, ind := map.find! x.ind }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
-def extractConverterTests (stt : CompileState) : TestSeq :=
+def extractExtractorTests (stt : CompileState) : TestSeq :=
   withExceptOk "`extractPureStore` succeeds"
     (extractPureStore stt.irStore) fun pStore =>
       withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
         fun (pairs, map) => pairs.foldl (init := .done) fun tSeq (c₁, c₂) =>
           tSeq ++ test s!"{c₁.name} ({c₁.ctorName}) roundtrips" (reindexConst map c₁ == c₂)
 
-end Converting
+end Extracting
 
 section Typechecking
 

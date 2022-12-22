@@ -1,12 +1,10 @@
 import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
-import Yatima.Converter.ConvertError
-import Yatima.Converter.ConvertM
+import Yatima.Typechecker.Extractor.ExtractError
+import Yatima.Typechecker.Extractor.ExtractM
 import Yatima.Ipld.PrimCids
 
-namespace Yatima
-
-namespace Converter
+namespace Yatima.Extractor
 
 /-- Represents information used to retrieve data from the cache or from store -/
 inductive Key : Type → Type
@@ -19,7 +17,7 @@ inductive Key : Type → Type
 namespace Key
 
 /-- Tries to retrieve data from the cache or store given a `Key` -/
-def find? : (key : Key A) → ConvertM (Option A)
+def find? : (key : Key A) → ExtractM (Option A)
   | univCache  univ  => return (← get).univCache.find? univ
   | constCache const => return (← get).constCache.find? const
   | univStore  univ  => do
@@ -48,11 +46,11 @@ def find? : (key : Key A) → ConvertM (Option A)
 Retrieves data from the cache or store with a key, raising an error if it's not
 found
 -/
-def find (key : Key A) : ConvertM A := do
-  ConvertM.unwrap (← find? key)
+def find (key : Key A) : ExtractM A := do
+  ExtractM.unwrap (← find? key)
 
 /-- Adds data to cache -/
-def cache : (Key A) → A → ConvertM Unit
+def cache : (Key A) → A → ExtractM Unit
   | univCache  univ,  a => modify fun stt =>
     { stt with univCache  := stt.univCache.insert  univ  a }
   | constCache const, a => modify fun stt =>
@@ -62,7 +60,7 @@ def cache : (Key A) → A → ConvertM Unit
 end Key
 
 /-- Retrieves an inductive from a mutual block by its index -/
-def getInductive : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Inductive)
+def getInductive : IR.Both IR.Const → Nat → ExtractM (IR.Both IR.Inductive)
   | ⟨.mutIndBlock indsAnon, .mutIndBlock indsMeta⟩, idx =>
     if h : idx < indsAnon.length ∧ idx < indsMeta.length then
       pure ⟨indsAnon[idx]'(h.1), indsMeta[idx]'(h.2)⟩
@@ -70,7 +68,7 @@ def getInductive : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Inductive)
   | _, _ => throw .irError
 
 /-- Retrieves a definition from a mutual block by its index -/
-def getDefinition : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Definition)
+def getDefinition : IR.Both IR.Const → Nat → ExtractM (IR.Both IR.Definition)
   | ⟨.mutDefBlock defsAnon, .mutDefBlock defsMeta⟩, idx => do
     let defsMeta' := (defsMeta.map (·.projᵣ)).join
     let defsAnon' := (← defsMeta.enum.mapM fun (i, defMeta) =>
@@ -83,8 +81,8 @@ def getDefinition : IR.Both IR.Const → Nat → ConvertM (IR.Both IR.Definition
   | _, _ => throw .irError
 
 /-- Applies a function to each element of the list in `IR.Both (List $ A ·)` -/
-def zipWith (f : IR.Both A → ConvertM B) :
-    (as : IR.Both (List $ A ·)) → ConvertM (List B)
+def zipWith (f : IR.Both A → ExtractM B) :
+    (as : IR.Both (List $ A ·)) → ExtractM (List B)
   | ⟨anon::anons, meta::metas⟩ => do
     let b  ← f ⟨anon, meta⟩
     let bs ← zipWith f ⟨anons, metas⟩
@@ -92,11 +90,11 @@ def zipWith (f : IR.Both A → ConvertM B) :
   | ⟨[], []⟩ => pure []
   | _ => throw .irError
 
-instance : Coe (Split A B .true)  A := ⟨Split.projₗ⟩
-instance : Coe (Split A B .false) B := ⟨Split.projᵣ⟩
+instance : Coe (Split A B true)  A := ⟨Split.projₗ⟩
+instance : Coe (Split A B false) B := ⟨Split.projᵣ⟩
 
 /-- Extracts an `Univ` from an `IR.BothUnivCid` -/
-partial def univFromIR (cid : IR.BothUnivCid) : ConvertM TC.Univ := do
+partial def univFromIR (cid : IR.BothUnivCid) : ExtractM TC.Univ := do
   match ← Key.find? $ .univCache $ cid with
   | some univ => pure univ
   | none =>
@@ -124,20 +122,20 @@ def inductiveIsUnit (ind : IR.Inductive .anon) : Bool :=
     | _ => false
 
 /-- Retrieves a constant index by its name -/
-def getConstIdx (n : Name) : ConvertM Nat := do
+def getConstIdx (n : Name) : ExtractM Nat := do
   match (← get).constsIdx.find? n with
   | some idx => pure idx
   | none => throw $ .constIdxNotFound $ n.toString
 
 /-- Builds the `RecrCtx` for mutual inductives -/
-def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM (RecrCtx × List Nat) := do
+def getIndRecrCtx (indBlock : IR.Both IR.Const) : ExtractM (RecrCtx × List Nat) := do
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
   let mut constList : List (Nat × Name) := []
-  let mut indTups : List (Nat × Name) := []
-  let mut ctorTups : List (Nat × Name) := []
-  let mut recTups : List (Nat × Name) := []
+  let mut indTups   : List (Nat × Name) := []
+  let mut ctorTups  : List (Nat × Name) := []
+  let mut recTups   : List (Nat × Name) := []
   for ind in indBlockMeta do
     let indIdx ← getConstIdx ind.name.projᵣ
     indTups := indTups ++ [(indIdx, ind.name.projᵣ)]
@@ -161,7 +159,7 @@ mutual
   inductive, returns `none` otherwise.
   -/
   partial def getStructure (ind : IR.Both IR.Inductive) :
-      ConvertM (Option TC.Constructor) :=
+      ExtractM (Option TC.Constructor) :=
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
       | [ctorAnon], [ctorMeta] => do
@@ -176,7 +174,7 @@ mutual
   Extracts an `Expr` given a `IR.BothExprCid` representing an expression with
   the caveat that the `.var` case may represent a recursive reference.
   -/
-  partial def exprFromIR (cid : IR.BothExprCid) : ConvertM TC.Expr := do
+  partial def exprFromIR (cid : IR.BothExprCid) : ExtractM TC.Expr := do
     match ← Key.find $ .exprStore cid with
     | ⟨.var idx () lvlsAnon, .var name idx' lvlsMeta⟩ =>
       let depth := (← read).bindDepth
@@ -225,9 +223,9 @@ mutual
       pure $ .proj idx bod
     | ⟨a, b⟩ => throw $ .anonMetaMismatch a.ctorName b.ctorName
 
-  /-- Converts a `IR.BothConstCid` and return its constant index -/
+  /-- Extracts a `IR.BothConstCid` and return its constant index -/
   partial def constFromIR (cid : IR.BothConstCid) :
-      ConvertM TC.ConstIdx := do
+      ExtractM TC.ConstIdx := do
     match ← Key.find? (.constCache cid) with
     | some constIdx => pure constIdx
     | none =>
@@ -295,8 +293,8 @@ mutual
         | .constructorProj anon, .constructorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
-          let constructorAnon ← ConvertM.unwrap $ induct.anon.ctors.get? anon.cidx
-          let constructorMeta ← ConvertM.unwrap $ induct.meta.ctors.get? anon.cidx
+          let constructorAnon ← ExtractM.unwrap $ induct.anon.ctors.get? anon.cidx
+          let constructorMeta ← ExtractM.unwrap $ induct.meta.ctors.get? anon.cidx
           let name   := constructorMeta.name
           let lvls   := constructorMeta.lvls
           let idx    := constructorAnon.idx
@@ -315,8 +313,8 @@ mutual
           let induct ← getInductive indBlock anon.idx
           let some ind := (← get).constsIdx.find? induct.meta.name
             | throw $ .cannotFindNameIdx $ toString (induct.meta.name : Name)
-          let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
-          let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
+          let pairAnon ← ExtractM.unwrap $ induct.anon.recrs.get? anon.ridx
+          let pairMeta ← ExtractM.unwrap $ induct.meta.recrs.get? anon.ridx
           let recursorAnon := Sigma.snd pairAnon
           let recursorMeta := Sigma.snd pairMeta
           let name := recursorMeta.name
@@ -332,7 +330,7 @@ mutual
           withRecrs recrCtx do
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
             let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) →
-              (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
+              (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ExtractM TC.Const
             | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k, ind}
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
@@ -358,9 +356,9 @@ mutual
           throw $ .constIdxOutOfRange constIdx maxSize
         pure constIdx
 
-  /-- Converts a `IR.Both IR.Constructor` into a `Constructor` -/
+  /-- Extracts a `IR.Both IR.Constructor` into a `Constructor` -/
   partial def ctorFromIR (ctor : IR.Both IR.Constructor) (all : List Nat):
-      ConvertM TC.Constructor := do
+      ExtractM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
     let type ← exprFromIR ⟨ctor.anon.type, ctor.meta.type⟩
@@ -371,9 +369,9 @@ mutual
     let safe := ctor.anon.safe
     pure { name, lvls, type, idx, params, fields, rhs, safe, all}
 
-  /-- Converts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
+  /-- Extracts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
   partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :
-      ConvertM TC.RecursorRule := do
+      ExtractM TC.RecursorRule := do
     let rhs ← exprFromIR ⟨rule.anon.rhs, rule.meta.rhs⟩
     let ctorIdx ← constFromIR ⟨rule.anon.ctor, rule.meta.ctor⟩
     let consts := (← get).tcStore.consts
@@ -390,10 +388,10 @@ end
 
 /--
 Creates an initial array of constants full of dummy values to be replaced and
-then calls `constFromIR` for each constant to be converted from the store
+then calls `constFromIR` for each constant to be extracted from the store
 -/
-def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
-  ConvertM.run (ConvertEnv.init store) default do
+def extractStore (store : IR.Store) : Except ExtractError ExtractState :=
+  ExtractM.run (ExtractEnv.init store) default do
     let relevantMetas := (← read).store.constMeta.toList.filter
       fun (_, a) => a.isNotMutBlock
     relevantMetas.enum.forM fun (idx, (_, meta)) => do
@@ -409,14 +407,12 @@ def convertStore (store : IR.Store) : Except ConvertError ConvertState :=
       | none    => pure ()
 
 /--
-Main function in the converter API. Extracts the final array of constants from
+Main function in the extracter API. Extracts the final array of constants from
 an `IR.Store`
 -/
 def extractPureStore (store : IR.Store) : Except String TC.Store :=
-  match convertStore store with
+  match extractStore store with
   | .ok stt => pure stt.tcStore
   | .error err => .error $ toString err
 
-end Converter
-
-end Yatima
+end Yatima.Extractor

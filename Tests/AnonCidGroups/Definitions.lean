@@ -28,6 +28,6 @@ def main := do
       partialExtractor,
       unsafeExtractor,
       extractIpldTests,
-      extractConverterTests
+      extractExtractorTests
     ]
   lspecIO tSeq
