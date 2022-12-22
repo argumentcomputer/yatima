@@ -22,7 +22,7 @@ def compileAndExtractTests (fixture : String)
 def compileAndExtractTests' (fixtures : Array String)
   (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
-  if setPaths then setLibsPaths
+  if setPaths then Lean.setLibsPaths
   let mut ret := .done
   let mut compStt := default
   for fixture in fixtures do
