@@ -201,7 +201,7 @@ mutual
       -- TODO FIXME: support overrides; this is somewhat non-trivial
       let some indData := (← get).inductives.find? typeName |
         throw s!"{typeName} is not an inductive"
-      return ⟦(getelem $(2 + indData.params + idx) $struct.name)⟧
+      return ⟦(getelem $struct.name $(2 + indData.params + idx))⟧
     | .const declName _ args => do
       appendName declName
       if args.isEmpty then
