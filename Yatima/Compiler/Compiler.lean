@@ -302,8 +302,8 @@ mutual
 
     -- `mutualConsts` is the list of the names of all constants associated with an
     -- inductive block: the inductives themselves, the constructors and the recursors
-    let mut mutualConsts := inds ++ indCtors ++ indRecs
-    let mut all := mutualConsts.enum.map (firstIdx + ·.1)
+    let mutualConsts := inds ++ indCtors ++ indRecs
+    let recIdxs := indRecs.enum.map (inds.length + indCtors.length + firstIdx + ·.1)
 
     -- All inductives, constructors and recursors are done in one go, so we must
     -- append an array of `mutualConsts.length` to `consts` and save the mapping
@@ -321,7 +321,7 @@ mutual
         match ← getLeanConstant name with
         | .inductInfo ind =>
           withRecrs recrCtx do
-            pure $ (← inductiveToIR ind) :: acc
+            pure $ (← inductiveToIR ind recIdxs) :: acc
         | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
     let indBlockCid ← addToStore $ .const
       ⟨.mutIndBlock $ irInds.map (·.anon), .mutIndBlock $ irInds.map (·.meta)⟩
@@ -371,7 +371,7 @@ mutual
     | none => throw $ .constantNotCompiled initInd.name
 
   /-- Encodes a Lean inductive to IR -/
-  partial def inductiveToIR (ind : Lean.InductiveVal) :
+  partial def inductiveToIR (ind : Lean.InductiveVal) (recIdxs : List TC.ConstIdx) :
       CompileM $ IR.Both IR.Inductive := do
     let (_, _, indIdx) ← getFromRecrCtx! ind.name
     let leanRecs := (← read).constMap.childrenOfWith ind.name
@@ -382,11 +382,11 @@ mutual
         match r with
         | .recInfo rv =>
           if isInternalRec rv.type ind.name then
-            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors indIdx r
+            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors indIdx recIdxs r
             let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else
-            let thisRec ← externalRecToIR indIdx r
+            let thisRec ← externalRecToIR indIdx recIdxs r
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
@@ -485,7 +485,7 @@ mutual
     | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
   /-- Encodes an internal recursor to IR -/
-  partial def internalRecToIR (ctors : List Lean.Name) (ind : TC.ConstIdx) : Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
+  partial def internalRecToIR (ctors : List Lean.Name) (ind : TC.ConstIdx) (all : List TC.ConstIdx) : Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← compileExpr rec.type
@@ -511,6 +511,7 @@ mutual
           rules    := tcRules
           k        := rec.k
           ind      := ind
+          all      := all
           internal := true }
         let (_, _, constIdx) ← getFromRecrCtx! rec.name
         addToConsts constIdx tcRecr
@@ -537,12 +538,12 @@ mutual
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
   /-- Encodes an external recursor to IR -/
-  partial def externalRecToIR (ind : TC.ConstIdx) : Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
+  partial def externalRecToIR (ind : TC.ConstIdx) (all : List TC.ConstIdx) : Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
     | .recInfo rec =>
       withLevels rec.levelParams do
         let (typeCid, type) ← compileExpr rec.type
-        let (rules, tcRules) : IR.Both (fun k => List $ IR.RecursorRule k) × List TC.RecursorRule := ← rec.rules.foldlM
-          (init := (⟨[], []⟩, [])) fun rules r => do
+        let (rules, tcRules) : IR.Both (fun k => List $ IR.RecursorRule k) × List TC.RecursorRule := ← rec.rules.foldrM
+          (init := (⟨[], []⟩, [])) fun r rules => do
             let (recrRule, tcRecrRule) ← recRuleToIR r
             return (⟨recrRule.anon::rules.1.anon, recrRule.meta::rules.1.meta⟩, tcRecrRule::rules.2)
         let tcRecr := .recursor {
@@ -556,8 +557,8 @@ mutual
           rules    := tcRules
           k        := rec.k
           ind      := ind
-          internal := false
-        }
+          all      := all
+          internal := false }
         let (_, _, constIdx) ← getFromRecrCtx! rec.name
         addToConsts constIdx tcRecr
         return ⟨

@@ -275,6 +275,9 @@ structure Recursor where
   k        : Bool
   ind      : ConstIdx
   internal : Bool
+  -- we need to cache a list of the indexes of all of the recursors
+  -- of this inductive in order to avoid infinite loops while typechecking
+  all    : List ConstIdx
   deriving BEq
 
 structure Quotient where

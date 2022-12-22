@@ -331,10 +331,12 @@ mutual
             | .intr, .intr, _, _ =>
               -- TODO
               let rules := [] -- sorry TODO
-              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := true}
+              let all   := [] -- sorry TODO
+              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := true, all }
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
-              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := false }
+              let all   := [] -- sorry TODO
+              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := false, all  }
             | _, _, _, _ => throw .irError
             casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
         | .quotient quotientAnon, .quotient quotientMeta =>
