@@ -60,7 +60,7 @@ instance : ToExpr LitValue where toExpr
   | .strVal s => toExpr s
 
 def appendBinding (b : Name × Expr) (safe := true) : TranspileM Unit := do
-  -- dbg_trace s!">> appendBinding {b.1}"
+  dbg_trace s!">> appendBinding {b.1}"
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun s => { s with appendedBindings := s.appendedBindings.push b }
 
@@ -77,12 +77,6 @@ def mkIndLiteral (ind : Lean.InductiveVal) : TranspileM Expr := do
     return ⟦,($name $params $indices)⟧
   else
     return .mkLambda args ⟦,($name $params $indices)⟧
-
-/-- TODO explain this; `p` is `params`, `i` is `indices` -/
-def splitCtorArgs (args : List Expr) (p i : Nat) : List (List Expr) :=
-  let (params, rest) := args.splitAt p
-  let (indices, args) := rest.splitAt i
-  [params, indices, args]
 
 def appendConstructor (ctor : Lean.ConstructorVal) : TranspileM Unit := do
   -- dbg_trace s!">> appendConstructor"
@@ -144,7 +138,10 @@ def appendCtorOrInd (name : Name) : TranspileM Bool := do
 def getMutuals (name : Name) : TranspileM (List Name) := do
   match (← read).env.constants.find? name with
   -- TODO FIXME: support `| some (.inductInfo x)` case
-  | some (.defnInfo x) | some (.thmInfo x)| some (.opaqueInfo x) => return x.all
+  | some (.defnInfo x) =>
+    
+    return x.all
+  | some (.thmInfo x) | some (.opaqueInfo x) => return x.all
   | _ => return [name]
 
 def mkFVarId : Lean.FVarId → TranspileM Expr
