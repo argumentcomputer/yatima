@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def IntInductiveData : InductiveData :=
   ⟨``Int, 0, 0, .ofList [(``Int.ofNat, 0), (``Int.negSucc, 1)]⟩
@@ -116,6 +113,4 @@ def Int.module := [
   Int.decEq
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

@@ -1,8 +1,8 @@
 import Lurk.Backend.DSL
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
 /-!
-# Helper Functions for the Transpiler and Examples
+# Helper Functions for the code generator
 
 This file provides Lurk "standard library" functions needed to
 generally needed to write Lurk code.
@@ -10,13 +10,7 @@ generally needed to write Lurk code.
 
 namespace Lurk
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
--- instance [ToAST α] [ToAST β] : ToAST (α × β) where
---   toAST x := ~[toAST x.1, toAST x.2]
-
 
 namespace Preloads
 

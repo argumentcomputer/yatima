@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def panicCore : Override := Override.decl ⟨``panicCore, ⟦
   (lambda (α inst msg) ((str_append "panic! with: " msg)))
@@ -63,6 +60,4 @@ def Miscellaneous.module := [
   outOfBounds
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

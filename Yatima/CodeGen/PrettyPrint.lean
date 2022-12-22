@@ -8,7 +8,7 @@ import Lean.Compiler.LCNF.CompilerM
 
 open Lean Compiler.LCNF
 
-namespace Yatima.Transpiler
+namespace Yatima.CodeGen
 
 private abbrev indentD := Std.Format.indentD
 
@@ -81,4 +81,4 @@ end
 def ppDecl (decl : Decl) : Format :=
   f!"def {decl.name}{ppParams decl.params} : lcErasedType :={indentD (ppCode decl.value)}"
 
-end Yatima.Transpiler
+end Yatima.CodeGen

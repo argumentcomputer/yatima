@@ -1,13 +1,10 @@
 import Lurk.Backend.DSL
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def ByteArrayInductiveData : InductiveData :=
   ⟨``ByteArray, 0, 0, .ofList [(``ByteArray.mk, 0)]⟩
@@ -19,8 +16,6 @@ def ByteArrayCore : Override.Decl := ⟨``ByteArray, ⟦
 def ByteArray.mk : Override.Decl := ⟨``ByteArray.mk, ⟦
   (lambda (data) data)
 ⟧⟩
-
-#synth Expr.ToExpr Lean.Name
 
 def ByteArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
   let #[.alt 0 params k] := alts |
@@ -111,6 +106,4 @@ def ByteArray.module : List Override := [
   ByteArray.append
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def ListInductiveData : InductiveData :=
   ⟨``List, 0, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
@@ -86,6 +83,4 @@ def List.module := [
   List.hasDecidableLt
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

@@ -3,6 +3,16 @@ import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
 import Yatima.Ipld.PrimCids
 
+/-- Move to YatimaStdLib -/
+instance : HMul Ordering Ordering Ordering where hMul
+  | .gt, _ => .gt
+  | .lt, _ => .lt
+  | .eq, x => x
+
+/-- Move to YatimaStdLib -/
+def concatOrds : List Ordering → Ordering :=
+  List.foldl (fun x y => x * y) .eq
+
 namespace Yatima.ContAddr
 
 open Std (RBMap)
@@ -834,7 +844,7 @@ def contAddr (filePath : System.FilePath) (log : Bool := false)
   match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
   | (some err, _) => return .error $ .errorsOnFile filePathStr err
   | (none, env) =>
-    let constants := patchUnsafeRec env.constants
+    let constants := env.constants.patchUnsafeRec
     let delta := constants.map₂.filter fun n _ => !n.isInternal
     ContAddrM.run (.init constants log) stt (contAddrM $ delta.toList.map Prod.snd)
 

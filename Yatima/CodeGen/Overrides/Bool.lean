@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def not : Override := Override.decl ⟨``not, ⟦
   (lambda (x)
@@ -47,6 +44,4 @@ def Bool.module := [
   not, and, or, bne
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

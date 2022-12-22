@@ -1,13 +1,13 @@
-import Lean.Compiler.LCNF.Main
-import Yatima.Transpiler.MoveToLurk
+import Lurk.Backend.DSL
+import Lurk.Backend.ExprUtils
 
 /-!
-# Transpiler Overrides
+# CodeGen Overrides
 
-The overriding system in the transpiler is the result of how the Lean compiler works.
-The problem for us is that the Lean compiler will not generate `LCNF` code
-for declarations that it can avoid generating code for. Specifically, Lean
-does not generate code for:
+The overriding system in the code generator is the result of how the Lean
+compiler works. The problem for us is that the Lean compiler will not generate
+`LCNF` code for declarations that it can avoid generating code for.
+Specifically, Lean does not generate code for:
 
 1. All inductives and constructors. Inductives and constructors are the "primitive"
     objects in Lean, and they have special representations in memory determined by the
@@ -48,13 +48,15 @@ This file defines the datatypes that encode override information.
 
 -/
 
-namespace Yatima.Transpiler
+namespace Yatima.CodeGen
+
 open Lurk Backend DSL
 open Lean.Compiler.LCNF
 
-/-- This holds the bare minimum amount of inductive
-  data needed by the transpiler to do its job. Used in compiling
-  `case` and `proj` statements. -/
+/--
+This holds the bare minimum amount of inductive data needed by the code
+generator to do its job. Used in compiling `case` and `proj` statements.
+-/
 structure InductiveData where
   name : Lean.Name
   params : Nat
@@ -95,4 +97,4 @@ def Override.name : Override → Lean.Name
   | .decl odecl => odecl.declName
   | .ind oind => oind.ind.declName
 
-end Yatima.Transpiler
+end Yatima.CodeGen

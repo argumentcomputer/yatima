@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def NatInductiveData : InductiveData :=
   ⟨``Nat, 0, 0, .ofList [(``Nat.zero, 0), (``Nat.succ, 1)]⟩
@@ -159,6 +156,4 @@ def Nat.module := [
   Nat.shiftRight
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

@@ -1,18 +1,15 @@
-import Lean.CoreM
-import Lean.Compiler.LCNF
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Yatima.Transpiler
+namespace Yatima.CodeGen
 
 open Lurk.Backend
-
 open Lean.Compiler.LCNF Lean.Core
 
-structure TranspileEnv where
+structure CodeGenEnv where
   env : Lean.Environment
   overrides : Lean.NameMap Override
 
-structure TranspileState where
+structure CodeGenState where
   appendedBindings : Array (Lean.Name × Expr)
   /-- Contains the names of constants that have already been processed -/
   visited  : Lean.NameSet
@@ -21,14 +18,14 @@ structure TranspileState where
   replaced : Lean.NameMap Lean.Name
   deriving Inhabited
 
-abbrev TranspileM := ReaderT TranspileEnv $ EStateM String TranspileState
+abbrev CodeGenM := ReaderT CodeGenEnv $ EStateM String CodeGenState
 
-instance : Lean.MonadNameGenerator TranspileM where
+instance : Lean.MonadNameGenerator CodeGenM where
   getNGen := return (← get).ngen
   setNGen ngen := modify fun s => { s with ngen := ngen }
 
 /-- Create a fresh variable to replace `name` and update `replaced` -/
-def replace (name : Lean.Name) : TranspileM Lean.Name := do
+def replace (name : Lean.Name) : CodeGenM Lean.Name := do
   let mut name' ← Lean.mkFreshId
   let env ← read
   while env.env.contains name' || env.overrides.contains name' do
@@ -38,13 +35,13 @@ def replace (name : Lean.Name) : TranspileM Lean.Name := do
     replaced := stt.replaced.insert name name' })
 
 /-- Set `name` as a visited node -/
-def visit (name : Lean.Name) : TranspileM Unit :=
+def visit (name : Lean.Name) : CodeGenM Unit :=
   modify fun s => { s with visited := s.visited.insert name }
 
-@[inline] def isVisited (n : Lean.Name) : TranspileM Bool :=
+@[inline] def isVisited (n : Lean.Name) : CodeGenM Bool :=
   return (← get).visited.contains n
 
-def getDecl (declName : Lean.Name) : TranspileM Decl := do
+def getDecl (declName : Lean.Name) : CodeGenM Decl := do
   if let some decl := getDeclCore? (← read).env monoExt declName then
     return decl
   else if let some decl := getDeclCore? (← read).env baseExt declName then
@@ -52,11 +49,11 @@ def getDecl (declName : Lean.Name) : TranspileM Decl := do
   else
     throw s!"environment does not contain {declName}"
 
-def withOverrides (overrides : Lean.NameMap Override) : TranspileM α → TranspileM α :=
+def withOverrides (overrides : Lean.NameMap Override) : CodeGenM α → CodeGenM α :=
   withReader fun env => { env with overrides := overrides }
 
-def TranspileM.run (env : TranspileEnv) (s : TranspileState) (m : TranspileM α) :
-    EStateM.Result String TranspileState α :=
+def CodeGenM.run (env : CodeGenEnv) (s : CodeGenState) (m : CodeGenM α) :
+    EStateM.Result String CodeGenState α :=
   m env |>.run s
 
-end Yatima.Transpiler
+end Yatima.CodeGen

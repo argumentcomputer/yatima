@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def ThunkInductiveData : InductiveData :=
   ⟨``Thunk, 0, 0, .ofList [(``Thunk.mk, 0)]⟩
@@ -46,6 +43,4 @@ def Thunk.module := [
   Thunk.get
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

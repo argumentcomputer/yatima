@@ -11,8 +11,16 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
     if toolchain != Lean.versionString then
       IO.eprintln s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
   match p.variableArgsAs? String with
+  | none =>
+    IO.eprintln $ "Couldn't parse arguments.\n" ++
+      "Run `yatima ca -h` for further information."
+    return 1
   | some ⟨args⟩ =>
-    if !args.isEmpty then
+    if args.isEmpty then
+      IO.eprintln $ "No argument was found.\n" ++
+        "Run `yatima ca -h` for further information."
+      return 1
+    else
       if !(p.hasFlag "prelude") then Lean.setLibsPaths
       let mut stt := default
       let log := p.hasFlag "log"
@@ -40,14 +48,6 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
       let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
       IO.FS.writeBinFile (p.getStringFlagD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
-    else
-      IO.eprintln $ "No store argument was found.\n" ++
-        "Run `yatima store -h` for further information."
-      return 1
-  | none =>
-    IO.eprintln $ "Couldn't parse store arguments.\n" ++
-      "Run `yatima store -h` for further information."
-    return 1
 
 def contAddrCmd : Cli.Cmd := `[Cli|
   ca VIA contAddrRun;

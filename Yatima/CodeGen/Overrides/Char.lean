@@ -1,28 +1,27 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 /-! # Some notes on `Char`
 
 In the Lean runtime, `Char` is just `UInt32`. This "representation flattening"
 occurs during the `simp` pass of the compiler, and generates `LCNF` declarations
-that eliminates the use of `Char`, replacing it with `UInt32`. This means that all
-`(c : Char)` arguments are replaced by `(c : UInt32)`. This flattening is automatic
-and cannot be disabled by us, so we just have to roll along with it and treat
-`Char` as `UInt32` as well. In particular, that means that the output of transpiling
+that eliminates the use of `Char`, replacing it with `UInt32`. This means that
+all `(c : Char)` arguments are replaced by `(c : UInt32)`. This flattening is
+automatic and cannot be disabled by us, so we just have to roll along with it
+and treat `Char` as `UInt32` as well. In particular, that means that the code
+generated from
 ```
 def charA := 'a'
 ```
-is not `#\a`, as you would expect, but instead `97`, which is the unicode for `'a'`.
+is not `#\a`, as you would expect, but instead `97`, which is the unicode for
+`'a'`.
 
-Keep this in mind as you look through the below overrides and write overrides yourself
--- everywhere, we must assume that our `char` input is actually a `u32`.
+Keep this in mind as you look through the below overrides and write overrides
+yourself -- everywhere, we must assume that our `char` input is actually a `u32`
 
 -/
 
@@ -80,6 +79,4 @@ def Char.module := [
   Char.ofNat
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

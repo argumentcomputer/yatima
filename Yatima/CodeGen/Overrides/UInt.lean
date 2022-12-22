@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 /-! # UInt8 -/
 
@@ -476,6 +473,4 @@ def UInt.module : List Override :=
   UInt64.module ++
   USize.module
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

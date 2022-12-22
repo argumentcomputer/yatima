@@ -25,7 +25,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "75aa04edfab54ed0e9211ae6558999f4462e9ce7"
+  "https://github.com/yatima-inc/Lurk.lean" @ "302fcf5bb94aae662f4053cb6b13fc3c8e05dfd1"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"
@@ -55,8 +55,8 @@ lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.Transpilation.TrickyTypes   { supportInterpreter := true }
-lean_exe Tests.Transpilation.Primitives    { supportInterpreter := true }
+lean_exe Tests.CodeGen.TrickyTypes         { supportInterpreter := true }
+lean_exe Tests.CodeGen.Primitives          { supportInterpreter := true }
 
 end Testing
 

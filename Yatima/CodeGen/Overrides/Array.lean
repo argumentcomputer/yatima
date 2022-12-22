@@ -1,13 +1,10 @@
 import Lurk.Backend.DSL
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def ArrayInductiveData : InductiveData :=
   ⟨``Array, 0, 0, .ofList [(``Array.mk, 0)]⟩
@@ -116,6 +113,4 @@ def Array.module : List Override := [
   Array.pop
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

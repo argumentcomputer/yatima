@@ -1,13 +1,12 @@
 import Yatima.Cli.Utils
-import Yatima.Transpiler.Transpiler
-import Lurk.Frontend.ToExpr
+import Yatima.CodeGen.CodeGen
 import Lurk.Backend.Eval
 
-open System Yatima.Transpiler in
-def transpileRun (p : Cli.Parsed) : IO UInt32 := do
+open System Yatima.CodeGen in
+def codeGeRun (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
   let decl := String.toNameSafe <| p.getStringFlagD "decl" "root"
-  match ← transpile fileName decl with
+  match ← codeGen fileName decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>
     let output := ⟨p.getStringFlagD "output" s!"lurk/{decl}.lurk"⟩
@@ -34,9 +33,9 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
       | .error err => IO.eprint err; return 1
     return 0
 
-def transpileCmd : Cli.Cmd := `[Cli|
-  transpile VIA transpileRun;
-  "Transpiles a Yatima IR store (from a file) to Lurk code"
+def codeGenCmd : Cli.Cmd := `[Cli|
+  gen VIA codeGeRun;
+  "Generates Lurk code from Lean 4 code"
 
   FLAGS:
     d, "decl"   : String; "Sets the topmost call for the Lurk evaluation (defaults to \"root\")"
@@ -46,5 +45,5 @@ def transpileCmd : Cli.Cmd := `[Cli|
     rs, "lurkrs";         "Evaluates the resulting Lurk expression with `lurkrs`"
 
   ARGS:
-    input : String; "Input filename to transpile"
+    input : String; "Lean 4 file name to be translated to Lurk"
 ]

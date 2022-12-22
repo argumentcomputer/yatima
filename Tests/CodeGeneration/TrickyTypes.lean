@@ -4,8 +4,8 @@ open Lurk.Backend.DSL
 
 open LSpec in
 def main := do
-  let tSeq ← extractTranspilationTests
-    "Fixtures/Transpilation/TrickyTypes.lean"
+  let tSeq ← extractCodeGenTests
+    "Fixtures/CodeGen/TrickyTypes.lean"
     [ ("exprCtor", "lam"), -- TODO: needs `commit` on `Lurk.lean`
       ("univCtor", "zero"), 
       ("treeSize", 2),

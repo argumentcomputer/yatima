@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 /-- TODO FIXME: This is very dangerous, assumes that `USize == UInt64`. -/
 def Lean.HashMapImp.mkIdx : Override := Override.decl ⟨
@@ -20,9 +17,4 @@ def HashMap.module : List Override := [
   Lean.HashMapImp.mkIdx
 ]
 
-end Overrides
-
-end Lurk
-
--- #print Lean.HashMapImp
--- _private.Lean.Data.HashMap.0.Lean.HashMapImp.mkIdx
+end Lurk.Overrides

@@ -1,12 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-
-namespace Overrides
+open Yatima.CodeGen
 
 def Lean.NameInductiveData : InductiveData :=
   ⟨``Lean.Name, 0, 0, .ofList [(``Lean.Name.anonymous, 0), (``Lean.Name.str, 1), (``Lean.Name.num, 2)]⟩
@@ -49,6 +46,4 @@ def Lean.Name.module := [
   Lurk.Overrides.Lean.Name
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides

@@ -1,11 +1,9 @@
-import Yatima.Transpiler.Override
+import Yatima.CodeGen.Override
 
-namespace Lurk
+namespace Lurk.Overrides
 
-open Lean.Compiler.LCNF
 open Lurk.Backend DSL
-open Yatima.Transpiler
-namespace Overrides
+open Yatima.CodeGen
 
 def StringInductiveData : InductiveData :=
   ⟨``String, 0, 0, .ofList [(``String.mk, 0)]⟩
@@ -194,9 +192,6 @@ def String.decLt : Override := Override.decl ⟨``String.decLt, ⟦
     (List.hasDecidableLt "lcErased" Nat.decLt Nat.decLt (String.data s₁) (String.data s₂)))
 ⟧⟩
 
-set_option pp.all true
-#print _root_.String.decLt
-
 def String.module := [
   Lurk.Overrides.String,
   String.data,
@@ -227,6 +222,4 @@ def String.module := [
   String.decLt
 ]
 
-end Overrides
-
-end Lurk
+end Lurk.Overrides
