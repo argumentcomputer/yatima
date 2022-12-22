@@ -1,4 +1,4 @@
-import Yatima.Compiler.CompileM
+import Yatima.ContAddr.ContAddrM
 
 def printIsSafe (x: Bool) : String :=
   if x then "" else "unsafe "
@@ -6,11 +6,11 @@ def printIsSafe (x: Bool) : String :=
 def rulesSep : String :=
   "\n------------------\n"
 
-namespace Yatima.Compiler.PrintYatima
+namespace Yatima.ContAddr.PrintYatima
 
-abbrev PrintM := ReaderT CompileState $ ExceptT CompileError Id
+abbrev PrintM := ReaderT ContAddrState $ ExceptT ContAddrError Id
 
-open Yatima.Compiler.CompileM
+open Yatima.ContAddr.ContAddrM
 
 instance : ToString BinderInfo where toString
   | .default        => "default"
@@ -168,14 +168,14 @@ partial def printConst (const : Const) : PrintM String := do
   | .extRecursor recr => printExtRecursor cid recr
   | .intRecursor recr => printIntRecursor cid recr
 
-def printYatimaConst (const : Const) : CompileM String := do
+def printYatimaConst (const : Const) : ContAddrM String := do
   match ReaderT.run (printConst const) (← get) with
   | .ok    s => pure s
   | .error e => throw e
 
-end Yatima.Compiler.PrintYatima
+end Yatima.ContAddr.PrintYatima
 
-namespace Yatima.Compiler.PrintLean
+namespace Yatima.ContAddr.PrintLean
 
 open Lean
 
@@ -215,4 +215,4 @@ def printLeanConst : Lean.ConstantInfo → String
     s!"  {val.all} {val.numParams} {val.numIndices} {val.numMotives} {val.numMinors} {val.k}\n" ++
     s!"\nRules:{rulesSep}{rulesSep.intercalate (val.rules.map toString)}"
 
-end Yatima.Compiler.PrintLean
+end Yatima.ContAddr.PrintLean

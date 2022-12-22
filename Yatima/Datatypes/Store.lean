@@ -7,7 +7,7 @@ namespace Yatima
 namespace IR
 
 open Std (RBMap RBSet) in
-/-- The end result of the compilation process -/
+/-- The end result of the content-addressing process -/
 structure Store where
   consts : RBSet (Both ConstCid) compare
 

@@ -47,8 +47,8 @@ def runFrontend (input : String) (fileName : String := default) :
 /--
 Sets the directories where `olean` files can be found.
 
-This function must be called before `compile` if the file to be compiled has
-imports (the automatic imports from `Init` also count).
+This function must be called before `contAddr` if the file to be
+content-addressed has imports (the automatic imports from `Init` also count).
 -/
 def setLibsPaths : IO Unit := do
   let out ← IO.Process.output {

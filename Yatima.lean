@@ -1,4 +1,4 @@
-import Yatima.Cli.CompileCmd
+import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.Cronos
 import Yatima.Cli.GetCmd
 import Yatima.Cli.IpfsCmd
@@ -8,10 +8,10 @@ import Yatima.Cli.TranspileCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.Utils
 import Yatima.Cli.VerifyCmd
-import Yatima.Compiler.CompileError
-import Yatima.Compiler.CompileM
-import Yatima.Compiler.Compiler
-import Yatima.Compiler.Printing
+import Yatima.ContAddr.ContAddr
+import Yatima.ContAddr.ContAddrError
+import Yatima.ContAddr.ContAddrM
+import Yatima.ContAddr.Printing
 import Yatima.Datatypes.Cid
 import Yatima.Datatypes.Const
 import Yatima.Datatypes.Expr

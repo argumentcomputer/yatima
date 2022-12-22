@@ -147,7 +147,7 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ExtractM (RecrCtx × List Nat)
       let name := recr.name
       let indIdx ← getConstIdx name
       return (indIdx, name))
-  -- mirror the compiler order of all inductives, then all constuctors, then all recursors
+  -- mirror the content-addressing order of all inductives, then all constuctors, then all recursors
   constList := indTups ++ ctorTups ++ recTups
   return (constList.enum.foldl (init := default)
     fun acc (i, tup) => acc.insert (i, none) tup, constList.map (·.1))

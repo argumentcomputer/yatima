@@ -1,16 +1,16 @@
-import Yatima.Compiler.Printing
+import Yatima.ContAddr.Printing
 import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
 import Yatima.Ipld.PrimCids
 
-namespace Yatima.Compiler
+namespace Yatima.ContAddr
 
 open Std (RBMap)
 
 open Ipld
 
 /-- Gets a constant from the array of constants -/
-def derefConst (idx : TC.ConstIdx) : CompileM TC.Const := do
+def derefConst (idx : TC.ConstIdx) : ContAddrM TC.Const := do
   let consts := (← get).tcStore.consts
   let size := consts.size
   if h : idx < size then
@@ -19,30 +19,30 @@ def derefConst (idx : TC.ConstIdx) : CompileM TC.Const := do
     throw $ .invalidConstantIndex idx size
 
 /-- Retrieves a Lean constant from the environment by its name -/
-def getLeanConstant (name : Lean.Name) : CompileM Lean.ConstantInfo := do
+def getLeanConstant (name : Lean.Name) : ContAddrM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
   | some const => pure const
   | none => throw $ .unknownConstant name
 
-/-- Compiles a Lean universe level and adds it to the store -/
-def compileUniv (l : Lean.Level) : CompileM (IR.BothUnivCid × TC.Univ) := do
+/-- Content-addresses a Lean universe level and adds it to the store -/
+def contAddrUniv (l : Lean.Level) : ContAddrM (IR.BothUnivCid × TC.Univ) := do
   let (value, univ) ← match l with
     | .zero =>
       let value := ⟨ .zero, .zero ⟩
       pure (value, .zero)
     | .succ n    =>
-      let (univCid, univ) ← compileUniv n
+      let (univCid, univ) ← contAddrUniv n
       let value := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
       pure (value, .succ univ)
     | .max  a b  =>
-      let (univACid, univA) ← compileUniv a
-      let (univBCid, univB) ← compileUniv b
+      let (univACid, univA) ← contAddrUniv a
+      let (univBCid, univB) ← contAddrUniv b
       let value := ⟨ .max univACid.anon univBCid.anon,
         .max univACid.meta univBCid.meta ⟩
       pure (value, .max univA univB)
     | .imax  a b  =>
-      let (univACid, univA) ← compileUniv a
-      let (univBCid, univB) ← compileUniv b
+      let (univACid, univA) ← contAddrUniv a
+      let (univBCid, univB) ← contAddrUniv b
       let value := ⟨ .imax univACid.anon univBCid.anon,
         .imax univACid.meta univBCid.meta ⟩
       pure (value, .imax univA univB)
@@ -58,7 +58,7 @@ def compileUniv (l : Lean.Level) : CompileM (IR.BothUnivCid × TC.Univ) := do
   pure (cid, univ)
 
 /-- Defines an ordering for Lean universes -/
-def cmpLevel (x : Lean.Level) (y : Lean.Level) : CompileM Ordering :=
+def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
   match x, y with
   | .mvar .., _ => throw $ .unfilledLevelMetavariable x
   | _, .mvar .. => throw $ .unfilledLevelMetavariable y
@@ -97,10 +97,10 @@ mutual
   and its index in the array of constants.
 
   If the result is already cached, returns it right away. Otherwise, calls
-  `compileConstant` to do the actual compilation.
+  `contAddrConstant` to do the actual content-addressing.
   -/
-  partial def getCompiledConst (const : Lean.ConstantInfo) :
-      CompileM $ IR.BothConstCid × TC.ConstIdx := do
+  partial def getContAddrConst (const : Lean.ConstantInfo) :
+      ContAddrM $ IR.BothConstCid × TC.ConstIdx := do
     let name := const.name
     let log  := (← read).log
     match (← get).cache.find? name with
@@ -108,34 +108,34 @@ mutual
     | none   =>
       if log then
         IO.println s!"↡ Stacking {name}{const.formatAll}"
-      let c ← compileConstant const
+      let c ← contAddrConstant const
       if log then
         IO.println s!"↟ Popping  {name}"
       return c
 
   /--
-  Performs the compilation of Lean constants.
+  Consent-addresses Lean constants.
 
   For the `.defnInfo`, `.inductInfo`, `.ctorInfo` and `.recInfo`  cases, the
   side-effects are responsability of the auxiliary functions.
 
   For other cases, adds them to the cache, the store and the array of constants.
   -/
-  partial def compileConstant : Lean.ConstantInfo → CompileM (IR.BothConstCid × TC.ConstIdx)
+  partial def contAddrConstant : Lean.ConstantInfo → ContAddrM (IR.BothConstCid × TC.ConstIdx)
   -- These cases add multiple constants at the same time
-  | .defnInfo struct => withLevelsAndReset struct.levelParams $ compileDefinition struct
-  | .inductInfo struct => withLevelsAndReset struct.levelParams $ compileInductive struct
+  | .defnInfo struct => withLevelsAndReset struct.levelParams $ contAddrDefinition struct
+  | .inductInfo struct => withLevelsAndReset struct.levelParams $ contAddrInductive struct
   -- These cases are subsumed by the inductive case
   | .ctorInfo struct => do
     discard $ match ← getLeanConstant struct.induct with
-      | .inductInfo ind => getCompiledConst (.inductInfo ind)
+      | .inductInfo ind => getContAddrConst (.inductInfo ind)
       | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
-    getCompiledConst (.ctorInfo struct)
+    getContAddrConst (.ctorInfo struct)
   | .recInfo struct => do
     discard $ match ← getLeanConstant struct.getInduct with
-      | .inductInfo ind => getCompiledConst (.inductInfo ind)
+      | .inductInfo ind => getContAddrConst (.inductInfo ind)
       | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
-    getCompiledConst (.recInfo struct)
+    getContAddrConst (.recInfo struct)
   -- The rest adds the constants to the cache one by one
   | const => withLevelsAndReset const.levelParams do
     -- It is important to push first with some value so we don't lose the
@@ -145,7 +145,7 @@ mutual
         { stt with tcStore := { stt.tcStore with consts := stt.tcStore.consts.push default } })
     let values : IR.Both IR.Const × Const ← match const with
       | .axiomInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
+        let (typeCid, type) ← contAddrExpr struct.type
         let ax := {
           name := struct.name
           lvls := struct.levelParams
@@ -154,9 +154,9 @@ mutual
         let value := ⟨ .axiom $ ax.toIR typeCid, .axiom $ ax.toIR typeCid ⟩
         pure (value, .axiom ax)
       | .thmInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
+        let (typeCid, type) ← contAddrExpr struct.type
         -- Theorems are never truly recursive, though they can use recursive schemes
-        let (valueCid, value) ← compileExpr struct.value
+        let (valueCid, value) ← contAddrExpr struct.value
         let thm := {
           name  := struct.name
           lvls  := struct.levelParams
@@ -165,8 +165,8 @@ mutual
         let value := ⟨.theorem $ thm.toIR typeCid valueCid, .theorem $ thm.toIR typeCid valueCid⟩
         pure (value, .theorem thm)
       | .opaqueInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
-        let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ compileExpr struct.value
+        let (typeCid, type) ← contAddrExpr struct.type
+        let (valueCid, value) ← withRecrs (RBMap.single struct.name (0, some 0, constIdx)) $ contAddrExpr struct.value
         let opaq := {
           name  := struct.name
           lvls  := struct.levelParams
@@ -176,7 +176,7 @@ mutual
           let value := ⟨ .opaque $ opaq.toIR typeCid valueCid, .opaque $ opaq.toIR typeCid valueCid ⟩
         pure (value, .opaque opaq)
       | .quotInfo struct =>
-        let (typeCid, type) ← compileExpr struct.type
+        let (typeCid, type) ← contAddrExpr struct.type
         let quot := {
           name := struct.name
           lvls := struct.levelParams
@@ -191,16 +191,16 @@ mutual
     pure (cid, constIdx)
 
   /--
-  Compiles a Lean expression and adds it to the store.
+  Content-addresses a Lean expression and adds it to the store.
 
   Constants are the tricky case, for which there are two possibilities:
   * The constant belongs to `recrCtx`, representing a recursive call. Those are
   encoded as variables with indexes that go beyond the bind indexes
   * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
-  and thus we can compile the actual constant right away
+  and thus we can contAddr the actual constant right away
   -/
-  partial def compileExpr : Lean.Expr → CompileM (IR.BothExprCid × TC.Expr)
-  | .mdata _ e => compileExpr e
+  partial def contAddrExpr : Lean.Expr → ContAddrM (IR.BothExprCid × TC.Expr)
+  | .mdata _ e => contAddrExpr e
   | expr => do
     match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
@@ -211,12 +211,12 @@ mutual
           pure (cid, .var name idx)
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
-        let (univCid, univ) ← compileUniv lvl
+        let (univCid, univ) ← contAddrUniv lvl
         let value := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
         let cid ← addToStore $ .expr value
         pure (cid, .sort univ)
       | .const name lvls =>
-        let pairs ← lvls.mapM $ compileUniv
+        let pairs ← lvls.mapM $ contAddrUniv
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
           fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
@@ -228,35 +228,35 @@ mutual
           pure (cid, .const name ref univs)
         | none =>
           let const ← getLeanConstant name
-          let (constCid, const) ← getCompiledConst const
+          let (constCid, const) ← getContAddrConst const
           let value := ⟨ .const () constCid.anon $ univCids.map (·.anon),
             .const name constCid.meta $ univCids.map (·.meta) ⟩
           let cid ← addToStore $ .expr value
           pure (cid, .const name const univs)
       | .app fnc arg =>
-        let (fncCid, fnc) ← compileExpr fnc
-        let (argCid, arg) ← compileExpr arg
+        let (fncCid, fnc) ← contAddrExpr fnc
+        let (argCid, arg) ← contAddrExpr arg
         let value := ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
         let cid ← addToStore $ .expr value
         pure (cid, .app fnc arg)
       | .lam name typ bod bnd =>
-        let (typCid, typ) ← compileExpr typ
-        let (bodCid, bod) ← withBinder name $ compileExpr bod
+        let (typCid, typ) ← contAddrExpr typ
+        let (bodCid, bod) ← withBinder name $ contAddrExpr bod
         let value := ⟨ .lam () bnd typCid.anon bodCid.anon,
           .lam name () typCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
         pure (cid, .lam name bnd typ bod)
       | .forallE name dom img bnd =>
-        let (domCid, dom) ← compileExpr dom
-        let (imgCid, img) ← withBinder name $ compileExpr img
+        let (domCid, dom) ← contAddrExpr dom
+        let (imgCid, img) ← withBinder name $ contAddrExpr img
         let value := ⟨ .pi () bnd domCid.anon imgCid.anon,
           .pi name () domCid.meta imgCid.meta ⟩
         let cid ← addToStore $ .expr value
         pure (cid, .pi name bnd dom img)
       | .letE name typ exp bod _ =>
-        let (typCid, typ) ← compileExpr typ
-        let (expCid, exp) ← compileExpr exp
-        let (bodCid, bod) ← withBinder name $ compileExpr bod
+        let (typCid, typ) ← contAddrExpr typ
+        let (expCid, exp) ← contAddrExpr exp
+        let (bodCid, bod) ← withBinder name $ contAddrExpr bod
         let value := ⟨ .letE () typCid.anon expCid.anon bodCid.anon,
           .letE name typCid.meta expCid.meta bodCid.meta ⟩
         let cid ← addToStore $ .expr value
@@ -266,7 +266,7 @@ mutual
         let cid ← addToStore $ .expr value
         pure (cid, .lit lit)
       | .proj _ idx exp =>
-        let (expCid, exp) ← compileExpr exp
+        let (expCid, exp) ← contAddrExpr exp
         let value := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
         let cid ← addToStore $ .expr value
         pure (cid, .proj idx exp)
@@ -275,14 +275,14 @@ mutual
       | .mdata .. => throw $ .metaDataExpr expr
 
   /--
-  Compiles an inductive and all inductives in the mutual block as a mutual
-  block, even if the inductive itself is not in a mutual block.
+  Content-addresses an inductive and all inductives in the mutual block as a
+  mutual block, even if the inductive itself is not in a mutual block.
 
-  The compilation of an inductive involves the compilation of its associated
+  Content-addressing an inductive involves content-addressing its associated
   constructors and recursors, hence the lenght of this function.
   -/
-  partial def compileInductive (initInd : Lean.InductiveVal) :
-      CompileM (IR.BothConstCid × TC.ConstIdx) := do
+  partial def contAddrInductive (initInd : Lean.InductiveVal) :
+      ContAddrM (IR.BothConstCid × TC.ConstIdx) := do
     let mut inds := []
     let mut indCtors := []
     let mut indRecs := []
@@ -367,11 +367,11 @@ mutual
 
     match ret? with
     | some ret => return ret
-    | none => throw $ .constantNotCompiled initInd.name
+    | none => throw $ .constantNotContentAddressed initInd.name
 
   /-- Encodes a Lean inductive to IR -/
   partial def inductiveToIR (ind : Lean.InductiveVal) (all : List TC.ConstIdx) :
-      CompileM $ IR.Both IR.Inductive := do
+      ContAddrM $ IR.Both IR.Inductive := do
     let (_, _, indIdx) ← getFromRecrCtx! ind.name
     let leanRecs := (← read).constMap.childrenOfWith ind.name
       fun c => match c with | .recInfo _ => true | _ => false
@@ -389,7 +389,7 @@ mutual
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
-    let (typeCid, type) ← compileExpr ind.type
+    let (typeCid, type) ← contAddrExpr ind.type
     -- Structures can't be recursive nor have indices
     let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
       match ind.ctors with
@@ -440,11 +440,11 @@ mutual
 
   /-- Encodes an internal recursor to IR -/
   partial def internalRecToIR (ctors : List Lean.Name) (all : List TC.ConstIdx) (ind : TC.ConstIdx) :
-    Lean.ConstantInfo → CompileM
+    Lean.ConstantInfo → ContAddrM
       (IR.Both (IR.Recursor .intr) × (List $ IR.Both IR.Constructor))
     | .recInfo rec => do
       withLevels rec.levelParams do
-        let (typeCid, type) ← compileExpr rec.type
+        let (typeCid, type) ← contAddrExpr rec.type
         let ctorMap : RBMap Name (IR.Both IR.Constructor) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             if ctors.contains r.ctor then
@@ -492,12 +492,12 @@ mutual
 
   /-- Encodes a Lean constructor to IR -/
   partial def constructorToIR (rule : Lean.RecursorRule) (all : List TC.ConstIdx) :
-      CompileM $ IR.Both IR.Constructor := do
-    let (rhsCid, rhs) ← compileExpr rule.rhs
+      ContAddrM $ IR.Both IR.Constructor := do
+    let (rhsCid, rhs) ← contAddrExpr rule.rhs
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
       withLevels ctor.levelParams do
-      let (typeCid, type) ← compileExpr ctor.type
+      let (typeCid, type) ← contAddrExpr ctor.type
       let tcCtor := .constructor {
         name    := ctor.name
         lvls    := ctor.levelParams
@@ -532,9 +532,9 @@ mutual
 
   /-- Encodes an external recursor to IR -/
   partial def externalRecToIR (ind : TC.ConstIdx) :
-      Lean.ConstantInfo → CompileM (IR.Both (IR.Recursor .extr))
+      Lean.ConstantInfo → ContAddrM (IR.Both (IR.Recursor .extr))
     | .recInfo rec => withLevels rec.levelParams do
-      let (typeCid, type) ← compileExpr rec.type
+      let (typeCid, type) ← contAddrExpr rec.type
       let (rules, tcRules) : IR.Both (fun k => List $ IR.RecursorRule k) × List TC.RecursorRule := ← rec.rules.foldlM
         (init := (⟨[], []⟩, [])) fun rules r => do
           let (recrRule, tcRecrRule) ← externalRecRuleToIR r
@@ -576,10 +576,10 @@ mutual
 
   /-- Encodes an external recursor rule to IPLD -/
   partial def externalRecRuleToIR (rule : Lean.RecursorRule) :
-      CompileM (IR.Both IR.RecursorRule × TC.RecursorRule) := do
-    let (rhsCid, rhs) ← compileExpr rule.rhs
+      ContAddrM (IR.Both IR.RecursorRule × TC.RecursorRule) := do
+    let (rhsCid, rhs) ← contAddrExpr rule.rhs
     let const ← getLeanConstant rule.ctor
-    let (ctorCid, ctor?) ← getCompiledConst const
+    let (ctorCid, ctor?) ← getContAddrConst const
     let ctor ← match ← derefConst ctor? with
       | .constructor ctor => pure ctor
       | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
@@ -590,13 +590,13 @@ mutual
     return (recrRule, tcRecrRule)
 
   /--
-  Compiles adefinition and all definitions in the mutual block as a mutual
+  Content-addresses adefinition and all definitions in the mutual block as a mutual
   block, even if the definition itself is not in a mutual block.
 
-  This function is rather similar to `Yatima.Compiler.compileInductive`.
+  This function is rather similar to `Yatima.ContAddr.contAddrInductive`.
   -/
-  partial def compileDefinition (struct : Lean.DefinitionVal) :
-      CompileM (IR.BothConstCid × TC.ConstIdx) := do
+  partial def contAddrDefinition (struct : Lean.DefinitionVal) :
+      ContAddrM (IR.BothConstCid × TC.ConstIdx) := do
     let mutualSize := struct.all.length
 
     -- This solves an issue in which the constant name comes different in the
@@ -653,14 +653,14 @@ mutual
 
     match ret? with
     | some ret => return ret
-    | none => throw $ .constantNotCompiled struct.name
+    | none => throw $ .constantNotContentAddressed struct.name
 
   /-- Encodes a definition to IR -/
   partial def definitionToIR
     (all : List TC.ConstIdx) (defn : Lean.DefinitionVal) :
-      CompileM (IR.Both IR.Definition × TC.Definition) := do
-    let (typeCid, type) ← compileExpr defn.type
-    let (valueCid, value) ← compileExpr defn.value
+      ContAddrM (IR.Both IR.Definition × TC.Definition) := do
+    let (typeCid, type) ← contAddrExpr defn.type
+    let (valueCid, value) ← contAddrExpr defn.value
     let defn := {
       name   := defn.name
       lvls   := defn.levelParams
@@ -675,7 +675,7 @@ mutual
   `weakOrd` contains the best known current mutual ordering
   -/
   partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
-      Lean.Expr → Lean.Expr → CompileM Ordering
+      Lean.Expr → Lean.Expr → ContAddrM Ordering
     | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
     | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
     | e@(.fvar ..), _ => throw $ .freeVariableExpr e
@@ -697,8 +697,8 @@ mutual
       | none, some _ => return .gt
       | some _, none => return .lt
       | none, none => do
-        let xCid := (← getCompiledConst (← getLeanConstant x)).fst
-        let yCid := (← getCompiledConst (← getLeanConstant y)).fst
+        let xCid := (← getContAddrConst (← getLeanConstant x)).fst
+        let yCid := (← getContAddrConst (← getLeanConstant y)).fst
         return compare xCid.anon yCid.anon
     | .const .., _ => return .lt
     | _, .const .. => return .gt
@@ -730,7 +730,7 @@ mutual
     `weakOrd` contains the best known current mutual ordering -/
   partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
-      CompileM Ordering := do
+      ContAddrM Ordering := do
     let ls := compare x.levelParams.length y.levelParams.length
     let ts ← cmpExpr weakOrd x.type y.type
     let vs ← cmpExpr weakOrd x.value y.value
@@ -739,7 +739,7 @@ mutual
   /-- AST equality between two Lean definitions.
     `weakOrd` contains the best known current mutual ordering -/
   partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
-      (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : CompileM Bool := do
+      (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : ContAddrM Bool := do
     match (← cmpDef weakOrd x y) with
     | .eq => pure true
     | _ => pure false
@@ -779,7 +779,7 @@ mutual
        them as lists. To fix this, we sort the list by name before comparing. Note we
        could maybe also use `List (RBTree ..)` everywhere, but it seemed like a hassle. -/
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
-      CompileM (List (List Lean.DefinitionVal)) := do
+      ContAddrM (List (List Lean.DefinitionVal)) := do
     let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
     let weakOrd := enum dss _
@@ -800,11 +800,11 @@ mutual
 
 end
 
-/-- Iterates over a list of `Lean.ConstantInfo`, triggering their compilation -/
-def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
+/-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
+def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   let log := (← read).log
   for const in delta do
-    let (_, c) ← getCompiledConst const
+    let (_, c) ← getContAddrConst const
     if log then
       IO.println "\n========================================="
       IO.println    const.name
@@ -816,26 +816,26 @@ def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
   (← get).cache.forM fun _ (cid, idx) =>
     match Ipld.primCidsMap.find? cid.anon.data.toString with
     | some pc => modify fun stt => { stt with tcStore := { stt.tcStore with
-      primIdxs := stt.tcStore.primIdxs.insert pc idx
+      primIdxs    := stt.tcStore.primIdxs.insert pc idx
       idxsToPrims := stt.tcStore.idxsToPrims.insert idx pc } }
     | none    => pure ()
 
 /--
-Compiles the "delta" of a file, that is, the content that is added on top of
-what is imported by it.
+Content-addresses the "delta" of a file, that is, the content that is added on
+top of what is imported by it.
 
 Important: constants with open references in their expressions are filtered out.
 Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
-def compile (filePath : System.FilePath) (log : Bool := false)
-    (stt : CompileState := default) : IO $ Except CompileError CompileState := do
+def contAddr (filePath : System.FilePath) (log : Bool := false)
+    (stt : ContAddrState := default) : IO $ Except ContAddrError ContAddrState := do
   let filePathStr := filePath.toString
   match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
   | (some err, _) => return .error $ .errorsOnFile filePathStr err
   | (none, env) =>
     let constants := patchUnsafeRec env.constants
     let delta := constants.map₂.filter fun n _ => !n.isInternal
-    CompileM.run (.init constants log) stt (compileM $ delta.toList.map Prod.snd)
+    ContAddrM.run (.init constants log) stt (contAddrM $ delta.toList.map Prod.snd)
 
-end Yatima.Compiler
+end Yatima.ContAddr

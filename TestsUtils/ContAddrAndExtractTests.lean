@@ -2,36 +2,36 @@ import LSpec
 import Lurk.Backend.Eval
 import Lurk.Frontend.ToExpr
 import Yatima.Datatypes.Cid
-import Yatima.Compiler.Compiler
-import Yatima.Compiler.Printing
+import Yatima.ContAddr.ContAddr
 import Yatima.Typechecker.Extractor.Extractor
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
 import Yatima.Ipld.FromIpld
 
-open LSpec Yatima Compiler
+open LSpec Yatima ContAddr
 
-def compileAndExtractTests (fixture : String)
-  (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
+def contAddrAndExtractTests (fixture : String)
+  (extractors : List (ContAddrState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
   if setPaths then Lean.setLibsPaths
-  return withExceptOk s!"Compiles '{fixture}'" (← compile fixture)
+  return withExceptOk s!"Content-addresses '{fixture}'" (← contAddr fixture)
     fun stt => (extractors.map fun extr => extr stt).foldl (init := .done)
       (· ++ ·)
 
-def compileAndExtractTests' (fixtures : Array String)
-  (extractors : List (CompileState → TestSeq) := []) (setPaths : Bool := true) :
+def contAddrAndExtractTests' (fixtures : Array String)
+  (extractors : List (ContAddrState → TestSeq) := []) (setPaths : Bool := true) :
     IO TestSeq := do
   if setPaths then Lean.setLibsPaths
   let mut ret := .done
-  let mut compStt := default
+  let mut caStt := default
   for fixture in fixtures do
-    match (← compile (stt := compStt) fixture) with
+    match (← contAddr (stt := caStt) fixture) with
     | .ok stt =>
-      compStt := stt
-      ret := test s!"Compiles '{fixture}'" true $ (extractors.map fun extr => extr stt).foldl (init := ret)
-          (· ++ ·)
-    | .error e => ret := test s!"Compiles '{fixture}'" (ExpectationFailure "ok _" s!"error {e}")
+      caStt := stt
+      ret := test s!"Content-addresses '{fixture}'" true $
+        (extractors.map fun extr => extr stt).foldl (init := ret) (· ++ ·)
+    | .error e =>
+      ret := test s!"Content-addresses '{fixture}'" (ExpectationFailure "ok _" s!"error {e}")
   return ret
 
 section AnonCidGroups
@@ -43,7 +43,7 @@ creates tests that assert that:
 2. Each pair of constants in different groups has different anon CIDs
 -/
 
-def extractCidGroups (groups : List (List Lean.Name)) (stt : CompileState) :
+def extractCidGroups (groups : List (List Lean.Name)) (stt : ContAddrState) :
     Except String (Array (Array (Lean.Name × IR.ConstCid .anon))) := Id.run do
   let mut notFound : Array Lean.Name := #[]
   let mut cidGroups : Array (Array (Lean.Name × IR.ConstCid .anon)) := #[]
@@ -60,7 +60,7 @@ def extractCidGroups (groups : List (List Lean.Name)) (stt : CompileState) :
     return .error s!"Not found: {", ".intercalate (notFound.data.map toString)}"
 
 def extractAnonCidGroupsTests (groups : List (List Lean.Name))
-    (stt : CompileState) : TestSeq :=
+    (stt : ContAddrState) : TestSeq :=
   withExceptOk "All constants can be found" (extractCidGroups groups stt)
     fun anonCidGroups =>
       let cidEqTests := anonCidGroups.foldl (init := .done) fun tSeq cidGroup =>
@@ -78,7 +78,7 @@ open Extractor
 
 /-
 This section defines an extractor that validates that the Ipld data extraction
-roundtrips for every constant in the `CompileState.store`.
+roundtrips for every constant in the `ContAddrState.store`.
 -/
 
 @[specialize]
@@ -146,7 +146,7 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type, ind := map.find! x.ind }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
-def extractExtractorTests (stt : CompileState) : TestSeq :=
+def extractExtractorTests (stt : ContAddrState) : TestSeq :=
   withExceptOk "`extractPureStore` succeeds"
     (extractPureStore stt.irStore) fun pStore =>
       withExceptOk "Pairing succeeds" (pairConstants stt.tcStore.consts pStore.consts) $
@@ -188,13 +188,13 @@ def typecheckConst (store : TC.Store) (const : TC.Const) (idx : Nat) : Except St
   | .ok u => .ok u
   | .error err => throw $ toString err
 
-def extractPositiveTypecheckTests (stt : CompileState) : TestSeq :=
+def extractPositiveTypecheckTests (stt : ContAddrState) : TestSeq :=
   let store := stt.tcStore
   store.consts.data.enum.foldl (init := .done) fun tSeq (i, const) => tSeq ++
     withExceptOk s!"{const.name} ({const.ctorName}) typechecks"
       (typecheckConst store const i) fun _ => .done
 
-def extractNegativeTypecheckTests (maxRounds : Nat) (stt : CompileState) : TestSeq :=
+def extractNegativeTypecheckTests (maxRounds : Nat) (stt : ContAddrState) : TestSeq :=
   let store := stt.tcStore
   let (testConsts, types, values, indices, _) : (List TC.Const) ×
       (List TC.Expr) × (List TC.Expr) × (List Nat) × Std.RBSet TC.Expr compare :=
@@ -263,7 +263,7 @@ end Transpilation
 
 section Ipld
 
-def extractIpldTests (stt : CompileState) : TestSeq :=
+def extractIpldTests (stt : ContAddrState) : TestSeq :=
   let store := stt.irStore
   let ipld := Ipld.storeToIpld stt.ipldStore
   withOptionSome "Ipld deserialization succeeds" (Ipld.storeFromIpld ipld)

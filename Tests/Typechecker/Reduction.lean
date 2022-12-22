@@ -1,6 +1,6 @@
 import LSpec
 import Yatima.Typechecker.Eval
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 open Yatima LSpec TC Typechecker
 
@@ -77,7 +77,7 @@ mutual
 
 end
 
-def getConstPairs (state : Compiler.CompileState) (consts : List (Name × Name)) :
+def getConstPairs (state : ContAddr.ContAddrState) (consts : List (Name × Name)) :
     Except String (Array ((Name × TypedExpr) × (Name × TypedExpr))) := do
   let mut pairList := #[]
   let mut notFound := #[]
@@ -126,7 +126,7 @@ def tcExtractor := extractTcTests [
   ]
 
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← contAddrAndExtractTests
     "Fixtures/Typechecker/Reduction.lean"
     [extractIpldTests/-, tcExtractor-/, extractExtractorTests]
   lspecIO tSeq

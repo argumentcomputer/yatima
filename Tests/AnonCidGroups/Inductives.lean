@@ -1,4 +1,4 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 def inductivesExtractor := extractAnonCidGroupsTests [
   [`BLA, `BLU],
@@ -13,7 +13,7 @@ def inductivesExtractor := extractAnonCidGroupsTests [
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← contAddrAndExtractTests
     "Fixtures/AnonCidGroups/Inductives.lean"
     [inductivesExtractor, extractIpldTests, extractExtractorTests]
     false

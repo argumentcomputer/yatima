@@ -1,5 +1,6 @@
 namespace Yatima.Extractor
 
+/-- Errors that can be thrown in `Yatima.Extractor.ExtractM` -/
 inductive ExtractError where
   | irError : ExtractError
   | cannotStoreValue : ExtractError

@@ -2,7 +2,7 @@ import Yatima.Cli.Utils
 import Yatima.Typechecker.Typechecker
 import Yatima.Transpiler.Transpiler
 
-open System Yatima.Compiler Yatima.Typechecker in
+open System Yatima.Typechecker in
 def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
   match ← readStoreFromFile fileName with

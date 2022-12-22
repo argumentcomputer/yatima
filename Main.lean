@@ -1,4 +1,4 @@
-import Yatima.Cli.CompileCmd
+import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.TranspileCmd
 import Yatima.Cli.ProveCmd
@@ -13,7 +13,7 @@ def yatimaCmd : Cli.Cmd := `[Cli|
   "A compiler and typechecker for the Yatima language"
 
   SUBCOMMANDS:
-    compileCmd;
+    contAddrCmd;
     typecheckCmd;
     transpileCmd;
     proveCmd;

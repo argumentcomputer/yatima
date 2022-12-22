@@ -2,30 +2,30 @@ import Yatima.Lean.Utils
 import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Const
 
-namespace Yatima.Compiler
+namespace Yatima.ContAddr
 
-/-- Errors that can be thrown in `Yatima.Compiler.CompileM` -/
-inductive CompileError
-  | notFoundInCache : Name → CompileError
-  | notFoundInRecrCtx : Name → CompileError
-  | invalidConstantIndex : Nat → Nat → CompileError
-  | unknownConstant : Name → CompileError
-  | unfilledLevelMetavariable : Lean.Level → CompileError
-  | unfilledExprMetavariable : Lean.Expr → CompileError
-  | invalidBVarIndex : Nat → CompileError
-  | freeVariableExpr : Lean.Expr → CompileError
-  | metaVariableExpr : Lean.Expr → CompileError
-  | metaDataExpr : Lean.Expr → CompileError
-  | levelNotFound : Name → List Name → CompileError
-  | invalidConstantKind : Name → String → String → CompileError
-  | constantNotCompiled : Name → CompileError
-  | nonRecursorExtractedFromChildren : Name → CompileError
-  | cantFindMutDefIndex : Name → CompileError
-  | errorsOnFile : String → String → CompileError
-  | custom : String → CompileError
+/-- Errors that can be thrown in `Yatima.ContAddr.ContAddrM` -/
+inductive ContAddrError
+  | notFoundInCache : Name → ContAddrError
+  | notFoundInRecrCtx : Name → ContAddrError
+  | invalidConstantIndex : Nat → Nat → ContAddrError
+  | unknownConstant : Name → ContAddrError
+  | unfilledLevelMetavariable : Lean.Level → ContAddrError
+  | unfilledExprMetavariable : Lean.Expr → ContAddrError
+  | invalidBVarIndex : Nat → ContAddrError
+  | freeVariableExpr : Lean.Expr → ContAddrError
+  | metaVariableExpr : Lean.Expr → ContAddrError
+  | metaDataExpr : Lean.Expr → ContAddrError
+  | levelNotFound : Name → List Name → ContAddrError
+  | invalidConstantKind : Name → String → String → ContAddrError
+  | constantNotContentAddressed : Name → ContAddrError
+  | nonRecursorExtractedFromChildren : Name → ContAddrError
+  | cantFindMutDefIndex : Name → ContAddrError
+  | errorsOnFile : String → String → ContAddrError
+  | custom : String → ContAddrError
   deriving Inhabited
 
-instance : ToString CompileError where toString
+instance : ToString ContAddrError where toString
   | .notFoundInCache n => s!"Could not find cid of '{n}' in cache"
   | .notFoundInRecrCtx n => s!"Could not find '{n}' in recrCtx"
   | .invalidConstantIndex idx size =>
@@ -40,11 +40,11 @@ instance : ToString CompileError where toString
   | .levelNotFound n ns => s!"'{n}' not found in '{ns}'"
   | .invalidConstantKind n ex gt =>
     s!"Invalid constant kind for '{n}'. Expected '{ex}' but got '{gt}'"
-  | .constantNotCompiled n => s!"Constant '{n}' wasn't compiled"
+  | .constantNotContentAddressed n => s!"Constant '{n}' wasn't content-addressed"
   | .nonRecursorExtractedFromChildren n =>
     s!"Non-recursor '{n}' extracted from children"
   | .cantFindMutDefIndex n => s!"Can't find index for mutual definition '{n}'"
   | .errorsOnFile file err => s!"Errors on file {file}:\n\n{err}"
   | .custom s => s
 
-end Yatima.Compiler
+end Yatima.ContAddr

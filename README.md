@@ -14,7 +14,7 @@ You can choose a directory that's already in your path, for example.
 ## Usage
 
 The subcommands planned to be available for the `yatima` CLI are:
-* `compile`: compiles Lean 4 code to Yatima IR
+* `ca`: content-addresses Lean 4 code to Yatima IR
 * `typecheck`: typechecks Yatima IR
 * `transpile`: transpiles Yatima IR to Lurk code
 * `prove`: generates a Lurk proof that a certain Lean 4 declaration typechecks

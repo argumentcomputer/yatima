@@ -1,4 +1,4 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 open Lurk.Backend.Value
 

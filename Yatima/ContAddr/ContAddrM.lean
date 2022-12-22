@@ -1,22 +1,22 @@
 import Yatima.Datatypes.Store
-import Yatima.Compiler.CompileError
+import Yatima.ContAddr.ContAddrError
 import Yatima.Ipld.ToIpld
 import Yatima.Lean.Utils
 
-namespace Yatima.Compiler
+namespace Yatima.ContAddr
 
 open Std (RBMap)
 
 /--
-The state for the `Yatima.Compiler.CompileM` monad.
+The state for the `Yatima.ContAddr.ContAddrM` monad.
 
 * `irStore` contains the resulting objects encoded in IR
 * `tcStore` contains the resulting objects for typechecking
-* `cache` has compiled data of constants, accessed by name
+* `cache` has content-addressed data of constants, accessed by name
 
 The IPLD arrays are used for the later encoding of the IR store in IPLD
 -/
-structure CompileState where
+structure ContAddrState where
   irStore : IR.Store
   tcStore : TC.Store
   cache   : RBMap Name (IR.BothConstCid × TC.ConstIdx) compare
@@ -32,16 +32,16 @@ structure CompileState where
   constIpldCache : RBMap (IR.Both IR.Const) (Ipld × Ipld × IR.BothConstCid) compare
   deriving Inhabited
 
-def CompileState.ipldStore (s : CompileState) : Ipld.Store :=
+def ContAddrState.ipldStore (s : ContAddrState) : Ipld.Store :=
   ⟨s.constsIpld,
     s.univAnonIpld, s.exprAnonIpld, s.constAnonIpld,
     s.univMetaIpld, s.exprMetaIpld, s.constMetaIpld⟩
 
-/-- Creates a summary off of a `Yatima.Compiler.CompileState` as a `String` -/
-def CompileState.summary (s : CompileState) : String :=
+/-- Creates a summary off of a `Yatima.ContAddr.ContAddrState` as a `String` -/
+def ContAddrState.summary (s : ContAddrState) : String :=
   let consts := ", ".intercalate $ s.tcStore.consts.toList.map
     fun c => s!"{c.name} : {c.ctorName}"
-  "Compilation summary:\n" ++
+  "Summary:\n" ++
   s!"-----------Constants-----------\n" ++
   s!"{consts}\n" ++
   s!"-------------Sizes-------------\n" ++
@@ -62,15 +62,15 @@ The type of entries for the `recrCtx`. It contains:
 abbrev RecrCtxEntry := (Nat × Option Nat × TC.ConstIdx)
 
 /--
-The read-only environment for the `Yatima.Compiler.CompileM` monad.
+The read-only environment for the `Yatima.ContAddr.ContAddrM` monad.
 
 * `constMap` is the original set of constants provided by Lean
 * `univCtx` is the current list of universes
 * `bindCtx` is the current list of binders
 * `recrCtx` is keeps the information for names that represent recursive calls
-* `log` tells whether the user wants to log the compilation
+* `log` tells whether the user wants to log the content-addressing process
 -/
-structure CompileEnv where
+structure ContAddrEnv where
   constMap : Lean.ConstMap
   univCtx  : List Name
   bindCtx  : List Name
@@ -78,49 +78,49 @@ structure CompileEnv where
   log      : Bool
   deriving Inhabited
 
-/-- Instantiates a `Yatima.Compiler.CompileEnv` from a map of constants -/
-def CompileEnv.init (map : Lean.ConstMap) (log : Bool) : CompileEnv :=
+/-- Instantiates a `Yatima.ContAddr.ContAddrEnv` from a map of constants -/
+def ContAddrEnv.init (map : Lean.ConstMap) (log : Bool) : ContAddrEnv :=
   ⟨map, [], [], .empty, log⟩
 
 /--
-The monad in which compilation takes place is a stack of `ReaderT`, `ExceptT`
-and `StateT` on top of IO
+The monad in which content-addressing takes place is a stack of `ReaderT`,
+`ExceptT` and `StateT` on top of `IO`
 -/
-abbrev CompileM := ReaderT CompileEnv $
-  ExceptT CompileError $ StateT CompileState IO
+abbrev ContAddrM := ReaderT ContAddrEnv $
+  ExceptT ContAddrError $ StateT ContAddrState IO
 
-/-- Basic runner function for `Yatima.Compiler.CompileEnv` -/
-def CompileM.run (env : CompileEnv) (ste : CompileState) (m : CompileM α) :
-    IO $ Except CompileError CompileState := do
+/-- Basic runner function for `Yatima.ContAddr.ContAddrEnv` -/
+def ContAddrM.run (env : ContAddrEnv) (ste : ContAddrState) (m : ContAddrM α) :
+    IO $ Except ContAddrError ContAddrState := do
   match ← StateT.run (ReaderT.run m env) ste with
   | (.ok _,  ste) => return .ok ste
   | (.error e, _) => return .error e
 
 /-- Computes with a new binder in the monad environment -/
-def withBinder (name : Name) : CompileM α → CompileM α :=
+def withBinder (name : Name) : ContAddrM α → ContAddrM α :=
   withReader $ fun e =>
     ⟨e.constMap, e.univCtx, name :: e.bindCtx, e.recrCtx, e.log⟩
 
 /-- Computes with a given list of levels and reset binders and `recrCtx` -/
 def withLevelsAndReset (levels : List Name) :
-    CompileM α → CompileM α :=
+    ContAddrM α → ContAddrM α :=
   withReader $ fun e => ⟨e.constMap, levels, [], .empty, e.log⟩
 
 /-- Computes with a given `recrCtx` -/
 def withRecrs (recrCtx : RBMap Name RecrCtxEntry compare) :
-    CompileM α → CompileM α :=
+    ContAddrM α → ContAddrM α :=
   withReader $ fun e => ⟨e.constMap, e.univCtx, e.bindCtx, recrCtx, e.log⟩
 
 /-- Computes with a given list of levels-/
-def withLevels (lvls : List Name) : CompileM α → CompileM α :=
+def withLevels (lvls : List Name) : ContAddrM α → ContAddrM α :=
   withReader $ fun e => ⟨e.constMap, lvls, e.bindCtx, e.recrCtx, e.log⟩
 
-/-- Possibly gets a `Yatima.Compiler.RecrCtxEntry` from the `recrCtx` by name -/
-def getFromRecrCtx (name : Name) : CompileM $ Option RecrCtxEntry :=
+/-- Possibly gets a `Yatima.ContAddr.RecrCtxEntry` from the `recrCtx` by name -/
+def getFromRecrCtx (name : Name) : ContAddrM $ Option RecrCtxEntry :=
   return (← read).recrCtx.find? name
 
-/-- Forcibly gets a `Yatima.Compiler.RecrCtxEntry` from the `recrCtx` by name -/
-def getFromRecrCtx! (name : Name) : CompileM $ RecrCtxEntry := do
+/-- Forcibly gets a `Yatima.ContAddr.RecrCtxEntry` from the `recrCtx` by name -/
+def getFromRecrCtx! (name : Name) : ContAddrM $ RecrCtxEntry := do
   match ← getFromRecrCtx name with
   | some entry => pure entry
   | none => throw $ .notFoundInRecrCtx name
@@ -133,7 +133,7 @@ inductive StoreEntry : Type → Type
 
 open Ipld
 
-def getUnivIpld (obj : IR.Both IR.Univ) : CompileM $ Ipld × Ipld × IR.BothUnivCid := do
+def getUnivIpld (obj : IR.Both IR.Univ) : ContAddrM $ Ipld × Ipld × IR.BothUnivCid := do
   match (← get).univIpldCache.find? obj with
   | some x => pure x
   | none =>
@@ -143,7 +143,7 @@ def getUnivIpld (obj : IR.Both IR.Univ) : CompileM $ Ipld × Ipld × IR.BothUniv
     modifyGet fun stt => (data, { stt with
       univIpldCache := stt.univIpldCache.insert obj data })
 
-def getExprIpld (obj : IR.Both IR.Expr) : CompileM $ Ipld × Ipld × IR.BothExprCid := do
+def getExprIpld (obj : IR.Both IR.Expr) : ContAddrM $ Ipld × Ipld × IR.BothExprCid := do
   match (← get).exprIpldCache.find? obj with
   | some x => pure x
   | none =>
@@ -153,7 +153,7 @@ def getExprIpld (obj : IR.Both IR.Expr) : CompileM $ Ipld × Ipld × IR.BothExpr
     modifyGet fun stt => (data, { stt with
       exprIpldCache := stt.exprIpldCache.insert obj data })
 
-def getConstIpld (obj : IR.Both IR.Const) : CompileM $ Ipld × Ipld × IR.BothConstCid := do
+def getConstIpld (obj : IR.Both IR.Const) : ContAddrM $ Ipld × Ipld × IR.BothConstCid := do
   match (← get).constIpldCache.find? obj with
   | some x => pure x
   | none =>
@@ -164,7 +164,7 @@ def getConstIpld (obj : IR.Both IR.Const) : CompileM $ Ipld × Ipld × IR.BothCo
       constIpldCache := stt.constIpldCache.insert obj data })
 
 /-- Adds CID data to the store, but also returns it for practical reasons -/
-def addToStore : StoreEntry A → CompileM A
+def addToStore : StoreEntry A → ContAddrM A
   | .univ obj => do
     let (ipldAnon, ipldMeta, ⟨cidAnon, cidMeta⟩) ← getUnivIpld obj
     modifyGet fun stt => (⟨cidAnon, cidMeta⟩, { stt with
@@ -205,11 +205,11 @@ def addToStore : StoreEntry A → CompileM A
         constsIpld    := stt.constsIpld.push    $ .array #[.link cidAnon.data, .link cidMeta.data] })
 
 /-- Adds data associated with a name to the cache -/
-def addToCache (name : Name) (c : IR.BothConstCid × TC.ConstIdx) : CompileM Unit :=
+def addToCache (name : Name) (c : IR.BothConstCid × TC.ConstIdx) : ContAddrM Unit :=
   modify fun stt => { stt with cache := stt.cache.insert name c }
 
 /-- Adds a constant to the array of constants at a given index -/
-def addToConsts (idx : TC.ConstIdx) (c : TC.Const) : CompileM Unit := do
+def addToConsts (idx : TC.ConstIdx) (c : TC.Const) : ContAddrM Unit := do
   let tcStore := (← get).tcStore
   let consts := tcStore.consts
   if h : idx < consts.size then
@@ -218,4 +218,4 @@ def addToConsts (idx : TC.ConstIdx) (c : TC.Const) : CompileM Unit := do
   else
     throw $ .invalidConstantIndex idx consts.size
 
-end Yatima.Compiler
+end Yatima.ContAddr
