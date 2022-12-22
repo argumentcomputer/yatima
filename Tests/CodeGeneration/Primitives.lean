@@ -1,11 +1,11 @@
-import TestsUtils.ContAddrAndExtractTests
+import TestsUtils.CodeGenAndRunTests
 
 open Lurk.Backend.Value
 
 open LSpec in
 def main := do
   let tSeq ← extractCodeGenTests
-    "Fixtures/CodeGen/Primitives.lean"
+    "Fixtures/CodeGeneration/Primitives.lean"
     [ ("natAdd",  300)
     , ("natSub1", 98)
     , ("natSub2", 0)

@@ -1,14 +1,14 @@
-import TestsUtils.ContAddrAndExtractTests
+import TestsUtils.CodeGenAndRunTests
 
 open Lurk.Backend.DSL
 
 open LSpec in
 def main := do
   let tSeq ← extractCodeGenTests
-    "Fixtures/CodeGen/TrickyTypes.lean"
-    [ ("exprCtor", "lam"), -- TODO: needs `commit` on `Lurk.lean`
+    "Fixtures/CodeGeneration/TrickyTypes.lean"
+    [ ("exprCtor", "lam"),
       ("univCtor", "zero"), 
       ("treeSize", 2),
-      ("nameStr",  "this.is.a.name") -- TODO: needs `commit` on `Lurk.lean`
+      ("nameStr",  "this.is.a.name")
     ]
   lspecIO tSeq
