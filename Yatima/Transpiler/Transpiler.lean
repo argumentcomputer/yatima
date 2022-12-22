@@ -60,7 +60,7 @@ instance : ToExpr LitValue where toExpr
   | .strVal s => toExpr s
 
 def appendBinding (b : Name × Expr) (safe := true) : TranspileM Unit := do
-  dbg_trace s!">> appendBinding {b.1}"
+  -- dbg_trace s!">> appendBinding {b.1}"
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun s => { s with appendedBindings := s.appendedBindings.push b }
 
@@ -203,7 +203,7 @@ mutual
         throw s!"{typeName} is not an inductive"
       return ⟦(getelem $struct.name $(2 + indData.params + idx))⟧
     | .const declName _ args => do
-      dbg_trace s!">> mkLetValue go {declName}"
+      -- dbg_trace s!">> mkLetValue go {declName}"
       appendName declName
       if args.isEmpty then
         return toExpr declName
@@ -297,7 +297,7 @@ mutual
     appendBinding (name, body)
 
   partial def appendMutualDecls (decls : List Decl) : TranspileM Unit := do
-    dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
+    -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
     for decl in decls do
       visit decl.name
     let decls ← decls.mapM fun decl => do
@@ -309,14 +309,13 @@ mutual
         then value
         else mkLambda params value
       return (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
-    dbg_trace s!"yo wtf: {decls.map Prod.fst}"
     Expr.mkMutualBlock decls |>.forM
       fun (n, e) => appendBinding (n, e)
 
   partial def appendName (name : Name) : TranspileM Unit := do
     if (← get).visited.contains name then
       return
-    dbg_trace s!">> appendName new name {name}"
+    -- dbg_trace s!">> appendName new name {name}"
     match ← getCtorOrIndInfo? name with
     | some inds =>
       for ind in inds do
