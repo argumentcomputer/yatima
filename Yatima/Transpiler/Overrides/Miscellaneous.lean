@@ -8,6 +8,14 @@ open Yatima.Transpiler
 
 namespace Overrides
 
+def panicCore : Override := Override.decl ⟨``panicCore, ⟦
+  (lambda (α inst msg) ((str_append "panic! with: " msg)))
+⟧⟩
+
+def dbgTrace : Override := Override.decl ⟨``dbgTrace, ⟦
+  (lambda (α s f) (begin (emit s) (f Unit.unit)))
+⟧⟩
+
 def mixHash : Override := Override.decl ⟨``mixHash, ⟦
   (lambda (x y) (num (commit (cons x y)))) -- TODO this is hackish, but if it works hey it works
 ⟧⟩
@@ -44,6 +52,8 @@ def outOfBounds : Override := Override.decl ⟨
 ⟧⟩
 
 def Miscellaneous.module := [
+  panicCore,
+  dbgTrace,
   mixHash,
   -- Decidable.decide, -- See the note on `Decidable.decide` override
   decEq,
@@ -54,7 +64,5 @@ def Miscellaneous.module := [
 ]
 
 end Overrides
-
-#print Lean.HashMapImp
 
 end Lurk

@@ -142,6 +142,13 @@ def store : Store :=
   primIdxs := Std.RBMap.ofList [] _,
   idxsToPrims := Std.RBMap.ofList [] _}
 
+def type := store.consts[0].type
+
+def runInfer := TypecheckM.run (.init store) (.init store) (infer type)
+
+deriving instance Repr for TypecheckError
+deriving instance Repr for TypedExpr
+
 def test : Except String Unit :=
   match TypecheckM.run (.init store) (.init store) typecheckM with
   | .ok u => .ok u

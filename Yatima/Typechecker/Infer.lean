@@ -108,37 +108,37 @@ mutual
       let (fnc, fncType) ← infer fnc
       match fncType.get with
       | .pi _ _ dom img env =>
-        --dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
+        dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
         let arg ← check arg dom
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
-        --dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"
+        dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"
         let term := .app (← susInfoFromType typ) fnc arg
-        --dbg_trace s!"info for {typ.get}: {repr img.info}, {repr typ.info}, {repr term.info}"
+        dbg_trace s!"info for {typ.get}: {repr img.info}, {repr typ.info}, {repr term.info}"
         pure (term, typ)
       | val => throw $ .notPi (toString val)
-    | .lam name bind dom bod  =>
-      --dbg_trace s!"inferring lam: {term}"
+    | .lam name bind dom bod => do
+      dbg_trace s!"inferring lam: {term}"
       let (dom, _) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       let var := mkSusVar (← infoFromType domVal) name ctx.lvl
       let (bod, img) ← withExtendedCtx var domVal $ infer bod
       let term := .lam (lamInfo bod.info) name bind dom bod
-      --dbg_trace s!"inferring lam: {term} with img info before {repr img.info} and after quote {repr (← quote (ctx.lvl+1) img.info.toSus img.get).info}"
+      dbg_trace s!"inferring lam: {term} with img info before {repr img.info} and after quote {repr (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get).info}"
       let typ := .mk (piInfo img.info) $
         Value.pi name bind domVal (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get) ctx.env
       pure (term, typ)
     | .pi name bind dom img =>
-      --dbg_trace s!"pi getting dom: {name} : {dom}"
+      dbg_trace s!"pi getting dom: {name} : {dom}"
       let (dom, domLvl) ← isSort dom
-      --dbg_trace s!"pi done getting dom: {name}"
-      --dbg_trace s!"domain info: {dom}: {repr dom.info}"
+      dbg_trace s!"pi done getting dom: {name}"
+      dbg_trace s!"domain info: {dom}: {repr dom.info}"
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       withExtendedCtx (mkSusVar (← infoFromType domVal) name ctx.lvl) domVal $ do
-        --dbg_trace s!"pi getting img: {img}"
+        dbg_trace s!"pi getting img: {img}"
         let (img, imgLvl) ← isSort img
-        --dbg_trace s!"pi done getting img of: {img}"
+        dbg_trace s!"pi done getting img of: {img}"
         let typ := .mk .none ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
         let term := .pi (← susInfoFromType typ) name bind dom img
         return (term, typ)
