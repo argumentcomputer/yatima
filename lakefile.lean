@@ -2,7 +2,7 @@ import Lake
 
 open Lake DSL
 
-package Yatima 
+package Yatima
 
 @[default_target]
 lean_exe yatima {
@@ -25,7 +25,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "1ca9b70d0fe982773fc499e7cdc76801a6ef60c2"
+  "https://github.com/yatima-inc/Lurk.lean" @ "75aa04edfab54ed0e9211ae6558999f4462e9ce7"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"

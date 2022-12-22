@@ -609,7 +609,7 @@ mutual
       | .defnInfo defn => pure defn
       | const => throw $ .invalidConstantKind const.name "definition" const.ctorName
     let mutualDefs ← sortDefs [mutualDefs]
-    
+
     -- Reserving the slots in the array of constants
     let mut firstIdx ← modifyGet fun stt =>
       (stt.tcStore.consts.size,
@@ -671,7 +671,7 @@ mutual
     return (⟨defn.toIR typeCid valueCid, defn.toIR typeCid valueCid⟩, defn)
 
   /--
-  A name-irrelevant ordering of Lean expressions. 
+  A name-irrelevant ordering of Lean expressions.
   `weakOrd` contains the best known current mutual ordering
   -/
   partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
@@ -726,7 +726,7 @@ mutual
       let ts ← cmpExpr weakOrd tx ty
       return concatOrds [compare nx ny, ts]
 
-  /-- AST comparison of two Lean definitions. 
+  /-- AST comparison of two Lean definitions.
     `weakOrd` contains the best known current mutual ordering -/
   partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
     (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
@@ -744,10 +744,10 @@ mutual
     | .eq => pure true
     | _ => pure false
 
-  /-- `sortDefs` recursively sorts a list of mutual definitions into weakly equal blocks. 
-    At each stage, we take as input the current best approximation of known weakly equal 
-    blocks as a List of blocks, hence the `List (List DefinitionVal)` as the argument type. 
-    We recursively take the input blocks and resort to improve the approximate known 
+  /-- `sortDefs` recursively sorts a list of mutual definitions into weakly equal blocks.
+    At each stage, we take as input the current best approximation of known weakly equal
+    blocks as a List of blocks, hence the `List (List DefinitionVal)` as the argument type.
+    We recursively take the input blocks and resort to improve the approximate known
     weakly equal blocks, obtaining a sequence of list of blocks:
     ```
     dss₀ := [startDefs]
@@ -755,34 +755,34 @@ mutual
     dss₂ := sortDefs dss₁
     dss₍ᵢ₊₁₎ := sortDefs dssᵢ ...
     ```
-    Initially, `startDefs` is simply the list of definitions we receive from `DefinitionVal.all`; 
-    since there is no order yet, we treat it as one block all weakly equal. On the other hand, 
-    at the end, there is some point where `dss₍ᵢ₊₁₎ := dssᵢ`, then we have hit a fixed point 
-    and we may end the sorting process. (We claim that such a fixed point exists, although 
+    Initially, `startDefs` is simply the list of definitions we receive from `DefinitionVal.all`;
+    since there is no order yet, we treat it as one block all weakly equal. On the other hand,
+    at the end, there is some point where `dss₍ᵢ₊₁₎ := dssᵢ`, then we have hit a fixed point
+    and we may end the sorting process. (We claim that such a fixed point exists, although
     technically we don't really have a proof.)
 
-    On each iteration, we hope to improve our knowledge of weakly equal blocks and use that 
-    knowledge in the next iteration. e.g. We start with just one block with everything in it, 
-    but the first sort may differentiate the one block into 3 blocks. Then in the second 
-    iteration, we have more information than than first, since the relationship of the 3 blocks 
-    gives us more information; this information may then be used to sort again, turning 3 blocks 
-    into 4 blocks, and again 4 blocks into 6 blocks, etc, until we have hit a fixed point. 
+    On each iteration, we hope to improve our knowledge of weakly equal blocks and use that
+    knowledge in the next iteration. e.g. We start with just one block with everything in it,
+    but the first sort may differentiate the one block into 3 blocks. Then in the second
+    iteration, we have more information than than first, since the relationship of the 3 blocks
+    gives us more information; this information may then be used to sort again, turning 3 blocks
+    into 4 blocks, and again 4 blocks into 6 blocks, etc, until we have hit a fixed point.
     This step is done in the computation of `newDss` and then comparing it to the original `dss`.
 
     Two optimizations:
 
-    1. `names := enum dss` records the ordering information in a map for faster access. 
-       Directly using `List.findIdx?` on dss is slow and introduces `Option` everywhere. 
+    1. `names := enum dss` records the ordering information in a map for faster access.
+       Directly using `List.findIdx?` on dss is slow and introduces `Option` everywhere.
        `names` is used as a custom comparison in `ds.sortByM (cmpDef names)`.
-    2. `normDss/normNewDss`. We want to compare if two lists of blocks are equal. 
-       Technically blocks are sets and their order doesn't matter, but we have encoded 
-       them as lists. To fix this, we sort the list by name before comparing. Note we 
+    2. `normDss/normNewDss`. We want to compare if two lists of blocks are equal.
+       Technically blocks are sets and their order doesn't matter, but we have encoded
+       them as lists. To fix this, we sort the list by name before comparing. Note we
        could maybe also use `List (RBTree ..)` everywhere, but it seemed like a hassle. -/
   partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
       CompileM (List (List Lean.DefinitionVal)) := do
     let enum (ll : List (List Lean.DefinitionVal)) :=
       Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
-    let weakOrd := enum dss _ 
+    let weakOrd := enum dss _
     let newDss ← (← dss.mapM fun ds =>
       match ds with
       | []  => unreachable!
@@ -815,7 +815,7 @@ def compileM (delta : List Lean.ConstantInfo) : CompileM Unit := do
       IO.println   "=========================================\n"
   (← get).cache.forM fun _ (cid, idx) =>
     match Ipld.primCidsMap.find? cid.anon.data.toString with
-    | some pc => modify fun stt => { stt with tcStore := { stt.tcStore with 
+    | some pc => modify fun stt => { stt with tcStore := { stt.tcStore with
       primIdxs := stt.tcStore.primIdxs.insert pc idx
       idxsToPrims := stt.tcStore.idxsToPrims.insert idx pc } }
     | none    => pure ()
@@ -837,21 +837,5 @@ def compile (filePath : System.FilePath) (log : Bool := false)
     let constants := patchUnsafeRec env.constants
     let delta := constants.map₂.filter fun n _ => !n.isInternal
     CompileM.run (.init constants log) stt (compileM $ delta.toList.map Prod.snd)
-
-/--
-Sets the directories where `olean` files can be found.
-
-This function must be called before `compile` if the file to be compiled has
-imports (the automatic imports from `Init` also count).
--/
-def setLibsPaths : IO Unit := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["print-paths"]
-  }
-  let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
-  let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
-  let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
-  Lean.initSearchPath (← Lean.findSysroot) paths
 
 end Yatima.Compiler

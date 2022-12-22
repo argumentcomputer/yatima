@@ -12,7 +12,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
   match p.variableArgsAs? String with
   | some ⟨args⟩ =>
     if !args.isEmpty then
-      if !(p.hasFlag "prelude") then setLibsPaths
+      if !(p.hasFlag "prelude") then Lean.setLibsPaths
       let mut stt : CompileState := default
       let log := p.hasFlag "log"
       let mut cronos := Cronos.new
@@ -37,7 +37,7 @@ def compileRun (p : Cli.Parsed) : IO UInt32 := do
         IO.println s!"{stt.summary}"
         IO.println s!"\n{cronos.summary}"
       let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
-      IO.FS.writeBinFile (p.getFlagD "output" "output.ir") (DagCbor.serialize ipld)
+      IO.FS.writeBinFile (p.getStringFlagD "output" "output.ir") (DagCbor.serialize ipld)
       return 0
     else
       IO.eprintln $ "No store argument was found.\n" ++

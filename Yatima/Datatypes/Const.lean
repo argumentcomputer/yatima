@@ -186,13 +186,13 @@ def ctorName : Const k → String
   | .mutIndBlock     _ => "mutual inductive block"
 
 def name : Const .meta → Name
-  | .axiom           x 
-  | .theorem         x 
-  | .opaque          x 
-  | .quotient        x 
-  | .definitionProj  x 
-  | .inductiveProj   x 
-  | .constructorProj x 
+  | .axiom           x
+  | .theorem         x
+  | .opaque          x
+  | .quotient        x
+  | .definitionProj  x
+  | .inductiveProj   x
+  | .constructorProj x
   | .recursorProj    x => x.name.projᵣ
   | .mutDefBlock     _
   | .mutIndBlock     _ => .anonymous
@@ -397,14 +397,14 @@ def RecursorRule.toIR (r : RecursorRule) (ctorCid : IR.BothConstCid) (rhsCid : I
 
 def ExtRecursor.toIR {k : IR.Kind} (r : ExtRecursor) (typeCid : IR.BothExprCid)
     (rulesCids : List $ IR.RecursorRule k) : IR.Recursor .extr k :=
-  match k with 
+  match k with
   | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
     r.minors, rulesCids, r.k⟩
   | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), rulesCids, ()⟩
 
 def IntRecursor.toIR {k : IR.Kind} (r : IntRecursor) (typeCid : IR.BothExprCid) :
     IR.Recursor .intr k :=
-  match k with 
+  match k with
   | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
     r.minors, (), r.k⟩
   | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), (), ()⟩

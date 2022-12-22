@@ -159,7 +159,7 @@ partial def printConst (const : Const) : PrintM String := do
   | .quotient quot => do
     return s!"{cid}quot {quot.name} {quot.lvls} : {← printExpr quot.type} :=\n" ++
             s!"  {quot.kind}"
-  | .definition defn => 
+  | .definition defn =>
     return s!"{printDefSafety defn.safety}def {defn.name} {defn.lvls} : {← printExpr defn.type} :=\n" ++
             s!"  {← printExpr defn.value}"
   | .inductive ind => return s!"{← printInductive ind}"
