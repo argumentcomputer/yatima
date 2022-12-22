@@ -121,7 +121,8 @@ mutual
 
   For other cases, adds them to the cache, the store and the array of constants.
   -/
-  partial def compileConstant : Lean.ConstantInfo → CompileM (IR.BothConstCid × TC.ConstIdx)
+  partial def compileConstant (c : Lean.ConstantInfo) : CompileM (IR.BothConstCid × TC.ConstIdx) :=
+  match c with
   -- These cases add multiple constants at the same time
   | .defnInfo struct => withLevelsAndReset struct.levelParams $ compileDefinition struct
   | .inductInfo struct => withLevelsAndReset struct.levelParams $ compileInductive struct
@@ -441,13 +442,13 @@ mutual
 
   /-- Encodes a Lean constructor to IR -/
   partial def constructorToIR (rule : Lean.RecursorRule) :
-      CompileM $ IR.Both IR.Constructor := do
-    let (rhsCid, _rhs) ← compileExpr rule.rhs
+      CompileM (IR.Both IR.Constructor × TC.RecursorRule) := do
+    let (rhsCid, rhs) ← compileExpr rule.rhs
     match ← getLeanConstant rule.ctor with
     | .ctorInfo ctor =>
       withLevels ctor.levelParams do
       let (typeCid, type) ← compileExpr ctor.type
-      let tcCtor := .constructor {
+      let tcCtor := {
         name    := ctor.name
         lvls    := ctor.levelParams
         type    := type
@@ -457,8 +458,13 @@ mutual
         safe    := not ctor.isUnsafe
       }
       let (_, _, constIdx) ← getFromRecrCtx! ctor.name
-      addToConsts constIdx tcCtor
-      return ⟨
+      addToConsts constIdx (.constructor tcCtor)
+      let tcRule := {
+        ctor   := tcCtor
+        fields := rule.nfields
+        rhs    := rhs
+      }
+      let ctor := ⟨
         { rhs    := rhsCid.anon
           lvls   := ctor.levelParams.length
           name   := ()
@@ -475,6 +481,7 @@ mutual
           params := ()
           fields := ()
           safe   := () } ⟩
+      pure (ctor, tcRule)
     | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
   /-- Encodes an internal recursor to IR -/
@@ -482,21 +489,17 @@ mutual
     | .recInfo rec => do
       withLevels rec.levelParams do
         let (typeCid, type) ← compileExpr rec.type
-        let tcRules := ← rec.rules.foldlM
-          (init := []) fun rules r => do
-            let (_recrRule, tcRecrRule) ← recRuleToIR r
-            return tcRecrRule::rules
-        let ctorMap : RBMap Name (IR.Both IR.Constructor) compare ← rec.rules.foldlM
+        let ctorMap : RBMap Name (IR.Both IR.Constructor × TC.RecursorRule) compare ← rec.rules.foldlM
           (init := .empty) fun ctorMap r => do
             if ctors.contains r.ctor then
-              let ctor ← constructorToIR r
-              pure $ ctorMap.insert ctor.meta.name.projᵣ ctor
+              let pair ← constructorToIR r
+              pure $ ctorMap.insert pair.1.meta.name.projᵣ pair
             -- this is an external recursor rule
             else pure ctorMap
-        let retCtors ← ctors.mapM fun ctorName => do
+        let (retCtors, tcRules) ← ctors.foldrM (fun ctorName acc => do
           match ctorMap.find? ctorName with
-          | some thisCtor => pure thisCtor
-          | none => throw $ .custom s!"Couldn't find constructor {ctorName}"
+          | some pair => pure $ (pair.1 :: acc.1, pair.2 :: acc.2)
+          | none => throw $ .custom s!"Couldn't find constructor {ctorName}") ([], [])
         let tcRecr := .recursor {
           name     := rec.name
           lvls     := rec.levelParams

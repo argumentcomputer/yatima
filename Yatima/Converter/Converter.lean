@@ -330,7 +330,7 @@ mutual
               (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
             | .intr, .intr, _, _ =>
               -- TODO
-              let rules := sorry
+              let rules := [] -- sorry TODO
               pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := true}
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
