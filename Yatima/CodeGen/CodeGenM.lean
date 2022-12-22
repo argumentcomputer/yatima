@@ -36,6 +36,7 @@ def replace (name : Lean.Name) : CodeGenM Lean.Name := do
 
 /-- Set `name` as a visited node -/
 def visit (name : Lean.Name) : CodeGenM Unit :=
+  -- dbg_trace s!">> visit {name}"
   modify fun s => { s with visited := s.visited.insert name }
 
 @[inline] def isVisited (n : Lean.Name) : CodeGenM Bool :=

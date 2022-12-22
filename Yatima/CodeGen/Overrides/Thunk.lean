@@ -34,7 +34,7 @@ def Thunk.pure : Override := Override.decl ⟨``Thunk.pure, ⟦
 
 /-- This is magical, lol -/
 def Thunk.get : Override := Override.decl ⟨``Thunk.get, ⟦
-  (lambda (self) ((cdr self) Unit.unit))
+  (lambda (α self) ((cdr self) Unit.unit))
 ⟧⟩
 
 def Thunk.module := [

@@ -210,6 +210,7 @@ mutual
         throw s!"{typeName} is not an inductive"
       return ⟦(getelem $struct.name $(2 + indData.params + idx))⟧
     | .const declName _ args => do
+      -- dbg_trace s!">> mkLetValue go {declName}"
       appendName declName
       if args.isEmpty then
         return toExpr declName
@@ -292,7 +293,7 @@ mutual
     | .unreach _ => return toExpr "lcUnreachable"
 
   partial def appendDecl (decl : Decl) : CodeGenM Unit := do
-    -- dbg_trace s!">> appendDecl\n{ppDecl decl}\n"
+    -- dbg_trace s!">> appendDecl {decl.name}"
     let ⟨name, _, _, params, value, _, _, _⟩ := decl
     visit name
     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
@@ -303,7 +304,7 @@ mutual
     appendBinding (name, body)
 
   partial def appendMutualDecls (decls : List Decl) : CodeGenM Unit := do
-    -- dbg_trace s!">> appendMutualDecls"
+    -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
     for decl in decls do
       visit decl.name
     let decls ← decls.mapM fun decl => do
