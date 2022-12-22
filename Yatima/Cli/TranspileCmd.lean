@@ -10,7 +10,7 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
   match ← transpile fileName decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>
-    let output : System.FilePath := ⟨p.getStringFlagD "output" s!"lurk/{decl}.lurk"⟩
+    let output := ⟨p.getStringFlagD "output" s!"lurk/{decl}.lurk"⟩
     match output.parent with
     | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
     | none => pure ()
@@ -21,15 +21,15 @@ def transpileRun (p : Cli.Parsed) : IO UInt32 := do
       | .error (err, frames) =>
         IO.eprintln err
         let nFrames := p.getNatFlagD "frames" 5
-        let framesFilePath := ⟨s!"lurk/{decl}.frames"⟩
+        let framesFilePath := output.withExtension "frames"
         IO.FS.writeFile framesFilePath (frames.pprint nFrames)
         IO.eprintln s!"Dumped {nFrames} frames to {framesFilePath}"
         return 1
       | .ok val => IO.println val
     else if p.hasFlag "lurkrs" then
-      let lurkrs := s!"lurkrs lurk/{decl}.lurk"
-      IO.println s!"Running `{lurkrs}`"
-      match ← runCmd lurkrs with
+      let lurkrsCmd := s!"lurkrs {output}"
+      IO.println s!"Running `{lurkrsCmd}`"
+      match ← runCmd lurkrsCmd with
       | .ok res => IO.print res; return 0
       | .error err => IO.eprint err; return 1
     return 0

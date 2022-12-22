@@ -81,27 +81,29 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
       else .ok out.stdout
   else return .ok ""
 
-def getCurrDir : ScriptM String := do
-  match ← runCmd "pwd" with
-  | .ok res => return res.trim
-  | .err e  => panic! e
-
-def getHomeDir : ScriptM String :=
-  return s!"{"/".intercalate $ (← getCurrDir).splitOn "/" |>.take 3}"
-
 script setup do
   IO.println "building yatima"
   match ← runCmd "lake build" with
-  | .ok  _   =>
-    let mut binDir : String := s!"{← getHomeDir}/.local/bin"
-    IO.print s!"target directory for the yatima binary? (default={binDir}) "
-    let input := (← (← IO.getStdin).getLine).trim
-    if !input.isEmpty then
-      binDir := input
+  | .ok  _   => match ← IO.getEnv "HOME" with
+    | some homePath =>
+      let binDir : String := s!"{homePath}/.local/bin"
+      IO.print s!"target directory for the yatima binary? (default={binDir}) "
+      let input := (← (← IO.getStdin).getLine).trim
+      let binDir := if input.isEmpty then binDir else input
+      cpBin binDir
+    | none =>
+      IO.print s!"target directory for the yatima binary? "
+      let binDir := (← (← IO.getStdin).getLine).trim
+      if binDir.isEmpty then
+        IO.eprintln "target directory can't be empty"
+        return 1
+      cpBin binDir
+  | .err res => IO.eprintln res; return 1
+where
+  cpBin (binDir : String) : ScriptM UInt32 := do
     match ← runCmd s!"cp build/bin/yatima {binDir}/yatima" with
     | .ok _    => IO.println s!"yatima binary placed at {binDir}/"; return 0
     | .err res => IO.eprintln res; return 1
-  | .err res => IO.eprintln res; return 1
 
 end Setup
 
@@ -109,25 +111,23 @@ section ImportAll
 
 open System
 
-partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
+partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
     IO $ Array FilePath := do
   if ← fp.isDir then
     let mut extra : Array FilePath := #[]
     for dirEntry in ← fp.readDir do
-      for innerFp in ← getLeanFilePathsList dirEntry.path do
+      for innerFp in ← getLeanFilePaths dirEntry.path do
         extra := extra.push innerFp
     return acc.append extra
-  else
-    if (fp.extension.getD "") = "lean" then
-      return acc.push fp
-    else
-      return acc
+  else match fp.extension with
+    | some "lean" => return acc.push fp
+    | _ => return acc
 
 open Lean (RBTree)
 
 def getAllFiles : ScriptM $ List String := do
-  let paths := (← getLeanFilePathsList ⟨"Yatima"⟩).map toString
-  let paths : RBTree String compare := RBTree.ofList (paths.data) -- ordering
+  let paths := (← getLeanFilePaths ⟨"Yatima"⟩).map toString
+  let paths : RBTree String compare := RBTree.ofList paths.toList -- ordering
   return paths.toList
 
 def getImportsString : ScriptM String := do
