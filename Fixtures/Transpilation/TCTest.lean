@@ -3,6 +3,11 @@ import Std.Data.RBMap
 
 open Yatima Typechecker TC
 
+def run' (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except TypecheckError α :=
+  match ExceptT.run $ (StateT.run (ReaderT.run m ctx) stt) with
+  | .error e => .error e
+  | .ok (a, _) => .ok a
+
 def store : Store :=
 { consts := #[Const.definition
                 { name := `id,
@@ -148,6 +153,33 @@ def runInfer := TypecheckM.run (.init store) (.init store) (infer type)
 
 deriving instance Repr for TypecheckError
 deriving instance Repr for TypedExpr
+
+instance [Repr α] : Repr (Thunk α) where
+  reprPrec tk prec := Repr.addAppParen ("Thunk.pure " ++ reprArg tk.get) prec
+
+deriving instance Repr for Value
+deriving instance Repr for SusValue
+
+#eval runInfer
+
+def typedExpr := TypedExpr.pi
+ (SusTypeInfo.sort
+     (Univ.imax (Univ.succ (Univ.var `u 0)) (Univ.var `u 0)))
+  `α
+  Lean.BinderInfo.implicit
+  (TypedExpr.sort
+     (SusTypeInfo.sort (Univ.succ (Univ.var `u 0)))
+     (Univ.var `u 0))
+  (TypedExpr.pi
+     (SusTypeInfo.sort (Univ.var `u 0))
+     `a
+     Lean.BinderInfo.default
+     (TypedExpr.var (SusTypeInfo.sort (Univ.var `u 0)) `α 0)
+     (TypedExpr.var (SusTypeInfo.sort (Univ.var `u 0)) `α 1))
+
+def runEval := TypecheckM.run (.init store) (.init store) (eval typedExpr)
+
+#eval runEval
 
 def test : Except String Unit :=
   match TypecheckM.run (.init store) (.init store) typecheckM with
