@@ -154,12 +154,13 @@ def getMutuals (name : Name) : CodeGenM $ List Name := do
     let auxDecls : Std.RBSet Name compare ←
       all.foldlM (init := .empty) fun acc decl => do
         return acc.union (← getDecl decl).getUsedConstants
+    dbg_trace s!">> getMutuals auxDecls1: {auxDecls.toList}"
     let auxDecls := auxDecls.filter fun decl =>
       all.any $ fun name => isGeneratedFrom name decl
     let auxDecls ← auxDecls.toList.mapM getDecl
     let auxDecls ← auxDecls.filterM fun decl =>
       return all.any $ decl.getUsedConstants (cmp := compare) |>.contains
-    dbg_trace s!">> getMutuals filtered: {auxDecls.map (·.name)}"
+    dbg_trace s!">> getMutuals auxDecls2: {auxDecls.map (·.name)}"
     return all ++ auxDecls.map (·.name)
   | some (.thmInfo x) => return x.all
   | _ => return [name]
@@ -330,8 +331,7 @@ mutual
       fun (n, e) => appendBinding (n, e)
 
   partial def appendName (name : Name) : CodeGenM Unit := do
-    if (← get).visited.contains name then
-      return
+    if (← get).visited.contains name then return
     dbg_trace s!">> appendName new name {name}"
     match ← getCtorOrIndInfo? name with
     | some inds =>
