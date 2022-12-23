@@ -15,7 +15,7 @@ open Lean.Compiler.LCNF
 This is a super dangerous instance, because of how tricky names are;
 I'm just gonna turn it on for now, but may cause terrible bugs.
 -/
-instance (priority := low) : ToExpr Lean.Name where
+scoped instance (priority := low) : ToExpr Lean.Name where
   toExpr name := .sym name.toString
 
 def preloads : List (Name × Expr) := [

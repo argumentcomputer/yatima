@@ -3,7 +3,7 @@ import Yatima.CodeGen.CodeGen
 import Lurk.Backend.Eval
 
 open System Yatima.CodeGen in
-def codeGeRun (p : Cli.Parsed) : IO UInt32 := do
+def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
   let decl := String.toNameSafe <| p.getStringFlagD "decl" "root"
   match ← codeGen fileName decl with
@@ -34,7 +34,7 @@ def codeGeRun (p : Cli.Parsed) : IO UInt32 := do
     return 0
 
 def codeGenCmd : Cli.Cmd := `[Cli|
-  gen VIA codeGeRun;
+  gen VIA codeGenRun;
   "Generates Lurk code from Lean 4 code"
 
   FLAGS:
