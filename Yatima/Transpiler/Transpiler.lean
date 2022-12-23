@@ -1,6 +1,8 @@
 import Std.Data.List.Basic
 import Yatima.Datatypes.Lean
 import Yatima.Lean.Utils
+import Yatima.Lean.LCNF
+import Yatima.Lean.PrintPrefix
 import Yatima.Transpiler.TranspileM
 import Yatima.Transpiler.PrettyPrint
 import Yatima.Transpiler.LurkFunctions
@@ -135,13 +137,27 @@ def appendCtorOrInd (name : Name) : TranspileM Bool := do
     return true
   | _ => return false
 
+open Std in
 def getMutuals (name : Name) : TranspileM (List Name) := do
+  dbg_trace s!">> getMutuals {name}"
   match (← read).env.constants.find? name with
   -- TODO FIXME: support `| some (.inductInfo x)` case
-  | some (.defnInfo x) =>
-    
-    return x.all
-  | some (.thmInfo x) | some (.opaqueInfo x) => return x.all
+  | some (.defnInfo x) | some (.opaqueInfo x) =>
+    let all := x.all
+    dbg_trace s!">> getMutuals all: {all}"
+    if all.length == 1 then
+      return all
+    let auxDecls : RBSet Name compare ←
+      all.foldlM (init := .empty) fun acc decl => do
+        return acc.union (← getDecl decl).getUsedConstants
+    let auxDecls := auxDecls.filter fun decl =>
+      all.any $ fun name => isGeneratedFrom name decl
+    let auxDecls ← auxDecls.toList.mapM getDecl
+    let auxDecls ← auxDecls.filterM fun decl =>
+      return all.any $ decl.getUsedConstants (cmp := compare) |>.contains
+    dbg_trace s!">> getMutuals filtered: {auxDecls.map (·.name)}"
+    return all ++ auxDecls.map (·.name)
+  | some (.thmInfo x) => return x.all
   | _ => return [name]
 
 def mkFVarId : Lean.FVarId → TranspileM Expr
@@ -294,7 +310,7 @@ mutual
     appendBinding (name, body)
 
   partial def appendMutualDecls (decls : List Decl) : TranspileM Unit := do
-    -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
+    dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
     for decl in decls do
       visit decl.name
     let decls ← decls.mapM fun decl => do
@@ -312,7 +328,7 @@ mutual
   partial def appendName (name : Name) : TranspileM Unit := do
     if (← get).visited.contains name then
       return
-    -- dbg_trace s!">> appendName new name {name}"
+    dbg_trace s!">> appendName new name {name}"
     match ← getCtorOrIndInfo? name with
     | some inds =>
       for ind in inds do

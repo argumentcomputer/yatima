@@ -17,7 +17,7 @@ structure FindOptions where
   stage1       : Bool := true
   checkPrivate : Bool := false
 
-def findCore (ϕ : ConstantInfo → Bool) (env : Environment) (opts : FindOptions := {}) :
+def findCore (env : Environment) (ϕ : ConstantInfo → Bool) (opts : FindOptions := {}) :
   Array ConstantInfo :=
   let matches_ := if !opts.stage1 then #[] else
     env.constants.map₁.fold (init := #[]) check
@@ -34,7 +34,7 @@ namespace Meta
 
 def find (msg : String)
   (ϕ : ConstantInfo → Bool) (opts : Environment.FindOptions := {}) : TermElabM String := do
-  let cinfos := Environment.findCore ϕ (← getEnv) opts
+  let cinfos := (← getEnv).findCore ϕ opts
   let cinfos := cinfos.qsort fun p q => p.name.lt q.name
   let mut msg := msg
   for cinfo in cinfos do
