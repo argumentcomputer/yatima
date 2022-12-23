@@ -110,7 +110,7 @@ mutual
       match fncType.get with
       | .pi _ _ dom img env =>
         -- dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
-        dbg_trace s!"applying"
+        -- dbg_trace s!"applying"
         let arg ← check arg dom
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
         -- dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"

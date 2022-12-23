@@ -299,7 +299,7 @@ structure Quotient where
   kind : QuotKind
   deriving BEq
 
-/-- Representation of constants for typechecking and transpilation -/
+/-- Representation of constants for typechecking -/
 inductive Const
   | «axiom»     : Axiom → Const
   | «theorem»   : Theorem → Const

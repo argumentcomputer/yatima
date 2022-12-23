@@ -1,11 +1,11 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 def defsExtractor := extractAnonCidGroupsTests
   [[`Nat, `MyNat, `MyOtherNat]]
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← contAddrAndExtractTests
     "Fixtures/AnonCidGroups/ToImport.lean"
-    [defsExtractor, extractIpldTests, extractConverterTests]
+    [defsExtractor, extractIpldTests, extractExtractorTests]
   lspecIO tSeq

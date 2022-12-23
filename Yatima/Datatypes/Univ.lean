@@ -29,7 +29,7 @@ end IR
 
 namespace TC
 
-/-- Representation of universe levels for typechecking and transpilation -/
+/-- Representation of universe levels for typechecking -/
 inductive Univ where
   | zero
   | succ  : Univ → Univ

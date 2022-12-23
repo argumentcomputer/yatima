@@ -53,7 +53,7 @@ def TypeInfo.toSus : TypeInfo → SusTypeInfo
   | .prop    => .prop
   | .none    => .none
 
-/-- Representation of expressions for evaluation and transpilation -/
+/-- Representation of expressions for evaluation -/
 inductive TypedExpr
   | var   : SusTypeInfo → Name → Nat → TypedExpr
   | sort  : SusTypeInfo → Univ → TypedExpr

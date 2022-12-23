@@ -1,8 +1,8 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← contAddrAndExtractTests
     "Fixtures/Roundtrip/Tricky.lean"
-    [extractIpldTests, extractConverterTests]
+    [extractIpldTests, extractExtractorTests]
   lspecIO tSeq
