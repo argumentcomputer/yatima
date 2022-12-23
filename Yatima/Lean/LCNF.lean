@@ -1,5 +1,4 @@
 import Lean.Compiler.LCNF
-import Lean.Util.FoldConsts
 import Std.Data.RBMap
 
 open Std

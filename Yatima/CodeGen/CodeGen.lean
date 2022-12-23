@@ -1,6 +1,5 @@
 import Yatima.Datatypes.Lean
 import Yatima.Lean.LCNF
-import Yatima.Lean.PrintPrefix
 import Yatima.CodeGen.CodeGenM
 import Yatima.CodeGen.PrettyPrint
 import Yatima.CodeGen.LurkFunctions
@@ -67,7 +66,7 @@ instance : ToExpr LitValue where toExpr
   | .strVal s => toExpr s
 
 def appendBinding (b : Name × Expr) (safe := true) : CodeGenM Unit := do
-  dbg_trace s!">> appendBinding {b.1}"
+  -- dbg_trace s!">> appendBinding {b.1}"
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun s => { s with appendedBindings := s.appendedBindings.push b }
 
@@ -143,24 +142,24 @@ def appendCtorOrInd (name : Name) : CodeGenM Bool := do
   | _ => return false
 
 def getMutuals (name : Name) : CodeGenM $ List Name := do
-  dbg_trace s!">> getMutuals {name}"
+  -- dbg_trace s!">> getMutuals {name}"
   match (← read).env.constants.find? name with
   -- TODO FIXME: support `| some (.inductInfo x)` case
   | some (.defnInfo x) | some (.opaqueInfo x) =>
     let all := x.all
-    dbg_trace s!">> getMutuals all: {all}"
+    -- dbg_trace s!">> getMutuals all: {all}"
     if all.length == 1 then
       return all
     let auxDecls : Std.RBSet Name compare ←
       all.foldlM (init := .empty) fun acc decl => do
         return acc.union (← getDecl decl).getUsedConstants
-    dbg_trace s!">> getMutuals auxDecls1: {auxDecls.toList}"
+    -- dbg_trace s!">> getMutuals auxDecls1: {auxDecls.toList}"
     let auxDecls := auxDecls.filter fun decl =>
       all.any $ fun name => isGeneratedFrom name decl
     let auxDecls ← auxDecls.toList.mapM getDecl
     let auxDecls ← auxDecls.filterM fun decl =>
       return all.any $ decl.getUsedConstants (cmp := compare) |>.contains
-    dbg_trace s!">> getMutuals auxDecls2: {auxDecls.map (·.name)}"
+    -- dbg_trace s!">> getMutuals auxDecls2: {auxDecls.map (·.name)}"
     return all ++ auxDecls.map (·.name)
   | some (.thmInfo x) => return x.all
   | _ => return [name]
@@ -309,13 +308,11 @@ mutual
     visit name
     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
     let value : Expr ← mkCode value
-    let body := if params.isEmpty
-      then value
-      else mkLambda params value
+    let body := if params.isEmpty then value else mkLambda params value
     appendBinding (name, body)
 
   partial def appendMutualDecls (decls : List Decl) : CodeGenM Unit := do
-    dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
+    -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
     for decl in decls do
       visit decl.name
     let decls ← decls.mapM fun decl => do
@@ -323,21 +320,18 @@ mutual
       let ⟨name, _, _, params, value, _, _, _⟩ := decl
       let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
       let value : Expr ← mkCode value
-      let body := if params.isEmpty
-        then value
-        else mkLambda params value
-      return (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
+      let body := if params.isEmpty then value else mkLambda params value
+      pure (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
     Expr.mkMutualBlock decls |>.forM
       fun (n, e) => appendBinding (n, e)
 
   partial def appendName (name : Name) : CodeGenM Unit := do
-    if (← get).visited.contains name then return
-    dbg_trace s!">> appendName new name {name}"
+    if ← isVisited name then return
+    -- dbg_trace s!">> appendName new name {name}"
     match ← getCtorOrIndInfo? name with
     | some inds =>
       for ind in inds do
-        if ← appendOverride ind then
-          continue
+        if ← appendOverride ind then continue
         let ind ← getInductive ind
         appendInductive ind
     | none =>
@@ -379,7 +373,7 @@ end
 
 /-- Main code generation function -/
 def codeGenM (decl : Lean.Name) : CodeGenM Unit :=
-  let overrides := .ofList <| Lurk.Overrides.All.module.map fun o => (o.name, o)
+  let overrides := .ofList $ Lurk.Overrides.All.module.map fun o => (o.name, o)
   withOverrides overrides do
     -- dbg_trace s!">> codeGenM overrides: {(← read).overrides.toList.map Prod.fst}"
     preloads.forM fun (name, preload) => do
@@ -400,8 +394,6 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
     let bindings := s.appendedBindings.data.map
       fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
-    let expr := expr.pruneBlocks
-    -- dbg_trace s!"{expr}"
-    return expr
+    return expr.pruneBlocks
 
 end Yatima.CodeGen
