@@ -55,28 +55,11 @@ def ConstMap.patchUnsafeRec (cs : ConstMap) : ConstMap :=
       else .opaqueInfo o
     | _ => c
 
-open Elab in
-def runFrontend (input : String) (fileName : String := default) :
-    IO $ Option String × Environment := do
-  let inputCtx := Parser.mkInputContext input fileName
-  let (header, parserState, messages) ← Parser.parseHeader inputCtx
-  let (env, messages) ← processHeader header default messages inputCtx 0
-  let env := env.setMainModule default
-  let commandState := Command.mkState env messages default
-
-  let s ← IO.processCommands inputCtx parserState commandState
-  let msgs := s.commandState.messages
-  let errMsg := if msgs.hasErrors
-    then some $ "\n\n".intercalate $
-      (← msgs.toList.mapM (·.toString)).map String.trim
-    else none
-  return (errMsg, s.commandState.env)
-
 /--
 Sets the directories where `olean` files can be found.
 
-This function must be called before `contAddr` if the file to be
-content-addressed has imports (the automatic imports from `Init` also count).
+This function must be called before `runFrontend` if the file to be compiled has
+imports (the automatic imports from `Init` also count).
 -/
 def setLibsPaths : IO Unit := do
   let out ← IO.Process.output {
@@ -87,6 +70,22 @@ def setLibsPaths : IO Unit := do
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
   let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
   Lean.initSearchPath (← Lean.findSysroot) paths
+
+open Elab in
+def runFrontend (filePath : System.FilePath) : IO Environment := do
+  let input ← IO.FS.readFile filePath
+  let inputCtx := Parser.mkInputContext input filePath.toString
+  let (header, parserState, messages) ← Parser.parseHeader inputCtx
+  let (env, messages) ← processHeader header default messages inputCtx 0
+  let env := env.setMainModule default
+  let commandState := Command.mkState env messages default
+
+  let s ← IO.processCommands inputCtx parserState commandState
+  let msgs := s.commandState.messages
+  if msgs.hasErrors then
+    throw $ IO.userError $ "\n\n".intercalate $
+      (← msgs.toList.mapM (·.toString)).map String.trim
+  else return s.commandState.env
 
 def PersistentHashMap.filter [BEq α] [Hashable α]
     (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=

@@ -1,5 +1,4 @@
 import Yatima.Datatypes.Lean
-import Yatima.Lean.Utils
 import Yatima.Lean.LCNF
 import Yatima.Lean.PrintPrefix
 import Yatima.CodeGen.CodeGenM
@@ -393,23 +392,16 @@ Constructs a `Expr.letRecE` whose body is the call to a `decl` constant in
 a context and whose bindings are the constants in the context (including `decl`)
 that are needed to define `decl`.
 -/
-def codeGen (filePath : System.FilePath) (decl : Name) :
-    IO $ Except String Expr := do
-  let filePathStr := filePath.toString
-  Lean.setLibsPaths
-  match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
-  | (some err, _) => return .error err
-  | (none, leanEnv) =>
-    let codeGenEnv := ⟨leanEnv, .empty⟩
-    match CodeGenM.run codeGenEnv default (codeGenM decl) with
-    | .ok _ s =>
-      let bindings := s.appendedBindings.data.map
-        fun (n, x) =>
-          (n.toString false, x)
-      let expr := mkLetrec bindings (.sym $ decl.toString false)
-      let expr := expr.pruneBlocks
-      -- dbg_trace s!"{expr}"
-      return .ok expr
-    | .error e _ => .error e
+def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
+  let codeGenEnv := ⟨leanEnv, .empty⟩
+  match CodeGenM.run codeGenEnv default (codeGenM decl) with
+  | .error e _ => .error e
+  | .ok _ s =>
+    let bindings := s.appendedBindings.data.map
+      fun (n, x) => (n.toString false, x)
+    let expr := mkLetrec bindings (.sym $ decl.toString false)
+    let expr := expr.pruneBlocks
+    -- dbg_trace s!"{expr}"
+    return expr
 
 end Yatima.CodeGen

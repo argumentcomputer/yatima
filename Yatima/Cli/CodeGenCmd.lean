@@ -1,12 +1,14 @@
 import Yatima.Cli.Utils
 import Yatima.CodeGen.CodeGen
+import Yatima.Lean.Utils
 import Lurk.Backend.Eval
 
 open System Yatima.CodeGen in
 def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   let fileName := p.getArg! "input"
   let decl := String.toNameSafe <| p.getStringFlagD "decl" "root"
-  match ← codeGen fileName decl with
+  Lean.setLibsPaths
+  match codeGen (← Lean.runFrontend ⟨fileName⟩) decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>
     let output := ⟨p.getStringFlagD "output" s!"lurk/{decl}.lurk"⟩
