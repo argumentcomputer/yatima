@@ -225,7 +225,6 @@ def runEqual := TypecheckM.run (.init store) (.init store) (equal 0 runSuspend s
 
 #eval runEqual
 
-def test : Except String Unit :=
-  match TypecheckM.run (.init store) (.init store) typecheckM with
-  | .ok u => .ok u
-  | .error err => throw $ toString err
+def runCheckStore := TypecheckM.run (.init store) (.init store) typecheckM
+
+#eval runCheckStore
