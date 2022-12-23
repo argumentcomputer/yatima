@@ -44,6 +44,8 @@ import Yatima.Datatypes.Univ
 import Yatima.Ipld.FromIpld
 import Yatima.Ipld.PrimCids
 import Yatima.Ipld.ToIpld
+import Yatima.Lean.LCNF
+import Yatima.Lean.PrintPrefix
 import Yatima.Lean.Utils
 import Yatima.Typechecker.Datatypes
 import Yatima.Typechecker.Equal
