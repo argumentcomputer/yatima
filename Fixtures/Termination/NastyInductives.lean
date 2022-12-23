@@ -1,4 +1,5 @@
 prelude
+set_option linter.all false -- prevent error messages from runFrontend
 
 inductive QWE (α : Sort u)
   | qwe : QWE α → QWE α

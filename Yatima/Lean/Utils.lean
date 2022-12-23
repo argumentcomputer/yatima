@@ -4,6 +4,20 @@ import YatimaStdLib.Lean
 
 namespace Lean
 
+section
+
+variable [BEq α] [Hashable α] [Monad m]
+
+def HashMap.map (hmap : Lean.HashMap α β) (f : β → σ) : Lean.HashMap α σ :=
+  hmap.fold (init := default) fun acc a b => acc.insert a (f b)
+
+def SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
+  let m₁ := smap.map₁.map f
+  let m₂ := smap.map₂.map f
+  ⟨smap.stage₁, m₁, m₂⟩
+
+end
+
 def ConstantInfo.formatAll (c : ConstantInfo) : String :=
   match c.all with
   | [ ]
@@ -27,6 +41,20 @@ def ConstMap.childrenOfWith (map : ConstMap) (name : Name)
   | .num n .. => if n == name && p c then c :: acc else acc
   | _ => acc
 
+def ConstMap.patchUnsafeRec (cs : ConstMap) : ConstMap :=
+  let unsafes : Std.RBSet Name compare := cs.fold (init := .empty)
+    fun acc n _ => match n with
+      | .str n "_unsafe_rec" => acc.insert n
+      | _ => acc
+  cs.map fun c => match c with
+    | .opaqueInfo o =>
+      if unsafes.contains o.name then
+        .opaqueInfo ⟨
+          o.toConstantVal, mkConst (o.name ++ `_unsafe_rec),
+          o.isUnsafe, o.levelParams ⟩
+      else .opaqueInfo o
+    | _ => c
+
 open Elab in
 def runFrontend (input : String) (fileName : String := default) :
     IO $ Option String × Environment := do
@@ -47,8 +75,8 @@ def runFrontend (input : String) (fileName : String := default) :
 /--
 Sets the directories where `olean` files can be found.
 
-This function must be called before `compile` if the file to be compiled has
-imports (the automatic imports from `Init` also count).
+This function must be called before `contAddr` if the file to be
+content-addressed has imports (the automatic imports from `Init` also count).
 -/
 def setLibsPaths : IO Unit := do
   let out ← IO.Process.output {
@@ -60,50 +88,11 @@ def setLibsPaths : IO Unit := do
   let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
   Lean.initSearchPath (← Lean.findSysroot) paths
 
-end Lean
-
-instance : HMul Ordering Ordering Ordering where hMul
-  | .gt, _ => .gt
-  | .lt, _ => .lt
-  | .eq, x => x
-
-def concatOrds : List Ordering → Ordering :=
-  List.foldl (fun x y => x * y) .eq
-
-def Lean.PersistentHashMap.filter [BEq α] [Hashable α]
+def PersistentHashMap.filter [BEq α] [Hashable α]
     (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
   map.foldl (init := .empty) fun acc x y =>
     match p x y with
     | true => acc.insert x y
     | false => acc
 
-section
-
-variable [BEq α] [Hashable α] [Monad m]
-
-def Lean.HashMap.map (hmap : Lean.HashMap α β) (f : β → σ) : Lean.HashMap α σ :=
-  hmap.fold (init := default) fun acc a b => acc.insert a (f b)
-
-def Lean.SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
-  let m₁ := smap.map₁.map f
-  let m₂ := smap.map₂.map f
-  ⟨smap.stage₁, m₁, m₂⟩
-
-end
-
-open Lean in
-def patchUnsafeRec (cs : ConstMap) : ConstMap :=
-  let unsafes : Std.RBSet Name compare :=
-    cs.fold (init := .empty) fun acc n _ => match n with
-    | .str n "_unsafe_rec" => acc.insert n
-    | _ => acc
-  cs.map fun c => match c with
-    | .opaqueInfo o =>
-      if unsafes.contains o.name then
-        .opaqueInfo ⟨
-          o.toConstantVal, mkConst (o.name ++ `_unsafe_rec),
-          o.isUnsafe, o.levelParams
-        ⟩
-      else
-        .opaqueInfo o
-    | c => c
+end Lean
