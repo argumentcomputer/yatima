@@ -8,30 +8,31 @@ def run' (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Excep
   | .error e => .error e
   | .ok (a, _) => .ok a
 
+def idDef : Definition := { name := `id,
+                            lvls := [`u],
+                            type := Expr.pi
+                                      `α
+                                      (Lean.BinderInfo.implicit)
+                                      (Expr.sort (Univ.var `u 0))
+                                      (Expr.pi
+                                        `a
+                                        (Lean.BinderInfo.default)
+                                        (Expr.var `α 0)
+                                        (Expr.var `α 1)),
+                            value := Expr.lam
+                                       `α
+                                       (Lean.BinderInfo.implicit)
+                                       (Expr.sort (Univ.var `u 0))
+                                       (Expr.lam
+                                         `a
+                                         (Lean.BinderInfo.default)
+                                         (Expr.var `α 0)
+                                         (Expr.var `a 0)),
+                            safety := Lean.DefinitionSafety.safe,
+                            all := [0] }
+
 def store : Store :=
-{ consts := #[Const.definition
-                { name := `id,
-                  lvls := [`u],
-                  type := Expr.pi
-                            `α
-                            (Lean.BinderInfo.implicit)
-                            (Expr.sort (Univ.var `u 0))
-                            (Expr.pi
-                              `a
-                              (Lean.BinderInfo.default)
-                              (Expr.var `α 0)
-                              (Expr.var `α 1)),
-                  value := Expr.lam
-                             `α
-                             (Lean.BinderInfo.implicit)
-                             (Expr.sort (Univ.var `u 0))
-                             (Expr.lam
-                               `a
-                               (Lean.BinderInfo.default)
-                               (Expr.var `α 0)
-                               (Expr.var `a 0)),
-                  safety := Lean.DefinitionSafety.safe,
-                  all := [0] },
+{ consts := #[Const.definition idDef,
               Const.definition
                 { name := `Function.const,
                   lvls := [`u, `v],
@@ -147,9 +148,11 @@ def store : Store :=
   primIdxs := Std.RBMap.ofList [] _,
   idxsToPrims := Std.RBMap.ofList [] _}
 
-def type := store.consts[0].type
+def type := idDef.type
+def value := idDef.value
 
 def runInfer := TypecheckM.run (.init store) (.init store) (infer type)
+def runInferValue := TypecheckM.run (.init store) (.init store) (infer value)
 
 deriving instance Repr for TypecheckError
 deriving instance Repr for TypedExpr
@@ -161,6 +164,7 @@ deriving instance Repr for Value
 deriving instance Repr for SusValue
 
 #eval runInfer
+#eval runInferValue
 
 def typedExpr := TypedExpr.pi
  (SusTypeInfo.sort
@@ -177,6 +181,38 @@ def typedExpr := TypedExpr.pi
      (TypedExpr.var (SusTypeInfo.sort (Univ.var `u 0)) `α 0)
      (TypedExpr.var (SusTypeInfo.sort (Univ.var `u 0)) `α 1))
 
+--def typedExprValue := Yatima.Typechecker.TypedExpr.lam
+--   (Yatima.Typechecker.SusTypeInfo.none)
+--   `α
+--   (Lean.BinderInfo.implicit)
+--   (Yatima.Typechecker.TypedExpr.sort
+--     (Yatima.Typechecker.SusTypeInfo.sort (Yatima.TC.Univ.succ (Yatima.TC.Univ.var `u 0)))
+--     (Yatima.TC.Univ.var `u 0))
+--   (Yatima.Typechecker.TypedExpr.lam
+--     (Yatima.Typechecker.SusTypeInfo.none)
+--     `a
+--     (Lean.BinderInfo.default)
+--     (Yatima.Typechecker.TypedExpr.var (Yatima.Typechecker.SusTypeInfo.sort (Yatima.TC.Univ.var `u 0)) `α 0)
+--     (Yatima.Typechecker.TypedExpr.var (Yatima.Typechecker.SusTypeInfo.none) `a 0))
+
+def suspendedInferredType :=
+ Yatima.Typechecker.SusValue.mk
+   (Yatima.Typechecker.TypeInfo.none)
+   (Thunk.pure 
+   (Yatima.Typechecker.Value.pi
+      `α
+      (Lean.BinderInfo.implicit)
+      (Yatima.Typechecker.SusValue.mk
+        (Yatima.Typechecker.TypeInfo.none)
+        (Thunk.pure (Yatima.Typechecker.Value.sort (Yatima.TC.Univ.var `u 0))))
+      (Yatima.Typechecker.TypedExpr.pi
+        (Yatima.Typechecker.SusTypeInfo.none)
+        `a
+        (Lean.BinderInfo.default)
+        (Yatima.Typechecker.TypedExpr.var (Yatima.Typechecker.SusTypeInfo.unit) `α 0)
+        (Yatima.Typechecker.TypedExpr.var (Yatima.Typechecker.SusTypeInfo.unit) `α 1))
+      (Yatima.Typechecker.Env.mk [] [])))
+
 def runEval := TypecheckM.run (.init store) (.init store) (eval typedExpr)
 
 #eval runEval
@@ -185,10 +221,11 @@ def runSuspend := suspend typedExpr (.init store) (.init store)
 
 #eval runSuspend
 
-def runEqual := TypecheckM.run (.init store) (.init store) (equal 0 runSuspend runSuspend)
+def runEqual := TypecheckM.run (.init store) (.init store) (equal 0 runSuspend suspendedInferredType)
 
 #eval runEqual
 
-def runCheckStore := TypecheckM.run (.init store) (.init store) typecheckM
-
-#eval runCheckStore
+def test : Except String Unit :=
+  match TypecheckM.run (.init store) (.init store) typecheckM with
+  | .ok u => .ok u
+  | .error err => throw $ toString err
