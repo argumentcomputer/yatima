@@ -312,19 +312,19 @@ mutual
     let body := if params.isEmpty then value else mkLambda params value
     appendBinding (name, body)
 
-  partial def appendMutualDecls (decls : List Decl) : CodeGenM Unit := do
-    -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
-    for decl in decls do
-      visit decl.name
-    let decls ← decls.mapM fun decl => do
-      -- dbg_trace ppDecl decl
-      let ⟨name, _, _, params, value, _, _, _⟩ := decl
-      let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
-      let value : Expr ← mkCode value
-      let body := if params.isEmpty then value else mkLambda params value
-      pure (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
-    Expr.mkMutualBlock decls |>.forM
-      fun (n, e) => appendBinding (n, e)
+  -- partial def appendMutualDecls (decls : List Decl) : CodeGenM Unit := do
+  --   -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
+  --   for decl in decls do
+  --     visit decl.name
+  --   let decls ← decls.mapM fun decl => do
+  --     -- dbg_trace ppDecl decl
+  --     let ⟨name, _, _, params, value, _, _, _⟩ := decl
+  --     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
+  --     let value : Expr ← mkCode value
+  --     let body := if params.isEmpty then value else mkLambda params value
+  --     pure (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
+  --   Expr.mkMutualBlock decls |>.forM
+  --     fun (n, e) => appendBinding (n, e)
 
   partial def appendName (name : Name) : CodeGenM Unit := do
     if ← isVisited name then return
@@ -336,13 +336,15 @@ mutual
         let ind ← getInductive ind
         appendInductive ind
     | none =>
-      let names ← getMutuals name
-      if let [name] := names then
-        if ← appendOverride name then return
-        appendDecl $ ← getDecl name
-      else
-        -- TODO FIXME: no support for mutual overrides
-        appendMutualDecls $ ← names.mapM getDecl
+      if ← appendOverride name then return
+      appendDecl $ ← getDecl name
+      -- let names ← getMutuals name
+      -- if let [name] := names then
+      --   if ← appendOverride name then return
+      --   appendDecl $ ← getDecl name
+      -- else
+      --   -- TODO FIXME: no support for mutual overrides
+      --   appendMutualDecls $ ← names.mapM getDecl
 
   partial def appendOverride (name : Name) : CodeGenM Bool := do
     -- dbg_trace s!">> appendOverride {name}"
@@ -394,6 +396,7 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
   | .ok _ s =>
     let bindings := s.appendedBindings.data.map
       fun (n, x) => (n.toString false, x)
+    let bindings := Expr.mutualize bindings
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     return expr.pruneBlocks
 
