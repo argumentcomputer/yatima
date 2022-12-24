@@ -840,12 +840,9 @@ Open references are variables that point to names which aren't present in the
 -/
 def contAddr (filePath : System.FilePath) (log : Bool := false)
     (stt : ContAddrState := default) : IO $ Except ContAddrError ContAddrState := do
-  let filePathStr := filePath.toString
-  match ← Lean.runFrontend (← IO.FS.readFile filePath) filePathStr with
-  | (some err, _) => return .error $ .errorsOnFile filePathStr err
-  | (none, env) =>
-    let constants := env.constants.patchUnsafeRec
-    let delta := constants.map₂.filter fun n _ => !n.isInternal
-    ContAddrM.run (.init constants log) stt (contAddrM $ delta.toList.map Prod.snd)
+  let env ← Lean.runFrontend filePath
+  let constants := env.constants.patchUnsafeRec
+  let delta := constants.map₂.filter fun n _ => !n.isInternal
+  ContAddrM.run (.init constants log) stt (contAddrM $ delta.toList.map Prod.snd)
 
 end Yatima.ContAddr

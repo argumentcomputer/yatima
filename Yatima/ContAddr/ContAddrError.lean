@@ -21,7 +21,6 @@ inductive ContAddrError
   | constantNotContentAddressed : Name → ContAddrError
   | nonRecursorExtractedFromChildren : Name → ContAddrError
   | cantFindMutDefIndex : Name → ContAddrError
-  | errorsOnFile : String → String → ContAddrError
   | custom : String → ContAddrError
   deriving Inhabited
 
@@ -44,7 +43,6 @@ instance : ToString ContAddrError where toString
   | .nonRecursorExtractedFromChildren n =>
     s!"Non-recursor '{n}' extracted from children"
   | .cantFindMutDefIndex n => s!"Can't find index for mutual definition '{n}'"
-  | .errorsOnFile file err => s!"Errors on file {file}:\n\n{err}"
   | .custom s => s
 
 end Yatima.ContAddr

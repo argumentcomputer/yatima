@@ -8,11 +8,9 @@ This file provides Lurk "standard library" functions needed to
 generally needed to write Lurk code.
 -/
 
-namespace Lurk
+namespace Lurk.Preloads
 
 open Lurk.Backend DSL
-
-namespace Preloads
 
 def reverse_aux : Lean.Name × Expr := (`reverse_aux, ⟦
   (lambda (xs ys)
@@ -163,6 +161,4 @@ def lnot : Lean.Name × Expr := (`lnot, ⟦
     (if x nil t))
 ⟧)
 
-end Preloads
-
-end Lurk
+end Lurk.Preloads
