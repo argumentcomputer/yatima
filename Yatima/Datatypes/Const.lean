@@ -208,14 +208,14 @@ structure Axiom where
   lvls : List Name
   type : Expr
   safe : Bool
-  deriving Inhabited, BEq
+  deriving Inhabited, BEq, Repr
 
 structure Theorem where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
-  deriving BEq
+  deriving BEq, Repr
 
 structure Opaque where
   name  : Name
@@ -223,7 +223,7 @@ structure Opaque where
   type  : Expr
   value : Expr
   safe  : Bool
-  deriving BEq
+  deriving BEq, Repr
 
 structure Definition where
   name   : Name
@@ -232,7 +232,7 @@ structure Definition where
   value  : Expr
   safety : DefinitionSafety
   all    : List ConstIdx
-  deriving BEq
+  deriving BEq, Repr
 
 structure Constructor where
   name   : Name
@@ -246,7 +246,7 @@ structure Constructor where
   -- we need to cache a list of the indexes of all of the constructors
   -- of this inductive in order to avoid infinite loops while typechecking
   all    : List ConstIdx
-  deriving BEq
+  deriving BEq, Repr
 
 structure Inductive where
   name    : Name
@@ -259,13 +259,13 @@ structure Inductive where
   refl    : Bool
   unit    : Bool
   struct  : Option Constructor
-  deriving BEq
+  deriving BEq, Repr
 
 structure RecursorRule where
   ctor   : Constructor
   fields : Nat
   rhs    : Expr
-  deriving BEq
+  deriving BEq, Repr
 
 structure ExtRecursor where
   name    : Name
@@ -278,7 +278,7 @@ structure ExtRecursor where
   rules   : List RecursorRule
   k       : Bool
   ind     : ConstIdx
-  deriving BEq
+  deriving BEq, Repr
 
 structure IntRecursor where
   name    : Name
@@ -290,14 +290,16 @@ structure IntRecursor where
   minors  : Nat
   k       : Bool
   ind     : ConstIdx
-  deriving BEq
+  deriving BEq, Repr
+
+deriving instance Repr for Lean.QuotKind
 
 structure Quotient where
   name : Name
   lvls : List Name
   type : Expr
   kind : QuotKind
-  deriving BEq
+  deriving BEq, Repr
 
 /-- Representation of constants for typechecking -/
 inductive Const
@@ -310,7 +312,7 @@ inductive Const
   | extRecursor : ExtRecursor → Const
   | intRecursor : IntRecursor → Const
   | quotient    : Quotient → Const
-  deriving Inhabited, BEq
+  deriving Inhabited, BEq, Repr
 
 namespace Const
 

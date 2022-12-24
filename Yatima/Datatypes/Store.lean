@@ -49,7 +49,7 @@ structure Store where
   consts       : Array Const
   primIdxs     : Std.RBMap PrimConst Nat compare
   idxsToPrims  : Std.RBMap Nat PrimConst compare
-  deriving Inhabited
+  deriving Inhabited, Repr
 
 end TC
 
