@@ -22,24 +22,11 @@ def Decl.getUsedConstants (decl : Decl) : RBSet Name cmp :=
   value.getUsedConstants.union (.ofArray type.getUsedConstants _) |>.insert name
 
 def isGeneratedFrom (parent : Name) : Name → Bool
-  | .str n s => n == parent && 
-    ("_lam_".isPrefixOf s || "_elam_".isPrefixOf s || 
-    "spec_".isPrefixOf s || "_redArg" == s)
+  | .str n s => n == parent &&
+    -- TODO FIXME: these are hardcoded suffix values and are brittle
+    -- but it works for now sooooo
+    ("_lam_".isPrefixOf s || "_elam_".isPrefixOf s ||
+     "spec_".isPrefixOf s || "_redArg" == s)
   | _ => false
-
-def findCore (env : Environment) (ext : DeclExt) (ϕ : Decl → Bool) : Array Decl :=
-  ext.getState env |>.foldl (init := #[]) fun acc _ decl =>
-    if ϕ decl then
-      acc.push decl
-    else
-      acc
-
-def test : MetaM Unit := do
-  -- let decls := findCore (← getEnv) monoExt fun decl => (``List.map) == decl.name
-  IO.println $ monoExt.getState (← getEnv) |>.toList.map Prod.fst
-  -- IO.println $ decls.map (·.name)
-
-#eval test
-
 
 end Lean.Compiler.LCNF

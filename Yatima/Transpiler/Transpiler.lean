@@ -141,7 +141,8 @@ open Std in
 def getMutuals (name : Name) : TranspileM (List Name) := do
   dbg_trace s!">> getMutuals {name}"
   match (← read).env.constants.find? name with
-  -- TODO FIXME: support `| some (.inductInfo x)` case
+  -- TODO FIXME: maybe support `| some (.inductInfo x)` case?
+  -- winston: actually, I suspect not
   | some (.defnInfo x) | some (.opaqueInfo x) =>
     let all := x.all
     dbg_trace s!">> getMutuals all: {all}"
@@ -171,7 +172,7 @@ def mkArg (arg : Arg) : TranspileM Expr := do
   | .erased => return toExpr "lcErased"
   | .fvar fvarId => mkFVarId fvarId
     -- TODO: Hopefully can erase types??
-  | .type _ => return toExpr "lcErasedType"
+  | .type _ => return toExpr "lcErased"
 
 def mkParam : Param → TranspileM String
   | ⟨fvarId, _, _, _⟩ =>
