@@ -10,7 +10,6 @@ import Yatima.Cli.Utils
 import Yatima.Cli.VerifyCmd
 import Yatima.CodeGen.CodeGen
 import Yatima.CodeGen.CodeGenM
-import Yatima.CodeGen.LurkFunctions
 import Yatima.CodeGen.Override
 import Yatima.CodeGen.Overrides.All
 import Yatima.CodeGen.Overrides.Array
@@ -27,7 +26,9 @@ import Yatima.CodeGen.Overrides.Nat
 import Yatima.CodeGen.Overrides.String
 import Yatima.CodeGen.Overrides.Thunk
 import Yatima.CodeGen.Overrides.UInt
+import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.PrettyPrint
+import Yatima.CodeGen.Simp
 import Yatima.CodeGen.Test
 import Yatima.ContAddr.ContAddr
 import Yatima.ContAddr.ContAddrError
