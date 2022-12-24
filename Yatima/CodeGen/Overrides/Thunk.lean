@@ -29,7 +29,7 @@ protected def Thunk : Override := Override.ind
 
 /-- This is magical, lol -/
 def Thunk.pure : Override := Override.decl ⟨``Thunk.pure, ⟦
-  (lambda (α a) (Thunk.mk (lambda (unit) a)))
+  (lambda (α a) (Thunk.mk α (lambda (unit) a)))
 ⟧⟩
 
 /-- This is magical, lol -/
