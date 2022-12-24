@@ -2,8 +2,9 @@ import Yatima.Datatypes.Lean
 import Yatima.Lean.LCNF
 import Yatima.CodeGen.CodeGenM
 import Yatima.CodeGen.PrettyPrint
-import Yatima.CodeGen.LurkFunctions
+import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.Overrides.All
+import Yatima.CodeGen.Simp
 
 namespace Yatima.CodeGen
 
@@ -249,8 +250,7 @@ mutual
     | none            => liftExcept <| mkCasesCore indData discr alts
     | some (.decl _)  => throw s!"found a declaration override for {typeName}"
 
-  partial def mkCode (code : Code) : CodeGenM Expr := do
-    match code with
+  partial def mkCode : Code → CodeGenM Expr
     | .let decl k => do
       -- dbg_trace s!">> mkCode let"
       let (name, decl) ← mkLetDecl decl
@@ -318,7 +318,7 @@ mutual
   where
     appendPrereqs (x : Expr) : CodeGenM Unit := do
       -- dbg_trace s!">> appendPrereqs {x.getFreeVars default default |>.toList}"
-      x.getFreeVars default default |>.toList.forM fun n => do
+      (x.getFreeVars).toList.forM fun n => do
         let n := n.toNameSafe
         if !(← isVisited n) then appendName n
 
@@ -335,8 +335,8 @@ def codeGenM (decl : Lean.Name) : CodeGenM Unit :=
     appendName decl
 
 /--
-Constructs a `Expr.letRecE` whose body is the call to a `decl` constant in
-a context and whose bindings are the constants in the context (including `decl`)
+Constructs a `Expr.letrec` whose body is the call to a `decl` constant in a
+context and whose bindings are the constants in the context (including `decl`)
 that are needed to define `decl`.
 -/
 def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
@@ -346,6 +346,6 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
     let bindings := Expr.mutualize $
       s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
-    return expr.pruneBlocks
+    return expr.simp.pruneBlocks
 
 end Yatima.CodeGen
