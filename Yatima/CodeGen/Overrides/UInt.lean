@@ -284,11 +284,11 @@ def UInt64.toNat : Override := .decl ⟨``UInt64.toNat, ⟦
 ⟧⟩
 
 def UInt64.ofNatCore : Override := .decl ⟨``UInt64.ofNatCore, ⟦
-  (lambda (n isLt) n)
+  (lambda (n isLt) (u64 n))
 ⟧⟩
 
 def UInt64.ofNat : Override := .decl ⟨``UInt64.ofNat, ⟦
-  (lambda (n) (Fin.ofNat $(UInt64.size - 1) n))
+  (lambda (n) (u64 n))
 ⟧⟩
 
 def UInt64.decLe : Override := .decl ⟨``UInt64.decLe, ⟦
@@ -304,25 +304,26 @@ def UInt64.decEq : Override := .decl ⟨``UInt64.decEq, ⟦
 ⟧⟩
 
 def UInt64.add : Override := .decl ⟨``UInt64.add, ⟦
-  (lambda (a b) (Fin.add $UInt64.size a b))
+  (lambda (a b) (+ a b))
 ⟧⟩
 
 def UInt64.sub : Override := .decl ⟨``UInt64.sub, ⟦
-  (lambda (a b) (Fin.sub $UInt64.size a b))
+  (lambda (a b) (- a b))
 ⟧⟩
 
 def UInt64.mul : Override := .decl ⟨``UInt64.mul, ⟦
-  (lambda (a b) (Fin.mul $UInt64.size a b))
+  (lambda (a b) (* a b))
 ⟧⟩
 
 def UInt64.div : Override := .decl ⟨``UInt64.div, ⟦
-  (lambda (a b) (Fin.div $UInt64.size a b))
+  (lambda (a b) (/ a b))
 ⟧⟩
 
 def UInt64.mod : Override := .decl ⟨``UInt64.mod, ⟦
-  (lambda (a b) (Fin.mod $UInt64.size a b))
+  (lambda (a b) (% a b))
 ⟧⟩
 
+-- TODO FIXME: Actually implement this sometime
 def UInt64.modn : Override := .decl ⟨``UInt64.modn, ⟦
   (lambda (a n) (Fin.modn $UInt64.size a n))
 ⟧⟩
@@ -358,13 +359,15 @@ def UInt64.module : List Override := [
   UInt64.sub,
   UInt64.mul,
   UInt64.div,
-  UInt64.mod,
-  UInt64.modn,
-  UInt64.land,
-  UInt64.lor,
-  UInt64.xor,
-  UInt64.shiftLeft,
-  UInt64.shiftRight
+  UInt64.mod
+  
+  -- TODO FIXME: Don't uncomment these! They are probably broken.
+  -- UInt64.modn,
+  -- UInt64.land,
+  -- UInt64.lor,
+  -- UInt64.xor,
+  -- UInt64.shiftLeft,
+  -- UInt64.shiftRight
 ]
 
 /-! # USize -/
@@ -387,7 +390,7 @@ because it depends on 'Nat.pow.match_1', and it does not have executable code
 ```
 -/
 def USize.ofNat : Override := .decl ⟨``USize.ofNat, ⟦
-  (lambda (n) (Fin.ofNat (- 1 $USize.size) n))
+  (lambda (n) (u64 n))
 ⟧⟩
 
 def USize.decLe : Override := .decl ⟨``USize.decLe, ⟦
@@ -403,25 +406,26 @@ def USize.decEq : Override := .decl ⟨``USize.decEq, ⟦
 ⟧⟩
 
 def USize.add : Override := .decl ⟨``USize.add, ⟦
-  (lambda (a b) (Fin.add $USize.size a b))
+  (lambda (a b) (+ a b))
 ⟧⟩
 
 def USize.sub : Override := .decl ⟨``USize.sub, ⟦
-  (lambda (a b) (Fin.sub $USize.size a b))
+  (lambda (a b) (- a b))
 ⟧⟩
 
 def USize.mul : Override := .decl ⟨``USize.mul, ⟦
-  (lambda (a b) (Fin.mul $USize.size a b))
+  (lambda (a b) (* a b))
 ⟧⟩
 
 def USize.div : Override := .decl ⟨``USize.div, ⟦
-  (lambda (a b) (Fin.div $USize.size a b))
+  (lambda (a b) (/ a b))
 ⟧⟩
 
 def USize.mod : Override := .decl ⟨``USize.mod, ⟦
-  (lambda (a b) (Fin.mod $USize.size a b))
+  (lambda (a b) (% a b))
 ⟧⟩
 
+-- TODO FIXME: Actually implement this sometime
 def USize.modn : Override := .decl ⟨``USize.modn, ⟦
   (lambda (a n) (Fin.modn $USize.size a n))
 ⟧⟩
@@ -457,13 +461,15 @@ def USize.module : List Override := [
   USize.sub,
   USize.mul,
   USize.div,
-  USize.mod,
-  USize.modn,
-  USize.land,
-  USize.lor,
-  USize.xor,
-  USize.shiftLeft,
-  USize.shiftRight
+  USize.mod
+
+  -- TODO FIXME: Don't uncomment these! They are probably broken.
+  -- USize.modn,
+  -- USize.land,
+  -- USize.lor,
+  -- USize.xor,
+  -- USize.shiftLeft,
+  -- USize.shiftRight
 ]
 
 def UInt.module : List Override :=
