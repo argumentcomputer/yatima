@@ -44,9 +44,7 @@ def preloadNames : Lean.NameSet :=
 def safeName (name : Name) : CodeGenM Name :=
   -- dbg_trace s!">> safeName {name}"
   let nameStr := name.toString false
-  if preloadNames.contains name
-      -- || reservedSyms.contains nameStr
-      || nameStr.contains '|' then do
+  if preloadNames.contains name || nameStr.contains '|' then do
     match (← get).replaced.find? name with
     | some n => return n
     | none   => replace name
@@ -141,42 +139,15 @@ def appendCtorOrInd (name : Name) : CodeGenM Bool := do
     return true
   | _ => return false
 
-def getMutuals (name : Name) : CodeGenM $ List Name := do
-  -- dbg_trace s!">> getMutuals {name}"
-  match (← read).env.constants.find? name with
-  -- TODO FIXME: maybe support `| some (.inductInfo x)` case?
-  -- winston: actually, I suspect not
-  | some (.defnInfo x) | some (.opaqueInfo x) =>
-    let all := x.all
-    -- dbg_trace s!">> getMutuals all: {all}"
-    if all.length == 1 then
-      return all
-    let auxDecls : Std.RBSet Name compare ←
-      all.foldlM (init := .empty) fun acc decl => do
-        return acc.union (← getDecl decl).getUsedConstants
-    -- dbg_trace s!">> getMutuals auxDecls1: {auxDecls.toList}"
-    let auxDecls := auxDecls.filter fun decl =>
-      all.any $ fun name => isGeneratedFrom name decl
-    let auxDecls ← auxDecls.toList.mapM getDecl
-    let auxDecls ← auxDecls.filterM fun decl =>
-      return all.any $ decl.getUsedConstants (cmp := compare) |>.contains
-    -- dbg_trace s!">> getMutuals auxDecls2: {auxDecls.map (·.name)}"
-    return all ++ auxDecls.map (·.name)
-  | some (.thmInfo x) => return x.all
-  | _ => return [name]
+@[inline] def mkFVarId (fvarId : Lean.FVarId) : CodeGenM Expr :=
+  -- dbg_trace s!">> mkFVarId"
+  mkName fvarId.name
 
-def mkFVarId : Lean.FVarId → CodeGenM Expr
-  | fvarId => do
-    -- dbg_trace s!">> mkFVarId"
-    mkName fvarId.name
-
-def mkArg (arg : Arg) : CodeGenM Expr := do
-  -- dbg_trace s!">> mkArg"
-  match arg with
-  | .erased => return toExpr "lcErased"
+def mkArg : Arg → CodeGenM Expr
+  | .erased => return .atom .nil -- toExpr "lcErased"
   | .fvar fvarId => mkFVarId fvarId
-    -- TODO: Hopefully can erase types??
-  | .type _ => return toExpr "lcErased"
+    -- hopefully can erase types??
+  | .type _ => return .atom .nil -- toExpr "lcErased"
 
 def mkParam : Param → CodeGenM String
   | ⟨fvarId, _, _, _⟩ =>
@@ -212,7 +183,7 @@ mutual
     -- dbg_trace s!">> mkLetValue"
     match letv with
     | .value lit => return toExpr lit
-    | .erased => return toExpr "lcErased"
+    | .erased => return .atom .nil -- toExpr "lcErased"
     | .proj typeName idx struct => do
       appendName typeName
       -- TODO FIXME: use `typeName` to get params and add to `idx`
@@ -301,7 +272,7 @@ mutual
     | .return fvarId =>
       -- dbg_trace s!">> mkCode return {fvarId.name}"
       mkFVarId fvarId
-    | .unreach _ => return toExpr "lcUnreachable"
+    | .unreach _ => return .atom .nil -- toExpr "lcUnreachable"
 
   partial def appendDecl (decl : Decl) : CodeGenM Unit := do
     -- dbg_trace s!">> appendDecl {decl.name}"
@@ -311,20 +282,6 @@ mutual
     let value : Expr ← mkCode value
     let body := if params.isEmpty then value else mkLambda params value
     appendBinding (name, body)
-
-  -- partial def appendMutualDecls (decls : List Decl) : CodeGenM Unit := do
-  --   -- dbg_trace s!">> appendMutualDecls {decls.map (·.name)}"
-  --   for decl in decls do
-  --     visit decl.name
-  --   let decls ← decls.mapM fun decl => do
-  --     -- dbg_trace ppDecl decl
-  --     let ⟨name, _, _, params, value, _, _, _⟩ := decl
-  --     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
-  --     let value : Expr ← mkCode value
-  --     let body := if params.isEmpty then value else mkLambda params value
-  --     pure (name.toString, body) -- TODO FIXME: this is pretty dangerous `toString`
-  --   Expr.mkMutualBlock decls |>.forM
-  --     fun (n, e) => appendBinding (n, e)
 
   partial def appendName (name : Name) : CodeGenM Unit := do
     if ← isVisited name then return
@@ -338,13 +295,6 @@ mutual
     | none =>
       if ← appendOverride name then return
       appendDecl $ ← getDecl name
-      -- let names ← getMutuals name
-      -- if let [name] := names then
-      --   if ← appendOverride name then return
-      --   appendDecl $ ← getDecl name
-      -- else
-      --   -- TODO FIXME: no support for mutual overrides
-      --   appendMutualDecls $ ← names.mapM getDecl
 
   partial def appendOverride (name : Name) : CodeGenM Bool := do
     -- dbg_trace s!">> appendOverride {name}"
@@ -390,13 +340,11 @@ a context and whose bindings are the constants in the context (including `decl`)
 that are needed to define `decl`.
 -/
 def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
-  let codeGenEnv := ⟨leanEnv, .empty⟩
-  match CodeGenM.run codeGenEnv default (codeGenM decl) with
+  match CodeGenM.run ⟨leanEnv, .empty⟩ default (codeGenM decl) with
   | .error e _ => .error e
   | .ok _ s =>
-    let bindings := s.appendedBindings.data.map
-      fun (n, x) => (n.toString false, x)
-    let bindings := Expr.mutualize bindings
+    let bindings := Expr.mutualize $
+      s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     return expr.pruneBlocks
 
