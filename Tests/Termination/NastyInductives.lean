@@ -1,9 +1,9 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← contAddrAndExtractTests
     "Fixtures/Termination/NastyInductives.lean"
-    [extractIpldTests, extractConverterTests]
+    [extractIpldTests, extractExtractorTests]
     false
   lspecIO tSeq

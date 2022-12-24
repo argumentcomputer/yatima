@@ -25,7 +25,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "75aa04edfab54ed0e9211ae6558999f4462e9ce7"
+  "https://github.com/yatima-inc/Lurk.lean" @ "c57ebf06b9bc083a9042a9d449a4a2f1a21f8e2d"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"
@@ -55,8 +55,8 @@ lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.Transpilation.TrickyTypes   { supportInterpreter := true }
-lean_exe Tests.Transpilation.Primitives    { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.Primitives   { supportInterpreter := true }
 
 end Testing
 
@@ -81,27 +81,29 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
       else .ok out.stdout
   else return .ok ""
 
-def getCurrDir : ScriptM String := do
-  match ← runCmd "pwd" with
-  | .ok res => return res.trim
-  | .err e  => panic! e
-
-def getHomeDir : ScriptM String :=
-  return s!"{"/".intercalate $ (← getCurrDir).splitOn "/" |>.take 3}"
-
 script setup do
   IO.println "building yatima"
   match ← runCmd "lake build" with
-  | .ok  _   =>
-    let mut binDir : String := s!"{← getHomeDir}/.local/bin"
-    IO.print s!"target directory for the yatima binary? (default={binDir}) "
-    let input := (← (← IO.getStdin).getLine).trim
-    if !input.isEmpty then
-      binDir := input
+  | .ok  _   => match ← IO.getEnv "HOME" with
+    | some homePath =>
+      let binDir : String := s!"{homePath}/.local/bin"
+      IO.print s!"target directory for the yatima binary? (default={binDir}) "
+      let input := (← (← IO.getStdin).getLine).trim
+      let binDir := if input.isEmpty then binDir else input
+      cpBin binDir
+    | none =>
+      IO.print s!"target directory for the yatima binary? "
+      let binDir := (← (← IO.getStdin).getLine).trim
+      if binDir.isEmpty then
+        IO.eprintln "target directory can't be empty"
+        return 1
+      cpBin binDir
+  | .err res => IO.eprintln res; return 1
+where
+  cpBin (binDir : String) : ScriptM UInt32 := do
     match ← runCmd s!"cp build/bin/yatima {binDir}/yatima" with
     | .ok _    => IO.println s!"yatima binary placed at {binDir}/"; return 0
     | .err res => IO.eprintln res; return 1
-  | .err res => IO.eprintln res; return 1
 
 end Setup
 
@@ -109,25 +111,23 @@ section ImportAll
 
 open System
 
-partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
+partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
     IO $ Array FilePath := do
   if ← fp.isDir then
     let mut extra : Array FilePath := #[]
     for dirEntry in ← fp.readDir do
-      for innerFp in ← getLeanFilePathsList dirEntry.path do
+      for innerFp in ← getLeanFilePaths dirEntry.path do
         extra := extra.push innerFp
     return acc.append extra
-  else
-    if (fp.extension.getD "") = "lean" then
-      return acc.push fp
-    else
-      return acc
+  else match fp.extension with
+    | some "lean" => return acc.push fp
+    | _ => return acc
 
 open Lean (RBTree)
 
 def getAllFiles : ScriptM $ List String := do
-  let paths := (← getLeanFilePathsList ⟨"Yatima"⟩).map toString
-  let paths : RBTree String compare := RBTree.ofList (paths.data) -- ordering
+  let paths := (← getLeanFilePaths ⟨"Yatima"⟩).map toString
+  let paths : RBTree String compare := RBTree.ofList paths.toList -- ordering
   return paths.toList
 
 def getImportsString : ScriptM String := do

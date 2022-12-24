@@ -1,15 +1,13 @@
 /-
 Copyright (c) 2021 Shing Tak Lam. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Shing Tak Lam, Daniel Selsam, Mario Carneiro
+Authors: Shing Tak Lam, Daniel Selsam, Mario Carneiro, Yatima Inc
 -/
 import Lean.Elab.Command
 
 open Lean Meta Elab Command
 
 namespace Lean
-
-deriving instance Inhabited for ConstantInfo -- required for Array.qsort
 
 namespace Environment
 
@@ -45,14 +43,14 @@ end Meta
 
 namespace Elab.Command
 
-syntax (name := printPrefix) "#print prefix " ident : command
+syntax (name := printPrefix) "#printprefix " ident : command
 
 /--
 The command `#print prefix foo` will print all definitions that start with
 the namespace `foo`.
 -/
 @[command_elab printPrefix] def elabPrintPrefix : CommandElab
-| `(#print prefix%$tk $name:ident) => do
+| `(#printprefix%$tk $name:ident) => do
   let nameId := name.getId
   liftTermElabM do
     let mut msg ← find "" fun cinfo => nameId.isPrefixOf cinfo.name
