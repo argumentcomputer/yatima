@@ -248,7 +248,7 @@ mutual
               let stt ← get
               let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
               pure $ acc.insert idx typeSus
-            | _ => throw .impossible
+            | _ => pure acc
           let rules ← data.rules.mapM fun rule => do
             let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
             pure (rule.ctor.idx, rule.fields, rhs)

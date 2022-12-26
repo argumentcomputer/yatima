@@ -134,7 +134,6 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM (RecrCtx × List Nat)
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
-  let mut constList : List (Nat × Name) := []
   let mut indTups : List (Nat × Name) := []
   let mut ctorTups : List (Nat × Name) := []
   let mut recTups : List (Nat × Name) := []
@@ -150,7 +149,7 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM (RecrCtx × List Nat)
       let indIdx ← getConstIdx name
       return (indIdx, name))
   -- mirror the compiler order of all inductives, then all constuctors, then all recursors
-  constList := indTups ++ ctorTups ++ recTups
+  let constList := indTups ++ ctorTups ++ recTups
   return (constList.enum.foldl (init := default)
     fun acc (i, tup) => acc.insert (i, none) tup, constList.map (·.1))
 
@@ -322,7 +321,7 @@ mutual
           let minors := recursorAnon.minors
           let k := recursorAnon.k
 
-          let (recrCtx, _) ← getIndRecrCtx indBlock
+          let (recrCtx, all) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
@@ -331,11 +330,9 @@ mutual
             | .intr, .intr, _, _ =>
               -- TODO
               let rules := [] -- sorry TODO
-              let all   := [] -- sorry TODO
               pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := true, all }
             | .extr, .extr, recAnon, recMeta => do
               let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
-              let all   := [] -- sorry TODO
               pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := false, all  }
             | _, _, _, _ => throw .irError
             casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta

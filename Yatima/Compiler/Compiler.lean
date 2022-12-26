@@ -303,7 +303,7 @@ mutual
     -- `mutualConsts` is the list of the names of all constants associated with an
     -- inductive block: the inductives themselves, the constructors and the recursors
     let mutualConsts := inds ++ indCtors ++ indRecs
-    let recIdxs := indRecs.enum.map (inds.length + indCtors.length + firstIdx + ·.1)
+    let all := mutualConsts.enum.map (firstIdx + ·.1)
 
     -- All inductives, constructors and recursors are done in one go, so we must
     -- append an array of `mutualConsts.length` to `consts` and save the mapping
@@ -321,7 +321,7 @@ mutual
         match ← getLeanConstant name with
         | .inductInfo ind =>
           withRecrs recrCtx do
-            pure $ (← inductiveToIR ind recIdxs) :: acc
+            pure $ (← inductiveToIR ind all) :: acc
         | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
     let indBlockCid ← addToStore $ .const
       ⟨.mutIndBlock $ irInds.map (·.anon), .mutIndBlock $ irInds.map (·.meta)⟩
@@ -371,7 +371,7 @@ mutual
     | none => throw $ .constantNotCompiled initInd.name
 
   /-- Encodes a Lean inductive to IR -/
-  partial def inductiveToIR (ind : Lean.InductiveVal) (recIdxs : List TC.ConstIdx) :
+  partial def inductiveToIR (ind : Lean.InductiveVal) (all : List TC.ConstIdx) :
       CompileM $ IR.Both IR.Inductive := do
     let (_, _, indIdx) ← getFromRecrCtx! ind.name
     let leanRecs := (← read).constMap.childrenOfWith ind.name
@@ -382,11 +382,11 @@ mutual
         match r with
         | .recInfo rv =>
           if isInternalRec rv.type ind.name then
-            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors indIdx recIdxs r
+            let (thisRec, thisCtors) := ← internalRecToIR ind.ctors indIdx all r
             let recs := ⟨Sigma.mk .intr thisRec.anon, Sigma.mk .intr thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else
-            let thisRec ← externalRecToIR indIdx recIdxs r
+            let thisRec ← externalRecToIR indIdx all r
             let recs := ⟨Sigma.mk .extr thisRec.anon, Sigma.mk .extr thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
