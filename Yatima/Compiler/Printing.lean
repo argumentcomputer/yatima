@@ -121,8 +121,7 @@ mutual
 end
 
 partial def printRecursorRule (rule : RecursorRule) : PrintM String := do
-  let ctor := rule.ctor.name
-  return s!"{ctor} {rule.fields} {← printExpr rule.rhs}"
+  return s!"{rule.fields} {← printExpr rule.rhs}"
 
 partial def printRecursor (cid : String) (recr : Recursor) : PrintM String := do
   let rules ← recr.rules.mapM printRecursorRule

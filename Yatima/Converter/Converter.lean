@@ -144,7 +144,7 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ConvertM (RecrCtx × List Nat)
       let name := ctor.name
       let indIdx ← getConstIdx name
       return (indIdx, name))
-    recTups := recTups.append (← ind.recrs.mapM fun ⟨_, recr⟩ => do
+    recTups := recTups.append (← ind.recrs.mapM fun recr => do
       let name := recr.name
       let indIdx ← getConstIdx name
       return (indIdx, name))
@@ -309,33 +309,23 @@ mutual
           let induct ← getInductive indBlock anon.idx
           let some ind := (← get).constsIdx.find? induct.meta.name
             | throw $ .cannotFindNameIdx $ toString (induct.meta.name : Name)
-          let pairAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
-          let pairMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
-          let recursorAnon := Sigma.snd pairAnon
-          let recursorMeta := Sigma.snd pairMeta
+          let recursorAnon ← ConvertM.unwrap $ induct.anon.recrs.get? anon.ridx
+          let recursorMeta ← ConvertM.unwrap $ induct.meta.recrs.get? anon.ridx
           let name := recursorMeta.name
           let lvls := recursorMeta.lvls
           let params := recursorAnon.params
           let indices := recursorAnon.indices
           let motives := recursorAnon.motives
           let minors := recursorAnon.minors
-          let k := recursorAnon.k
+          let isK := recursorAnon.isK
+          let internal := recursorAnon.extInd.isNone
 
           let (recrCtx, all) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
-            let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) →
-              (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ConvertM TC.Const
-            | .intr, .intr, _, _ =>
-              -- TODO
-              let rules := [] -- sorry TODO
-              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := true, all }
-            | .extr, .extr, recAnon, recMeta => do
-              let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
-              pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, k, ind, internal := false, all  }
-            | _, _, _, _ => throw .irError
-            casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
+            let rules ← zipWith ruleFromIR ⟨recursorAnon.rules, recursorMeta.rules⟩
+            pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, isK, ind, internal, all }
         | .quotient quotientAnon, .quotient quotientMeta =>
           let name := quotientMeta.name
           let lvls := quotientMeta.lvls
@@ -371,16 +361,7 @@ mutual
   partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :
       ConvertM TC.RecursorRule := do
     let rhs ← exprFromIR ⟨rule.anon.rhs, rule.meta.rhs⟩
-    let ctorIdx ← constFromIR ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let consts := (← get).tcStore.consts
-    let maxSize := consts.size
-    if h : ctorIdx < maxSize then
-      let ctor ← match consts[ctorIdx]'h with
-        | .constructor ctor => pure ctor
-        | _ => throw .irError
-      return { rhs, ctor, fields := rule.anon.fields }
-    else
-      throw $ .constIdxOutOfRange ctorIdx maxSize
+    return { rhs, fields := rule.anon.fields }
 
 end
 

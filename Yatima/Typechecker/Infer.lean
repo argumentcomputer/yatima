@@ -251,8 +251,8 @@ mutual
             | _ => pure acc
           let rules ← data.rules.mapM fun rule => do
             let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
-            pure (rule.ctor.idx, rule.fields, rhs)
-          pure $ TypedConst.recursor type data.params data.motives data.minors data.indices data.k data.ind rules
+            pure (sorry, rule.fields, rhs)
+          pure $ TypedConst.recursor type data.params data.motives data.minors data.indices data.isK data.ind rules
         | .quotient data => pure $ .quotient type data.kind
         let tcConsts := (← get).tcConsts
         if h : idx < tcConsts.size then

@@ -1,9 +1,17 @@
 import Ipld.Ipld
 import Yatima.Datatypes.Store
 
-namespace Yatima
+namespace Yatima.Ipld
 
-namespace Ipld
+def listFromIpld (f : Ipld → Option α) : Ipld → Option (List α)
+  | .array xs => xs.data.mapM f
+  | _ => none
+
+def optionFromIpld (f : Ipld → Option α) : Ipld → Option (Option α)
+  | .null => some none
+  | x => do
+    let x ← f x
+    pure $ some x
 
 def natFromIpld : Ipld → Option Nat
   | .bytes b => return Nat.fromByteListBE b.data.data
@@ -20,10 +28,6 @@ def nameFromIpld : Ipld → Option Name
     | .bytes  b => pure $ acc.mkNum (Nat.fromByteListBE b.data.data)
     | .string s => pure $ acc.mkStr s
     | _ => none
-  | _ => none
-
-def listNameFromIpld : Ipld → Option (List Name)
-  | .array ns => ns.data.mapM nameFromIpld
   | _ => none
 
 def binderInfoFromIpld : Ipld → Option BinderInfo
@@ -80,7 +84,7 @@ def splitNameₘFromIpld : (k : Kind) → Ipld → Option (Nameₘ k)
 
 def splitNatₐListNameₘFromIpld : (k : Kind) → Ipld → Option (NatₐListNameₘ k)
   | .anon, .array #[.number 0, x] => return .injₗ (← natFromIpld x)
-  | .meta, .array #[.number 1, x] => return .injᵣ (← listNameFromIpld x)
+  | .meta, .array #[.number 1, x] => return .injᵣ (← listFromIpld nameFromIpld x)
   | _, _ => none
 
 def splitBinderInfoₐFromIpld : (k : Kind) → Ipld → Option (BinderInfoₐ k)
@@ -116,10 +120,6 @@ def constCidFromIpld : Ipld → Option (ConstCid k)
   | .link c => return ⟨c⟩
   | _ => none
 
-def listUnivCidFromIpld : Ipld → Option (List (UnivCid k))
-  | .array ar => ar.data.mapM univCidFromIpld
-  | _ => none
-
 def definitionFromIpld : Ipld → Option (Definition k)
   | .array #[n, l, t, v, s] =>
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
@@ -127,14 +127,10 @@ def definitionFromIpld : Ipld → Option (Definition k)
       ← splitDefinitionSafetyUnitFromIpld k s⟩
   | _ => none
 
-def listDefinitionFromIpld : Ipld → Option (List (Definition k))
-  | .array ar => ar.data.mapM definitionFromIpld
-  | _ => none
-
 def mutDefFromIpld :
     (k : Kind) → Ipld → Option (Split (Definition k) (List (Definition k)) k)
   | .anon, .array #[.number 0, x] => return .injₗ (← definitionFromIpld x)
-  | .meta, .array #[.number 1, x] => return .injᵣ (← listDefinitionFromIpld x)
+  | .meta, .array #[.number 1, x] => return .injᵣ (← listFromIpld definitionFromIpld x)
   | _, _ => none
 
 def mutDefBlockFromIpld :
@@ -144,62 +140,35 @@ def mutDefBlockFromIpld :
   | _, _ => none
 
 def constructorFromIpld : Ipld → Option (Constructor k)
-  | .array #[n, t, l, i, p, f, r, s] =>
+  | .array #[n, t, l, i, p, f, s] =>
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k t,
       ← exprCidFromIpld l, ← splitNatₐFromIpld k i, ← splitNatₐFromIpld k p,
-      ← splitNatₐFromIpld k f, ← exprCidFromIpld r, ← splitBoolₐFromIpld k s⟩
-  | _ => none
-
-def listConstructorFromIpld : Ipld → Option (List (Constructor k))
-  | .array ar => ar.data.mapM constructorFromIpld
+      ← splitNatₐFromIpld k f, ← splitBoolₐFromIpld k s⟩
   | _ => none
 
 def recursorRuleFromIpld : Ipld → Option (RecursorRule k)
-  | .array #[c, f, r] =>
-    return ⟨← constCidFromIpld c, ← splitNatₐFromIpld k f, ← exprCidFromIpld r⟩
+  | .array #[f, r] =>
+    return ⟨← splitNatₐFromIpld k f, ← exprCidFromIpld r⟩
   | _ => none
 
-def listRecursorRuleFromIpld : Ipld → Option (List (RecursorRule k))
-  | .array ar => ar.data.mapM recursorRuleFromIpld
-  | _ => none
-
-def splitUnitListRecursorRuleFromIpld :
-    (r : RecType) → Ipld → Option (Split Unit (List (RecursorRule k)) r)
-  | .intr, .array #[.number 0, .null] => return .injₗ ()
-  | .extr, .array #[.number 1, x] => return .injᵣ (← listRecursorRuleFromIpld x)
-  | _, _ => none
-
-def recTypeFromIpld : Ipld → Option RecType
-  | .bool true  => return .intr
-  | .bool false => return .extr
-  | _ => none
-
-def sigmaRecursorFromIpld : Ipld → Option (Sigma (Recursor · k))
-  | .array #[b, n, l, t, p, i, m, m', rs, k'] => do
-    let recType ← recTypeFromIpld b
-    return ⟨recType,
-      ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l, ← exprCidFromIpld t,
-        ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
-        ← splitNatₐFromIpld k m, ← splitNatₐFromIpld k m',
-        ← splitUnitListRecursorRuleFromIpld recType rs,
-        ← splitBoolₐFromIpld k k'⟩⟩
-  | _ => none
-
-def listSigmaRecursorFromIpld : Ipld → Option (List (Sigma (Recursor · k)))
-  | .array ar => ar.data.mapM sigmaRecursorFromIpld
+def recursorFromIpld : Ipld → Option (Recursor k)
+  | .array #[n, l, t, p, i, m, m', rs, k', e] => do
+    return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l, ← exprCidFromIpld t,
+      ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
+      ← splitNatₐFromIpld k m, ← splitNatₐFromIpld k m',
+      ← listFromIpld recursorRuleFromIpld rs,
+      ← splitBoolₐFromIpld k k',
+      ← optionFromIpld constCidFromIpld e
+      ⟩
   | _ => none
 
 def mutIndFromIpld : Ipld → Option (Inductive k)
   | .array #[n, l, t, p, i, cs, rs, r, s, r'] =>
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l,
       ← exprCidFromIpld t, ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
-      ← listConstructorFromIpld cs,
-      ← listSigmaRecursorFromIpld rs,
+      ← listFromIpld constructorFromIpld cs,
+      ← listFromIpld recursorFromIpld rs,
       ← splitBoolₐFromIpld k r, ← splitBoolₐFromIpld k s, ← splitBoolₐFromIpld k r'⟩
-  | _ => none
-
-def mutIndBlockFromIpld : Ipld → Option (List (Inductive k))
-  | .array ar => ar.data.mapM mutIndFromIpld
   | _ => none
 
 def univAnonFromIpld : Ipld → Option (Univ .anon)
@@ -230,12 +199,12 @@ def univMetaFromIpld : Ipld → Option (Univ .meta)
 def exprAnonFromIpld : Ipld → Option (Expr .anon)
   | .array #[.number $ EXPR .anon, .number 0, n, i, ls] =>
     return .var (← splitNatₐNameₘFromIpld .anon n) (← splitNat?ₘFromIpld .anon i)
-      (← listUnivCidFromIpld ls)
+      (← listFromIpld univCidFromIpld ls)
   | .array #[.number $ EXPR .anon, .number 1, u] =>
     return .sort (← univCidFromIpld u)
   | .array #[.number $ EXPR .anon, .number 2, n, c, ls] =>
     return .const (← splitNameₘFromIpld .anon n) (← constCidFromIpld c)
-      (← listUnivCidFromIpld ls)
+      (← listFromIpld univCidFromIpld ls)
   | .array #[.number $ EXPR .anon, .number 3, f, a] =>
     return .app (← exprCidFromIpld f) (← exprCidFromIpld a)
   | .array #[.number $ EXPR .anon, .number 4, n, i, d, b] =>
@@ -256,12 +225,12 @@ def exprAnonFromIpld : Ipld → Option (Expr .anon)
 def exprMetaFromIpld : Ipld → Option (Expr .meta)
   | .array #[.number $ EXPR .meta, .number 0, n, i, ls] =>
     return .var (← splitNatₐNameₘFromIpld .meta n) (← splitNat?ₘFromIpld .meta i)
-      (← listUnivCidFromIpld ls)
+      (← listFromIpld univCidFromIpld ls)
   | .array #[.number $ EXPR .meta, .number 1, u] =>
     return .sort (← univCidFromIpld u)
   | .array #[.number $ EXPR .meta, .number 2, n, c, ls] =>
     return .const (← splitNameₘFromIpld .meta n) (← constCidFromIpld c)
-      (← listUnivCidFromIpld ls)
+      (← listFromIpld univCidFromIpld ls)
   | .array #[.number $ EXPR .meta, .number 3, f, a] =>
     return .app (← exprCidFromIpld f) (← exprCidFromIpld a)
   | .array #[.number $ EXPR .meta, .number 4, n, i, d, b] =>
@@ -307,7 +276,7 @@ def constAnonFromIpld : Ipld → Option (Const .anon)
   | .array #[.number $ CONST .anon, .number 9, b] =>
     return .mutDefBlock (← mutDefBlockFromIpld .anon b)
   | .array #[.number $ CONST .anon, .number 10, b] =>
-    return .mutIndBlock (← mutIndBlockFromIpld b)
+    return .mutIndBlock (← listFromIpld mutIndFromIpld b)
   | _ => none
 
 def constMetaFromIpld : Ipld → Option (Const .meta)
@@ -338,7 +307,7 @@ def constMetaFromIpld : Ipld → Option (Const .meta)
   | .array #[.number $ CONST .meta, .number 9, b] =>
     return .mutDefBlock (← mutDefBlockFromIpld .meta b)
   | .array #[.number $ CONST .meta, .number 10, b] =>
-    return .mutIndBlock (← mutIndBlockFromIpld b)
+    return .mutIndBlock (← listFromIpld mutIndFromIpld b)
   | _ => none
 
 def constsTreeFromIpld (ar : Array Ipld) :
@@ -410,6 +379,4 @@ def storeFromIpld : Ipld → Option IR.Store
       ← constMetaMapFromIpld constMetaIpld⟩
   | _ => none
 
-end Ipld
-
-end Yatima
+end Yatima.Ipld

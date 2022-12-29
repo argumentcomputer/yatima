@@ -4,16 +4,6 @@ namespace Yatima
 
 namespace IR
 
-/-- The kind of recursor: internal or external -/
-inductive RecType where
-  | intr : RecType
-  | extr : RecType
-  deriving Inhabited, DecidableEq, Ord
-
-instance : Coe RecType Bool where coe
-  | .intr => true
-  | .extr => false
-
 -- The number of universes for anon or their names for meta
 scoped notation "NatₐListNameₘ" => Split Nat (List Name)
 
@@ -72,37 +62,35 @@ structure Constructor (k : Kind) where
   idx    : Natₐ k
   params : Natₐ k
   fields : Natₐ k
-  rhs    : ExprCid k
   safe   : Boolₐ k
   deriving Repr, Ord
 
 structure RecursorRule (k : Kind) where
-  ctor   : ConstCid k
   fields : Natₐ k
   rhs    : ExprCid k
   deriving Repr, Ord
 
-structure Recursor (r : RecType) (k : Kind) where
-  name    : Nameₘ k
-  lvls    : NatₐListNameₘ k
-  type    : ExprCid k
-  params  : Natₐ k
-  indices : Natₐ k
-  motives : Natₐ k
-  minors  : Natₐ k
-  rules   : Split Unit (List (RecursorRule k)) r
-  k       : Boolₐ k
-  deriving Repr, Ord
+-- For some reason, Lean cannot infer `Ord` when we use `Option`, so
+-- we will will have to write our own `Ord` instance
+instance [Ord α] : Ord (Option α) where
+  compare a b :=
+    let toList x := match x with
+      | none => []
+      | some x => [x]
+    compare (toList a) (toList b)
 
-instance : Ord (Sigma (Recursor · k)) where
-  compare x y :=
-    if h : x.1 = y.1 then
-      let x₂ := x.2
-      by
-        rw [h] at x₂
-        exact compare x₂ y.2
-    else
-      compare x.1 y.1
+structure Recursor (k : Kind) where
+  name     : Nameₘ k
+  lvls     : NatₐListNameₘ k
+  type     : ExprCid k
+  params   : Natₐ k
+  indices  : Natₐ k
+  motives  : Natₐ k
+  minors   : Natₐ k
+  rules    : List (RecursorRule k)
+  isK      : Boolₐ k
+  extInd   : Option (ConstCid k)
+  deriving Repr, Ord
 
 structure Inductive (k : Kind) where
   name    : Nameₘ k
@@ -111,7 +99,7 @@ structure Inductive (k : Kind) where
   params  : Natₐ k
   indices : Natₐ k
   ctors   : List (Constructor k)
-  recrs   : List (Sigma (Recursor · k))
+  recrs   : List (Recursor k)
   recr    : Boolₐ k
   safe    : Boolₐ k
   refl    : Boolₐ k
@@ -258,7 +246,6 @@ structure Inductive where
   deriving BEq
 
 structure RecursorRule where
-  ctor   : Constructor
   fields : Nat
   rhs    : Expr
   deriving BEq
@@ -272,7 +259,7 @@ structure Recursor where
   motives  : Nat
   minors   : Nat
   rules    : List RecursorRule
-  k        : Bool
+  isK      : Bool
   ind      : ConstIdx
   internal : Bool
   -- we need to cache a list of the indexes of all of the recursors
@@ -368,15 +355,15 @@ def Definition.toIR (d : Definition) (typeCid valueCid : IR.BothExprCid) : IR.De
   | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
   | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
 
-def Constructor.toIR (c : Constructor) (typeCid rhsCid : IR.BothExprCid) : IR.Constructor k :=
+def Constructor.toIR (c : Constructor) (typeCid : IR.BothExprCid) : IR.Constructor k :=
   match k with
-  | .anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, rhsCid.anon, c.safe⟩
-  | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), rhsCid.meta, ()⟩
+  | .anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, c.safe⟩
+  | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), ()⟩
 
-def RecursorRule.toIR (r : RecursorRule) (ctorCid : IR.BothConstCid) (rhsCid : IR.BothExprCid) : IR.RecursorRule k :=
+def RecursorRule.toIR (r : RecursorRule) (rhsCid : IR.BothExprCid) : IR.RecursorRule k :=
   match k with
-  | .anon => ⟨ctorCid.anon, r.fields, rhsCid.anon⟩
-  | .meta => ⟨ctorCid.meta, (), rhsCid.meta⟩
+  | .anon => ⟨r.fields, rhsCid.anon⟩
+  | .meta => ⟨(), rhsCid.meta⟩
 
 -- def ExtRecursor.toIR {k : IR.Kind} (r : ExtRecursor) (typeCid : IR.BothExprCid)
 --     (rulesCids : List $ IR.RecursorRule k) : IR.Recursor .extr k :=

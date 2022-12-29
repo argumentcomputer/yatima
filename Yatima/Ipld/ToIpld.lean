@@ -66,18 +66,14 @@ instance [Coe α Ipld] [Coe β Ipld] : Coe (Split α β k) Ipld where coe
 instance : Coe Unit Ipld where coe
   | .unit => .null
 
-instance : (k : Kind) → Coe (RecursorRule k) Ipld
-  | .anon => { coe := fun | .mk c f r => .array #[c, f, r] }
-  | .meta => { coe := fun | .mk c f r => .array #[c, f, r] }
+instance : Coe (RecursorRule k) Ipld where coe
+  | .mk f r => .array #[f, r]
 
-instance : Coe (Recursor b k) Ipld where coe
-  | .mk n l t p i m m' rs k => .array #[n, l, t, p, i, m, m', rs, k]
-
-instance : Coe (Sigma (Recursor · k)) Ipld where coe
-  | .mk b (.mk n l t p i m m' rs k) => .array #[(b : Bool), n, l, t, p, i, m, m', rs, k]
+instance : Coe (Recursor k) Ipld where coe
+  | .mk n l t p i m m' rs k e => .array #[n, l, t, p, i, m, m', rs, k, e]
 
 instance : Coe (Constructor k) Ipld where coe
-  | .mk n t l i p f r s => .array #[n, t, l, i, p, f, r, s]
+  | .mk n t l i p f s => .array #[n, t, l, i, p, f, s]
 
 instance : Coe (Inductive k) Ipld where coe
   | .mk n l t p i cs rs r s r' => .array #[n, l, t, p, i, cs, rs, r, s, r']

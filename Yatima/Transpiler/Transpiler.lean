@@ -387,7 +387,7 @@ mutual
         appendCtor ctor ⟦,($(ind.name.toString false) $ind.params $ind.indices)⟧ ind.indices
       erecrs.forM fun r => visit r.name
       let erecrs ← erecrs.mapM fun erecr =>
-        mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map (·.ctor)
+        mkRecursor erecr.type erecr.name erecr.indices $ erecr.rules.map sorry -- (·.ctor)
       visit irecr.name
       let irecr ← mkRecursor irecr.type irecr.name irecr.indices ctors
       match mkMutualBlock (irecr :: erecrs) with

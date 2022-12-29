@@ -55,10 +55,11 @@ def getMutualIndInfo (ind : Inductive) : TranspileM $ List MutualInfo := do
       let ctors := indMeta.ctors.map fun ctor => ctor.name.projᵣ
       let mut intR : Name := default
       let mut extRs : List Name := []
-      for ⟨b, recr⟩ in indMeta.recrs do
-        match b with
-        | .intr => intR := recr.name.projᵣ
-        | .extr => extRs := recr.name.projᵣ :: extRs
+      for recr in indMeta.recrs do
+        if recr.extInd.isNone then
+          intR := recr.name.projᵣ
+        else
+          extRs := recr.name.projᵣ :: extRs
       let ind : Inductive := ← match map.find? indName with
         | some (.inductive ind) => return ind
         | some x => throw $ .invalidConstantKind x.name "inductive" x.ctorName
