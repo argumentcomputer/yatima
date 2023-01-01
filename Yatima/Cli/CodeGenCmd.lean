@@ -11,6 +11,7 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   match codeGen (← Lean.runFrontend ⟨fileName⟩) decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>
+    let expr := if p.hasFlag "anon" then expr.anon else expr
     let output := ⟨p.getStringFlagD "output" s!"lurk/{decl}.lurk"⟩
     match output.parent with
     | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
@@ -42,6 +43,7 @@ def codeGenCmd : Cli.Cmd := `[Cli|
   FLAGS:
     d, "decl"   : String; "Sets the topmost call for the Lurk evaluation (defaults to \"root\")"
     o, "output" : String; "Specifies the target file name for the Lurk code (defaults to \"output.lurk\")"
+    a, "anon";            "Anonimizes variable names for a more compact code"
     r, "run";             "Evaluates the resulting Lurk expression with the custom evaluator"
     f, "frames" : Nat;    "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
     rs, "lurkrs";         "Evaluates the resulting Lurk expression with `lurkrs`"
