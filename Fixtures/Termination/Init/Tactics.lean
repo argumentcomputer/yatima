@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Leonardo de Moura, Mario Carneiro
 -/
 prelude
-import Init.Notation
+import Fixtures.Termination.Init.Notation
 set_option linter.missingDocs true -- keep it documented
 
 namespace Lean.Parser.Tactic
