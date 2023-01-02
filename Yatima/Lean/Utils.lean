@@ -1,6 +1,7 @@
 import Lean
 import Std.Data.RBMap
 import YatimaStdLib.Lean
+import Yatima.Datatypes.Lean
 
 namespace Lean
 

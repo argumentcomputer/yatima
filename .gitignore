@@ -1,9 +1,8 @@
 /build
-/lean_packages/*
-!/lean_packages/manifest.json
-/yatima-rs/target
+/lake-packages
 /result
 *.ir
 *.lurk
 *.frames
 *.json
+!lake-manifest.json

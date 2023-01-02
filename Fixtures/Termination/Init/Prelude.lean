@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Leonardo de Moura, Mario Carneiro
 -/
 prelude -- Don't import Init, because we're in Init itself
-set_option linter.all false -- prevent error messages from runFrontend
+set_option linter.missingDocs true -- keep it documented
 
 /-!
 # Init.Prelude
@@ -2969,9 +2969,10 @@ end
 end ReaderT
 
 /--
-An implementation of [`MonadReader`]. It does not contain `local` because this
-function cannot be lifted using `monadLift`. Instead, the `MonadReaderAdapter`
-class provides the more general `adaptReader` function.
+An implementation of Haskell's [`MonadReader`] (sans functional dependency; see also `MonadReader`
+in this module). It does not contain `local` because this
+function cannot be lifted using `monadLift`. `local` is instead provided by
+the `MonadWithReader` class as `withReader`.
 
 Note: This class can be seen as a simplification of the more "principled" definition
 ```
@@ -3461,19 +3462,13 @@ instance : BEq Name where
   beq := Name.beq
 
 /--
-Append two hierarchical names. Example:
-```lean
-`Lean.Meta ++ `Tactic.simp
-```
-return `Lean.Meta.Tactic.simp`
+This function does not have special support for macro scopes.
+See `Name.append`.
 -/
-protected def append : Name → Name → Name
-  | n, anonymous => n
-  | n, str p s => Name.mkStr (Name.append n p) s
-  | n, num p d => Name.mkNum (Name.append n p) d
-
-instance : Append Name where
-  append := Name.append
+def appendCore : Name → Name → Name
+  | n, .anonymous => n
+  | n, .str p s => .str (appendCore n p) s
+  | n, .num p d => .num (appendCore n p) d
 
 end Name
 
@@ -4096,9 +4091,7 @@ def Name.hasMacroScopes : Name → Bool
   | num p _ => hasMacroScopes p
   | _       => false
 
--- TODO fix private definitions
--- private def eraseMacroScopesAux : Name → Name
-def eraseMacroScopesAux : Name → Name
+private def eraseMacroScopesAux : Name → Name
   | .str p s   => match beq s "_@" with
     | true  => p
     | false => eraseMacroScopesAux p
@@ -4112,9 +4105,7 @@ def Name.eraseMacroScopes (n : Name) : Name :=
   | true  => eraseMacroScopesAux n
   | false => n
 
--- TODO fix private definitions
--- private def simpMacroScopesAux : Name → Name
-def simpMacroScopesAux : Name → Name
+private def simpMacroScopesAux : Name → Name
   | .num p i => Name.mkNum (simpMacroScopesAux p) i
   | n        => eraseMacroScopesAux n
 
@@ -4152,7 +4143,7 @@ def MacroScopesView.review (view : MacroScopesView) : Name :=
   match view.scopes with
   | List.nil      => view.name
   | List.cons _ _ =>
-    let base := (Name.mkStr (hAppend (hAppend (Name.mkStr view.name "_@") view.imported) view.mainModule) "_hyg")
+    let base := (Name.mkStr (Name.appendCore (Name.appendCore (Name.mkStr view.name "_@") view.imported) view.mainModule) "_hyg")
     view.scopes.foldl Name.mkNum base
 
 -- TODO fix private definitions
@@ -4208,12 +4199,31 @@ def addMacroScope (mainModule : Name) (n : Name) (scp : MacroScope) : Name :=
     | true  => Name.mkNum n scp
     | false =>
       { view with
-        imported   := view.scopes.foldl Name.mkNum (hAppend view.imported view.mainModule)
+        imported   := view.scopes.foldl Name.mkNum (Name.appendCore view.imported view.mainModule)
         mainModule := mainModule
         scopes     := List.cons scp List.nil
       }.review
   | false =>
-    Name.mkNum (Name.mkStr (hAppend (Name.mkStr n "_@") mainModule) "_hyg") scp
+    Name.mkNum (Name.mkStr (Name.appendCore (Name.mkStr n "_@") mainModule) "_hyg") scp
+
+/--
+Append two names that may have macro scopes. The macro scopes in `b` are always erased.
+If `a` has macro scopes, then the are propagated to result of `append a b`
+-/
+def Name.append (a b : Name) : Name :=
+  match a.hasMacroScopes, b.hasMacroScopes with
+  | true, true  =>
+    panic "Error: invalid `Name.append`, both arguments have macro scopes, consider using `eraseMacroScopes`"
+  | true, false =>
+    let view := extractMacroScopes a
+    { view with name := appendCore view.name b }.review
+  | false, true =>
+    let view := extractMacroScopes b
+    { view with name := appendCore a view.name }.review
+  | false, false => appendCore a b
+
+instance : Append Name where
+  append := Name.append
 
 /--
 Add a new macro scope onto the name `n`, using the monad state to supply the
@@ -4256,14 +4266,11 @@ def matchesLit (stx : Syntax) (k : SyntaxNodeKind) (val : String) : Bool :=
     | _                  => false)
   | _                     => false
 
-
 end Syntax
 
 namespace Macro
 
--- TODO fix private definitions
 /-- References -/
--- private opaque MethodsRefPointed : NonemptyType.{0}
 private opaque MethodsRefPointed : NonemptyType.{0}
 
 -- TODO fix private definitions
