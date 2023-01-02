@@ -5,3 +5,4 @@
 *.lurk
 *.frames
 *.json
+!lake-manifest.json
