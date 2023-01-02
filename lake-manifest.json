@@ -1,0 +1,57 @@
+{"version": 4,
+ "packagesDir": "./lake-packages",
+ "packages":
+ [{"git":
+   {"url": "https://github.com/yatima-inc/Megaparsec.lean",
+    "subDir?": null,
+    "rev": "4b02c12e70a88b2ecf735899f85fe18d296fac90",
+    "name": "Megaparsec",
+    "inputRev?": "4b02c12e70a88b2ecf735899f85fe18d296fac90"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
+    "subDir?": null,
+    "rev": "818538aced05fe563ef95bb3dcdf5ed755896139",
+    "name": "YatimaStdLib",
+    "inputRev?": "818538aced05fe563ef95bb3dcdf5ed755896139"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/Lurk.lean",
+    "subDir?": null,
+    "rev": "c12f49ad0946633f4412499b8bb52a5534fb23a8",
+    "name": "Lurk",
+    "inputRev?": "c12f49ad0946633f4412499b8bb52a5534fb23a8"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/Ipld.lean",
+    "subDir?": null,
+    "rev": "f4e824b161174af7aa670e8a0d0185cb017ae357",
+    "name": "Ipld",
+    "inputRev?": "f4e824b161174af7aa670e8a0d0185cb017ae357"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/straume",
+    "subDir?": null,
+    "rev": "df81444aa996010835a6a5f63ea651b02ec035e8",
+    "name": "Straume",
+    "inputRev?": "df81444aa996010835a6a5f63ea651b02ec035e8"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/LSpec.git",
+    "subDir?": null,
+    "rev": "129fd4ba76d5cb9abf271dc29208a28f45fd981e",
+    "name": "LSpec",
+    "inputRev?": "129fd4ba76d5cb9abf271dc29208a28f45fd981e"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/Poseidon.lean",
+    "subDir?": null,
+    "rev": "995807a3ee648851ab7e43e5e35de37fb11856ba",
+    "name": "Poseidon",
+    "inputRev?": "995807a3ee648851ab7e43e5e35de37fb11856ba"}},
+  {"git":
+   {"url": "https://github.com/yatima-inc/Cli.lean",
+    "subDir?": null,
+    "rev": "6f7d881fd51f99a6214ca3400979a5fb89f0a557",
+    "name": "Cli",
+    "inputRev?": "6f7d881fd51f99a6214ca3400979a5fb89f0a557"}},
+  {"git":
+   {"url": "https://github.com/leanprover/std4/",
+    "subDir?": null,
+    "rev": "2919713bde15d55e3ea3625a03546531283bcb54",
+    "name": "std",
+    "inputRev?": "2919713bde15d55e3ea3625a03546531283bcb54"}}]}

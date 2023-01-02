@@ -8,7 +8,7 @@ Notation for operators defined at Prelude.lean
 prelude
 import Fixtures.Termination.Init.Prelude
 import Fixtures.Termination.Init.Coe
-set_option linter.all false -- prevent error messages from runFrontend
+set_option linter.missingDocs true -- keep it documented
 
 namespace Lean
 
@@ -98,7 +98,7 @@ syntax:65 (name := subPrio) prio " - " prio:66 : prio
 
 end Parser.Syntax
 
-instance : CoeHead (TSyntax ks) Syntax where
+instance : CoeOut (TSyntax ks) Syntax where
   coe stx := stx.raw
 
 instance : Coe SyntaxNodeKind SyntaxNodeKinds where
@@ -131,12 +131,29 @@ macro "max_prec" : term => `(1024)
 macro "default" : prio => `(prio| 1000)
 /-- The standardized "low" priority `low = 100`, for things that should be lower than default priority. -/
 macro "low"     : prio => `(prio| 100)
-/-- The standardized "medium" priority `med = 1000`. This is the same as `default`. -/
-macro "mid"     : prio => `(prio| 1000)
+/--
+The standardized "medium" priority `med = 1000`. This is lower than `default`, and higher than `low`.
+-/
+macro "mid"     : prio => `(prio| 500)
 /-- The standardized "high" priority `high = 10000`, for things that should be higher than default priority. -/
 macro "high"    : prio => `(prio| 10000)
 /-- Parentheses are used for grouping priority expressions. -/
 macro "(" p:prio ")" : prio => return p
+
+/-
+Note regarding priorities. We want `low < mid < default` because we have the following default instances:
+```
+@[default_instance low] instance (n : Nat) : OfNat Nat n where ...
+@[default_instance mid] instance : Neg Int where ...
+@[default_instance default] instance [Add α] : HAdd α α α where ...
+@[default_instance default] instance [Sub α] : HSub α α α where ...
+...
+```
+
+Monomorphic default instances must always "win" to preserve the Lean 3 monomorphic "look&feel".
+The `Neg Int` instance must have precedence over the `OfNat Nat n` one, otherwise we fail to elaborate `#check -42`
+See issue #1813 for an example that failed when `mid = default`.
+-/
 
 -- Basic notation for defining parsers
 -- NOTE: precedence must be at least `arg` to be used in `macro` without parentheses
@@ -263,7 +280,7 @@ syntax (name := rawNatLit) "nat_lit " num : term
 @[inherit_doc] infixl:75 " >>> " => HShiftRight.hShiftRight
 @[inherit_doc] infixr:80 " ^ "   => HPow.hPow
 @[inherit_doc] infixl:65 " ++ "  => HAppend.hAppend
-@[inherit_doc] prefix:100 "-"    => Neg.neg
+@[inherit_doc] prefix:75 "-"    => Neg.neg
 @[inherit_doc] prefix:100 "~~~"  => Complement.complement
 
 /-!
@@ -382,8 +399,13 @@ match d with
 It matches `d` against the pattern `pat` and the bindings are available in `t`.
 If the pattern does not match, it returns `e` instead.
 -/
-macro "if " "let " pat:term " := " d:term " then " t:term " else " e:term : term =>
-  `(match $d:term with | $pat => $t | _ => $e)
+syntax (name := termIfLet)
+  ppRealGroup(ppRealFill(ppIndent("if " "let " term " := " term " then") ppSpace term)
+    ppDedent(ppSpace) ppRealFill("else " term)) : term
+
+macro_rules
+  | `(if let $pat := $d then $t else $e) =>
+    `(match $d:term with | $pat => $t | _ => $e)
 
 @[inherit_doc cond] syntax (name := boolIfThenElse)
   ppRealGroup(ppRealFill(ppIndent("bif " term " then") ppSpace term)
