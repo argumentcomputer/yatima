@@ -46,9 +46,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Cli.lean",
     "subDir?": null,
-    "rev": "b70da6d7579fe45c50a4f5c17274b9398c9610d6",
+    "rev": "6f7d881fd51f99a6214ca3400979a5fb89f0a557",
     "name": "Cli",
-    "inputRev?": "b70da6d7579fe45c50a4f5c17274b9398c9610d6"}},
+    "inputRev?": "6f7d881fd51f99a6214ca3400979a5fb89f0a557"}},
   {"git":
    {"url": "https://github.com/leanprover/std4/",
     "subDir?": null,
