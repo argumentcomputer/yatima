@@ -5,30 +5,29 @@ open Lake DSL
 package Yatima
 
 @[default_target]
-lean_exe yatima {
+lean_exe yatima where
   supportInterpreter := true
   root := `Main
-}
 
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "9ccb24133e8d06a268b823abd51df50c97cdede3"
+  "https://github.com/yatima-inc/Ipld.lean" @ "f4e824b161174af7aa670e8a0d0185cb017ae357"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "89798a6cb76b2b29469ff752af2fd8543b3a5515"
+  "https://github.com/yatima-inc/LSpec.git" @ "129fd4ba76d5cb9abf271dc29208a28f45fd981e"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "f905b68f529de2af44cf6ea63489b7e3cd090050"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "818538aced05fe563ef95bb3dcdf5ed755896139"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
+  "https://github.com/yatima-inc/Cli.lean" @ "b70da6d7579fe45c50a4f5c17274b9398c9610d6"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "f81c9cff1dd4ef6d34e436e52dd704354716ece8"
+  "https://github.com/yatima-inc/Lurk.lean" @ "c12f49ad0946633f4412499b8bb52a5534fb23a8"
 
 require std from git
-  "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"
+  "https://github.com/leanprover/std4/" @ "2919713bde15d55e3ea3625a03546531283bcb54"
 
 section Testing
 
@@ -115,14 +114,8 @@ open System
 partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
     IO $ Array FilePath := do
   if ← fp.isDir then
-    let mut extra : Array FilePath := #[]
-    for dirEntry in ← fp.readDir do
-      for innerFp in ← getLeanFilePaths dirEntry.path do
-        extra := extra.push innerFp
-    return acc.append extra
-  else match fp.extension with
-    | some "lean" => return acc.push fp
-    | _ => return acc
+    (← fp.readDir).foldlM (fun acc dir => getLeanFilePaths dir.path acc) acc
+  else return if fp.extension == some "lean" then acc.push fp else acc
 
 open Lean (RBTree)
 
