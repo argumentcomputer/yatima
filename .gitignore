@@ -1,7 +1,6 @@
 /build
 /lean_packages/*
 !/lean_packages/manifest.json
-/yatima-rs/target
 /result
 *.ir
 *.lurk
