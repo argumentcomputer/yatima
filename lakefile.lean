@@ -12,19 +12,19 @@ lean_exe yatima where
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "f4e824b161174af7aa670e8a0d0185cb017ae357"
+  "https://github.com/yatima-inc/Ipld.lean" @ "ab9ace59e5562ce0ed8b921f077914de8e9f4187"
 
 require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "129fd4ba76d5cb9abf271dc29208a28f45fd981e"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "818538aced05fe563ef95bb3dcdf5ed755896139"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "515b7eff7765dcf55ce275ac41fa13a30a59f1d0"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "6f7d881fd51f99a6214ca3400979a5fb89f0a557"
+  "https://github.com/yatima-inc/Cli.lean" @ "5a8f4a22248d854db79b78ad2a55976005073ed3"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "c12f49ad0946633f4412499b8bb52a5534fb23a8"
+  "https://github.com/yatima-inc/Lurk.lean" @ "50276734be123802b0e1f86e89d52879d388c455"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "2919713bde15d55e3ea3625a03546531283bcb54"
