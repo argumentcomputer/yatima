@@ -213,8 +213,8 @@ mutual
         | .app (Neutral.const kName k _) args' => match ← derefTypedConst kName k with
           | .constructor _ idx _ =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
-            match rules.find? (fun r => r.fst == idx) with
-            | some (_, fields, rhs) =>
+            match rules.get? idx with
+            | some (fields, rhs) =>
               let exprs := (args'.take fields) ++ (args.drop indices)
               withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor

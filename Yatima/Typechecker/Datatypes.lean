@@ -82,7 +82,7 @@ inductive TypedConst
   | «opaque»    : (type value : TypedExpr) → TypedConst
   | definition  : (type deref : TypedExpr) → (safety : DefinitionSafety) → TypedConst
   | constructor : (type : TypedExpr) → (idx fields : Nat) → TypedConst
-  | recursor    : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → (ind :  ConstIdx) → (rules : List (Nat × Nat × TypedExpr)) → TypedConst
+  | recursor    : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → (ind :  ConstIdx) → (rules : List (Nat × TypedExpr)) → TypedConst
   | quotient    : (type : TypedExpr) → (kind : QuotKind) → TypedConst
   deriving Inhabited, BEq
 
