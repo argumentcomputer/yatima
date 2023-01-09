@@ -30,6 +30,7 @@ import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.PrettyPrint
 import Yatima.CodeGen.Simp
 import Yatima.CodeGen.Test
+import Yatima.Compiler.Yul
 import Yatima.ContAddr.ContAddr
 import Yatima.ContAddr.ContAddrError
 import Yatima.ContAddr.ContAddrM
