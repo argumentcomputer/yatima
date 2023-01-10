@@ -401,8 +401,8 @@ mutual
         pure $ some ctorIdx
       | _ => pure none
     let unit ← match struct with
-      | some ctor =>
-        match ← derefConst ctor with
+      | some ctorIdx =>
+        match ← derefConst ctorIdx with
         | .constructor ctor => pure $ ctor.fields == 0
         | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
       | none => pure false

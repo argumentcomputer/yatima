@@ -139,8 +139,7 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .constructor x => .constructor $ reindexCtor map x
   | .recursor x =>
     let rules := x.rules.map fun r => { r with
-      rhs := reindexExpr map r.rhs,
-      ctor := reindexCtor map r.ctor }
+      rhs := reindexExpr map r.rhs }
     .recursor { x with
       type := reindexExpr map x.type, rules := rules, ind := map.find! x.ind}
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
