@@ -12,8 +12,5 @@ def univCtor := univ.ctorName
 --   Std.RBMap.ofList [(0, 0), (1, 1), (2, 2)] _
 -- def mapInsert := map.insert 3 3
 
-def tree : Tree Nat := .node 4 [.node 2 []]
-def treeSize := tree.size
-
 def name : Lean.Name := `this.is.a.name
 def nameStr := toString name
