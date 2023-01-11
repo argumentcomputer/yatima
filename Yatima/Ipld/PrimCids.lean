@@ -1,4 +1,4 @@
-import Lean
+import Std.Data.RBMap
 import Yatima.Typechecker.Datatypes
 
 namespace Yatima.Ipld
