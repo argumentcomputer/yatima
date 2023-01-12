@@ -1,4 +1,4 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 def wellFoundedExtractor := extractAnonCidGroupsTests [
   [`WellFounded.A, `WellFounded.A'],
@@ -22,12 +22,12 @@ def unsafeExtractor := extractAnonCidGroupsTests [
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests
+  let tSeq ← contAddrAndExtractTests
     "Fixtures/AnonCidGroups/Definitions.lean" [
-      wellFoundedExtractor, 
-      partialExtractor, 
+      wellFoundedExtractor,
+      partialExtractor,
       unsafeExtractor,
       extractIpldTests,
-      extractConverterTests
+      extractExtractorTests
     ]
   lspecIO tSeq

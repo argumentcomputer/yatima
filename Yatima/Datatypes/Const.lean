@@ -15,14 +15,14 @@ structure Axiom (k : Kind) where
   lvls : NatₐListNameₘ k
   type : ExprCid k
   safe : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure Theorem (k : Kind) where
   name  : Nameₘ k
   lvls  : NatₐListNameₘ k
   type  : ExprCid k
   value : ExprCid k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure Opaque (k : Kind) where
   name  : Nameₘ k
@@ -30,14 +30,14 @@ structure Opaque (k : Kind) where
   type  : ExprCid k
   value : ExprCid k
   safe  : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure Quotient (k : Kind) where
   name : Nameₘ k
   lvls : NatₐListNameₘ k
   type : ExprCid k
   kind : Split QuotKind Unit k
-  deriving Ord
+  deriving Ord, BEq
 
 structure Definition (k : Kind) where
   name   : Nameₘ k
@@ -45,7 +45,7 @@ structure Definition (k : Kind) where
   type   : ExprCid k
   value  : ExprCid k
   safety : Split DefinitionSafety Unit k
-  deriving Inhabited, Ord
+  deriving Inhabited, Ord, BEq
 
 structure DefinitionProj (k : Kind) where
   name  : Nameₘ k
@@ -53,7 +53,7 @@ structure DefinitionProj (k : Kind) where
   type  : ExprCid k
   block : ConstCid k
   idx   : Nat
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure Constructor (k : Kind) where
   name   : Nameₘ k
@@ -63,12 +63,12 @@ structure Constructor (k : Kind) where
   params : Natₐ k
   fields : Natₐ k
   safe   : Boolₐ k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure RecursorRule (k : Kind) where
   fields : Natₐ k
   rhs    : ExprCid k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 -- For some reason, Lean cannot infer `Ord` when we use `Option`, so
 -- we will will have to write our own `Ord` instance
@@ -90,7 +90,7 @@ structure Recursor (k : Kind) where
   rules    : List (RecursorRule k)
   isK      : Boolₐ k
   extInd   : Option (ConstCid k)
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure Inductive (k : Kind) where
   name    : Nameₘ k
@@ -103,7 +103,7 @@ structure Inductive (k : Kind) where
   recr    : Boolₐ k
   safe    : Boolₐ k
   refl    : Boolₐ k
-  deriving Inhabited, Ord
+  deriving Inhabited, Ord, BEq
 
 instance : Repr (Inductive k) where
   reprPrec a n := reprPrec a.name n
@@ -114,7 +114,7 @@ structure InductiveProj (k : Kind) where
   type  : ExprCid k
   block : ConstCid k
   idx   : Natₐ k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure ConstructorProj (k : Kind) where
   name  : Nameₘ k
@@ -123,7 +123,7 @@ structure ConstructorProj (k : Kind) where
   block : ConstCid k
   idx   : Natₐ k
   cidx  : Natₐ k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 structure RecursorProj (k : Kind) where
   name  : Nameₘ k
@@ -132,7 +132,7 @@ structure RecursorProj (k : Kind) where
   block : ConstCid k
   idx   : Natₐ k
   ridx  : Natₐ k
-  deriving Repr, Ord
+  deriving Repr, Ord, BEq
 
 instance : Repr (Quotient k) where
   reprPrec a n := reprPrec a.name n
@@ -152,7 +152,7 @@ inductive Const (k : Kind) where
   -- constants to represent mutual blocks
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
-  deriving Ord
+  deriving Ord, BEq
 
 namespace Const
 
@@ -196,14 +196,14 @@ structure Axiom where
   lvls : List Name
   type : Expr
   safe : Bool
-  deriving Inhabited, BEq
+  deriving Inhabited, BEq, Repr
 
 structure Theorem where
   name  : Name
   lvls  : List Name
   type  : Expr
   value : Expr
-  deriving BEq
+  deriving BEq, Repr
 
 structure Opaque where
   name  : Name
@@ -211,7 +211,7 @@ structure Opaque where
   type  : Expr
   value : Expr
   safe  : Bool
-  deriving BEq
+  deriving BEq, Repr
 
 structure Definition where
   name   : Name
@@ -220,7 +220,7 @@ structure Definition where
   value  : Expr
   safety : DefinitionSafety
   all    : List ConstIdx
-  deriving BEq
+  deriving BEq, Repr
 
 structure Constructor where
   name   : Name
@@ -230,7 +230,7 @@ structure Constructor where
   params : Nat
   fields : Nat
   safe   : Bool
-  deriving BEq
+  deriving BEq, Repr
 
 structure Inductive where
   name    : Name
@@ -243,12 +243,12 @@ structure Inductive where
   refl    : Bool
   unit    : Bool
   struct  : Option ConstIdx
-  deriving BEq
+  deriving BEq, Repr
 
 structure RecursorRule where
   fields : Nat
   rhs    : Expr
-  deriving BEq
+  deriving BEq, Repr
 
 structure Recursor where
   name     : Name
@@ -265,16 +265,18 @@ structure Recursor where
   -- we need to cache a list of the indexes of all of the recursors
   -- of this inductive in order to avoid infinite loops while typechecking
   all    : List ConstIdx
-  deriving BEq
+  deriving BEq, Repr
+
+deriving instance Repr for Lean.QuotKind
 
 structure Quotient where
   name : Name
   lvls : List Name
   type : Expr
   kind : QuotKind
-  deriving BEq
+  deriving BEq, Repr
 
-/-- Representation of constants for typechecking and transpilation -/
+/-- Representation of constants for typechecking -/
 inductive Const
   | «axiom»     : Axiom → Const
   | «theorem»   : Theorem → Const
@@ -284,7 +286,7 @@ inductive Const
   | constructor : Constructor → Const
   | recursor    : Recursor → Const
   | quotient    : Quotient → Const
-  deriving Inhabited, BEq
+  deriving Inhabited, BEq, Repr
 
 namespace Const
 

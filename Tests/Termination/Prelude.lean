@@ -1,8 +1,8 @@
-import TestsUtils.CompileAndExtractTests
+import TestsUtils.ContAddrAndExtractTests
 
 open LSpec in
 def main := do
-  let tSeq ← compileAndExtractTests'
+  let tSeq ← contAddrAndExtractTests'
     #["Fixtures/Termination/Init/Prelude.lean"
       --"Fixtures/Termination/Init/Coe.lean",
       --"Fixtures/Termination/Init/Notation.lean",
@@ -11,6 +11,6 @@ def main := do
       ]
     [
       extractIpldTests,
-      extractConverterTests,
+      extractExtractorTests,
       extractPositiveTypecheckTests]
   lspecIO tSeq

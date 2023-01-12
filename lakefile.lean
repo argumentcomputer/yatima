@@ -2,33 +2,32 @@ import Lake
 
 open Lake DSL
 
-package Yatima 
+package Yatima
 
 @[default_target]
-lean_exe yatima {
+lean_exe yatima where
   supportInterpreter := true
   root := `Main
-}
 
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "9ccb24133e8d06a268b823abd51df50c97cdede3"
+  "https://github.com/yatima-inc/Ipld.lean" @ "1b2f9295d77553ca1525d0912e9a5340a4a21591"
 
 require LSpec from git
-  "https://github.com/yatima-inc/LSpec.git" @ "89798a6cb76b2b29469ff752af2fd8543b3a5515"
+  "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "f905b68f529de2af44cf6ea63489b7e3cd090050"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "704823e421b333ea9960347e305c60f654618422"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "cd523a1951a8ec1ffb276446280ac60a7c5ad333"
+  "https://github.com/yatima-inc/Cli.lean" @ "b76218dbaa20ac51cf4e6789407e42b76dd3061f"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "1ca9b70d0fe982773fc499e7cdc76801a6ef60c2"
+  "https://github.com/yatima-inc/Lurk.lean" @ "b53eb34b45ab7e414906d928979f132606c0f6a2"
 
 require std from git
-  "https://github.com/leanprover/std4/" @ "d83e97c7843deb1cf4a6b2a2c72aaf2ece0b4ce8"
+  "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"
 
 section Testing
 
@@ -55,8 +54,9 @@ lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.Prelude         { supportInterpreter := true }
 lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.Transpilation.TrickyTypes   { supportInterpreter := true }
-lean_exe Tests.Transpilation.Primitives    { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.Primitives   { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.TCFunctions  { supportInterpreter := true }
 
 end Testing
 
@@ -81,27 +81,29 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
       else .ok out.stdout
   else return .ok ""
 
-def getCurrDir : ScriptM String := do
-  match ← runCmd "pwd" with
-  | .ok res => return res.trim
-  | .err e  => panic! e
-
-def getHomeDir : ScriptM String :=
-  return s!"{"/".intercalate $ (← getCurrDir).splitOn "/" |>.take 3}"
-
 script setup do
   IO.println "building yatima"
   match ← runCmd "lake build" with
-  | .ok  _   =>
-    let mut binDir : String := s!"{← getHomeDir}/.local/bin"
-    IO.print s!"target directory for the yatima binary? (default={binDir}) "
-    let input := (← (← IO.getStdin).getLine).trim
-    if !input.isEmpty then
-      binDir := input
+  | .ok  _   => match ← IO.getEnv "HOME" with
+    | some homePath =>
+      let binDir : String := s!"{homePath}/.local/bin"
+      IO.print s!"target directory for the yatima binary? (default={binDir}) "
+      let input := (← (← IO.getStdin).getLine).trim
+      let binDir := if input.isEmpty then binDir else input
+      cpBin binDir
+    | none =>
+      IO.print s!"target directory for the yatima binary? "
+      let binDir := (← (← IO.getStdin).getLine).trim
+      if binDir.isEmpty then
+        IO.eprintln "target directory can't be empty"
+        return 1
+      cpBin binDir
+  | .err res => IO.eprintln res; return 1
+where
+  cpBin (binDir : String) : ScriptM UInt32 := do
     match ← runCmd s!"cp build/bin/yatima {binDir}/yatima" with
     | .ok _    => IO.println s!"yatima binary placed at {binDir}/"; return 0
     | .err res => IO.eprintln res; return 1
-  | .err res => IO.eprintln res; return 1
 
 end Setup
 
@@ -109,25 +111,17 @@ section ImportAll
 
 open System
 
-partial def getLeanFilePathsList (fp : FilePath) (acc : Array FilePath := #[]) :
+partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
     IO $ Array FilePath := do
   if ← fp.isDir then
-    let mut extra : Array FilePath := #[]
-    for dirEntry in ← fp.readDir do
-      for innerFp in ← getLeanFilePathsList dirEntry.path do
-        extra := extra.push innerFp
-    return acc.append extra
-  else
-    if (fp.extension.getD "") = "lean" then
-      return acc.push fp
-    else
-      return acc
+    (← fp.readDir).foldlM (fun acc dir => getLeanFilePaths dir.path acc) acc
+  else return if fp.extension == some "lean" then acc.push fp else acc
 
 open Lean (RBTree)
 
 def getAllFiles : ScriptM $ List String := do
-  let paths := (← getLeanFilePathsList ⟨"Yatima"⟩).map toString
-  let paths : RBTree String compare := RBTree.ofList (paths.data) -- ordering
+  let paths := (← getLeanFilePaths ⟨"Yatima"⟩).map toString
+  let paths : RBTree String compare := RBTree.ofList paths.toList -- ordering
   return paths.toList
 
 def getImportsString : ScriptM String := do

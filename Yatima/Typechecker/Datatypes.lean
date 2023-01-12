@@ -53,7 +53,7 @@ def TypeInfo.toSus : TypeInfo → SusTypeInfo
   | .prop    => .prop
   | .none    => .none
 
-/-- Representation of expressions for evaluation and transpilation -/
+/-- Representation of expressions for evaluation -/
 inductive TypedExpr
   | var   : SusTypeInfo → Name → Nat → TypedExpr
   | sort  : SusTypeInfo → Univ → TypedExpr
@@ -244,7 +244,7 @@ def mkSusVar (info : TypeInfo) (name : Name) (idx : Nat) : SusValue :=
 
 inductive PrimConstOp
   | natAdd | natMul | natPow | natBeq | natBle | natBlt  | natSucc
-  deriving Ord
+  deriving Ord, Repr
 
 inductive PrimConst
   | nat
@@ -254,7 +254,7 @@ inductive PrimConst
   | boolFalse
   | string
   | op : PrimConstOp → PrimConst
-  deriving Ord
+  deriving Ord, Repr
 
 def PrimConstOp.numArgs : PrimConstOp → Nat
   | .natAdd | .natMul | .natPow | .natBeq | .natBle | .natBlt => 2 | .natSucc => 1

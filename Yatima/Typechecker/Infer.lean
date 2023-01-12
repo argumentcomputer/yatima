@@ -83,6 +83,7 @@ mutual
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
+      dbg_trace s!"failed checking {(← read).const}"
       throw $ .valueMismatch (toString type.get) (toString inferType.get)
     else
       pure term
@@ -112,7 +113,7 @@ mutual
         let term := .app (← susInfoFromType typ) fnc arg
         pure (term, typ)
       | val => throw $ .notPi (toString val)
-    | .lam name bind dom bod  =>
+    | .lam name bind dom bod => do
       let (dom, _) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)

@@ -8,7 +8,7 @@ notation, basic datatypes and type classes
 prelude
 import Fixtures.Termination.Init.Prelude
 import Fixtures.Termination.Init.SizeOf
-set_option linter.all false -- prevent error messages from runFrontend
+set_option linter.missingDocs true -- keep it documented
 
 universe u v w
 
@@ -365,13 +365,10 @@ structure Task (α : Type u) : Type u where
   /-- If `task : Task α` then `task.get : α` blocks the current thread until the
   value is available, and then returns the result of the task. -/
   get : α
-  deriving Inhabited
+  deriving Inhabited, Nonempty
 
 attribute [extern "lean_task_pure"] Task.pure
 attribute [extern "lean_task_get_own"] Task.get
-
-instance : [Nonempty α] → Nonempty (Task α)
-  | ⟨x⟩ => ⟨.pure x⟩
 
 namespace Task
 /-- Task priority. Tasks with higher priority will always be scheduled before ones with lower priority. -/
@@ -457,7 +454,7 @@ inductive PNonScalar : Type u where
   /-- You should not use this function -/
   | mk (v : Nat) : PNonScalar
 
-@[simp] theorem Nat.add_zero (n : Nat) : n + 0 = n := rfl
+@[simp] protected theorem Nat.add_zero (n : Nat) : n + 0 = n := rfl
 
 theorem optParam_eq (α : Sort u) (default : α) : optParam α default = α := rfl
 
@@ -549,6 +546,7 @@ You can prove theorems about the resulting element by induction on `h`, since
 @[macro_inline] def Eq.mpr {α β : Sort u} (h : α = β) (b : β) : α :=
   h ▸ b
 
+@[elab_as_elim]
 theorem Eq.substr {α : Sort u} {p : α → Prop} {a b : α} (h₁ : b = a) (h₂ : p a) : p b :=
   h₁ ▸ h₂
 
@@ -703,7 +701,7 @@ theorem decide_false_eq_false (h : Decidable False) : @decide False h = false :=
 
 /-- Similar to `decide`, but uses an explicit instance -/
 @[inline] def toBoolUsing {p : Prop} (d : Decidable p) : Bool :=
-  decide p (h := d)
+  decide (h := d)
 
 theorem toBoolUsing_eq_true {p : Prop} (d : Decidable p) (h : p) : toBoolUsing d = true :=
   decide_eq_true (inst := d) h
@@ -1029,8 +1027,7 @@ instance Prod.lexLtDec
 theorem Prod.lexLt_def [LT α] [LT β] (s t : α × β) : (Prod.lexLt s t) = (s.1 < t.1 ∨ (s.1 = t.1 ∧ s.2 < t.2)) :=
   rfl
 
-theorem Prod.ext (p : α × β) : (p.1, p.2) = p := by
-  cases p; rfl
+theorem Prod.eta (p : α × β) : (p.1, p.2) = p := rfl
 
 /--
 `Prod.map f g : α₁ × β₁ → α₂ × β₂` maps across a pair

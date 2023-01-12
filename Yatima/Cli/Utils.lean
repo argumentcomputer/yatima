@@ -1,7 +1,5 @@
-import Yatima.Compiler.Compiler
-import Yatima.Transpiler.Transpiler
-import Yatima.Cli.Cronos
 import Yatima.Ipld.FromIpld
+import Ipld.DagCbor
 import Cli
 
 def getToolchain : IO $ Except String String := do
@@ -48,8 +46,11 @@ def runCmd (cmd : String) (cwd : Option System.FilePath := none) : IO (Except St
 
 open Cli.Parsed
 
-def Cli.Parsed.getFlagD (p : Cli.Parsed) (flag : String) (default : String) : String :=
+def Cli.Parsed.getStringFlagD (p : Cli.Parsed) (flag : String) (default : String) : String :=
   p.flag? flag |>.map (Flag.as! · String) |>.getD default
+
+def Cli.Parsed.getNatFlagD (p : Cli.Parsed) (flag : String) (default : Nat) : Nat :=
+  p.flag? flag |>.map (Flag.as! · Nat) |>.getD default
 
 def Cli.Parsed.getArg! (p : Cli.Parsed) (arg : String) : String :=
   p.positionalArg! arg |>.as! String

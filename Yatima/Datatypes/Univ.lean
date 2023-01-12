@@ -16,7 +16,7 @@ inductive Univ (k : Kind) where
   | max   : UnivCid k → UnivCid k → Univ k
   | imax  : UnivCid k → UnivCid k → Univ k
   | var   : NatₐNameₘ k → Univ k
-  deriving Inhabited, Ord
+  deriving Inhabited, Ord, BEq
 
 def Univ.ctorName : Univ k → String
   | .zero .. => "zero"
@@ -29,7 +29,7 @@ end IR
 
 namespace TC
 
-/-- Representation of universe levels for typechecking and transpilation -/
+/-- Representation of universe levels for typechecking -/
 inductive Univ where
   | zero
   | succ  : Univ → Univ

@@ -1,13 +1,14 @@
 import Ipld.Ipld
 import Yatima.Datatypes.Const
 import Yatima.Typechecker.Datatypes
+import YatimaStdLib.List
 
 namespace Yatima
 
 namespace IR
 
 open Std (RBMap RBSet) in
-/-- The end result of the compilation process -/
+/-- The end result of the content-addressing process -/
 structure Store where
   consts : RBSet (Both ConstCid) compare
 
@@ -49,7 +50,7 @@ structure Store where
   consts       : Array Const
   primIdxs     : Std.RBMap PrimConst Nat compare
   idxsToPrims  : Std.RBMap Nat PrimConst compare
-  deriving Inhabited
+  deriving Inhabited, Repr
 
 end TC
 

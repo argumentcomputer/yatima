@@ -131,7 +131,7 @@ mutual
   partial def SusTypeInfo.update (univs : List Univ) : SusTypeInfo → TypeInfo
   | .sort lvl =>
     let lvl := Univ.instBulkReduce univs lvl
-    match lvl with 
+    match lvl with
     | .zero => .prop
     | _ => .none
   | .unit    => .unit
@@ -262,15 +262,13 @@ mutual
           pure $ .app (.const `Nat.succ succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
       | e => do
-        let some ind := (← read).store.consts.get? indIdx
-          | throw .impossible
-        match ind with
+        match ← derefConst `TODO indIdx with
         | .inductive (.mk (struct := struct) ..) =>
           match struct with
           | none => pure e
           | some ctorIdx => do
-            let ctor ← match (← read).store.consts.get? ctorIdx with
-              | some (.constructor ctor) => pure ctor
+            let ctor ← match ← derefConst `TODO ctorIdx with
+              | .constructor ctor => pure ctor
               | _ => throw .impossible
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut args : List SusValue := params

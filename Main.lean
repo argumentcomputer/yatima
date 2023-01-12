@@ -1,6 +1,6 @@
-import Yatima.Cli.CompileCmd
+import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.TypecheckCmd
-import Yatima.Cli.TranspileCmd
+import Yatima.Cli.CodeGenCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.VerifyCmd
 import Yatima.Cli.IpfsCmd
@@ -10,12 +10,12 @@ opaque VERSION : String :=
 
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima NOOP; [VERSION]
-  "A compiler and typechecker for the Yatima language"
+  "A tool for content-addressing and generating Lurk code from Lean 4 code"
 
   SUBCOMMANDS:
-    compileCmd;
+    contAddrCmd;
     typecheckCmd;
-    transpileCmd;
+    codeGenCmd;
     proveCmd;
     verifyCmd;
     ipfsCmd
