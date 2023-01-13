@@ -89,7 +89,7 @@ structure Recursor (k : Kind) where
   minors   : Natₐ k
   rules    : List (RecursorRule k)
   isK      : Boolₐ k
-  extInd   : Option (ConstCid k)
+  internal : Boolₐ k
   deriving Repr, Ord, BEq
 
 structure Inductive (k : Kind) where

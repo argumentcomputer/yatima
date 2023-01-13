@@ -152,13 +152,13 @@ def recursorRuleFromIpld : Ipld → Option (RecursorRule k)
   | _ => none
 
 def recursorFromIpld : Ipld → Option (Recursor k)
-  | .array #[n, l, t, p, i, m, m', rs, k', e] => do
+  | .array #[n, l, t, p, i, m, m', rs, k', i'] => do
     return ⟨← splitNameₘFromIpld k n, ← splitNatₐListNameₘFromIpld k l, ← exprCidFromIpld t,
       ← splitNatₐFromIpld k p, ← splitNatₐFromIpld k i,
       ← splitNatₐFromIpld k m, ← splitNatₐFromIpld k m',
       ← listFromIpld recursorRuleFromIpld rs,
       ← splitBoolₐFromIpld k k',
-      ← optionFromIpld constCidFromIpld e
+      ← splitBoolₐFromIpld k i'
       ⟩
   | _ => none
 

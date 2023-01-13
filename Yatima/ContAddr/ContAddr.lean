@@ -395,8 +395,7 @@ mutual
             let recs := ⟨thisRec.anon, thisRec.meta⟩ :: recs
             return (recs, thisCtors)
           else
-            let (indCid, _) ← getContAddrConst $ .inductInfo ind
-            let thisRec ← externalRecToIR indCid indIdx all r
+            let thisRec ← externalRecToIR indIdx all r
             let recs := ⟨thisRec.anon, thisRec.meta⟩ :: recs
             return (recs, ctors)
         | _ => throw $ .nonRecursorExtractedFromChildren r.name
@@ -486,7 +485,8 @@ mutual
             minors  := rec.numMinors
             rules   := retRules.map (·.anon)
             isK     := rec.k
-            extInd  := none },
+            internal:= true
+          },
           { name    := rec.name
             lvls    := rec.levelParams
             type    := typeCid.meta
@@ -496,7 +496,8 @@ mutual
             minors  := ()
             rules   := retRules.map (·.meta)
             isK     := ()
-            extInd  := none } ⟩
+            internal:= ()
+            } ⟩
         return (recr, retCtors)
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
@@ -547,7 +548,7 @@ mutual
     | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
   /-- Encodes an external recursor to IR -/
-  partial def externalRecToIR (indCid : IR.BothConstCid) (ind : TC.ConstIdx) (all : List TC.ConstIdx) : Lean.ConstantInfo → ContAddrM (IR.Both IR.Recursor)
+  partial def externalRecToIR  (ind : TC.ConstIdx) (all : List TC.ConstIdx) : Lean.ConstantInfo → ContAddrM (IR.Both IR.Recursor)
     | .recInfo rec =>
       withLevels rec.levelParams do
         let (typeCid, type) ← contAddrExpr rec.type
@@ -579,7 +580,7 @@ mutual
             motives := rec.numMotives
             minors  := rec.numMinors
             rules   := rules.anon
-            extInd  := some indCid.anon
+            internal:= false
             isK     := rec.k },
           { name    := rec.name
             lvls    := rec.levelParams
@@ -589,7 +590,7 @@ mutual
             motives := ()
             minors  := ()
             rules   := rules.meta
-            extInd  := some indCid.meta
+            internal:= ()
             isK     := () } ⟩
     | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 

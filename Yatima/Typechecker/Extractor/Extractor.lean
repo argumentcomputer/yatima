@@ -316,7 +316,7 @@ mutual
           let motives := recursorAnon.motives
           let minors := recursorAnon.minors
           let isK := recursorAnon.isK
-          let internal := recursorAnon.extInd.isNone
+          let internal := recursorAnon.internal
 
           let (recrCtx, all) ← getIndRecrCtx indBlock
           -- TODO optimize
