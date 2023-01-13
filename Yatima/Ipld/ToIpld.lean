@@ -124,15 +124,15 @@ def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
 
 def univToCid (univ : Univ k) : Ipld × UnivCid k :=
   let ipld := univToIpld univ
-  (ipld, ⟨ipldToCid (UNIV k).toNat ipld⟩)
+  (ipld, ⟨ipldToCid 1 ipld⟩)
 
 def exprToCid (expr : Expr k) : Ipld × ExprCid k :=
   let ipld := exprToIpld expr
-  (ipld, ⟨ipldToCid (EXPR k).toNat ipld⟩)
+  (ipld, ⟨ipldToCid 2 ipld⟩)
 
 def constToCid (const : Const k) : Ipld × ConstCid k :=
   let ipld := constToIpld const
-  (ipld, ⟨ipldToCid (CONST k).toNat ipld⟩)
+  (ipld, ⟨ipldToCid 3 ipld⟩)
 
 def storeToIpld (store : Store) : Ipld :=
   .array #[

@@ -361,7 +361,6 @@ def constMetaMapFromIpld (ar : Array Ipld) :
 
 def storeFromIpld : Ipld → Option IR.Store
   | .array #[
-    .number STORE,
     .array constsIpld,
     .array univAnonIpld,
     .array exprAnonIpld,
