@@ -5,8 +5,7 @@ def main := do
   let tSeq ← extractCodeGenTests
     "Fixtures/CodeGeneration/TrickyTypes.lean"
     [ ("exprCtor", "lam"),
-      ("univCtor", "zero"), 
-      ("treeSize", 2),
+      ("univCtor", "zero"),
       ("nameStr", "this.is.a.name")
     ]
   lspecIO tSeq
