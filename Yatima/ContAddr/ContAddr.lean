@@ -829,16 +829,12 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
   (← get).cache.forM fun _ (cid, idx) => do
-    let const := (← get).tcStore.consts.get! idx
-    if ["Nat", "Bool", "Bool.true", "Bool.false", "Nat.zero", "String",
-        "Nat.add", "Nat.mul", "Nat.pow", "Nat.beq", "Nat.ble", "Nat.blt", "Nat.succ"].contains const.name.toString then
-      IO.println s!"{const.name}: {cid.anon.data}"
     match Ipld.primCidsMap.find? cid.anon.data.toString with
-    | some pc => do 
+    | none    => pure ()
+    | some pc =>
       modify fun stt => { stt with tcStore := { stt.tcStore with
       primIdxs    := stt.tcStore.primIdxs.insert pc idx
       idxsToPrims := stt.tcStore.idxsToPrims.insert idx pc } }
-    | none    => pure ()
 
 /--
 Content-addresses the "delta" of a file, that is, the content that is added on
@@ -853,6 +849,6 @@ def contAddr (filePath : System.FilePath) (log : Bool := false)
   let env ← Lean.runFrontend filePath
   let constants := env.constants.patchUnsafeRec
   let delta := constants.map₂.filter fun n _ => !n.isInternal
-  ContAddrM.run (.init constants log) stt (contAddrM $ delta.toList.map Prod.snd)
+  ContAddrM.run (.init constants log) stt (contAddrM (delta.toList.map (·.2)))
 
 end Yatima.ContAddr
