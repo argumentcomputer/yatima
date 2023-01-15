@@ -828,7 +828,7 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
       IO.println   "========================================="
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
-  (← get).cache.forM fun _ (cid, idx) => do
+  (← get).cache.forM fun _ (cid, idx) =>
     match Ipld.primCidsMap.find? cid.anon.data.toString with
     | none    => pure ()
     | some pc =>
@@ -849,6 +849,6 @@ def contAddr (filePath : System.FilePath) (log : Bool := false)
   let env ← Lean.runFrontend filePath
   let constants := env.constants.patchUnsafeRec
   let delta := constants.map₂.filter fun n _ => !n.isInternal
-  ContAddrM.run (.init constants log) stt (contAddrM (delta.toList.map (·.2)))
+  ContAddrM.run (.init constants log) stt (contAddrM $ delta.toList.map (·.2))
 
 end Yatima.ContAddr
