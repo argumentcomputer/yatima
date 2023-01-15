@@ -70,15 +70,6 @@ structure RecursorRule (k : Kind) where
   rhs    : ExprCid k
   deriving Repr, Ord, BEq
 
--- For some reason, Lean cannot infer `Ord` when we use `Option`, so
--- we will will have to write our own `Ord` instance
-instance [Ord α] : Ord (Option α) where
-  compare a b :=
-    let toList x := match x with
-      | none => []
-      | some x => [x]
-    compare (toList a) (toList b)
-
 structure Recursor (k : Kind) where
   name     : Nameₘ k
   lvls     : NatₐListNameₘ k
@@ -140,15 +131,15 @@ instance : Repr (Quotient k) where
 /-- Parametric representation of constants for IPLD -/
 inductive Const (k : Kind) where
   -- standalone constants
-  | «axiom»     : Axiom k → Const k
-  | «theorem»   : Theorem k → Const k
-  | «opaque»    : Opaque k → Const k
+  | «axiom»     : Axiom    k → Const k
+  | «theorem»   : Theorem  k → Const k
+  | «opaque»    : Opaque   k → Const k
   | quotient    : Quotient k → Const k
   -- projections of mutual blocks
-  | inductiveProj   : InductiveProj k → Const k
+  | inductiveProj   : InductiveProj   k → Const k
   | constructorProj : ConstructorProj k → Const k
-  | recursorProj    : RecursorProj k → Const k
-  | definitionProj  : DefinitionProj k → Const k
+  | recursorProj    : RecursorProj    k → Const k
+  | definitionProj  : DefinitionProj  k → Const k
   -- constants to represent mutual blocks
   | mutDefBlock : List (Split (Definition k) (List (Definition k)) k) → Const k
   | mutIndBlock : List (Inductive k) → Const k
@@ -262,8 +253,8 @@ structure Recursor where
   isK      : Bool
   ind      : ConstIdx
   internal : Bool
-  -- we need to cache a list of the indexes of all of the recursors
-  -- of this inductive in order to avoid infinite loops while typechecking
+  /-- We need to cache a list of the indexes of all of the recursors
+      of this inductive in order to avoid infinite loops while typechecking -/
   all    : List ConstIdx
   deriving BEq, Repr
 
@@ -307,7 +298,7 @@ def type : Const → Expr
   | .opaque      x
   | .definition  x
   | .constructor x
-  | .recursor x
+  | .recursor    x
   | .quotient    x => x.type
 
 def levels : Const → List Name
@@ -317,7 +308,7 @@ def levels : Const → List Name
   | .opaque      x
   | .definition  x
   | .constructor x
-  | .recursor x
+  | .recursor    x
   | .quotient    x => x.lvls
 
 def ctorName : Const → String
@@ -366,20 +357,6 @@ def RecursorRule.toIR (r : RecursorRule) (rhsCid : IR.BothExprCid) : IR.Recursor
   match k with
   | .anon => ⟨r.fields, rhsCid.anon⟩
   | .meta => ⟨(), rhsCid.meta⟩
-
--- def ExtRecursor.toIR {k : IR.Kind} (r : ExtRecursor) (typeCid : IR.BothExprCid)
---     (rulesCids : List $ IR.RecursorRule k) : IR.Recursor .extr k :=
---   match k with
---   | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
---     r.minors, rulesCids, r.k⟩
---   | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), rulesCids, ()⟩
-
--- def IntRecursor.toIR {k : IR.Kind} (r : IntRecursor) (typeCid : IR.BothExprCid) :
---     IR.Recursor .intr k :=
---   match k with
---   | .anon => ⟨(), r.lvls.length, typeCid.anon, r.params, r.indices, r.motives,
---     r.minors, (), r.k⟩
---   | .meta => ⟨r.name, r.lvls, typeCid.meta, (), (), (), (), (), ()⟩
 
 def Inductive.toIR (i : Inductive) (idx : Nat)
     (typeCid : IR.BothExprCid) (blockCid : IR.BothConstCid) : IR.InductiveProj k :=

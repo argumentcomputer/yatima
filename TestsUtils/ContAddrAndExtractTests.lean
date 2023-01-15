@@ -117,7 +117,7 @@ def reindexExpr (map : NatNatMap) : Expr → Expr
   | .proj n e => .proj n (reindexExpr map e)
 
 def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
-  { ctor with type := reindexExpr map ctor.type}
+  { ctor with type := reindexExpr map ctor.type }
 
 def reindexConst (map : NatNatMap) : Const → Const
   | .axiom x => .axiom { x with type := reindexExpr map x.type }
