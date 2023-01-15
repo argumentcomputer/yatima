@@ -7,7 +7,8 @@ def main := do
       "Fixtures/Termination/Init/Coe.lean",
       "Fixtures/Termination/Init/Notation.lean",
       "Fixtures/Termination/Init/Tactics.lean",
-      "Fixtures/Termination/Init/SizeOf.lean"]
+      "Fixtures/Termination/Init/SizeOf.lean"
+      ]
     [
       extractIpldTests,
       extractExtractorTests,

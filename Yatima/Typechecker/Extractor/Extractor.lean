@@ -132,10 +132,9 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ExtractM (RecrCtx × List Nat)
   let indBlockMeta ← match indBlock.meta with
     | .mutIndBlock x => pure x
     | _ => throw $ .invalidMutBlock indBlock.meta.ctorName
-  let mut constList : List (Nat × Name) := []
-  let mut indTups   : List (Nat × Name) := []
-  let mut ctorTups  : List (Nat × Name) := []
-  let mut recTups   : List (Nat × Name) := []
+  let mut indTups : List (Nat × Name) := []
+  let mut ctorTups : List (Nat × Name) := []
+  let mut recTups : List (Nat × Name) := []
   for ind in indBlockMeta do
     let indIdx ← getConstIdx ind.name.projᵣ
     indTups := indTups ++ [(indIdx, ind.name.projᵣ)]
@@ -143,12 +142,12 @@ def getIndRecrCtx (indBlock : IR.Both IR.Const) : ExtractM (RecrCtx × List Nat)
       let name := ctor.name
       let indIdx ← getConstIdx name
       return (indIdx, name))
-    recTups := recTups.append (← ind.recrs.mapM fun ⟨_, recr⟩ => do
+    recTups := recTups.append (← ind.recrs.mapM fun recr => do
       let name := recr.name
       let indIdx ← getConstIdx name
       return (indIdx, name))
   -- mirror the content-addressing order of all inductives, then all constuctors, then all recursors
-  constList := indTups ++ ctorTups ++ recTups
+  let constList := indTups ++ ctorTups ++ recTups
   return (constList.enum.foldl (init := default)
     fun acc (i, tup) => acc.insert (i, none) tup, constList.map (·.1))
 
@@ -159,15 +158,11 @@ mutual
   inductive, returns `none` otherwise.
   -/
   partial def getStructure (ind : IR.Both IR.Inductive) :
-      ExtractM (Option TC.Constructor) :=
+      ExtractM (Option TC.ConstIdx) :=
     if ind.anon.recr || ind.anon.indices.projₗ != 0 then pure $ none
     else match ind.anon.ctors, ind.meta.ctors with
-      | [ctorAnon], [ctorMeta] => do
-        let all ← ind.meta.ctors.mapM fun ctor =>
-          getConstIdx ctor.name
-        let all := (← getConstIdx ind.meta.name) :: all
-        let all := all ++ (← ind.meta.recrs.mapM fun r => getConstIdx r.2.name)
-        pure $ some (← ctorFromIR ⟨ctorAnon, ctorMeta⟩ all)
+      | [_ctorAnon], [ctorMeta] => do
+        pure $ some (← getConstIdx ctorMeta.name)
       | _, _ => pure none
 
   /--
@@ -302,41 +297,33 @@ mutual
           let fields := constructorAnon.fields
           let safe   := constructorAnon.safe
 
-          let (recrCtx, all) ← getIndRecrCtx indBlock
+          let (recrCtx, _) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨constructorAnon.type, constructorMeta.type⟩
-            let rhs ← exprFromIR ⟨constructorAnon.rhs, constructorMeta.rhs⟩
-            pure $ .constructor { name, lvls, type, idx, params, fields, rhs, safe, all}
+            pure $ .constructor { name, lvls, type, idx, params, fields, safe}
         | .recursorProj anon, .recursorProj meta =>
           let indBlock ← Key.find $ .constStore ⟨anon.block, meta.block⟩
           let induct ← getInductive indBlock anon.idx
           let some ind := (← get).constsIdx.find? induct.meta.name
             | throw $ .cannotFindNameIdx $ toString (induct.meta.name : Name)
-          let pairAnon ← ExtractM.unwrap $ induct.anon.recrs.get? anon.ridx
-          let pairMeta ← ExtractM.unwrap $ induct.meta.recrs.get? anon.ridx
-          let recursorAnon := Sigma.snd pairAnon
-          let recursorMeta := Sigma.snd pairMeta
+          let recursorAnon ← ExtractM.unwrap $ induct.anon.recrs.get? anon.ridx
+          let recursorMeta ← ExtractM.unwrap $ induct.meta.recrs.get? anon.ridx
           let name := recursorMeta.name
           let lvls := recursorMeta.lvls
           let params := recursorAnon.params
           let indices := recursorAnon.indices
           let motives := recursorAnon.motives
           let minors := recursorAnon.minors
-          let k := recursorAnon.k
+          let isK := recursorAnon.isK
+          let internal := recursorAnon.internal
 
-          let (recrCtx, _) ← getIndRecrCtx indBlock
+          let (recrCtx, all) ← getIndRecrCtx indBlock
           -- TODO optimize
           withRecrs recrCtx do
             let type ← exprFromIR ⟨recursorAnon.type, recursorMeta.type⟩
-            let casesExtInt : (t₁ : IR.RecType) → (t₂ : IR.RecType) →
-              (IR.Recursor t₁ .anon) → (IR.Recursor t₂ .meta) → ExtractM TC.Const
-            | .intr, .intr, _, _ => pure $ .intRecursor { name, lvls, type, params, indices, motives, minors, k, ind}
-            | .extr, .extr, recAnon, recMeta => do
-              let rules ← zipWith ruleFromIR ⟨recAnon.rules, recMeta.rules⟩
-              pure $ .extRecursor { name, lvls, type, params, indices, motives, minors, rules, k, ind}
-            | _, _, _, _ => throw .irError
-            casesExtInt (Sigma.fst pairAnon) (Sigma.fst pairMeta) recursorAnon recursorMeta
+            let rules ← zipWith ruleFromIR ⟨recursorAnon.rules, recursorMeta.rules⟩
+            pure $ .recursor { name, lvls, type, params, indices, motives, minors, rules, isK, ind, internal, all }
         | .quotient quotientAnon, .quotient quotientMeta =>
           let name := quotientMeta.name
           let lvls := quotientMeta.lvls
@@ -357,32 +344,22 @@ mutual
         pure constIdx
 
   /-- Extracts a `IR.Both IR.Constructor` into a `Constructor` -/
-  partial def ctorFromIR (ctor : IR.Both IR.Constructor) (all : List Nat):
+  partial def ctorFromIR (ctor : IR.Both IR.Constructor) :
       ExtractM TC.Constructor := do
     let name := ctor.meta.name
     let lvls := ctor.meta.lvls
     let type ← exprFromIR ⟨ctor.anon.type, ctor.meta.type⟩
-    let rhs ← exprFromIR ⟨ctor.anon.rhs, ctor.meta.rhs⟩
     let idx := ctor.anon.idx
     let params := ctor.anon.params
     let fields := ctor.anon.fields
     let safe := ctor.anon.safe
-    pure { name, lvls, type, idx, params, fields, rhs, safe, all}
+    pure { name, lvls, type, idx, params, fields, safe}
 
   /-- Extracts a `IR.Both IR.RecursorRule` into a `RecursorRule` -/
   partial def ruleFromIR (rule : IR.Both IR.RecursorRule) :
       ExtractM TC.RecursorRule := do
     let rhs ← exprFromIR ⟨rule.anon.rhs, rule.meta.rhs⟩
-    let ctorIdx ← constFromIR ⟨rule.anon.ctor, rule.meta.ctor⟩
-    let consts := (← get).tcStore.consts
-    let maxSize := consts.size
-    if h : ctorIdx < maxSize then
-      let ctor ← match consts[ctorIdx]'h with
-        | .constructor ctor => pure ctor
-        | _ => throw .irError
-      return { rhs, ctor, fields := rule.anon.fields }
-    else
-      throw $ .constIdxOutOfRange ctorIdx maxSize
+    return { rhs, fields := rule.anon.fields }
 
 end
 

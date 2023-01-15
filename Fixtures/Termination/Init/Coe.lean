@@ -5,7 +5,7 @@ Authors: Leonardo de Moura, Mario Carneiro
 -/
 prelude
 import Fixtures.Termination.Init.Prelude
-set_option linter.missingDocs true -- keep it documented
+set_option linter.all false -- prevent error messages from runFrontend
 
 /-!
 # Coercion

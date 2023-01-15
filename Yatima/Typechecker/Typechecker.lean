@@ -30,7 +30,7 @@ content-addressing a Lean file using the `ca` command from the `yatima` CLI.
 def typecheck (store : IR.Store) : Except String Unit :=
   match Extractor.extractPureStore store with
   | .ok store => 
-    dbg_trace reprStr store
+    -- dbg_trace reprStr store
     typecheckConsts store
   | .error msg => throw msg
 
