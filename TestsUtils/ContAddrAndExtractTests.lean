@@ -124,8 +124,8 @@ def reindexConst (map : NatNatMap) : Const → Const
   | .theorem x => .theorem { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .inductive x => .inductive { x with
-      type := reindexExpr map x.type }
-    -- struct := x.struct.map (reindexCtor map)
+      type := reindexExpr map x.type
+      struct := x.struct.map map.find! }
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
@@ -137,7 +137,10 @@ def reindexConst (map : NatNatMap) : Const → Const
     let rules := x.rules.map fun r => { r with
       rhs := reindexExpr map r.rhs }
     .recursor { x with
-      type := reindexExpr map x.type, rules := rules, ind := map.find! x.ind}
+      type := reindexExpr map x.type,
+      rules := rules,
+      ind := map.find! x.ind,
+      all := x.all.map map.find! }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def extractExtractorTests (stt : ContAddrState) : TestSeq :=
