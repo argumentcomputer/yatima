@@ -121,28 +121,21 @@ mutual
 end
 
 partial def printRecursorRule (rule : RecursorRule) : PrintM String := do
-  let ctor := rule.ctor.name
-  return s!"{ctor} {rule.fields} {← printExpr rule.rhs}"
+  return s!"{rule.fields} {← printExpr rule.rhs}"
 
-partial def printExtRecursor (cid : String) (recr : ExtRecursor) : PrintM String := do
+partial def printRecursor (cid : String) (recr : Recursor) : PrintM String := do
   let rules ← recr.rules.mapM printRecursorRule
+  let internal := if recr.internal then "Internal" else "External"
   return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
-          s!"\nExternal rules:{rulesSep}{rulesSep.intercalate rules}"
-
-partial def printIntRecursor (cid : String) (recr : IntRecursor) : PrintM String := do
-  return s!"{cid}recursor {recr.name} {recr.lvls} : {← printExpr recr.type}\n" ++
-           "internal\n"
+          s!"\n{internal} rules:{rulesSep}{rulesSep.intercalate rules}"
 
 partial def printConstructors (ctors : List Constructor) : PrintM String := do
   let ctors ← ctors.mapM fun ctor => do
-    return s!"| {printIsSafe ctor.safe}{ctor.name} {ctor.lvls} : {← printExpr ctor.type} [fields : (idx := {ctor.idx}) (params := {ctor.params}) (fields := {ctor.fields}) (rhs := {← printExpr ctor.rhs})]"
+    return s!"| {printIsSafe ctor.safe}{ctor.name} {ctor.lvls} : {← printExpr ctor.type} [fields : (idx := {ctor.idx}) (params := {ctor.params}) (fields := {ctor.fields})]"
   return "\n".intercalate ctors
 
 partial def printInductive (ind : Inductive) : PrintM String := do
-  let structStr ← match ind.struct with
-  | some ctor => printConstructors [ctor]
-  | none => pure "none"
-  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} [fields : (recr := {ind.recr}) (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {structStr})]"
+  let indHeader := s!"{printIsSafe ind.safe}inductive {ind.name} {ind.lvls} : {← printExpr ind.type} [fields : (recr := {ind.recr}) (refl := {ind.refl}) (unit := {ind.unit}) (params := {ind.params}) (indices := {ind.indices}) (struct := {ind.struct.isSome})]"
   return s!"{indHeader}\n"
 
 partial def printConst (const : Const) : PrintM String := do
@@ -164,9 +157,8 @@ partial def printConst (const : Const) : PrintM String := do
             s!"  {← printExpr defn.value}"
   | .inductive ind => return s!"{← printInductive ind}"
   | .constructor ctor => do
-    return s!"{cid}{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr ctor.type}\n| internal rule: {← printExpr ctor.rhs}"
-  | .extRecursor recr => printExtRecursor cid recr
-  | .intRecursor recr => printIntRecursor cid recr
+    return s!"{cid}{printIsSafe ctor.safe}constructor {ctor.name} {ctor.lvls} : {← printExpr ctor.type}\n| internal"
+  | .recursor recr => printRecursor cid recr
 
 def printYatimaConst (const : Const) : ContAddrM String := do
   match ReaderT.run (printConst const) (← get) with

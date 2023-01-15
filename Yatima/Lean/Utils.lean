@@ -80,7 +80,6 @@ def runFrontend (filePath : System.FilePath) : IO Environment := do
   let (env, messages) ← processHeader header default messages inputCtx 0
   let env := env.setMainModule default
   let commandState := Command.mkState env messages default
-
   let s ← IO.processCommands inputCtx parserState commandState
   let msgs := s.commandState.messages
   if msgs.hasErrors then

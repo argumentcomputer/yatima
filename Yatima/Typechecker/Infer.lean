@@ -26,7 +26,10 @@ def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Uni
     match ← derefConst name k with
     | .inductive ind => do
       match ind.struct with
-        | some ctor =>
+        | some ctorIdx => do
+          let ctor ← match (← read).store.consts.get? ctorIdx with
+            | some (.constructor ctor) => pure ctor
+            | _ => throw .impossible
           -- Sanity check
           if ind.params != params.length then throw .impossible else
           pure (k, ctor, univs, (params.map (·.1)))
@@ -78,19 +81,15 @@ mutual
   Checks if `term : Expr` has type `type : SusValue`. Returns the typed IR for `term`
   -/
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
-    --dbg_trace s!"checking: {term} : {type.get}"
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      --dbg_trace s!"mismatch (inferred, expected): {repr inferType.info}, {repr type.info}"
       dbg_trace s!"failed checking {(← read).const}"
       throw $ .valueMismatch (toString type.get) (toString inferType.get)
     else
-      --dbg_trace s!"done checking: {term} : {type.get}"
       pure term
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
-    -- dbg_trace s!">> infer"
     match term with
     | .var name idx =>
       let types := (← read).types
@@ -109,47 +108,27 @@ mutual
       let (fnc, fncType) ← infer fnc
       match fncType.get with
       | .pi _ _ dom img env =>
-        -- dbg_trace s!"applying: {fnc} to {arg}, {repr img.info}"
-        -- dbg_trace s!"applying"
         let arg ← check arg dom
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
-        -- dbg_trace s!"done applying: {fnc} to {arg}: {repr $ ← susInfoFromType typ}"
-        -- dbg_trace s!"done applying"
         let term := .app (← susInfoFromType typ) fnc arg
-        -- dbg_trace s!"info for {typ.get}: {repr img.info}, {repr typ.info}, {repr term.info}"
-        -- dbg_trace s!"info for {typ.get}"
-        -- dbg_trace s!"info for typ.get"
         pure (term, typ)
       | val => throw $ .notPi (toString val)
     | .lam name bind dom bod => do
-      -- dbg_trace s!"inferring lam: {term}"
-      -- dbg_trace s!"inferring lam"
       let (dom, _) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       let var := mkSusVar (← infoFromType domVal) name ctx.lvl
       let (bod, img) ← withExtendedCtx var domVal $ infer bod
       let term := .lam (lamInfo bod.info) name bind dom bod
-      -- dbg_trace s!"inferring lam: {term} with img info before {repr img.info} and after quote {repr (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get).info}"
-      -- dbg_trace s!"inferring lam 2"
       let typ := .mk (piInfo img.info) $
         Value.pi name bind domVal (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get) ctx.env
       pure (term, typ)
     | .pi name bind dom img =>
-      -- dbg_trace s!"pi getting dom: {name} : {dom}"
-      -- dbg_trace s!"pi getting dom: {name}"
       let (dom, domLvl) ← isSort dom
-      -- dbg_trace s!"pi done getting dom: {name}"
-      -- dbg_trace s!"domain info: {dom}: {repr dom.info}"
-      -- dbg_trace s!"domain info: {repr dom.info}"
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       withExtendedCtx (mkSusVar (← infoFromType domVal) name ctx.lvl) domVal $ do
-        -- dbg_trace s!"pi getting img: {img}"
-        -- dbg_trace s!"pi getting img"
         let (img, imgLvl) ← isSort img
-        -- dbg_trace s!"pi done getting img of: {img}"
-        -- dbg_trace s!"pi done getting img of"
         let typ := .mk .none ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
         let term := .pi (← susInfoFromType typ) name bind dom img
         return (term, typ)
@@ -258,38 +237,23 @@ mutual
               withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
           pure $ TypedConst.definition type value data.safety
-        | .inductive   data => pure $ TypedConst.inductive type data.struct.isSome
-        | .constructor data => do
-          -- `rhs` can have recursive references to `c`, so we must `withMutTypes`
+        | .inductive   data => pure $ .inductive type data.struct.isSome
+        | .constructor data => pure $ .constructor type data.idx data.fields
+        | .recursor data => do
           let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc idx => do
             match (← read).store.consts.get? idx with
-            | .some (.intRecursor data)
-            | .some (.extRecursor data)
-            | .some (.inductive data)
-            | .some (.constructor data) =>
+            | .some (.recursor data) =>
               -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
-              --dbg_trace s!"checking constant type: {data.name} : {data.type}"
               let (type, _)  ← withMutTypes acc $ isSort data.type
-              --dbg_trace s!"done checking constant type: {data.name}"
               let ctx ← read
               let stt ← get
               let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
               pure $ acc.insert idx typeSus
-            | _ => throw .impossible
-          --dbg_trace s!"rhs: {data.rhs}"
-          let (rhs, _) ← withMutTypes (mutTypes) $ infer data.rhs
-          pure $ TypedConst.constructor type rhs data.idx data.fields
-        | .intRecursor data => pure $ .intRecursor type data.params data.motives data.minors data.indices data.k
-        | .extRecursor data => do
+            | _ => pure acc
           let rules ← data.rules.mapM fun rule => do
-            let ctx ← read
-            let stt ← get
-            let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
-            -- rhs` can have recursive references to `c`, so we must `withMutTypes`
-            let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare := default
-            let (rhs, _) ← withMutTypes (mutTypes.insert idx typeSus) $ infer rule.rhs
-            pure (rule.ctor.idx, rule.fields, rhs)
-          pure $ TypedConst.extRecursor type data.params data.motives data.minors data.indices rules
+            let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
+            pure (rule.fields, rhs)
+          pure $ TypedConst.recursor type data.params data.motives data.minors data.indices data.isK data.ind rules
         | .quotient data => pure $ .quotient type data.kind
         let tcConsts := (← get).tcConsts
         if h : idx < tcConsts.size then

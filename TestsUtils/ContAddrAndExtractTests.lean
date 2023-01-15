@@ -117,15 +117,15 @@ def reindexExpr (map : NatNatMap) : Expr → Expr
   | .proj n e => .proj n (reindexExpr map e)
 
 def reindexCtor (map : NatNatMap) (ctor : Constructor) : Constructor :=
-  { ctor with type := reindexExpr map ctor.type, rhs := reindexExpr map ctor.rhs, all := ctor.all.map map.find!}
+  { ctor with type := reindexExpr map ctor.type }
 
 def reindexConst (map : NatNatMap) : Const → Const
   | .axiom x => .axiom { x with type := reindexExpr map x.type }
   | .theorem x => .theorem { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .inductive x => .inductive { x with
-    type := reindexExpr map x.type,
-    struct := x.struct.map (reindexCtor map) }
+      type := reindexExpr map x.type
+      struct := x.struct.map map.find! }
   | .opaque x => .opaque { x with
     type := reindexExpr map x.type, value := reindexExpr map x.value }
   | .definition x => .definition { x with
@@ -133,13 +133,14 @@ def reindexConst (map : NatNatMap) : Const → Const
     value := reindexExpr map x.value,
     all := x.all.map map.find! }
   | .constructor x => .constructor $ reindexCtor map x
-  | .extRecursor x =>
+  | .recursor x =>
     let rules := x.rules.map fun r => { r with
-      rhs := reindexExpr map r.rhs,
-      ctor := reindexCtor map r.ctor }
-    .extRecursor { x with
-      type := reindexExpr map x.type, rules := rules, ind := map.find! x.ind}
-  | .intRecursor x => .intRecursor { x with type := reindexExpr map x.type, ind := map.find! x.ind }
+      rhs := reindexExpr map r.rhs }
+    .recursor { x with
+      type := reindexExpr map x.type,
+      rules := rules,
+      ind := map.find! x.ind,
+      all := x.all.map map.find! }
   | .quotient x => .quotient { x with type := reindexExpr map x.type }
 
 def extractExtractorTests (stt : ContAddrState) : TestSeq :=
