@@ -11,6 +11,8 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
+lean_lib Yatima2 { roots := #[`Yatima2] }
+
 require Ipld from git
   "https://github.com/yatima-inc/Ipld.lean" @ "1b2f9295d77553ca1525d0912e9a5340a4a21591"
 
