@@ -17,6 +17,8 @@ expression/environment pairs. They are also called *closures*
 
 open TC
 
+open Lurk (F)
+
 /--
   The type info is a simplified form of the value's type, with only relevant
   information for conversion checking, in order to get proof irrelevance and equality
@@ -55,15 +57,15 @@ def TypeInfo.toSus : TypeInfo → SusTypeInfo
 
 /-- Representation of expressions for evaluation -/
 inductive TypedExpr
-  | var   : SusTypeInfo → Name → Nat → TypedExpr
+  | var   : SusTypeInfo → Nat → TypedExpr
   | sort  : SusTypeInfo → Univ → TypedExpr
-  | const : SusTypeInfo → Name → ConstIdx → List Univ → TypedExpr
+  | const : SusTypeInfo → F → List Univ → TypedExpr
   | app   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
-  | lam   : SusTypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
-  | pi    : SusTypeInfo → Name → BinderInfo → TypedExpr → TypedExpr → TypedExpr
-  | letE  : SusTypeInfo → Name → TypedExpr → TypedExpr → TypedExpr → TypedExpr
+  | lam   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
+  | pi    : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
+  | letE  : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr → TypedExpr
   | lit   : SusTypeInfo → Literal → TypedExpr
-  | proj  : SusTypeInfo → ConstIdx → Nat → TypedExpr → TypedExpr
+  | proj  : SusTypeInfo → F → Nat → TypedExpr → TypedExpr
   deriving BEq, Inhabited, Repr
 
 /--
@@ -72,7 +74,7 @@ an "implicit lambda". This is useful for constructing the `rhs` of
 recursor rules.
 -/
 def TypedExpr.toImplicitLambda : TypedExpr → TypedExpr
-  | .lam _ _ _ _ body => toImplicitLambda body
+  | .lam _ _ body => toImplicitLambda body
   | x => x
 
 inductive TypedConst
@@ -114,10 +116,10 @@ mutual
     | app : Neutral → List (SusValue × TypeInfo) → Value
     -- Lambdas are unevaluated expressions with environments for their free
     -- variables apart from their argument variables
-    | lam : Name → BinderInfo → SusValue → TypedExpr → Env → Value
+    | lam : SusValue → TypedExpr → Env → Value
     -- Pi types will have thunks for their domains and unevaluated expressions
     -- analogous to lambda bodies for their codomains
-    | pi : Name → BinderInfo → SusValue → TypedExpr → Env → Value
+    | pi : SusValue → TypedExpr → Env → Value
     | lit : Literal → Value
     -- An exception constructor is used to catch bugs in the evaluator/typechecker
     | exception : TypecheckError → Value
@@ -157,9 +159,9 @@ mutual
   reduce. They appear as the head of a stuck application.
   -/
   inductive Neutral
-    | fvar  : Name → Nat → Neutral
-    | const : Name → ConstIdx → List Univ → Neutral
-    | proj  : Nat → ConstIdx → TypedValue → Neutral
+    | fvar  : Nat → Neutral
+    | const : F → List Univ → Neutral
+    | proj  : F → TypedValue → Neutral
     deriving Inhabited
 
 end
@@ -235,12 +237,12 @@ def withExprs (env : Env) (exprs : List SusValue) : Env :=
 end Env
 
 /-- Creates a new constant with a name, a constant index and an universe list -/
-def mkConst (name : Name) (k : ConstIdx) (univs : List Univ) : Value :=
-  .app (.const name k univs) []
+def mkConst (f : F) (univs : List Univ) : Value :=
+  .app (.const f univs) []
 
 /-- Creates a new variable as a thunk -/
-def mkSusVar (info : TypeInfo) (name : Name) (idx : Nat) : SusValue :=
-  .mk info (.mk fun _ => .app (.fvar name idx) [])
+def mkSusVar (info : TypeInfo) (idx : Nat) : SusValue :=
+  .mk info (.mk fun _ => .app (.fvar idx) [])
 
 inductive PrimConstOp
   | natAdd | natMul | natPow | natBeq | natBle | natBlt  | natSucc
