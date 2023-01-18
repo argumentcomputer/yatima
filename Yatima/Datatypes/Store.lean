@@ -48,8 +48,9 @@ namespace TC
 open Lurk (F)
 
 open Typechecker in
+
 /-- Keeps track of the data used for typechecking -/
-structure TC.Store where
+structure Store where
   consts : RBMap F Const compare
 
 end TC

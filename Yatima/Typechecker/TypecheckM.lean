@@ -12,6 +12,11 @@ namespace Yatima.Typechecker
 
 open TC
 
+open Lurk (F)
+
+-- FIXME why is this needed if `TC.Store` already derives this?
+deriving instance Inhabited for TC.Store
+
 /--
 The context available to the typechecker monad. The available fields are
 * `lvl : Nat` : Depth of the subterm. Coincides with the length of the list of types
@@ -104,12 +109,16 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
-def primIndexWith (p : PrimConst) (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
-  match (← read).store.primIdxs.find? p with | none => noneHandle | some a => someHandle a
-def primIndex (p : PrimConst) : TypecheckM Nat := do
-  primIndexWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
-def indexPrim (k : Nat) : TypecheckM (Option PrimConst) := do
-  pure $ (← read).store.idxsToPrims.find? k
+-- TODO hardcode these maps once we have the hashes
+def primsToFs : Std.RBMap PrimConst F compare := sorry
+def fsToPrims : Std.RBMap F PrimConst compare := sorry
+
+def primFWith (p : PrimConst) (noneHandle : TypecheckM A) (someHandle : F → TypecheckM A) : TypecheckM A := do
+  match primsToFs.find? p with | none => noneHandle | some a => someHandle a
+def primF (p : PrimConst) : TypecheckM Nat := do
+  primFWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
+def fPrim (f : F) : TypecheckM (Option PrimConst) := do
+  pure $ fsToPrims.find? f
 
 structure PrimOp where
   op : Array SusValue → TypecheckM (Option Value)
@@ -140,27 +149,27 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v = v' then do
-        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
+        pure $ some $ .app (.const (← primF .boolTrue) []) []
       else do
-        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
+        pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBle => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v ≤ v' then do
-        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
+        pure $ some $ .app (.const (← primF .boolTrue) []) []
       else do
-        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
+        pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBlt => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v < v' then do
-        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
+        pure $ some $ .app (.const (← primF .boolTrue) []) []
       else do
-        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
+        pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
 
 end Yatima.Typechecker

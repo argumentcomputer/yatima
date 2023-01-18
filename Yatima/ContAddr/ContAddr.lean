@@ -1,7 +1,6 @@
 import Yatima.ContAddr.Printing
 import Yatima.Ipld.ToIpld
 import YatimaStdLib.RBMap
-import Yatima.Ipld.PrimCids
 
 /-- Move to YatimaStdLib -/
 instance : HMul Ordering Ordering Ordering where hMul
@@ -828,13 +827,6 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
       IO.println   "========================================="
       IO.println $ ← PrintYatima.printYatimaConst (← derefConst c)
       IO.println   "=========================================\n"
-  (← get).cache.forM fun _ (cid, idx) =>
-    match Ipld.primCidsMap.find? cid.anon.data.toString with
-    | none    => pure ()
-    | some pc =>
-      modify fun stt => { stt with tcStore := { stt.tcStore with
-      primIdxs    := stt.tcStore.primIdxs.insert pc idx
-      idxsToPrims := stt.tcStore.idxsToPrims.insert idx pc } }
 
 /--
 Content-addresses the "delta" of a file, that is, the content that is added on

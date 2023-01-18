@@ -31,5 +31,6 @@ structure Yatima.Env where
 
 structure TC.Store where
   consts : RBMap F Const compare
+  deriving Inhabited
 
 end Yatima
