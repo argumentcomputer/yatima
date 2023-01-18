@@ -1,4 +1,5 @@
 import Yatima.Datatypes.Univ
+import Yatima.Datatypes.Lurk
 
 namespace Yatima
 
@@ -60,78 +61,80 @@ namespace TC
 /-- Points to a constant in an array of constants -/
 abbrev ConstIdx := Nat
 
+open Lurk (F)
+
 /-- Representation of expressions for typechecking -/
 inductive Expr
-  | var   : Name → Nat → Expr
+  | var   : Nat → Expr
   | sort  : Univ → Expr
-  | const : Name → ConstIdx → List Univ → Expr
+  | const : F → List Univ → Expr
   | app   : Expr → Expr → Expr
-  | lam   : Name → BinderInfo → Expr → Expr → Expr
-  | pi    : Name → BinderInfo → Expr → Expr → Expr
-  | letE  : Name → Expr → Expr → Expr → Expr
+  | lam   : Expr → Expr → Expr
+  | pi    : Expr → Expr → Expr
+  | letE  : Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
   | proj  : Nat → Expr → Expr
   deriving BEq, Inhabited, Repr, Ord
 
 namespace Expr
 
-def name : Expr → Option Name
-  | var   n _
-  | const n ..
-  | lam   n ..
-  | pi    n ..
-  | letE  n .. => some n
-  | _ => none
-
-def bInfo : Expr → Option BinderInfo
-  | lam _ b ..
-  | pi  _ b .. => some b
-  | _ => none
+--def name : Expr → Option Name
+--  | var   n _ 
+--  | const n ..
+--  | lam   n ..
+--  | pi    n ..
+--  | letE  n .. => some n
+--  | _ => none
+--
+--def bInfo : Expr → Option BinderInfo
+--  | lam _ b ..
+--  | pi  _ b .. => some b
+--  | _ => none
 
 def type : Expr → Option Expr
-  | lam  _ _ t _
-  | pi   _ _ t _
-  | letE _ t _ _ => some t
+  | lam t _
+  | pi  t _
+  | letE t _ _ => some t
   | _ => none
 
 def body : Expr → Option Expr
-  | lam  _ _ _ b
-  | pi   _ _ _ b
-  | letE _ _ _ b => some b
+  | lam  _ b
+  | pi   _ b
+  | letE _ _ b => some b
   | _ => none
 
-/-- Whether a variable is free -/
-def isVarFree (name : Name) : Expr → Bool
-  | var name' _ => name == name'
-  | app func input => isVarFree name func || isVarFree name input
-  | lam name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
-  | pi name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
-  | letE name' type value body => isVarFree name type || isVarFree name value || (name != name' && isVarFree name body)
-  | proj _ body => isVarFree name body
-  | _ => false
+--/-- Whether a variable is free -/
+--def isVarFree (name : Name) : Expr → Bool
+--  | var name' _ => name == name'
+--  | app func input => isVarFree name func || isVarFree name input
+--  | lam name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
+--  | pi name' _ type body => isVarFree name type || (name != name' && isVarFree name body)
+--  | letE name' type value body => isVarFree name type || isVarFree name value || (name != name' && isVarFree name body)
+--  | proj _ body => isVarFree name body
+--  | _ => false
 
 /--
 Get the list of de Bruijn indices of all the variables of a `Yatima.Expr`
 (helpful for debugging later)
 -/
 def getIndices : Expr → List Nat
-  | var _ idx => [idx]
+  | var idx => [idx]
   | app func input => getIndices func ++ getIndices input
-  | lam _ _ type body => getIndices type ++ getIndices body
-  | pi _ _ type body => getIndices type ++ getIndices body
-  | letE _ type value body => getIndices type ++ getIndices value ++ getIndices body
+  | lam type body => getIndices type ++ getIndices body
+  | pi type body => getIndices type ++ getIndices body
+  | letE type value body => getIndices type ++ getIndices value ++ getIndices body
   | proj _ body => getIndices body
   | _ => [] -- All the rest of the cases are treated at once
 
-/-- Get the list of bound variables in an expression -/
-def getBVars : Expr → List Name
-  | var name _ => [name]
-  | app func input => getBVars func ++ getBVars input
-  | lam _ _ type body => getBVars type ++ getBVars body
-  | pi _ _ type body => getBVars type ++ getBVars body
-  | letE _ type value body => getBVars type ++ getBVars value ++ getBVars body
-  | proj _ body => getBVars body
-  | _ => [] -- All the rest of the cases are treated at once
+--/-- Get the list of bound variables in an expression -/
+--def getBVars : Expr → List Name
+--  | var name _ => [name]
+--  | app func input => getBVars func ++ getBVars input
+--  | lam _ _ type body => getBVars type ++ getBVars body
+--  | pi _ _ type body => getBVars type ++ getBVars body
+--  | letE _ type value body => getBVars type ++ getBVars value ++ getBVars body
+--  | proj _ body => getBVars body
+--  | _ => [] -- All the rest of the cases are treated at once
 
 def ctorName : Expr → String
   | var   .. => "var"
@@ -146,9 +149,9 @@ def ctorName : Expr → String
 
 -- Gets the depth of a Yatima Expr (helpful for debugging later)
 def numBinders : Expr → Nat
-  | lam  _ _ _ body
-  | pi   _ _ _ body
-  | letE _ _ _ body => 1 + numBinders body
+  | lam  _ body
+  | pi   _ body
+  | letE _ _ body => 1 + numBinders body
   | _ => 0
 
 /--
@@ -157,16 +160,16 @@ an "implicit lambda". This is useful for constructing the `rhs` of
 recursor rules.
 -/
 def toImplicitLambda : Expr → Expr
-  | .lam _ _ _ body => toImplicitLambda body
+  | .lam _ body => toImplicitLambda body
   | x => x
 
-def constName? : Expr → Option Name
-  | const n _ _ => some n
-  | _           => none
+--def constName? : Expr → Option Name
+--  | const n _ _ => some n
+--  | _           => none
 
-/-- If the expression is a constant, return that name. Otherwise return `Name.anonymous`. -/
-def constName (e : Expr) : Name :=
-  e.constName?.getD Lean.Name.anonymous
+--/-- If the expression is a constant, return that name. Otherwise return `Name.anonymous`. -/
+--def constName (e : Expr) : Name :=
+--  e.constName?.getD Lean.Name.anonymous
 
 /--
 If the given expression is a sequence of

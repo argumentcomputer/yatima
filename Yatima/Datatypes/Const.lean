@@ -182,58 +182,49 @@ end IR
 
 namespace TC
 
+open Lurk (F)
+
 structure Axiom where
-  name : Name
-  lvls : List Name
+  lvls : Nat
   type : Expr
   safe : Bool
-  deriving Inhabited, BEq, Repr
+  deriving BEq, Repr
 
 structure Theorem where
-  name  : Name
-  lvls  : List Name
+  lvls  : Nat
   type  : Expr
   value : Expr
   deriving BEq, Repr
 
 structure Opaque where
-  name  : Name
-  lvls  : List Name
+  lvls  : Nat
   type  : Expr
   value : Expr
   safe  : Bool
   deriving BEq, Repr
 
+deriving instance Repr for Lean.QuotKind
+
+structure Quotient where
+  lvls : Nat
+  type : Expr
+  kind : QuotKind
+  deriving BEq, Repr
+
 structure Definition where
-  name   : Name
-  lvls   : List Name
+  lvls   : Nat
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
-  all    : List ConstIdx
   deriving BEq, Repr
 
 structure Constructor where
-  name   : Name
-  lvls   : List Name
+  lvls   : Nat
   type   : Expr
   idx    : Nat
   params : Nat
   fields : Nat
   safe   : Bool
-  deriving BEq, Repr
-
-structure Inductive where
-  name    : Name
-  lvls    : List Name
-  type    : Expr
-  params  : Nat
-  indices : Nat
-  recr    : Bool
-  safe    : Bool
-  refl    : Bool
-  unit    : Bool
-  struct  : Option ConstIdx
   deriving BEq, Repr
 
 structure RecursorRule where
@@ -242,8 +233,7 @@ structure RecursorRule where
   deriving BEq, Repr
 
 structure Recursor where
-  name     : Name
-  lvls     : List Name
+  lvls     : Nat
   type     : Expr
   params   : Nat
   indices  : Nat
@@ -251,20 +241,19 @@ structure Recursor where
   minors   : Nat
   rules    : List RecursorRule
   isK      : Bool
-  ind      : ConstIdx
   internal : Bool
-  /-- We need to cache a list of the indexes of all of the recursors
-      of this inductive in order to avoid infinite loops while typechecking -/
-  all    : List ConstIdx
   deriving BEq, Repr
 
-deriving instance Repr for Lean.QuotKind
-
-structure Quotient where
-  name : Name
-  lvls : List Name
-  type : Expr
-  kind : QuotKind
+structure Inductive where
+  lvls    : Nat
+  type    : Expr
+  params  : Nat
+  indices : Nat
+  ctors   : List Constructor
+  recrs   : List Recursor
+  recr    : Bool
+  safe    : Bool
+  refl    : Bool
   deriving BEq, Repr
 
 /-- Representation of constants for typechecking -/
@@ -277,19 +266,20 @@ inductive Const
   | constructor : Constructor → Const
   | recursor    : Recursor → Const
   | quotient    : Quotient → Const
-  deriving Inhabited, BEq, Repr
+  deriving BEq, Repr
+
 
 namespace Const
 
-def name : Const → Name
-  | .axiom       x
-  | .theorem     x
-  | .opaque      x
-  | .inductive   x
-  | .definition  x
-  | .constructor x
-  | .recursor x
-  | .quotient    x => x.name
+--def name : Const → Name
+--  | .axiom       x
+--  | .theorem     x
+--  | .opaque      x
+--  | .inductive   x
+--  | .definition  x
+--  | .constructor x
+--  | .recursor x
+--  | .quotient    x => x.name
 
 def type : Const → Expr
   | .axiom       x
@@ -301,7 +291,7 @@ def type : Const → Expr
   | .recursor    x
   | .quotient    x => x.type
 
-def levels : Const → List Name
+def levels : Const → Nat
   | .axiom       x
   | .theorem     x
   | .inductive   x
@@ -323,46 +313,46 @@ def ctorName : Const → String
 
 end Const
 
-def Opaque.toIR (d : Opaque) (typeCid valueCid: IR.BothExprCid) : IR.Opaque k :=
-  match k with
-  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safe⟩
-  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
-
-def Quotient.toIR (d : Quotient) (typeCid : IR.BothExprCid) : IR.Quotient k :=
-  match k with
-  | .anon => ⟨(), d.lvls.length, typeCid.anon, d.kind⟩
-  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
-
-def Axiom.toIR (d : Axiom) (typeCid : IR.BothExprCid) : IR.Axiom k :=
-  match k with
-  | .anon => ⟨(), d.lvls.length, typeCid.anon, d.safe⟩
-  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
-
-def Theorem.toIR (d : Theorem) (typeCid valueCid : IR.BothExprCid) : IR.Theorem k :=
-  match k with
-  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon⟩
-  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
-
-def Definition.toIR (d : Definition) (typeCid valueCid : IR.BothExprCid) : IR.Definition k :=
-  match k with
-  | .anon => ⟨(), d.lvls.length, typeCid.anon, valueCid.anon, d.safety⟩
-  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
-
-def Constructor.toIR (c : Constructor) (typeCid : IR.BothExprCid) : IR.Constructor k :=
-  match k with
-  | .anon => ⟨(), c.lvls.length, typeCid.anon, c.idx, c.params, c.fields, c.safe⟩
-  | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), ()⟩
-
-def RecursorRule.toIR (r : RecursorRule) (rhsCid : IR.BothExprCid) : IR.RecursorRule k :=
-  match k with
-  | .anon => ⟨r.fields, rhsCid.anon⟩
-  | .meta => ⟨(), rhsCid.meta⟩
-
-def Inductive.toIR (i : Inductive) (idx : Nat)
-    (typeCid : IR.BothExprCid) (blockCid : IR.BothConstCid) : IR.InductiveProj k :=
-  match k with
-  | .anon => ⟨(), i.lvls.length, typeCid.anon, blockCid.anon, idx⟩
-  | .meta => ⟨i.name, i.lvls, typeCid.meta, blockCid.meta, ()⟩
+--def Opaque.toIR (d : Opaque) (typeCid valueCid: IR.BothExprCid) : IR.Opaque k :=
+--  match k with
+--  | .anon => ⟨(), d.lvls, typeCid.anon, valueCid.anon, d.safe⟩
+--  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+--
+--def Quotient.toIR (d : Quotient) (typeCid : IR.BothExprCid) : IR.Quotient k :=
+--  match k with
+--  | .anon => ⟨(), d.lvls, typeCid.anon, d.kind⟩
+--  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+--
+--def Axiom.toIR (d : Axiom) (typeCid : IR.BothExprCid) : IR.Axiom k :=
+--  match k with
+--  | .anon => ⟨(), d.lvls, typeCid.anon, d.safe⟩
+--  | .meta => ⟨d.name, d.lvls, typeCid.meta, ()⟩
+--
+--def Theorem.toIR (d : Theorem) (typeCid valueCid : IR.BothExprCid) : IR.Theorem k :=
+--  match k with
+--  | .anon => ⟨(), d.lvls, typeCid.anon, valueCid.anon⟩
+--  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta⟩
+--
+--def Definition.toIR (d : Definition) (typeCid valueCid : IR.BothExprCid) : IR.Definition k :=
+--  match k with
+--  | .anon => ⟨(), d.lvls, typeCid.anon, valueCid.anon, d.safety⟩
+--  | .meta => ⟨d.name, d.lvls, typeCid.meta, valueCid.meta, ()⟩
+--
+--def Constructor.toIR (c : Constructor) (typeCid : IR.BothExprCid) : IR.Constructor k :=
+--  match k with
+--  | .anon => ⟨(), c.lvls, typeCid.anon, c.idx, c.params, c.fields, c.safe⟩
+--  | .meta => ⟨c.name, c.lvls, typeCid.meta, (), (), (), ()⟩
+--
+--def RecursorRule.toIR (r : RecursorRule) (rhsCid : IR.BothExprCid) : IR.RecursorRule k :=
+--  match k with
+--  | .anon => ⟨r.fields, rhsCid.anon⟩
+--  | .meta => ⟨(), rhsCid.meta⟩
+--
+--def Inductive.toIR (i : Inductive) (idx : Nat)
+--    (typeCid : IR.BothExprCid) (blockCid : IR.BothConstCid) : IR.InductiveProj k :=
+--  match k with
+--  | .anon => ⟨(), i.lvls, typeCid.anon, blockCid.anon, idx⟩
+--  | .meta => ⟨i.name, i.lvls, typeCid.meta, blockCid.meta, ()⟩
 
 end TC
 

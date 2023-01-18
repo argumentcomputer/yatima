@@ -5,9 +5,10 @@ import YatimaStdLib.List
 
 namespace Yatima
 
+open Std (RBMap RBSet)
+
 namespace IR
 
-open Std (RBMap RBSet) in
 /-- The end result of the content-addressing process -/
 structure Store where
   consts : RBSet (Both ConstCid) compare
@@ -44,13 +45,12 @@ end IR
 
 namespace TC
 
+open Lurk (F)
+
 open Typechecker in
 /-- Keeps track of the data used for typechecking -/
-structure Store where
-  consts       : Array Const
-  primIdxs     : Std.RBMap PrimConst Nat compare
-  idxsToPrims  : Std.RBMap Nat PrimConst compare
-  deriving Inhabited, Repr
+structure TC.Store where
+  consts : RBMap F Const compare
 
 end TC
 
