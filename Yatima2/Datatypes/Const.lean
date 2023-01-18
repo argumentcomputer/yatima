@@ -219,7 +219,7 @@ inductive ConstMeta where
   | recursorProj    : RecursorProjMeta    → ConstMeta
   | definitionProj  : DefinitionProjMeta  → ConstMeta
   -- constants to represent mutual blocks
-  | mutDefBlock : List DefinitionMeta → ConstMeta
+  | mutDefBlock : List (List DefinitionMeta) → ConstMeta
   | mutIndBlock : List InductiveMeta  → ConstMeta
   deriving Ord, BEq
 
