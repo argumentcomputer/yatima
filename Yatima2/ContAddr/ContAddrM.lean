@@ -63,9 +63,30 @@ inductive StoreEntry : Type → Type
   | const : ConstAnon → ConstMeta → StoreEntry (Hash × Hash)
 
 def addToStore : StoreEntry α → ContAddrM α
-  | .univ anon meta => sorry
-  | .expr anon meta => sorry
-  | .const anon meta => sorry
+  | .univ anon meta =>
+    let hashes := (hashUnivAnon anon, hashUnivMeta meta)
+    modifyGet fun stt => (hashes, { stt with store := { stt.store with
+      irUnivAnon := stt.store.irUnivAnon.insert hashes.1 anon
+      irUnivMeta := stt.store.irUnivMeta.insert hashes.2 meta } })
+  | .expr anon meta =>
+    let hashes := (hashExprAnon anon, hashExprMeta meta)
+    modifyGet fun stt => (hashes, { stt with store := { stt.store with
+      irExprAnon := stt.store.irExprAnon.insert hashes.1 anon
+      irExprMeta := stt.store.irExprMeta.insert hashes.2 meta } })
+  | .const anon meta =>
+    let hashes := (hashConstAnon anon, hashConstMeta meta)
+    match anon, meta with
+    -- Mutual definition/inductive blocks do not get added to the set of constants
+    | .mutDefBlock _, .mutDefBlock _
+    | .mutIndBlock _, .mutIndBlock _ =>
+      modifyGet fun stt => (hashes, { stt with store := { stt.store with
+        irConstAnon := stt.store.irConstAnon.insert hashes.1 anon
+        irConstMeta := stt.store.irConstMeta.insert hashes.2 meta } })
+    | _, _ =>
+      modifyGet fun stt => (hashes, { stt with store := { stt.store with
+        irConstAnon  := stt.store.irConstAnon.insert hashes.1 anon
+        irConstMeta  := stt.store.irConstMeta.insert hashes.2 meta
+        irMetaToAnon := stt.store.irMetaToAnon.insert hashes.2 hashes.1 } })
 
 def addToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=
   modify fun stt => { stt with
