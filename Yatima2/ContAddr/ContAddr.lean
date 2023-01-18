@@ -1,17 +1,15 @@
 import Yatima2.Lean.Utils
 import Yatima2.ContAddr.ContAddrM
 
-/-- Move to YatimaStdLib -/
-instance : HMul Ordering Ordering Ordering where hMul
+namespace Yatima.ContAddr
+
+scoped instance : HMul Ordering Ordering Ordering where hMul
   | .gt, _ => .gt
   | .lt, _ => .lt
   | .eq, x => x
 
-/-- Move to YatimaStdLib -/
 def concatOrds : List Ordering → Ordering :=
-  List.foldl (fun x y => x * y) .eq
-
-namespace Yatima.ContAddr
+  List.foldl (· * ·) .eq
 
 open IR
 open Std (RBMap)
@@ -43,31 +41,22 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
 /-- Content-addresses a Lean universe level and adds it to the store -/
 def contAddrUniv (l : Lean.Level) : ContAddrM (Hash × Hash) := do
   let (anon, meta) ← match l with
-    | .zero =>
-      let value := ⟨ .zero, .zero ⟩
-      pure (value, .zero)
+    | .zero => pure (.zero, .zero)
     | .succ n    =>
-      let (univCid, univ) ← contAddrUniv n
-      let value := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
-      pure (value, .succ univ)
+      let (anon, meta) ← contAddrUniv n
+      pure (.succ anon, .succ meta)
     | .max  a b  =>
-      let (univACid, univA) ← contAddrUniv a
-      let (univBCid, univB) ← contAddrUniv b
-      let value := ⟨ .max univACid.anon univBCid.anon,
-        .max univACid.meta univBCid.meta ⟩
-      pure (value, .max univA univB)
+      let (aAnon, aMeta) ← contAddrUniv a
+      let (bAnon, bMeta) ← contAddrUniv b
+      pure (.max aAnon bAnon, .max aMeta bMeta)
     | .imax  a b  =>
-      let (univACid, univA) ← contAddrUniv a
-      let (univBCid, univB) ← contAddrUniv b
-      let value := ⟨ .imax univACid.anon univBCid.anon,
-        .imax univACid.meta univBCid.meta ⟩
-      pure (value, .imax univA univB)
+      let (aAnon, aMeta) ← contAddrUniv a
+      let (bAnon, bMeta) ← contAddrUniv b
+      pure (.imax aAnon bAnon, .max aMeta bMeta)
     | .param name =>
       let lvls := (← read).univCtx
       match lvls.indexOf? name with
-      | some n =>
-        let value := ⟨ .var n, .var name ⟩
-        pure (value, .var name n)
+      | some n => pure (.var n, .var name)
       | none   => throw $ .levelNotFound name lvls
     | .mvar .. => throw $ .unfilledLevelMetavariable l
   addToStore $ .univ anon meta
@@ -159,27 +148,22 @@ partial def definitionToIR (defn : Lean.DefinitionVal) :
 partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
   | .mdata _ e => contAddrExpr e
   | expr => do
-    match expr with
+    let (anon, meta) ← match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         -- Bound variables must be in the bind context
-        | some name => addToStore $ .expr (.var idx []) (.var name none [])
+        | some name => pure (.var idx [], .var name none [])
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
-        let (univCid, univ) ← contAddrUniv lvl
-        let value := ⟨ .sort univCid.anon, .sort univCid.meta ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .sort univ)
+        let (anon, meta) ← contAddrUniv lvl
+        pure (.sort anon, .sort meta)
       | .const name lvls =>
         let pairs ← lvls.mapM $ contAddrUniv
-        let (univCids, univs) ← pairs.foldrM (init := ([], []))
+        let (univHashesAnon, univHashesMeta) ← pairs.foldrM (init := ([], []))
           fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
         | some (i, i?) => -- recursing!
           let idx := (← read).bindCtx.length + i
-          let value := ⟨ .var idx () (univCids.map (·.anon)),
-            .var name i? (univCids.map (·.meta)) ⟩
-          let cid ← addToStore $ .expr value
-          pure (cid, .const name ref univs)
+          pure (.var idx univHashesAnon, .var name i? univHashesMeta)
         | none =>
           let const ← getLeanConstant name
           let (constCid, const) ← getContAddrConst const
@@ -227,6 +211,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
       | .fvar ..  => throw $ .freeVariableExpr expr
       | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr
+    addToStore $ .expr anon meta
 
 /--
 A name-irrelevant ordering of Lean expressions.

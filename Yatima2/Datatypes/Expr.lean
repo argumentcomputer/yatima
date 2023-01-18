@@ -8,7 +8,7 @@ namespace IR
 
 inductive ExprAnon
   /-- Variables are also used to represent recursive calls. When referencing
-    constants, the third argument keeps track of the universe levels -/
+    constants, the second argument keeps track of the universe levels -/
   | var   : Nat → List Hash → ExprAnon
   | sort  : Hash → ExprAnon
   | const : Hash → List Hash → ExprAnon
