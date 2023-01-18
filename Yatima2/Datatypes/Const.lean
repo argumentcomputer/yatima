@@ -231,46 +231,46 @@ open Lurk (F)
 
 structure Axiom where
   lvls : Nat
-  type : F
+  type : Expr
   safe : Bool
   deriving Ord, BEq
 
 structure Theorem where
   lvls  : Nat
-  type  : F
-  value : F
+  type  : Expr
+  value : Expr
   deriving Ord, BEq
 
 structure Opaque where
   lvls  : Nat
-  type  : F
-  value : F
+  type  : Expr
+  value : Expr
   safe  : Bool
   deriving Ord, BEq
 
 structure Quotient where
   lvls : Nat
-  type : F
+  type : Expr
   kind : QuotKind
   deriving Ord, BEq
 
 structure Definition where
   lvls   : Nat
-  type   : F
-  value  : F
+  type   : Expr
+  value  : Expr
   safety : DefinitionSafety
   deriving Inhabited, Ord, BEq
 
 structure DefinitionProj where
   lvls  : Nat
-  type  : F
+  type  : Expr
   block : F
   idx   : Nat
   deriving Ord, BEq
 
 structure Constructor where
   lvls   : Nat
-  type   : F
+  type   : Expr
   idx    : Nat
   params : Nat
   fields : Nat
@@ -279,12 +279,12 @@ structure Constructor where
 
 structure RecursorRule where
   fields : Nat
-  rhs    : F
+  rhs    : Expr
   deriving Ord, BEq
 
 structure Recursor where
   lvls     : Nat
-  type     : F
+  type     : Expr
   params   : Nat
   indices  : Nat
   motives  : Nat
@@ -296,7 +296,7 @@ structure Recursor where
 
 structure Inductive where
   lvls    : Nat
-  type    : F
+  type    : Expr
   params  : Nat
   indices : Nat
   ctors   : List Constructor
@@ -308,14 +308,14 @@ structure Inductive where
 
 structure InductiveProj where
   lvls  : Nat
-  type  : F
+  type  : Expr
   block : F
   idx   : Nat
   deriving Ord, BEq
 
 structure ConstructorProj where
   lvls  : Nat
-  type  : F
+  type  : Expr
   block : F
   idx   : Nat
   cidx  : Nat
@@ -323,7 +323,7 @@ structure ConstructorProj where
 
 structure RecursorProj where
   lvls  : Nat
-  type  : F
+  type  : Expr
   block : F
   idx   : Nat
   ridx  : Nat

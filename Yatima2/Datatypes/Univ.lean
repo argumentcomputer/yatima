@@ -1,6 +1,5 @@
 import YatimaStdLib.ByteVector
 import Yatima2.Datatypes.Lean
-import Yatima2.Datatypes.Lurk
 
 namespace Yatima
 
@@ -28,14 +27,12 @@ end IR
 
 namespace TC
 
-open Lurk (F)
-
 inductive Univ
   | zero
-  | succ : F → Univ
-  | max  : F → F → Univ
-  | imax : F → F → Univ
-  | var  : F → Univ
+  | succ : Univ → Univ
+  | max  : Univ → Univ → Univ
+  | imax : Univ → Univ → Univ
+  | var  : Nat → Univ
   deriving Inhabited, Ord, BEq
 
 end TC

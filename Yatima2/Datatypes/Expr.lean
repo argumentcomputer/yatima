@@ -1,4 +1,5 @@
 import Yatima2.Datatypes.Univ
+import Yatima2.Datatypes.Lurk
 import YatimaStdLib.Ord
 
 namespace Yatima
@@ -44,15 +45,15 @@ open Lurk (F)
 inductive Expr
   /-- Variables are also used to represent recursive calls. When referencing
     constants, the third argument keeps track of the universe levels -/
-  | var   : F → List F → Expr
-  | sort  : F → Expr
-  | const : F → List F → Expr
-  | app   : F → F → Expr
-  | lam   : F → F → Expr
-  | pi    : F → F → Expr
-  | letE  : F → F → F → Expr
+  | var   : Nat → List Univ → Expr
+  | sort  : Univ → Expr
+  | const : F → List Univ → Expr
+  | app   : Expr → Expr → Expr
+  | lam   : Expr → Expr → Expr
+  | pi    : Expr → Expr → Expr
+  | letE  : Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
-  | proj  : Nat → F → Expr
+  | proj  : Nat → Expr → Expr
   deriving Inhabited, Ord, BEq
 
 end TC
