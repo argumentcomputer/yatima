@@ -40,6 +40,38 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
     | none,    _       => throw $ .levelNotFound x lvls
     | _,       none    => throw $ .levelNotFound y lvls
 
+/-- Content-addresses a Lean universe level and adds it to the store -/
+def contAddrUniv (l : Lean.Level) : ContAddrM (Hash × Hash) := do
+  let (anon, meta) ← match l with
+    | .zero =>
+      let value := ⟨ .zero, .zero ⟩
+      pure (value, .zero)
+    | .succ n    =>
+      let (univCid, univ) ← contAddrUniv n
+      let value := ⟨ .succ univCid.anon, .succ univCid.meta ⟩
+      pure (value, .succ univ)
+    | .max  a b  =>
+      let (univACid, univA) ← contAddrUniv a
+      let (univBCid, univB) ← contAddrUniv b
+      let value := ⟨ .max univACid.anon univBCid.anon,
+        .max univACid.meta univBCid.meta ⟩
+      pure (value, .max univA univB)
+    | .imax  a b  =>
+      let (univACid, univA) ← contAddrUniv a
+      let (univBCid, univB) ← contAddrUniv b
+      let value := ⟨ .imax univACid.anon univBCid.anon,
+        .imax univACid.meta univBCid.meta ⟩
+      pure (value, .imax univA univB)
+    | .param name =>
+      let lvls := (← read).univCtx
+      match lvls.indexOf? name with
+      | some n =>
+        let value := ⟨ .var n, .var name ⟩
+        pure (value, .var name n)
+      | none   => throw $ .levelNotFound name lvls
+    | .mvar .. => throw $ .unfilledLevelMetavariable l
+  addToStore $ .univ anon meta
+
 /-- Retrieves a Lean constant from the environment by its name -/
 def getLeanConstant (name : Lean.Name) : ContAddrM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
@@ -130,10 +162,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
     match expr with
       | .bvar idx => match (← read).bindCtx.get? idx with
         -- Bound variables must be in the bind context
-        | some name =>
-          let value := ⟨ .var idx () [], .var name (.injᵣ none) [] ⟩
-          let cid ← addToStore $ .expr value
-          pure (cid, .var name idx)
+        | some name => addToStore $ .expr (.var idx []) (.var name none [])
         | none => throw $ .invalidBVarIndex idx
       | .sort lvl =>
         let (univCid, univ) ← contAddrUniv lvl
@@ -145,7 +174,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
         let (univCids, univs) ← pairs.foldrM (init := ([], []))
           fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
         match (← read).recrCtx.find? name with
-        | some (i, i?, ref) => -- recursing!
+        | some (i, i?) => -- recursing!
           let idx := (← read).bindCtx.length + i
           let value := ⟨ .var idx () (univCids.map (·.anon)),
             .var name i? (univCids.map (·.meta)) ⟩
