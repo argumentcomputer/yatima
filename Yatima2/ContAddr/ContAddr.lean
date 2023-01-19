@@ -116,7 +116,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
       return hashes
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) :
-    ContAddrM (Hash × Hash) := do
+    ContAddrM $ Hash × Hash := do
   let mutualSize := struct.all.length
 
   -- This solves an issue in which the constant name comes different in the
@@ -141,7 +141,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) :
   -- Building and storing the block
   let definitionsAnon := (definitions.map (match ·.head? with
     | some d => [d.1] | none => [])).join
-  let definitionsMeta := definitions.map fun ds => ds.map Prod.snd
+  let definitionsMeta := definitions.map fun ds => ds.map (·.2)
   let blockHashes ← addToStore $
     .const (.mutDefBlock definitionsAnon) (.mutDefBlock definitionsMeta)
 
@@ -171,6 +171,78 @@ partial def definitionToIR (defn : Lean.DefinitionVal) :
     ⟨defn.levelParams.length, typeHashes.1, valueHashes.1, defn.safety⟩,
     ⟨defn.name, defn.levelParams, typeHashes.2, valueHashes.2⟩
   )
+
+/--
+Content-addresses an inductive and all inductives in the mutual block as a
+mutual block, even if the inductive itself is not in a mutual block.
+
+Content-addressing an inductive involves content-addressing its associated
+constructors and recursors, hence the lenght of this function.
+-/
+partial def contAddrInductive (initInd : Lean.InductiveVal) :
+    ContAddrM $ Hash × Hash := do
+  let mut inds := []
+  let mut indCtors := []
+  let mut indRecs := []
+
+  for indName in initInd.all do
+    match ← getLeanConstant indName with
+    | .inductInfo ind =>
+      let leanRecs := ((← read).constMap.childrenOfWith ind.name
+        fun c => match c with | .recInfo _ => true | _ => false).map (·.name)
+      inds := inds ++ [indName]
+      indCtors := indCtors ++ ind.ctors
+      indRecs := indRecs ++ leanRecs
+    | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+
+  -- `mutualConsts` is the list of the names of all constants associated with an
+  -- inductive block: the inductives themselves, the constructors and the recursors
+  let mutualConsts := inds ++ indCtors ++ indRecs
+
+  let recrCtx := mutualConsts.enum.foldl (init := default)
+    fun acc (i, n) => acc.insert n (i, none)
+
+  -- This part will build the inductive block and add all inductives,
+  -- constructors and recursors to `consts`
+  let irInds ← initInd.all.mapM fun name => do match ← getLeanConstant name with
+    | .inductInfo ind => withRecrs recrCtx do pure $ (← inductiveToIR ind)
+    | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+  let (blockAnon, blockMeta) ← addToStore $
+    .const (.mutIndBlock $ irInds.map (·.1)) (.mutIndBlock $ irInds.map (·.2))
+
+  -- While iterating on the inductives from the mutual block, we need to track
+  -- the correct objects to return
+  let mut ret? : Option (Hash × Hash) := none
+
+  for (indIdx, ⟨indAnon, indMeta⟩) in irInds.enum do
+    -- Store and cache inductive projections
+    let name := indMeta.name
+    let hashes ← addToStore $ .const
+      (.inductiveProj ⟨indAnon.lvls, indAnon.type, blockAnon, indIdx⟩)
+      (.inductiveProj ⟨indMeta.name, indMeta.lvls, indMeta.type, blockMeta⟩)
+    addToEnv name hashes
+    if name == initInd.name then ret? := some hashes
+
+    for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
+      -- Store and cache constructor projections
+      let hashes ← addToStore $ .const
+        (.constructorProj ⟨ctorAnon.lvls, ctorAnon.type, blockAnon, indIdx, ctorIdx⟩)
+        (.constructorProj ⟨ctorMeta.name, ctorMeta.lvls, ctorMeta.type, blockMeta⟩)
+      addToEnv ctorMeta.name hashes
+
+    for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
+      -- Store and cache recursor projections
+      let hashes ← addToStore $ .const
+        (.recursorProj ⟨recrAnon.lvls, recrAnon.type, blockAnon, indIdx, recrIdx⟩)
+        (.recursorProj ⟨recrMeta.name, recrMeta.lvls, recrMeta.type, blockMeta⟩)
+      addToEnv recrMeta.name hashes
+
+  match ret? with
+  | some ret => return ret
+  | none => throw $ .constantNotContentAddressed initInd.name
+
+partial def inductiveToIR (defn : Lean.InductiveVal) :
+    ContAddrM (InductiveAnon × InductiveMeta) := sorry
 
 /--
 Content-addresses a Lean expression and adds it to the store.
