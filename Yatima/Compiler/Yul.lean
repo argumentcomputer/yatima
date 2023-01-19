@@ -1,3 +1,5 @@
+import Init.Data.Repr
+
 -- This is based on Yul's specification https://docs.soliditylang.org/en/v0.8.17/yul.html#specification-of-yul
 namespace Yul
 
@@ -52,6 +54,16 @@ inductive Statement where
 
 end
 
+abbrev StringLiteral := String
+abbrev HexLiteral := Nat
+
+inductive Data where
+| str : StringLiteral → StringLiteral → Data
+| hex : StringLiteral → HexLiteral → Data
+
+inductive Object where
+| object : StringLiteral → Block → List (Sum Object Data) → Object
+
 abbrev Code := String
 def Code.inc (code : Code) : Code := "    " ++ code
 
@@ -69,15 +81,31 @@ def Literal.toCode (lit : Literal) : Code :=
   let (typ, lit) := match lit with
     | .true typ => (typ, "true")
     | .false typ => (typ, "false")
-    | .string typ str => (typ, str)
+    | .string typ str => (typ, s!"\"{str}\"")
     | .number typ num => (typ, s!"{num}")
   match typ with
   | none => lit
   | some typ => lit ++ " : " ++ typ.toCode
 
+-- Should not be partial functions, but Lean fails to prove termination
+partial def Expression.toCode (alreadyIndented : Bool) (indent : Code) (expr : Expression) : Code :=
+  let firstIndent := if alreadyIndented then "" else indent
+  match expr with
+  | .functionCall name args =>
+    let indent' := indent.inc
+    let args := match args with
+      | .nil => "()"
+      | .cons arg args' =>
+        args'.foldr
+          (fun arg' acc => ", " ++ Expression.toCode true indent' arg' ++ acc)
+          ("(" ++ arg.toCode true indent')
+        ++ ")"
+    firstIndent ++ name ++ args
+  | .identifier   name => firstIndent ++ name
+  | .literal lit => firstIndent ++ lit.toCode
+
 mutual
 
--- Should not be partial functions, but Lean fails to prove termination
 partial def Block.toCode (alreadyIndented : Bool) (indent : Code) : Block → Code
 | .mk statements =>
   let firstIndent := if alreadyIndented then "" else indent
@@ -136,22 +164,6 @@ partial def Statement.toCode (indent : Code) : Statement → Code
 | .«continue»          => indent ++ "continue"
 | .leave               => indent ++ "leave"
 
-partial def Expression.toCode (alreadyIndented : Bool) (indent : Code) (expr : Expression) : Code :=
-  let firstIndent := if alreadyIndented then "" else indent
-  match expr with
-  | .functionCall name args =>
-    let indent' := indent.inc
-    let args := match args with
-      | .nil => "()"
-      | .cons arg args' =>
-        args'.foldr
-          (fun arg' acc => ", " ++ Expression.toCode true indent' arg' ++ acc)
-          ("(" ++ arg.toCode true indent')
-        ++ ")"
-    firstIndent ++ name ++ args
-  | .identifier   name => firstIndent ++ name
-  | .literal lit => firstIndent ++ lit.toCode
-
 partial def Switch.toCode (indent : Code) : Switch → Code
 | .case expr caseList block? =>
   let indent' := indent.inc
@@ -169,5 +181,28 @@ partial def Switch.toCode (indent : Code) : Switch → Code
   header ++ default
 
 end
+
+def HexLiteral.toCode (hex : HexLiteral) : Code :=
+  let base := 16
+  let num := (base.toDigits hex).asString
+  s!"hex\"{num}\""
+
+def StringLiteral.toCode (str : StringLiteral) : Code :=
+  s!"\"{str}\""
+
+def Data.toCode : Data → Code
+| .hex name hexLit => "data " ++ name.toCode ++ hexLit.toCode
+| .str name strLit => "data " ++ name.toCode ++ strLit.toCode
+
+partial def Object.toCode (indent : Code) : Object → Code
+| .object name code args =>
+  let objHeader := indent ++ "object " ++ name.toCode ++ " {\n"
+  let indent' := indent.inc
+  let codeHeader := indent' ++ "code " ++ name.toCode ++ code.toCode true indent'.inc
+  let argToCode arg := match arg with
+  | .inl obj => obj.toCode indent'
+  | .inr data => indent' ++ data.toCode
+  let args := args.foldr (fun arg acc => "\n" ++ argToCode arg ++ acc) "\n"
+  objHeader ++ codeHeader ++ args ++ indent ++ "}"
 
 end Yul
