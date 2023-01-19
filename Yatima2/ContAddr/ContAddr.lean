@@ -1,5 +1,6 @@
 import Yatima2.Lean.Utils
 import Yatima2.ContAddr.ContAddrM
+import YatimaStdLib.RBMap
 
 namespace Yatima.ContAddr
 
@@ -77,11 +78,42 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
     | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
     | .inductInfo val => withLevelsAndReset val.levelParams sorry
     | .ctorInfo val => do
-      discard $ match ← getLeanConstant val.induct with
-        | .inductInfo ind => contAddrConst (.inductInfo ind)
-        | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+      match ← getLeanConstant val.induct with
+      | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
+      | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
       contAddrConst (.ctorInfo val)
-    | _ => sorry
+    | .recInfo val => do
+      match ← getLeanConstant val.getInduct with
+      | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
+      | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+      contAddrConst (.recInfo val)
+    -- The rest adds the constants to the cache one by one
+    | const => withLevelsAndReset const.levelParams do
+      let (anon, meta) ← match const with
+        | .defnInfo _ | .inductInfo _ | .ctorInfo _ | .recInfo _ => unreachable!
+        | .axiomInfo val =>
+          let (typAnon, typMeta) ← contAddrExpr val.type
+          pure (.axiom ⟨val.levelParams.length, typAnon, !val.isUnsafe⟩,
+            .axiom ⟨val.name, val.levelParams, typMeta⟩)
+        | .thmInfo val =>
+          -- Theorems are never truly recursive
+          let (typAnon, typMeta) ← contAddrExpr val.type
+          let (valAnon, valMeta) ← contAddrExpr val.value
+          pure (.theorem ⟨val.levelParams.length, typAnon, valAnon⟩,
+            .theorem ⟨val.name, val.levelParams, typMeta, valMeta⟩)
+        | .opaqueInfo val =>
+          let (typAnon, typMeta) ← contAddrExpr val.type
+          let recrs := .single val.name (0, some 0)
+          let (valAnon, valMeta) ← withRecrs recrs $ contAddrExpr val.value
+          pure (.opaque ⟨val.levelParams.length, typAnon, valAnon, !val.isUnsafe⟩,
+            .opaque ⟨val.name, val.levelParams, typMeta, valMeta⟩)
+        | .quotInfo val =>
+          let (typAnon, typMeta) ← contAddrExpr val.type
+          pure (.quotient ⟨val.levelParams.length, typAnon, val.kind⟩,
+            .quotient ⟨val.name, val.levelParams, typMeta⟩)
+      let hashes ← addToStore $ .const anon meta
+      addToEnv const.name hashes
+      return hashes
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) :
     ContAddrM (Hash × Hash) := do
