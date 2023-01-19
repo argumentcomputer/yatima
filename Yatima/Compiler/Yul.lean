@@ -65,6 +65,16 @@ def TypedIdentifier.toCode (id : TypedIdentifier) : Code :=
   | none => id.identifier
   | some type => id.identifier ++ " : " ++ type.toCode
 
+def Literal.toCode (lit : Literal) : Code :=
+  let (typ, lit) := match lit with
+    | .true typ => (typ, "true")
+    | .false typ => (typ, "false")
+    | .string typ str => (typ, str)
+    | .number typ num => (typ, s!"{num}")
+  match typ with
+  | none => lit
+  | some typ => lit ++ " : " ++ typ.toCode
+
 mutual
 
 -- Should not be partial functions, but Lean fails to prove termination
@@ -140,25 +150,23 @@ partial def Expression.toCode (alreadyIndented : Bool) (indent : Code) (expr : E
         ++ ")"
     firstIndent ++ name ++ args
   | .identifier   name => firstIndent ++ name
-  | .literal lit =>
-    let (typ, lit) := match lit with
-      | .true typ => (typ, "true")
-      | .false typ => (typ, "false")
-      | .string typ str => (typ, str)
-      | .number typ num => (typ, s!"{num}")
-    match typ with
-    | none => firstIndent ++ lit
-    | some typ => firstIndent ++ lit ++ " : " ++ typ.toCode
+  | .literal lit => firstIndent ++ lit.toCode
 
 partial def Switch.toCode (indent : Code) : Switch → Code
 | .case expr caseList block? =>
   let indent' := indent.inc
-  let header := indent ++ "switch " ++ expr.toCode true indent'
-  header
+  let header := indent ++ "switch " ++ expr.toCode true indent' ++ "\n"
+  let cases := caseList.toList.foldr
+    (fun (lit, block) acc => indent ++ "case " ++ lit.toCode ++ block.toCode true indent' ++ acc) ""
+  let default := match block? with
+    | none => ""
+    | some block => indent ++ "default " ++ block.toCode true indent'
+  header ++ cases ++ default
 | .default expr block =>
   let indent' := indent.inc
-  let header := indent ++ "switch " ++ expr.toCode true indent'
-  header
+  let header := indent ++ "switch " ++ expr.toCode true indent' ++ "\n"
+  let default := indent ++ "default " ++ block.toCode true indent'
+  header ++ default
 
 end
 
