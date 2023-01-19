@@ -1,4 +1,4 @@
-import YatimaStdLib.LightData
+import LightData
 import Yatima2.Datatypes.Store
 
 namespace Yatima.ContAddr

@@ -14,19 +14,22 @@ lean_lib Yatima { roots := #[`Yatima] }
 lean_lib Yatima2 { roots := #[`Yatima2] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "1b2f9295d77553ca1525d0912e9a5340a4a21591"
+  "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
 
 require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "704823e421b333ea9960347e305c60f654618422"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "649368d593f292227ab39b9fd08f6a448770dca8"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "b76218dbaa20ac51cf4e6789407e42b76dd3061f"
+  "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "b53eb34b45ab7e414906d928979f132606c0f6a2"
+  "https://github.com/yatima-inc/Lurk.lean" @ "6121aa26ba7462a1c87c8a5f8230e9f8b498944b"
+
+require LightData from git
+  "https://github.com/yatima-inc/LightData" @ "86c3ba909582366b03a778d8020044a73859a9ad"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"

@@ -69,15 +69,19 @@ def getLeanConstant (name : Lean.Name) : ContAddrM Lean.ConstantInfo := do
 
 mutual
 
-partial def getContAddrConst (const : Lean.ConstantInfo) :
+partial def contAddrConst (const : Lean.ConstantInfo) :
     ContAddrM $ Hash × Hash := do
   match (← get).env.consts.find? const.name with
   | some c => pure c
-  | none   => contAddrConst const
-
-partial def contAddrConst : Lean.ConstantInfo → ContAddrM (Hash × Hash)
-  | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
-  | _ => sorry
+  | none   => match const with
+    | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
+    | .inductInfo val => withLevelsAndReset val.levelParams sorry
+    | .ctorInfo val => do
+      discard $ match ← getLeanConstant val.induct with
+        | .inductInfo ind => contAddrConst (.inductInfo ind)
+        | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+      contAddrConst (.ctorInfo val)
+    | _ => sorry
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) :
     ContAddrM (Hash × Hash) := do
@@ -166,8 +170,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
           let idx := (← read).bindCtx.length + i
           pure (.var idx univHashesAnon, .var name i? univHashesMeta)
         | none =>
-          let const ← getLeanConstant name
-          let (anon, meta) ← getContAddrConst const
+          let (anon, meta) ← contAddrConst (← getLeanConstant name)
           pure (.const anon univHashesAnon, .const meta univHashesMeta)
       | .app fnc arg =>
         let (fncAnon, fncMeta) ← contAddrExpr fnc
@@ -222,8 +225,8 @@ partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
     | none, some _ => return .gt
     | some _, none => return .lt
     | none, none => do
-      let xCid := (← getContAddrConst (← getLeanConstant x)).1
-      let yCid := (← getContAddrConst (← getLeanConstant y)).1
+      let xCid := (← contAddrConst (← getLeanConstant x)).1
+      let yCid := (← contAddrConst (← getLeanConstant y)).1
       return compare xCid yCid
   | .const .., _ => return .lt
   | _, .const .. => return .gt
@@ -269,40 +272,42 @@ partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
   | .eq => pure true
   | _ => pure false
 
-/-- `sortDefs` recursively sorts a list of mutual definitions into weakly equal blocks.
-  At each stage, we take as input the current best approximation of known weakly equal
-  blocks as a List of blocks, hence the `List (List DefinitionVal)` as the argument type.
-  We recursively take the input blocks and resort to improve the approximate known
-  weakly equal blocks, obtaining a sequence of list of blocks:
-  ```
-  dss₀ := [startDefs]
-  dss₁ := sortDefs dss₀
-  dss₂ := sortDefs dss₁
-  dss₍ᵢ₊₁₎ := sortDefs dssᵢ ...
-  ```
-  Initially, `startDefs` is simply the list of definitions we receive from `DefinitionVal.all`;
-  since there is no order yet, we treat it as one block all weakly equal. On the other hand,
-  at the end, there is some point where `dss₍ᵢ₊₁₎ := dssᵢ`, then we have hit a fixed point
-  and we may end the sorting process. (We claim that such a fixed point exists, although
-  technically we don't really have a proof.)
+/--
+`sortDefs` recursively sorts a list of mutual definitions into weakly equal blocks.
+At each stage, we take as input the current best approximation of known weakly equal
+blocks as a List of blocks, hence the `List (List DefinitionVal)` as the argument type.
+We recursively take the input blocks and resort to improve the approximate known
+weakly equal blocks, obtaining a sequence of list of blocks:
+```
+dss₀ := [startDefs]
+dss₁ := sortDefs dss₀
+dss₂ := sortDefs dss₁
+dss₍ᵢ₊₁₎ := sortDefs dssᵢ ...
+```
+Initially, `startDefs` is simply the list of definitions we receive from `DefinitionVal.all`;
+since there is no order yet, we treat it as one block all weakly equal. On the other hand,
+at the end, there is some point where `dss₍ᵢ₊₁₎ := dssᵢ`, then we have hit a fixed point
+and we may end the sorting process. (We claim that such a fixed point exists, although
+technically we don't really have a proof.)
 
-  On each iteration, we hope to improve our knowledge of weakly equal blocks and use that
-  knowledge in the next iteration. e.g. We start with just one block with everything in it,
-  but the first sort may differentiate the one block into 3 blocks. Then in the second
-  iteration, we have more information than than first, since the relationship of the 3 blocks
-  gives us more information; this information may then be used to sort again, turning 3 blocks
-  into 4 blocks, and again 4 blocks into 6 blocks, etc, until we have hit a fixed point.
-  This step is done in the computation of `newDss` and then comparing it to the original `dss`.
+On each iteration, we hope to improve our knowledge of weakly equal blocks and use that
+knowledge in the next iteration. e.g. We start with just one block with everything in it,
+but the first sort may differentiate the one block into 3 blocks. Then in the second
+iteration, we have more information than than first, since the relationship of the 3 blocks
+gives us more information; this information may then be used to sort again, turning 3 blocks
+into 4 blocks, and again 4 blocks into 6 blocks, etc, until we have hit a fixed point.
+This step is done in the computation of `newDss` and then comparing it to the original `dss`.
 
-  Two optimizations:
+Two optimizations:
 
-  1. `names := enum dss` records the ordering information in a map for faster access.
-      Directly using `List.findIdx?` on dss is slow and introduces `Option` everywhere.
-      `names` is used as a custom comparison in `ds.sortByM (cmpDef names)`.
-  2. `normDss/normNewDss`. We want to compare if two lists of blocks are equal.
-      Technically blocks are sets and their order doesn't matter, but we have encoded
-      them as lists. To fix this, we sort the list by name before comparing. Note we
-      could maybe also use `List (RBTree ..)` everywhere, but it seemed like a hassle. -/
+1. `names := enum dss` records the ordering information in a map for faster access.
+    Directly using `List.findIdx?` on dss is slow and introduces `Option` everywhere.
+    `names` is used as a custom comparison in `ds.sortByM (cmpDef names)`.
+2. `normDss/normNewDss`. We want to compare if two lists of blocks are equal.
+    Technically blocks are sets and their order doesn't matter, but we have encoded
+    them as lists. To fix this, we sort the list by name before comparing. Note we
+    could maybe also use `List (RBTree ..)` everywhere, but it seemed like a hassle.
+-/
 partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
     ContAddrM (List (List Lean.DefinitionVal)) := do
   let enum (ll : List (List Lean.DefinitionVal)) :=
@@ -327,7 +332,7 @@ end
 
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit :=
-  delta.forM (discard $ getContAddrConst ·)
+  delta.forM (discard $ contAddrConst ·)
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
