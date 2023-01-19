@@ -12,10 +12,10 @@ structure TypedIdentifier where
 
 inductive Literal where
 -- Actually it should be a u256
-| number : PrimType → Nat → Literal
-| string : PrimType → String → Literal
-| true   : PrimType → Literal
-| false  : PrimType → Literal
+| number : Option PrimType → Nat → Literal
+| string : Option PrimType → String → Literal
+| true   : Option PrimType → Literal
+| false  : Option PrimType → Literal
 
 inductive Expression where
 | functionCall : Identifier → List Expression → Expression
@@ -126,9 +126,39 @@ partial def Statement.toCode (indent : Code) : Statement → Code
 | .«continue»          => indent ++ "continue"
 | .leave               => indent ++ "leave"
 
-partial def Expression.toCode (alreadyIndented : Bool) (indent : Code) : Expression → Code := default
+partial def Expression.toCode (alreadyIndented : Bool) (indent : Code) (expr : Expression) : Code :=
+  let firstIndent := if alreadyIndented then "" else indent
+  match expr with
+  | .functionCall name args =>
+    let indent' := indent.inc
+    let args := match args with
+      | .nil => "()"
+      | .cons arg args' =>
+        args'.foldr
+          (fun arg' acc => ", " ++ Expression.toCode true indent' arg' ++ acc)
+          ("(" ++ arg.toCode true indent')
+        ++ ")"
+    firstIndent ++ name ++ args
+  | .identifier   name => firstIndent ++ name
+  | .literal lit =>
+    let (typ, lit) := match lit with
+      | .true typ => (typ, "true")
+      | .false typ => (typ, "false")
+      | .string typ str => (typ, str)
+      | .number typ num => (typ, s!"{num}")
+    match typ with
+    | none => firstIndent ++ lit
+    | some typ => firstIndent ++ lit ++ " : " ++ typ.toCode
 
-partial def Switch.toCode (indent : Code) : Switch → Code := default
+partial def Switch.toCode (indent : Code) : Switch → Code
+| .case expr caseList block? =>
+  let indent' := indent.inc
+  let header := indent ++ "switch " ++ expr.toCode true indent'
+  header
+| .default expr block =>
+  let indent' := indent.inc
+  let header := indent ++ "switch " ++ expr.toCode true indent'
+  header
 
 end
 
