@@ -22,13 +22,11 @@ inductive Expression where
 | identifier   : Identifier → Expression
 | literal      : Literal → Expression
 
-inductive BreakContinue
-| «break»
-| «continue»
-
 structure NonemptyList (α : Type u) where
   head : α
   tail : List α
+
+def NonemptyList.toList (xs : NonemptyList α) : List α := xs.head :: xs.tail
 
 mutual
 
@@ -48,8 +46,50 @@ inductive Statement where
 | expression          : Expression → Statement
 | switch              : Switch → Statement
 | forLoop             : Block → Expression → Block → Block → Statement
-| breakContinue       : BreakContinue → Statement
+| «break»             : Statement
+| «continue»          : Statement
 | leave               : Statement
+
+end
+
+mutual
+
+-- Should not be partial functions, but Lean fails to prove termination
+partial def blockToCode (alreadyIndented : Bool) (indent : String) : Block → String
+| .mk statements =>
+  let firstIndent := if alreadyIndented then "" else indent
+  let left := firstIndent ++ "{\n"
+  let inner := statements.foldr
+    (fun statement acc => statementToCode ("    " ++ indent) statement ++ "\n" ++ acc)
+    ""
+  let right := indent ++ "}"
+  left ++ inner ++ right
+
+partial def statementToCode (indent : String) : Statement → String
+| .block block => blockToCode false indent block
+| .functionDefinition  name args rets body => sorry
+| .variableDeclaration names expr => sorry
+| .assignment          name expr => sorry
+| .«if»                expr block =>
+  let ifPart := indent ++ "if " ++ expressionToCode true indent expr
+  let inner  := blockToCode true indent block
+  ifPart ++ inner
+| .expression          expr => expressionToCode false indent expr
+| .switch              switch => switchToCode indent switch
+| .forLoop             init expr inc body =>
+  let forPart := indent ++ "for " ++
+    blockToCode true indent init ++
+    expressionToCode true indent expr ++
+    blockToCode true indent inc
+  let inner := blockToCode true indent body
+  forPart ++ inner
+| .«break»             => indent ++ "break"
+| .«continue»          => indent ++ "continue"
+| .leave               => indent ++ "leave"
+
+partial def expressionToCode (alreadyIndented : Bool) (indent : String) : Expression → String := sorry
+
+partial def switchToCode (indent : String) : Switch → String := sorry
 
 end
 
