@@ -30,7 +30,7 @@ inductive ExprMeta
   | const : Hash → List Hash → ExprMeta
   | app   : Hash → Hash → ExprMeta
   | lam   : Name → BinderInfo → Hash → Hash → ExprMeta
-  | pi    : Name → BinderInfo → Hash → Hash → ExprMeta → ExprMeta
+  | pi    : Name → BinderInfo → Hash → Hash → ExprMeta
   | letE  : Name → Hash → Hash → Hash → ExprMeta
   | lit
   | proj  : Hash → ExprMeta

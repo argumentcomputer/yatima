@@ -136,15 +136,15 @@ partial def definitionToIR (defn : Lean.DefinitionVal) :
     ⟨defn.name, defn.levelParams, typeHashes.2, valueHashes.2⟩
   )
 
-  /--
-  Content-addresses a Lean expression and adds it to the store.
+/--
+Content-addresses a Lean expression and adds it to the store.
 
-  Constants are the tricky case, for which there are two possibilities:
-  * The constant belongs to `recrCtx`, representing a recursive call. Those are
-  encoded as variables with indexes that go beyond the bind indexes
-  * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
-  and thus we can contAddr the actual constant right away
-  -/
+Constants are the tricky case, for which there are two possibilities:
+* The constant belongs to `recrCtx`, representing a recursive call. Those are
+encoded as variables with indexes that go beyond the bind indexes
+* The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
+and thus we can contAddr the actual constant right away
+-/
 partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
   | .mdata _ e => contAddrExpr e
   | expr => do
@@ -157,57 +157,39 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
         let (anon, meta) ← contAddrUniv lvl
         pure (.sort anon, .sort meta)
       | .const name lvls =>
-        let pairs ← lvls.mapM $ contAddrUniv
-        let (univHashesAnon, univHashesMeta) ← pairs.foldrM (init := ([], []))
-          fun pair pairs => pure (pair.fst :: pairs.fst, pair.snd :: pairs.snd)
+        let (univHashesAnon, univHashesMeta) ← lvls.foldrM (init := ([], []))
+          fun lvl (anons, metas) => do
+            let (anon, meta) ← contAddrUniv lvl
+            pure (anon :: anons, meta :: metas)
         match (← read).recrCtx.find? name with
         | some (i, i?) => -- recursing!
           let idx := (← read).bindCtx.length + i
           pure (.var idx univHashesAnon, .var name i? univHashesMeta)
         | none =>
           let const ← getLeanConstant name
-          let (constCid, const) ← getContAddrConst const
-          let value := ⟨ .const () constCid.anon $ univCids.map (·.anon),
-            .const name constCid.meta $ univCids.map (·.meta) ⟩
-          let cid ← addToStore $ .expr value
-          pure (cid, .const name const univs)
+          let (anon, meta) ← getContAddrConst const
+          pure (.const anon univHashesAnon, .const meta univHashesMeta)
       | .app fnc arg =>
-        let (fncCid, fnc) ← contAddrExpr fnc
-        let (argCid, arg) ← contAddrExpr arg
-        let value := ⟨ .app fncCid.anon argCid.anon, .app fncCid.meta argCid.meta ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .app fnc arg)
+        let (fncAnon, fncMeta) ← contAddrExpr fnc
+        let (argAnon, argMeta) ← contAddrExpr arg
+        pure (.app fncAnon argAnon, .app fncMeta argAnon)
       | .lam name typ bod bnd =>
-        let (typCid, typ) ← contAddrExpr typ
-        let (bodCid, bod) ← withBinder name $ contAddrExpr bod
-        let value := ⟨ .lam () bnd typCid.anon bodCid.anon,
-          .lam name () typCid.meta bodCid.meta ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .lam name bnd typ bod)
+        let (typAnon, typMeta) ← contAddrExpr typ
+        let (bodAnon, bodMeta) ← withBinder name $ contAddrExpr bod
+        pure (.lam typAnon bodAnon, .lam name bnd typMeta bodMeta)
       | .forallE name dom img bnd =>
-        let (domCid, dom) ← contAddrExpr dom
-        let (imgCid, img) ← withBinder name $ contAddrExpr img
-        let value := ⟨ .pi () bnd domCid.anon imgCid.anon,
-          .pi name () domCid.meta imgCid.meta ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .pi name bnd dom img)
+        let (domAnon, domMeta) ← contAddrExpr dom
+        let (imgAnon, imgMeta) ← withBinder name $ contAddrExpr img
+        pure (.pi domAnon imgAnon, .pi name bnd domMeta imgMeta)
       | .letE name typ exp bod _ =>
-        let (typCid, typ) ← contAddrExpr typ
-        let (expCid, exp) ← contAddrExpr exp
-        let (bodCid, bod) ← withBinder name $ contAddrExpr bod
-        let value := ⟨ .letE () typCid.anon expCid.anon bodCid.anon,
-          .letE name typCid.meta expCid.meta bodCid.meta ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .letE name typ exp bod)
-      | .lit lit =>
-        let value := ⟨ .lit lit, .lit () ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .lit lit)
+        let (typAnon, typMeta) ← contAddrExpr typ
+        let (expAnon, expMeta) ← contAddrExpr exp
+        let (bodAnon, bodMeta) ← withBinder name $ contAddrExpr bod
+        pure (.letE typAnon expAnon bodAnon, .letE name typMeta expMeta bodMeta)
+      | .lit lit => pure (.lit lit, .lit)
       | .proj _ idx exp =>
-        let (expCid, exp) ← contAddrExpr exp
-        let value := ⟨ .proj idx expCid.anon, .proj () expCid.meta ⟩
-        let cid ← addToStore $ .expr value
-        pure (cid, .proj idx exp)
+        let (expAnon, expMeta) ← contAddrExpr exp
+        pure (.proj idx expAnon, .proj expMeta)
       | .fvar ..  => throw $ .freeVariableExpr expr
       | .mvar ..  => throw $ .metaVariableExpr expr
       | .mdata .. => throw $ .metaDataExpr expr
