@@ -68,6 +68,16 @@ def getLeanConstant (name : Lean.Name) : ContAddrM Lean.ConstantInfo := do
   | some const => pure const
   | none => throw $ .unknownConstant name
 
+def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
+  match expr with
+  | .forallE _ t e _  => match e with
+    | .forallE ..  => isInternalRec e name
+    -- t is the major premise
+    | _ => isInternalRec t name
+  | .app e .. => isInternalRec e name
+  | .const n .. => n == name
+  | _ => false
+
 mutual
 
 partial def contAddrConst (const : Lean.ConstantInfo) :
@@ -76,7 +86,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
   | some c => pure c
   | none   => match const with
     | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
-    | .inductInfo val => withLevelsAndReset val.levelParams sorry
+    | .inductInfo val => withLevelsAndReset val.levelParams $ contAddrInductive val
     | .ctorInfo val => do
       match ← getLeanConstant val.induct with
       | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
@@ -243,6 +253,30 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
 
 partial def inductiveToIR (defn : Lean.InductiveVal) :
     ContAddrM (InductiveAnon × InductiveMeta) := sorry
+
+partial def internalRecToIR (ctors : List Lean.Name) :
+  Lean.ConstantInfo → ContAddrM
+    ((RecursorAnon × RecursorMeta) × (List $ ConstructorAnon × ConstructorMeta))
+  | _ => sorry
+
+partial def recRuleToIR (rule : Lean.RecursorRule) :
+    ContAddrM $ (ConstructorAnon × ConstructorMeta) × (RecursorRuleAnon × RecursorRuleMeta) :=
+  sorry
+
+partial def externalRecToIR : Lean.ConstantInfo → ContAddrM (RecursorAnon × RecursorMeta)
+  | .recInfo rec => withLevels rec.levelParams do
+    let (typAnon, typMeta) ← contAddrExpr rec.type
+    let rules ← rec.rules.mapM externalRecRuleToIR
+    return (
+      ⟨rec.levelParams.length, typAnon, rec.numParams, rec.numIndices,
+        rec.numMotives, rec.numMinors, rules.map (·.1), rec.k, false⟩,
+      ⟨rec.name, rec.levelParams, typMeta, rules.map (·.2)⟩)
+  | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
+
+partial def externalRecRuleToIR (rule : Lean.RecursorRule) :
+    ContAddrM (RecursorRuleAnon × RecursorRuleMeta) := do
+  let (rhsAnon, rhsMeta) ← contAddrExpr rule.rhs
+  return (⟨rule.nfields, rhsAnon⟩, ⟨rhsMeta⟩)
 
 /--
 Content-addresses a Lean expression and adds it to the store.
