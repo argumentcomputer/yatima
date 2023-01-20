@@ -257,11 +257,21 @@ partial def inductiveToIR (defn : Lean.InductiveVal) :
 partial def internalRecToIR (ctors : List Lean.Name) :
   Lean.ConstantInfo → ContAddrM
     ((RecursorAnon × RecursorMeta) × (List $ ConstructorAnon × ConstructorMeta))
-  | _ => sorry
+  | .recInfo rec => withLevels rec.levelParams do
+    sorry
+  | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-partial def recRuleToIR (rule : Lean.RecursorRule) :
-    ContAddrM $ (ConstructorAnon × ConstructorMeta) × (RecursorRuleAnon × RecursorRuleMeta) :=
-  sorry
+partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $
+    (ConstructorAnon × ConstructorMeta) × (RecursorRuleAnon × RecursorRuleMeta) := do
+  match ← getLeanConstant rule.ctor with
+  | .ctorInfo ctor => withLevels ctor.levelParams do
+    let (rhsAnon, rhsMeta) ← contAddrExpr rule.rhs
+    let (typAnon, typMeta) ← contAddrExpr ctor.type
+    let ctors := (
+      ⟨ctor.levelParams.length, typAnon, ctor.cidx, ctor.numParams, ctor.numFields, !ctor.isUnsafe⟩,
+      ⟨ctor.name, ctor.levelParams, typMeta⟩)
+    pure (ctors, (⟨rule.nfields, rhsAnon⟩, ⟨rhsMeta⟩))
+  | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
 partial def externalRecToIR : Lean.ConstantInfo → ContAddrM (RecursorAnon × RecursorMeta)
   | .recInfo rec => withLevels rec.levelParams do
