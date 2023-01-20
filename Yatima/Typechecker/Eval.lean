@@ -25,7 +25,7 @@ open TC
 open Lurk (F)
 
 /--
-Looks for a constant by its index `constIdx` in the `TypecheckCtx` store and
+Looks for a constant by its hash `f : F` in the `TypecheckCtx` store and
 returns it if it is found. If the constant is not found it throws an error.
 
 Note: The `name : Name` is used only in the error messaging
@@ -37,9 +37,9 @@ def derefConst (f : F) : TypecheckM Const := do
   | none => throw $ .outOfConstsRange "TODO" f consts.size
 
 /--
-Looks for a constant by its index `constIdx` in the `TypecheckState` cache of `TypedConst` and
+Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
 returns it if it is found. If the constant is not found it throws an error.
-Specifically, this function assumes that `checkConst name constIdx` has previously been called
+Specifically, this function assumes that `checkConst name f` has previously been called
 (which populates this cache).
 
 Note: The `name : Name` is used only in the error messaging
@@ -197,7 +197,7 @@ mutual
     -- Assumes a partial application of f to args, which means in particular,
     -- that it is in normal form
     else match ← derefTypedConst f with
-    | .recursor _ params motives minors indices isK indIdx rules =>
+    | .recursor _ params motives minors indices isK indF rules =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const f univs) ((arg, info) :: args)
@@ -210,7 +210,7 @@ mutual
         pure minor.1.get
       else
         let params := args.take params
-        match ← toCtorIfLitOrStruct indIdx (params.map (·.1)) univs arg with
+        match ← toCtorIfLitOrStruct indF (params.map (·.1)) univs arg with
         | .app (Neutral.const f _) args' => match ← derefTypedConst f with
           | .constructor _ idx _ =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing

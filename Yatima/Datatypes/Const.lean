@@ -266,6 +266,8 @@ structure DefinitionProj where
   type  : Expr
   block : F
   idx   : Nat
+  -- all of the mutual definitions in this block; needed to prevent infinite loops while typechecking
+  all    : List F
   deriving Ord, BEq
 
 structure Constructor where
@@ -292,6 +294,10 @@ structure Recursor where
   rules    : List RecursorRule
   isK      : Bool
   internal : Bool
+  -- needed for eta-expansion of structs
+  ind      : F
+  -- all of the recursors related to this inductive; needed to prevent infinite loops while typechecking
+  all      : List F
   deriving Ord, BEq
 
 structure Inductive where
