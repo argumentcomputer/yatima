@@ -254,6 +254,7 @@ structure Inductive where
   recr    : Bool
   safe    : Bool
   refl    : Bool
+  -- needed for eta-expansion of structs
   struct  : Option F
   deriving BEq, Repr
 
