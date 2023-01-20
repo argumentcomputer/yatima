@@ -254,6 +254,7 @@ structure Inductive where
   recr    : Bool
   safe    : Bool
   refl    : Bool
+  struct  : Option F
   deriving BEq, Repr
 
 /-- Representation of constants for typechecking -/

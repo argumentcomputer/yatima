@@ -161,7 +161,7 @@ mutual
   inductive Neutral
     | fvar  : Nat → Neutral
     | const : F → List Univ → Neutral
-    | proj  : F → TypedValue → Neutral
+    | proj  : F → Nat → TypedValue → Neutral
     deriving Inhabited
 
 end
