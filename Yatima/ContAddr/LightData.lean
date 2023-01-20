@@ -47,15 +47,15 @@ instance : Encodable BinderInfo LightData String where
 instance : Encodable UnivAnon LightData String where
   encode
     | .zero     => .opt none
-    | .succ x   => .prd (0, x)
-    | .max x y  => .arr #[1, x, y]
-    | .imax x y => .arr #[2, x, y]
-    | .var n    => n
+    | .max x y  => .arr #[0, x, y]
+    | .imax x y => .arr #[1, x, y]
+    | .succ x   => x
+    | .var x    => x
   decode
     | .opt none       => pure .zero
-    | .prd (0, x)     => return .succ (← dec x)
-    | .arr #[1, x, y] => return .max  (← dec x) (← dec y)
-    | .arr #[2, x, y] => return .imax (← dec x) (← dec y)
+    | .arr #[0, x, y] => return .max  (← dec x) (← dec y)
+    | .arr #[1, x, y] => return .imax (← dec x) (← dec y)
+    | x@(.lnk _)      => return .succ (← dec x)
     | x               => return .var  (← dec x)
 
 instance : Encodable UnivMeta LightData String where
@@ -94,7 +94,29 @@ instance : Encodable ExprAnon LightData String where
     | x@(.eit _)         => return .lit   (← dec x)
     | x                  => return .sort  (← dec x)
 
-instance : Encodable ExprMeta LightData String := sorry
+instance : Encodable ExprMeta LightData String where
+  encode
+    | .var x y z    => .arr #[0, x, y, z]
+    | .const x y    => .arr #[1, x, y]
+    | .app x y      => .arr #[2, x, y]
+    | .lam a b c d  => .arr #[3, a, b, c, d]
+    | .pi  a b c d  => .arr #[4, a, b, c, d]
+    | .letE a b c d => .arr #[5, a, b, c, d]
+    | .sort x       => .prd (0, x)
+    | .proj x       => .prd (1, x)
+    | .lit          => .opt none
+  decode
+    | .arr #[0, x, y, z]    => return .var   (← dec x) (← dec y) (← dec z)
+    | .arr #[1, x, y]       => return .const (← dec x) (← dec y)
+    | .arr #[2, x, y]       => return .app   (← dec x) (← dec y)
+    | .arr #[3, a, b, c, d] => return .lam   (← dec a) (← dec b) (← dec c) (← dec d)
+    | .arr #[4, a, b, c, d] => return .pi    (← dec a) (← dec b) (← dec c) (← dec d)
+    | .arr #[5, a, b, c, d] => return .letE  (← dec a) (← dec b) (← dec c) (← dec d)
+    | .prd (0, x)           => return .sort  (← dec x)
+    | .prd (1, x)           => return .proj  (← dec x)
+    | .opt none             => pure .lit
+    | x                     => throw s!"Invalid encoding for ExprMeta: {x}"
+
 instance : Encodable ConstAnon LightData String := sorry
 instance : Encodable ConstMeta LightData String := sorry
 
