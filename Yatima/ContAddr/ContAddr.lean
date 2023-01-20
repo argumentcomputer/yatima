@@ -519,11 +519,10 @@ partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
       tcExprCache := stt.store.tcExprCache.insert hash e } })
 
 partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
-  let store := (← get).store
-  match store.tcConstCache.find? hash with
+  match (← get).store.tcConstCache.find? hash with
   | some c => pure c
   | none =>
-    let c ← match store.irConstAnon.find? hash with
+    let c ← match (← get).store.irConstAnon.find? hash with
       | none => throw sorry
       | some $ .axiom x => pure $ .axiom ⟨x.lvls, ← mkTCExpr x.type, x.safe⟩
       | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value⟩
