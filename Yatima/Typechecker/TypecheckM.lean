@@ -30,7 +30,7 @@ structure TypecheckCtx where
   types     : List SusValue
   store     : Store
   const     : Name
-  mutTypes  : Std.RBMap ConstIdx (List Univ → SusValue) compare
+  mutTypes  : Std.RBMap F (List Univ → SusValue) compare
   deriving Inhabited
 
 /--
