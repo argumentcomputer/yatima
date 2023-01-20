@@ -1,5 +1,5 @@
 import LightData
-import Yatima2.Datatypes.Store
+import Yatima.Datatypes.Store
 
 namespace Yatima.ContAddr
 

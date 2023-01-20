@@ -1,6 +1,4 @@
 import Yatima.Lean.Utils
-import Yatima.Datatypes.Lean
-import Yatima.Datatypes.Const
 
 namespace Yatima.ContAddr
 
