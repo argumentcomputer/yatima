@@ -1,4 +1,5 @@
 import Init.Data.Repr
+import YatimaStdLib.NonEmpty
 
 -- This is based on Yul's specification https://docs.soliditylang.org/en/v0.8.17/yul.html#specification-of-yul
 namespace Yul
@@ -24,26 +25,20 @@ inductive Expression where
 | identifier   : Identifier → Expression
 | literal      : Literal → Expression
 
-structure NonemptyList (α : Type u) where
-  head : α
-  tail : List α
-
-def NonemptyList.toList (xs : NonemptyList α) : List α := xs.head :: xs.tail
-
 mutual
 
 inductive Block where
 | mk : List Statement → Block
 
 inductive Switch where
-| case    : Expression → NonemptyList (Literal × Block) → Option Block → Switch
+| case    : Expression → NEList (Literal × Block) → Option Block → Switch
 | default : Expression → Block → Switch
 
 inductive Statement where
 | block               : Block → Statement
 | functionDefinition  : Identifier → List TypedIdentifier → List TypedIdentifier → Block → Statement
-| variableDeclaration : NonemptyList TypedIdentifier → Option Expression → Statement
-| assignment          : NonemptyList Identifier → Expression → Statement
+| variableDeclaration : NEList TypedIdentifier → Option Expression → Statement
+| assignment          : NEList Identifier → Expression → Statement
 | «if»                : Expression → Block → Statement
 | expression          : Expression → Statement
 | switch              : Switch → Statement

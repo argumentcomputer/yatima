@@ -1,10 +1,4 @@
-import Yatima.Cli.ContAddrCmd
-import Yatima.Cli.TypecheckCmd
-import Yatima.Cli.CodeGenCmd
-import Yatima.Cli.ProveCmd
-import Yatima.Cli.VerifyCmd
-import Yatima.Cli.IpfsCmd
-import Yatima.Cli.PrintPrimsCmd
+import Yatima
 
 opaque VERSION : String :=
   s!"{Lean.versionString}|0.0.1"
