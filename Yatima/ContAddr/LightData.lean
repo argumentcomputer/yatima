@@ -44,6 +44,31 @@ instance : Encodable BinderInfo LightData String where
     | 3 => pure .instImplicit
     | x => throw s!"Invalid encoding for BinderInfo: {x}"
 
+instance : Encodable QuotKind LightData String where
+  encode | .type => 0 | .ctor => 1 | .lift => 2 | .ind => 3
+  decode
+    | 0 => pure .type
+    | 1 => pure .ctor
+    | 2 => pure .lift
+    | 3 => pure .ind
+    | x => throw s!"Invalid encoding for QuotKind: {x}"
+
+instance : Encodable DefinitionSafety LightData String where
+  encode | .unsafe => 0 | .safe => 1 | .partial => 2
+  decode
+    | 0 => pure .unsafe
+    | 1 => pure .safe
+    | 2 => pure .partial
+    | x => throw s!"Invalid encoding for DefinitionSafety: {x}"
+
+instance : Encodable DefinitionAnon LightData String where
+  encode := sorry
+  decode := sorry
+
+instance : Encodable InductiveAnon LightData String where
+  encode := sorry
+  decode := sorry
+
 instance : Encodable UnivAnon LightData String where
   encode
     | .zero     => .opt none
@@ -102,8 +127,8 @@ instance : Encodable ExprMeta LightData String where
     | .lam a b c d  => .arr #[3, a, b, c, d]
     | .pi  a b c d  => .arr #[4, a, b, c, d]
     | .letE a b c d => .arr #[5, a, b, c, d]
-    | .sort x       => .prd (0, x)
-    | .proj x       => .prd (1, x)
+    | .sort x       => .eit $ .left  x
+    | .proj x       => .eit $ .right x
     | .lit          => .opt none
   decode
     | .arr #[0, x, y, z]    => return .var   (← dec x) (← dec y) (← dec z)
@@ -112,12 +137,36 @@ instance : Encodable ExprMeta LightData String where
     | .arr #[3, a, b, c, d] => return .lam   (← dec a) (← dec b) (← dec c) (← dec d)
     | .arr #[4, a, b, c, d] => return .pi    (← dec a) (← dec b) (← dec c) (← dec d)
     | .arr #[5, a, b, c, d] => return .letE  (← dec a) (← dec b) (← dec c) (← dec d)
-    | .prd (0, x)           => return .sort  (← dec x)
-    | .prd (1, x)           => return .proj  (← dec x)
+    | .eit $ .left  x       => return .sort  (← dec x)
+    | .eit $ .right x       => return .proj  (← dec x)
     | .opt none             => pure .lit
     | x                     => throw s!"Invalid encoding for ExprMeta: {x}"
 
-instance : Encodable ConstAnon LightData String := sorry
+instance : Encodable ConstAnon LightData String where
+  encode
+    | .axiom ⟨a, b, c⟩                 => .arr #[0, a, b, c]
+    | .theorem ⟨a, b, c⟩               => .arr #[1, a, b, c]
+    | .opaque ⟨a, b, c, d⟩             => .arr #[2, a, b, c, d]
+    | .quotient ⟨a, b, c⟩              => .arr #[3, a, b, c]
+    | .inductiveProj ⟨a, b, c, d⟩      => .arr #[4, a, b, c, d]
+    | .constructorProj ⟨a, b, c, d, e⟩ => .arr #[5, a, b, c, d, e]
+    | .recursorProj ⟨a, b, c, d, e⟩    => .arr #[6, a, b, c, d, e]
+    | .definitionProj ⟨a, b, c, d⟩     => .arr #[7, a, b, c, d]
+    | .mutDefBlock x                   => .eit $ .left x
+    | .mutIndBlock x                   => .eit $ .right x
+  decode
+    | .arr #[0, a, b, c]       => return .axiom    ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[1, a, b, c]       => return .theorem  ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[2, a, b, c, d]    => return .opaque   ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[3, a, b, c]       => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[4, a, b, c, d]    => return .inductiveProj   ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[5, a, b, c, d, e] => return .constructorProj ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
+    | .arr #[6, a, b, c, d, e] => return .recursorProj    ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
+    | .arr #[7, a, b, c, d]    => return .definitionProj  ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .eit $ .left  x          => return .mutDefBlock (← dec x)
+    | .eit $ .right x          => return .mutIndBlock (← dec x)
+    | x                        => throw s!"Invalid encoding for ConstAnon: {x}"
+
 instance : Encodable ConstMeta LightData String := sorry
 
 def hashUnivAnon (x : UnivAnon) : ByteVector 32 :=
