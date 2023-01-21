@@ -3,23 +3,6 @@ import Yatima.Datatypes.Kind
 
 namespace Yatima.IR
 
-/-- Constants to encode universe levels in IPLD -/
-@[match_pattern] def UNIV : Kind → UInt64
-  | .anon => 0xC0DE0001
-  | .meta => 0xC0DE0002
-
-/-- Constants to encode expressions in IPLD -/
-@[match_pattern] def EXPR : Kind → UInt64
-  | .anon => 0xC0DE0003
-  | .meta => 0xC0DE0004
-
-/-- Constants to encode constants in IPLD -/
-@[match_pattern] def CONST : Kind → UInt64
-  | .anon => 0xC0DE0005
-  | .meta => 0xC0DE0006
-
-@[match_pattern] def STORE : UInt64 := 0xC0DE0007
-
 structure UnivCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr
 structure ExprCid  (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr
 structure ConstCid (k : Kind) where data : Cid deriving BEq, Ord, Inhabited, Repr

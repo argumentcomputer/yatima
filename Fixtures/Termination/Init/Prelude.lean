@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Leonardo de Moura, Mario Carneiro
 -/
 prelude -- Don't import Init, because we're in Init itself
-set_option linter.missingDocs true -- keep it documented
+set_option linter.all false -- prevent error messages from runFrontend
 
 /-!
 # Init.Prelude

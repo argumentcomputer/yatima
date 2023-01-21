@@ -1,6 +1,8 @@
-# yatima-lang
+# yatima
 
-A WIP tool for content-addressing and generating Lurk code from Lean 4 code.
+Yatima is a Lean4 compiler backend targeting the [the Lurk language](https://lurk-lang.org/) for recursive zkSNARKs, enabling zero-knowledge proofs of Lean4 execution. Additionally, Yatima implements its own kernel for Lean4 (trusted typechecker for the Lean4 core language), which allows zero-knowledge proofs of Lean4 typechecking. By verifying a zero knowledge proof that a Lean4 declaration has passed the typechecker, one can verify that the declaration is type-safe without re-running the typechecker. 
+
+Yatima also implements nameless content-addressing for Lean4, allowing each expression, declaration and environment to receive unique hash identifiers, independent of computationally-irrelevant naming (such as the names of definitions and local variables). 
 
 ## Build
 

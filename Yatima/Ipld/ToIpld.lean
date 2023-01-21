@@ -66,18 +66,14 @@ instance [Coe α Ipld] [Coe β Ipld] : Coe (Split α β k) Ipld where coe
 instance : Coe Unit Ipld where coe
   | .unit => .null
 
-instance : (k : Kind) → Coe (RecursorRule k) Ipld
-  | .anon => { coe := fun | .mk c f r => .array #[c, f, r] }
-  | .meta => { coe := fun | .mk c f r => .array #[c, f, r] }
+instance : Coe (RecursorRule k) Ipld where coe
+  | .mk f r => .array #[f, r]
 
-instance : Coe (Recursor b k) Ipld where coe
-  | .mk n l t p i m m' rs k => .array #[n, l, t, p, i, m, m', rs, k]
-
-instance : Coe (Sigma (Recursor · k)) Ipld where coe
-  | .mk b (.mk n l t p i m m' rs k) => .array #[(b : Bool), n, l, t, p, i, m, m', rs, k]
+instance : Coe (Recursor k) Ipld where coe
+  | .mk n l t p i m m' rs k i' => .array #[n, l, t, p, i, m, m', rs, k, i']
 
 instance : Coe (Constructor k) Ipld where coe
-  | .mk n t l i p f r s => .array #[n, t, l, i, p, f, r, s]
+  | .mk n t l i p f s => .array #[n, t, l, i, p, f, s]
 
 instance : Coe (Inductive k) Ipld where coe
   | .mk n l t p i cs rs r s r' => .array #[n, l, t, p, i, cs, rs, r, s, r']
@@ -92,34 +88,34 @@ instance : Coe (Definition k) Ipld where coe
   | .mk n l t v s => .array #[n, l, t, v, s]
 
 def univToIpld : Univ k → Ipld
-  | .zero     => .array #[.number $ UNIV k, .number 0]
-  | .succ p   => .array #[.number $ UNIV k, .number 1, p]
-  | .max a b  => .array #[.number $ UNIV k, .number 2, a, b]
-  | .imax a b => .array #[.number $ UNIV k, .number 3, a, b]
-  | .var n    => .array #[.number $ UNIV k, .number 4, n]
+  | .zero     => .array #[.number 0]
+  | .succ p   => .array #[.number 1, p]
+  | .max a b  => .array #[.number 2, a, b]
+  | .imax a b => .array #[.number 3, a, b]
+  | .var n    => .array #[.number 4, n]
 
 def exprToIpld : Expr k → Ipld
-  | .var n i ls   => .array #[.number $ EXPR k, .number 0, n, i, ls]
-  | .sort u       => .array #[.number $ EXPR k, .number 1, u]
-  | .const n c ls => .array #[.number $ EXPR k, .number 2, n, c, ls]
-  | .app f a      => .array #[.number $ EXPR k, .number 3, f, a]
-  | .lam n i d b  => .array #[.number $ EXPR k, .number 4, n, i, d, b]
-  | .pi n i d b   => .array #[.number $ EXPR k, .number 5, n, i, d, b]
-  | .letE n t v b => .array #[.number $ EXPR k, .number 6, n, t, v, b]
-  | .lit l        => .array #[.number $ EXPR k, .number 7, l]
-  | .proj n e     => .array #[.number $ EXPR k, .number 8, n, e]
+  | .var n i ls   => .array #[.number 0, n, i, ls]
+  | .sort u       => .array #[.number 1, u]
+  | .const n c ls => .array #[.number 2, n, c, ls]
+  | .app f a      => .array #[.number 3, f, a]
+  | .lam n i d b  => .array #[.number 4, n, i, d, b]
+  | .pi n i d b   => .array #[.number 5, n, i, d, b]
+  | .letE n t v b => .array #[.number 6, n, t, v, b]
+  | .lit l        => .array #[.number 7, l]
+  | .proj n e     => .array #[.number 8, n, e]
 
 def constToIpld : Const k → Ipld
-  | .axiom ⟨n, l, t, s⟩                 => .array #[.number $ CONST k, .number 0, n, l, t, s]
-  | .theorem ⟨n, l, t, v⟩               => .array #[.number $ CONST k, .number 1, n, l, t, v]
-  | .opaque ⟨n, l, t, v, s⟩             => .array #[.number $ CONST k, .number 2, n, l, t, v, s]
-  | .quotient ⟨n, l, t, K⟩              => .array #[.number $ CONST k, .number 3, n, l, t, K]
-  | .inductiveProj ⟨n, l, t, b, i⟩      => .array #[.number $ CONST k, .number 5, n, l, t, b, i]
-  | .constructorProj ⟨n, l, t, b, i, j⟩ => .array #[.number $ CONST k, .number 6, n, l, t, b, i, j]
-  | .recursorProj ⟨n, l, t, b, i, j⟩    => .array #[.number $ CONST k, .number 7, n, l, t, b, i, j]
-  | .definitionProj ⟨n, l, t, b, i⟩     => .array #[.number $ CONST k, .number 8, n, l, t, b, i]
-  | .mutDefBlock b                      => .array #[.number $ CONST k, .number 9, b]
-  | .mutIndBlock b                      => .array #[.number $ CONST k, .number 10, b]
+  | .axiom ⟨n, l, t, s⟩                 => .array #[.number 0, n, l, t, s]
+  | .theorem ⟨n, l, t, v⟩               => .array #[.number 1, n, l, t, v]
+  | .opaque ⟨n, l, t, v, s⟩             => .array #[.number 2, n, l, t, v, s]
+  | .quotient ⟨n, l, t, K⟩              => .array #[.number 3, n, l, t, K]
+  | .inductiveProj ⟨n, l, t, b, i⟩      => .array #[.number 5, n, l, t, b, i]
+  | .constructorProj ⟨n, l, t, b, i, j⟩ => .array #[.number 6, n, l, t, b, i, j]
+  | .recursorProj ⟨n, l, t, b, i, j⟩    => .array #[.number 7, n, l, t, b, i, j]
+  | .definitionProj ⟨n, l, t, b, i⟩     => .array #[.number 8, n, l, t, b, i]
+  | .mutDefBlock b                      => .array #[.number 9, b]
+  | .mutIndBlock b                      => .array #[.number 10, b]
 
 def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
   let cbor := DagCbor.serialize ipld;
@@ -128,19 +124,18 @@ def ipldToCid (codec: Nat) (ipld : Ipld): Cid :=
 
 def univToCid (univ : Univ k) : Ipld × UnivCid k :=
   let ipld := univToIpld univ
-  (ipld, ⟨ipldToCid (UNIV k).toNat ipld⟩)
+  (ipld, ⟨ipldToCid 1 ipld⟩)
 
 def exprToCid (expr : Expr k) : Ipld × ExprCid k :=
   let ipld := exprToIpld expr
-  (ipld, ⟨ipldToCid (EXPR k).toNat ipld⟩)
+  (ipld, ⟨ipldToCid 2 ipld⟩)
 
 def constToCid (const : Const k) : Ipld × ConstCid k :=
   let ipld := constToIpld const
-  (ipld, ⟨ipldToCid (CONST k).toNat ipld⟩)
+  (ipld, ⟨ipldToCid 3 ipld⟩)
 
 def storeToIpld (store : Store) : Ipld :=
   .array #[
-    .number STORE,
     .array store.consts,
     .array store.univAnon,
     .array store.exprAnon,

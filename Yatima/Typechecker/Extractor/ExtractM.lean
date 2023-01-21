@@ -1,6 +1,7 @@
 import Yatima.Datatypes.Store
 import Yatima.Typechecker.Extractor.ExtractError
 import YatimaStdLib.Ord
+import YatimaStdLib.Option
 
 namespace Yatima.Extractor
 

@@ -4,6 +4,7 @@ import Yatima.Cli.CodeGenCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.VerifyCmd
 import Yatima.Cli.IpfsCmd
+import Yatima.Cli.PrintPrimsCmd
 
 opaque VERSION : String :=
   s!"{Lean.versionString}|0.0.1"
@@ -18,7 +19,8 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     codeGenCmd;
     proveCmd;
     verifyCmd;
-    ipfsCmd
+    ipfsCmd;
+    printPrimsCmd
 ]
 
 def main (args : List String) : IO UInt32 := do
