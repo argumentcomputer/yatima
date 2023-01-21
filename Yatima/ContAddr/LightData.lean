@@ -61,13 +61,67 @@ instance : Encodable DefinitionSafety LightData String where
     | 2 => pure .partial
     | x => throw s!"Invalid encoding for DefinitionSafety: {x}"
 
+instance : Encodable ConstructorAnon LightData String where
+  encode | ⟨a, b, c, d, e, f⟩ => .arr #[a, b, c, d, e, f]
+  decode
+    | .arr #[a, b, c, d, e, f] =>
+      return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f⟩
+    | x => throw s!"Invalid encoding for ConstructorAnon: {x}"
+
+instance : Encodable ConstructorMeta LightData String where
+  encode | ⟨a, b, c⟩ => .arr #[a, b, c]
+  decode
+    | .arr #[a, b, c] => return ⟨← dec a, ← dec b, ← dec c⟩
+    | x => throw s!"Invalid encoding for ConstructorMeta: {x}"
+
+instance : Encodable RecursorRuleAnon LightData String where
+  encode | ⟨a, b⟩ => .prd (a, b)
+  decode
+    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
+    | x => throw s!"Invalid encoding for RecursorRuleAnon: {x}"
+
+instance : Encodable RecursorRuleMeta LightData String where
+  encode | ⟨a⟩ => a
+  decode | a => return ⟨← dec a⟩
+
+instance : Encodable RecursorAnon LightData String where
+  encode | ⟨a, b, c, d, e, f, g, h, i⟩ => .arr #[a, b, c, d, e, f, g, h, i]
+  decode
+    | .arr #[a, b, c, d, e, f, g, h, i] =>
+      return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g,
+        ← dec h, ← dec i⟩
+    | x => throw s!"Invalid encoding for RecursorAnon: {x}"
+
+instance : Encodable RecursorMeta LightData String where
+  encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
+  decode
+    | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | x => throw s!"Invalid encoding for RecursorMeta: {x}"
+
 instance : Encodable DefinitionAnon LightData String where
-  encode := sorry
-  decode := sorry
+  encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
+  decode
+    | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | x => throw s!"Invalid encoding for DefinitionAnon: {x}"
+
+instance : Encodable DefinitionMeta LightData String where
+  encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
+  decode
+    | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | x => throw s!"Invalid encoding for DefinitionMeta: {x}"
 
 instance : Encodable InductiveAnon LightData String where
-  encode := sorry
-  decode := sorry
+  encode | ⟨a, b, c, d, e, f, g, h, i⟩ => .arr #[a, b, c, d, e, f, g, h, i]
+  decode
+    | .arr #[a, b, c, d, e, f, g, h, i] =>
+      return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g, ← dec h, ← dec i⟩
+    | x => throw s!"Invalid encoding for InductiveAnon: {x}"
+
+instance : Encodable InductiveMeta LightData String where
+  encode | ⟨a, b, c, d, e⟩ => .arr #[a, b, c, d, e]
+  decode
+    | .arr #[a, b, c, d, e] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
+    | x => throw s!"Invalid encoding for InductiveMeta: {x}"
 
 instance : Encodable UnivAnon LightData String where
   encode
@@ -86,13 +140,13 @@ instance : Encodable UnivAnon LightData String where
 instance : Encodable UnivMeta LightData String where
   encode
     | .zero     => .opt none
-    | .succ x   => .prd (0, x)
+    | .succ x   => .opt $ some x
     | .max x y  => .arr #[1, x, y]
     | .imax x y => .arr #[2, x, y]
     | .var n    => n
   decode
     | .opt none       => pure .zero
-    | .prd (0, x)     => return .succ (← dec x)
+    | .opt $ some x   => return .succ (← dec x)
     | .arr #[1, x, y] => return .max  (← dec x) (← dec y)
     | .arr #[2, x, y] => return .imax (← dec x) (← dec y)
     | x               => return .var  (← dec x)
@@ -167,7 +221,30 @@ instance : Encodable ConstAnon LightData String where
     | .eit $ .right x          => return .mutIndBlock (← dec x)
     | x                        => throw s!"Invalid encoding for ConstAnon: {x}"
 
-instance : Encodable ConstMeta LightData String := sorry
+instance : Encodable ConstMeta LightData String where
+  encode
+    | .axiom ⟨a, b, c⟩                 => .arr #[0, a, b, c]
+    | .theorem ⟨a, b, c, d⟩            => .arr #[1, a, b, c, d]
+    | .opaque ⟨a, b, c, d⟩             => .arr #[2, a, b, c, d]
+    | .quotient ⟨a, b, c⟩              => .arr #[3, a, b, c]
+    | .inductiveProj ⟨a, b, c, d⟩      => .arr #[4, a, b, c, d]
+    | .constructorProj ⟨a, b, c, d⟩    => .arr #[5, a, b, c, d]
+    | .recursorProj ⟨a, b, c, d⟩       => .arr #[6, a, b, c, d]
+    | .definitionProj ⟨a, b, c, d, e⟩  => .arr #[7, a, b, c, d, e]
+    | .mutDefBlock x                   => .eit $ .left x
+    | .mutIndBlock x                   => .eit $ .right x
+  decode
+    | .arr #[0, a, b, c]    => return .axiom    ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[1, a, b, c, d] => return .theorem  ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[2, a, b, c, d] => return .opaque   ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[3, a, b, c]    => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[4, a, b, c, d]    => return .inductiveProj   ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[5, a, b, c, d]    => return .constructorProj ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[6, a, b, c, d]    => return .recursorProj    ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[7, a, b, c, d, e] => return .definitionProj  ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
+    | .eit $ .left  x          => return .mutDefBlock (← dec x)
+    | .eit $ .right x          => return .mutIndBlock (← dec x)
+    | x                        => throw s!"Invalid encoding for ConstMeta: {x}"
 
 def hashUnivAnon (x : UnivAnon) : ByteVector 32 :=
   (Encodable.encode x : LightData).hash
