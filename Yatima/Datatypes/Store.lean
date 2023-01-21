@@ -20,8 +20,8 @@ structure Yatima.Store where
   tcExprCache  : RBMap Hash TC.Expr compare
   tcConstCache : RBMap Hash TC.Const compare
 
+  -- cache the LDON store as well?
   hashCache : RBMap TC.Const F compare
-  ldonCache : RBMap LDON F compare
 
   tcConsts : RBMap F TC.Const compare
   deriving Inhabited

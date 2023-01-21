@@ -479,7 +479,10 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
 
 end
 
-open Lurk (F)
+open Lurk (F LDON)
+
+def tcConstToLDON : TC.Const → LDON
+  | _ => sorry
 
 partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
   let store := (← get).store
@@ -536,7 +539,13 @@ partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
     modifyGet fun stt => (c, { stt with store := { stt.store with
       tcConstCache := stt.store.tcConstCache.insert hash c } })
 
-partial def hashTCConst (c : TC.Const) : ContAddrM F := sorry
+partial def hashTCConst (c : TC.Const) : ContAddrM F := do
+  match (← get).store.hashCache.find? c with
+  | some f => pure f
+  | none =>
+    let f := tcConstToLDON c |>.hash -- this is expensive
+    modifyGet fun stt => (f, { stt with store := { stt.store with
+      hashCache := stt.store.hashCache.insert c f } })
 
 end
 
