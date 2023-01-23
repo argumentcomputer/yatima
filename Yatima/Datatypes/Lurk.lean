@@ -9,11 +9,16 @@ structure F where
 instance : ToString F := ⟨toString ∘ F.val⟩
 
 inductive LDON
+  | u64 : UInt64 → LDON
   | num : F → LDON
   | str : String → LDON
   | sym : String → LDON
   | cons : LDON → LDON → LDON
   deriving Inhabited
+
+/-- TODO -/
+instance : ToString LDON where
+  toString _ := "TODO FIXME"
 
 structure LDONHashState where
   deriving Inhabited
