@@ -118,7 +118,7 @@ mutual
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (const : F) (univs : List Univ) : TypecheckM Value := do
-    if (← primFWith .natZero (pure false) (pure $ · == const)) then pure $ .lit (.natVal 0)
+    if ← primFWith .natZero (pure false) (pure $ · == const) then pure $ .lit (.natVal 0)
     else if (← fPrim const) matches .some (.op _) then pure $ mkConst const univs
     else evalConst' const univs
 
@@ -140,8 +140,7 @@ mutual
     let thunk := { fn := fun _ =>
       match TypecheckM.run ctx stt (eval expr) with
       | .ok a => a
-      | .error e => .exception e,
-     }
+      | .error e => .exception e }
     .mk (expr.info.update ctx.env.univs) thunk
 
   /--

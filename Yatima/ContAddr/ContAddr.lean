@@ -252,14 +252,44 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
   | none => throw $ .constantNotContentAddressed initInd.name
 
 partial def inductiveToIR (ind : Lean.InductiveVal) :
-    ContAddrM $ InductiveAnon × InductiveMeta :=
-  sorry
+    ContAddrM $ InductiveAnon × InductiveMeta := do
+  let leanRecs := (← read).constMap.childrenOfWith ind.name
+    fun c => match c with | .recInfo _ => true | _ => false
+  let (recs, ctors) ← leanRecs.foldrM (init := ([], []))
+    fun r (recs, ctors) => match r with
+      | .recInfo rv =>
+        if isInternalRec rv.type ind.name then do
+          let (thisRec, thisCtors) := ← internalRecToIR ind.ctors r
+          pure (thisRec :: recs, thisCtors)
+        else do
+          let thisRec ← externalRecToIR r
+          pure (thisRec :: recs, ctors)
+      | _ => throw $ .nonRecursorExtractedFromChildren r.name
+  let (typAnon, typMeta) ← contAddrExpr ind.type
+  let indAnon := ⟨ind.levelParams.length, typAnon, ind.numParams, ind.numIndices,
+    -- NOTE: for the purpose of extraction, the order of `ctors` and `recs` MUST
+    -- match the order used in `recrCtx`
+    ctors.map (·.1), recs.map (·.1), ind.isRec, !ind.isUnsafe, ind.isReflexive⟩
+  let indMeta := ⟨ind.name, ind.levelParams, typMeta, ctors.map (·.2), recs.map (·.2)⟩
+  return (indAnon, indMeta)
 
 partial def internalRecToIR (ctors : List Lean.Name) :
   Lean.ConstantInfo → ContAddrM
     ((RecursorAnon × RecursorMeta) × (List $ ConstructorAnon × ConstructorMeta))
   | .recInfo rec => withLevels rec.levelParams do
-    sorry
+    let (typAnon, typMeta) ← contAddrExpr rec.type
+    let (retCtors, retRules) ← rec.rules.foldrM (init := ([], []))
+      fun r (retCtors, retRules) => do
+        if ctors.contains r.ctor then
+          let (ctor, rule) ← recRuleToIR r
+          pure $ (ctor :: retCtors, rule :: retRules)
+        -- this is an external recursor rule
+        else pure (retCtors, retRules)
+    let recAnon := ⟨rec.levelParams.length, typAnon, rec.numParams,
+      rec.numIndices, rec.numMotives, rec.numMinors, retRules.map (·.1),
+      rec.k, true⟩
+    let recMeta := ⟨rec.name, rec.levelParams, typMeta, retRules.map (·.2)⟩
+    return ((recAnon, recMeta), retCtors)
   | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
 partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $
@@ -324,7 +354,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
       | .app fnc arg =>
         let (fncAnon, fncMeta) ← contAddrExpr fnc
         let (argAnon, argMeta) ← contAddrExpr arg
-        pure (.app fncAnon argAnon, .app fncMeta argAnon)
+        pure (.app fncAnon argAnon, .app fncMeta argMeta)
       | .lam name typ bod bnd =>
         let (typAnon, typMeta) ← contAddrExpr typ
         let (bodAnon, bodMeta) ← withBinder name $ contAddrExpr bod
@@ -547,7 +577,7 @@ partial def commitTCConst (c : TC.Const) : ContAddrM F := do
     let (f, encStt) := tcConstToLDON c |>.commit (← get).store.ldonHashState
     modifyGet fun stt => (f, { stt with store := { stt.store with
       commitCache := stt.store.commitCache.insert c f
-      ldonHashState := encStt} })
+      ldonHashState := encStt } })
 
 end
 
