@@ -266,23 +266,9 @@ partial def inductiveToIR (ind : Lean.InductiveVal) :
           pure (thisRec :: recs, ctors)
       | _ => throw $ .nonRecursorExtractedFromChildren r.name
   let (typAnon, typMeta) ← contAddrExpr ind.type
-    -- -- Structures can't be recursive nor have indices
-    -- let struct ← if ind.isRec || ind.numIndices != 0 then pure none else
-    --   match ind.ctors with
-    --   -- Structures can only have one constructor
-    --   | [ctorName] => do
-    --     let (_, _, ctorIdx) ← getFromRecrCtx ctorName
-    --     pure $ some ctorIdx
-    --   | _ => pure none
-    -- let unit ← match struct with
-    --   | some ctorIdx =>
-    --     match ← derefConst ctorIdx with
-    --     | .constructor ctor => pure $ ctor.fields == 0
-    --     | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
-    --   | none => pure false
   let indAnon := ⟨ind.levelParams.length, typAnon, ind.numParams, ind.numIndices,
-    -- NOTE: for the purpose of extraction, the order of `ctors` and `recs`
-    -- MUST match the order used in `recrCtx`
+    -- NOTE: for the purpose of extraction, the order of `ctors` and `recs` MUST
+    -- match the order used in `recrCtx`
     ctors.map (·.1), recs.map (·.1), ind.isRec, !ind.isUnsafe, ind.isReflexive⟩
   let indMeta := ⟨ind.name, ind.levelParams, typMeta, ctors.map (·.2), recs.map (·.2)⟩
   return (indAnon, indMeta)
@@ -368,7 +354,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
       | .app fnc arg =>
         let (fncAnon, fncMeta) ← contAddrExpr fnc
         let (argAnon, argMeta) ← contAddrExpr arg
-        pure (.app fncAnon argAnon, .app fncMeta argAnon)
+        pure (.app fncAnon argAnon, .app fncMeta argMeta)
       | .lam name typ bod bnd =>
         let (typAnon, typMeta) ← contAddrExpr typ
         let (bodAnon, bodMeta) ← withBinder name $ contAddrExpr bod
