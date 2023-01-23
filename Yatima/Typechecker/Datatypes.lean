@@ -47,7 +47,7 @@ inductive SusTypeInfo
   | prop    : SusTypeInfo
   | sort    : Univ → SusTypeInfo
   | none    : SusTypeInfo
-  deriving BEq, Inhabited, Repr
+  deriving BEq, Inhabited
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo
   | .unit    => .unit
@@ -66,7 +66,7 @@ inductive TypedExpr
   | letE  : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr → TypedExpr
   | lit   : SusTypeInfo → Literal → TypedExpr
   | proj  : SusTypeInfo → F → Nat → TypedExpr → TypedExpr
-  deriving BEq, Inhabited, Repr
+  deriving BEq, Inhabited
 
 /--
 Remove all binders from an expression, converting a lambda into

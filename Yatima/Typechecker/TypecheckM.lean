@@ -25,12 +25,12 @@ The context available to the typechecker monad. The available fields are
 * `store : Array Const` : An array of known constants in the context that can be referred to by their index.
 -/
 structure TypecheckCtx where
-  lvl       : Nat
-  env       : Env
-  types     : List SusValue
-  store     : Store
-  const     : Name
-  mutTypes  : Std.RBMap F (List Univ → SusValue) compare
+  lvl      : Nat
+  env      : Env
+  types    : List SusValue
+  store    : Store
+  const    : Name
+  mutTypes : Std.RBMap F (List Univ → SusValue) compare
   deriving Inhabited
 
 /--
@@ -78,7 +78,7 @@ def withResetCtx (const : Name) : TypecheckM α → TypecheckM α :=
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
 -/
-def withMutTypes (mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare) : TypecheckM α → TypecheckM α :=
+def withMutTypes (mutTypes : Std.RBMap F (List Univ → SusValue) compare) : TypecheckM α → TypecheckM α :=
   withReader fun ctx => {ctx with mutTypes}
 
 /--
@@ -110,15 +110,18 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
 -- TODO hardcode these maps once we have the hashes
-def primsToFs : Std.RBMap PrimConst F compare := sorry
-def fsToPrims : Std.RBMap F PrimConst compare := sorry
+def primsToFs : PrimConst → Option F := sorry
+def fsToPrims : F → Option PrimConst := sorry
 
-def primFWith (p : PrimConst) (noneHandle : TypecheckM A) (someHandle : F → TypecheckM A) : TypecheckM A := do
-  match primsToFs.find? p with | none => noneHandle | some a => someHandle a
-def primF (p : PrimConst) : TypecheckM Nat := do
+def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
+    (someHandle : F → TypecheckM α) : TypecheckM α :=
+  match primsToFs p with | none => noneHandle | some a => someHandle a
+
+def primF (p : PrimConst) : TypecheckM F := do
   primFWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
+
 def fPrim (f : F) : TypecheckM (Option PrimConst) := do
-  pure $ fsToPrims.find? f
+  pure $ fsToPrims f
 
 structure PrimOp where
   op : Array SusValue → TypecheckM (Option Value)

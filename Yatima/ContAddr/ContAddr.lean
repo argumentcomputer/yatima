@@ -465,8 +465,8 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
   let newDss ← (← dss.mapM fun ds =>
     match ds with
     | []  => unreachable!
-    | [d] => return [[d]]
-    | ds  => return (← List.groupByM (eqDef weakOrd) $
+    | [d] => pure [[d]]
+    | ds  => do pure $ (← List.groupByM (eqDef weakOrd) $
       ← ds.sortByM (cmpDef weakOrd))).joinM
 
   -- must normalize, see comments
@@ -479,9 +479,9 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
 
 end
 
-open Lurk (F LDON)
+open Lurk Frontend Scalar
 
-def tcConstToLDON : TC.Const → LDON
+def tcConstToAST : TC.Const → AST
   | _ => sorry
 
 partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
@@ -511,7 +511,7 @@ partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
       | some $ .var i us => sorry
       | some $ .sort u => pure $ .sort (← mkTCUniv u)
       | some $ .const c us =>
-        pure $ .const (← hashTCConst (← mkTCConst c)) (← us.mapM mkTCUniv)
+        pure $ .const (← commitTCConst (← mkTCConst c)) (← us.mapM mkTCUniv)
       | some $ .app x y => pure $ .app (← mkTCExpr x) (← mkTCExpr y)
       | some $ .lam x y => pure $ .lam (← mkTCExpr x) (← mkTCExpr y)
       | some $ .pi  x y => pure $ .pi  (← mkTCExpr x) (← mkTCExpr y)
@@ -539,13 +539,15 @@ partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
     modifyGet fun stt => (c, { stt with store := { stt.store with
       tcConstCache := stt.store.tcConstCache.insert hash c } })
 
-partial def hashTCConst (c : TC.Const) : ContAddrM F := do
-  match (← get).store.hashCache.find? c with
+partial def commitTCConst (c : TC.Const) : ContAddrM F := do
+  match (← get).store.commitCache.find? c with
   | some f => pure f
   | none =>
-    let f := tcConstToLDON c |>.hash -- this is expensive
+    -- this is expensive
+    let (f, encStt) := tcConstToAST c |>.commit' (← get).store.encodeState
     modifyGet fun stt => (f, { stt with store := { stt.store with
-      hashCache := stt.store.hashCache.insert c f } })
+      commitCache := stt.store.commitCache.insert c f
+      encodeState := encStt} })
 
 end
 
@@ -554,7 +556,7 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   let anons := (← delta.mapM contAddrConst).map (·.1)
   let consts ← anons.mapM mkTCConst
   consts.forM fun c => do
-    let f ← hashTCConst c
+    let f ← commitTCConst c
     modify fun stt => { stt with store := { stt.store with
       tcConsts := stt.store.tcConsts.insert f c } }
 

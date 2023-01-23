@@ -16,9 +16,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "6121aa26ba7462a1c87c8a5f8230e9f8b498944b",
+    "rev": "bf753862b4f94553ac86ce99a82b93634209c84e",
     "name": "Lurk",
-    "inputRev?": "6121aa26ba7462a1c87c8a5f8230e9f8b498944b"}},
+    "inputRev?": "bf753862b4f94553ac86ce99a82b93634209c84e"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Ipld.lean",
     "subDir?": null,

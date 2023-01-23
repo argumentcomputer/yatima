@@ -259,16 +259,9 @@ structure Definition where
   type   : Expr
   value  : Expr
   safety : DefinitionSafety
-  deriving Inhabited, Ord, BEq
-
-structure DefinitionProj where
-  lvls  : Nat
-  type  : Expr
-  block : F
-  idx   : Nat
   -- all of the mutual definitions in this block; needed to prevent infinite loops while typechecking
   all    : List F
-  deriving Ord, BEq
+  deriving Inhabited, Ord, BEq
 
 structure Constructor where
   lvls   : Nat
@@ -327,6 +320,30 @@ inductive Const where
   | recursor    : Recursor → Const
   | definition  : Definition → Const
   deriving Ord, BEq
+
+namespace Const
+
+def levels : Const → Nat
+  | .axiom       x
+  | .theorem     x
+  | .inductive   x
+  | .opaque      x
+  | .definition  x
+  | .constructor x
+  | .recursor    x
+  | .quotient    x => x.lvls
+
+def type : Const → Expr
+  | .axiom       x
+  | .theorem     x
+  | .inductive   x
+  | .opaque      x
+  | .definition  x
+  | .constructor x
+  | .recursor    x
+  | .quotient    x => x.type
+
+end Const
 
 end TC
 

@@ -1,11 +1,12 @@
 import Yatima.Datatypes.Const
 import Std.Data.RBMap
+import Lurk.Scalar.Hashing.Encoding
 
 namespace Yatima
 
 open Std (RBMap)
-
-open IR Lurk
+open IR
+open Lurk Scalar
 
 structure Yatima.Store where
   irUnivAnon   : RBMap Hash UnivAnon  compare
@@ -20,8 +21,8 @@ structure Yatima.Store where
   tcExprCache  : RBMap Hash TC.Expr compare
   tcConstCache : RBMap Hash TC.Const compare
 
-  -- cache the LDON store as well?
-  hashCache : RBMap TC.Const F compare
+  commitCache : RBMap TC.Const F compare
+  encodeState : EncodeState
 
   tcConsts : RBMap F TC.Const compare
   deriving Inhabited

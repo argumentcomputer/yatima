@@ -20,8 +20,9 @@ In this module the two major functions `check` and `infer` are defined.
 namespace Yatima.Typechecker
 
 open TC
+open Lurk (F)
 
-def isStruct : Value → TypecheckM (Option (ConstIdx × Constructor × List Univ × List SusValue))
+def isStruct : Value → TypecheckM (Option (F × Constructor × List Univ × List SusValue))
   | .app (.const k univs) params => do
     match ← derefConst k with
     | .inductive ind => do
@@ -220,11 +221,11 @@ mutual
           let typeSus := suspend type (← read) (← get)
           let value ← check data.value typeSus
           pure $ TypedConst.theorem type value
-        | .definition  data =>
+        | .definition data =>
           let typeSus := suspend type (← read) (← get)
           let value ← match data.safety with
             | .partial =>
-              let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc f => do
+              let mutTypes : Std.RBMap F (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc f => do
                 let const ← derefConst f
                 -- TODO avoid repeated work here
                 let (type, _) ← isSort const.type
@@ -240,7 +241,7 @@ mutual
         | .inductive   data => pure $ .inductive type data.struct.isSome
         | .constructor data => pure $ .constructor type data.idx data.fields
         | .recursor data => do
-          let mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc f => do
+          let mutTypes : Std.RBMap F (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc f => do
             match (← read).store.consts.find? f with
             | .some (.recursor data) =>
               -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
