@@ -44,9 +44,8 @@ Specifically, this function assumes that `checkConst name f` has previously been
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefTypedConst (f : F) : TypecheckM TypedConst := do
-  match (← get).tcConsts.find? f with
-  | some (some const) => pure const
-  | some none => throw $ .custom "TODO"
+  match (← get).typedConsts.find? f with
+  | some const => pure const
   | none => throw $ .custom "TODO"
 
 mutual
@@ -112,13 +111,10 @@ mutual
       | .definition _ deref safety =>
         match safety with
         | .safe    => withEnv ⟨[], univs⟩ $ eval deref
-        | .partial =>
-          pure $ mkConst const univs
+        | .partial => pure $ mkConst const univs
         | .unsafe  => throw .unsafeDefinition
-      | _ =>
-        throw .impossible
-    | _ =>
-      pure $ mkConst const univs
+      | _ => throw .impossible
+    | _ => pure $ mkConst const univs
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (const : F) (univs : List Univ) :

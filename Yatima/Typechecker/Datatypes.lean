@@ -29,10 +29,10 @@ open Lurk (F)
   - `prop` tells us that the expression's type is `Prop` itself
 -/
 inductive TypeInfo
-  | unit    : TypeInfo
-  | proof   : TypeInfo
-  | prop    : TypeInfo
-  | none    : TypeInfo
+  | unit  : TypeInfo
+  | proof : TypeInfo
+  | prop  : TypeInfo
+  | none  : TypeInfo
   deriving BEq, Inhabited, Repr
 
 /--
@@ -42,11 +42,11 @@ inductive TypeInfo
   (i.e. Sort 0), for example in the types of universe-polymorphic constants.
 -/
 inductive SusTypeInfo
-  | unit    : SusTypeInfo
-  | proof   : SusTypeInfo
-  | prop    : SusTypeInfo
-  | sort    : Univ → SusTypeInfo
-  | none    : SusTypeInfo
+  | unit  : SusTypeInfo
+  | proof : SusTypeInfo
+  | prop  : SusTypeInfo
+  | sort  : Univ → SusTypeInfo
+  | none  : SusTypeInfo
   deriving BEq, Inhabited
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo
@@ -95,7 +95,7 @@ def TypedConst.type : TypedConst → TypedExpr
   | «opaque»    type ..
   | definition  type ..
   | constructor type ..
-  | recursor type ..
+  | recursor    type ..
   | quotient    type .. => type
 
 mutual

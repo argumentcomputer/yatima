@@ -204,16 +204,17 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (c : Const) (f : F) : TypecheckM Unit := withResetCtx default do
-    match (← get).tcConsts.find? f with
-    | .some .none =>
+    match (← get).typedConsts.find? f with
+    | some _ => pure ()
+    | none =>
       let mut univs := []
       for i in [0:c.levels] do
-        univs := Univ.var (c.levels - 1 - i) :: univs
+        univs := .var (c.levels - 1 - i) :: univs
       withEnv ⟨ [], univs ⟩ $ do
         let (type, _) ← isSort c.type
         let newConst ← match c with
-        | .axiom       _    => pure $ TypedConst.axiom type
-        | .opaque  data =>
+        | .axiom  _    => pure $ TypedConst.axiom type
+        | .opaque data =>
           let typeSus := suspend type (← read) (← get)
           let value ← check data.value typeSus
           pure $ TypedConst.opaque type value
@@ -225,40 +226,40 @@ mutual
           let typeSus := suspend type (← read) (← get)
           let value ← match data.safety with
             | .partial =>
-              let mutTypes : Std.RBMap F (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc f => do
+              let mutTypes ← data.all.foldlM (init := default) fun acc f => do
                 let const ← derefConst f
                 -- TODO avoid repeated work here
                 let (type, _) ← isSort const.type
                 let ctx ← read
                 let stt ← get
-                let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+                let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
                 match const with
                 | .definition _ => pure $ acc.insert f typeSus
-                | _ => throw .impossible -- FIXME better error
+                | _ => throw $ .custom "TODO"
               withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
           pure $ TypedConst.definition type value data.safety
         | .inductive   data => pure $ .inductive type data.struct.isSome
         | .constructor data => pure $ .constructor type data.idx data.fields
         | .recursor data => do
-          let mutTypes : Std.RBMap F (List Univ → SusValue) compare ← data.all.foldlM (init := default) fun acc f => do
+          let mutTypes ← data.all.foldlM (init := default) fun acc f => do
             match (← read).store.consts.find? f with
             | .some (.recursor data) =>
-              -- FIXME repeated computation (this will happen again when we actually check the constructor on its own)
+              -- FIXME repeated computation (this will happen again when we
+              -- actually check the constructor on its own)
               let (type, _)  ← withMutTypes acc $ isSort data.type
               let ctx ← read
               let stt ← get
-              let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
+              let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
               pure $ acc.insert f typeSus
             | _ => pure acc
           let rules ← data.rules.mapM fun rule => do
             let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
             pure (rule.fields, rhs)
-          pure $ TypedConst.recursor type data.params data.motives data.minors data.indices data.isK data.ind rules
+          pure $ .recursor type data.params data.motives data.minors
+            data.indices data.isK data.ind rules
         | .quotient data => pure $ .quotient type data.kind
-        modify fun stt => {stt with tcConsts := stt.tcConsts.insert f $ .some newConst}
-    | .none => throw .impossible
-    | _ => pure ()
+        modify fun stt => { stt with typedConsts := stt.typedConsts.insert f newConst }
 end
 
 end Yatima.Typechecker
