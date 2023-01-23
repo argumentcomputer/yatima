@@ -50,10 +50,10 @@ inductive SusTypeInfo
   deriving BEq, Inhabited
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo
-  | .unit    => .unit
-  | .proof   => .proof
-  | .prop    => .prop
-  | .none    => .none
+  | .unit  => .unit
+  | .proof => .proof
+  | .prop  => .prop
+  | .none  => .none
 
 /-- Representation of expressions for evaluation -/
 inductive TypedExpr
@@ -205,17 +205,17 @@ def TypedValue.sus : TypedValue → SusValue
 | .mk info val => .mk info val
 
 def Value.ctorName : Value → String
-  | .sort ..  => "sort"
-  | .app ..  => "app"
-  | .lam ..  => "lam"
-  | .pi  ..  => "pi"
-  | .lit ..  => "lit"
+  | .sort      .. => "sort"
+  | .app       .. => "app"
+  | .lam       .. => "lam"
+  | .pi        .. => "pi"
+  | .lit       .. => "lit"
   | .exception .. => "exception"
 
 def Neutral.ctorName : Neutral → String
-  | .fvar ..  => "fvar"
+  | .fvar  .. => "fvar"
   | .const .. => "const"
-  | .proj .. => "proj"
+  | .proj  .. => "proj"
 
 namespace Env
 /-- Gets the list of expressions from a environment -/
