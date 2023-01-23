@@ -479,9 +479,9 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
 
 end
 
-open Lurk Frontend Scalar
+open Lurk
 
-def tcConstToAST : TC.Const → AST
+def tcConstToLDON : TC.Const → LDON
   | _ => sorry
 
 partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
@@ -544,10 +544,10 @@ partial def commitTCConst (c : TC.Const) : ContAddrM F := do
   | some f => pure f
   | none =>
     -- this is expensive
-    let (f, encStt) := tcConstToAST c |>.commit' (← get).store.encodeState
+    let (f, encStt) := tcConstToLDON c |>.commit (← get).store.ldonHashState
     modifyGet fun stt => (f, { stt with store := { stt.store with
       commitCache := stt.store.commitCache.insert c f
-      encodeState := encStt} })
+      ldonHashState := encStt} })
 
 end
 

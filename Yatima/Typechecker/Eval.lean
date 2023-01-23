@@ -31,10 +31,9 @@ returns it if it is found. If the constant is not found it throws an error.
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefConst (f : F) : TypecheckM Const := do
-  let consts := (← read).store.consts
-  match consts.find? f with
+  match (← read).store.consts.find? f with
   | some const => pure const
-  | none => throw $ .outOfConstsRange "TODO" f consts.size
+  | none => throw $ .custom "TODO"
 
 /--
 Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
@@ -45,11 +44,10 @@ Specifically, this function assumes that `checkConst name f` has previously been
 Note: The `name : Name` is used only in the error messaging
 -/
 def derefTypedConst (f : F) : TypecheckM TypedConst := do
-  let tcConsts := (← get).tcConsts
-  match tcConsts.get? f with
+  match (← get).tcConsts.find? f with
   | some (some const) => pure const
-  | some none => throw $ .missingTypedConst "TODO" f
-  | none => throw $ .outOfConstsRange "TODO" f tcConsts.size
+  | some none => throw $ .custom "TODO"
+  | none => throw $ .custom "TODO"
 
 mutual
   /--

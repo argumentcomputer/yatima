@@ -14,8 +14,9 @@ open TC
 
 open Lurk (F)
 
--- FIXME why is this needed if `TC.Store` already derives this?
-deriving instance Inhabited for TC.Store
+structure Store where
+  consts : Std.RBMap F Const compare
+  deriving Inhabited
 
 /--
 The context available to the typechecker monad. The available fields are
@@ -38,7 +39,7 @@ The state available to the typechecker monad. The available fields are
 * `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their types and values annotated
 -/
 structure TypecheckState where
-  tcConsts : Array (Option TypedConst)
+  tcConsts : Std.RBMap F (Option TypedConst) compare
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular `store : Array Const` -/
@@ -46,8 +47,8 @@ def TypecheckCtx.init (store : Store) : TypecheckCtx :=
   { (default : TypecheckCtx) with store }
 
 /-- An initialization of the typechecker state with a particular `store : Array Const` -/
-def TypecheckState.init (store : Store) : TypecheckState := Id.run $ do
-  pure {tcConsts := mkArray store.consts.size none}
+def TypecheckState.init (store : Store) : TypecheckState :=
+  { tcConsts := store.consts.mapVal fun _ _ => none }
 
 /-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
 def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=

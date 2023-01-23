@@ -1,6 +1,6 @@
 import Yatima.Datatypes.Univ
 import YatimaStdLib.Ord
-import Lurk.Field
+import Yatima.Datatypes.Lurk
 
 namespace Yatima
 

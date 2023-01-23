@@ -203,8 +203,8 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (c : Const) (idx : Nat) : TypecheckM Unit := withResetCtx default do
-    match (← get).tcConsts.get? idx with
+  partial def checkConst (c : Const) (f : F) : TypecheckM Unit := withResetCtx default do
+    match (← get).tcConsts.find? f with
     | .some .none =>
       let mut univs := []
       for i in [0:c.levels] do
@@ -249,18 +249,14 @@ mutual
               let ctx ← read
               let stt ← get
               let typeSus := fun univs => suspend type {ctx with env := .mk ctx.env.exprs univs} stt
-              pure $ acc.insert idx typeSus
+              pure $ acc.insert f typeSus
             | _ => pure acc
           let rules ← data.rules.mapM fun rule => do
             let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
             pure (rule.fields, rhs)
           pure $ TypedConst.recursor type data.params data.motives data.minors data.indices data.isK data.ind rules
         | .quotient data => pure $ .quotient type data.kind
-        let tcConsts := (← get).tcConsts
-        if h : idx < tcConsts.size then
-          modify fun stt => {stt with tcConsts := tcConsts.set ⟨idx, h⟩ $ .some newConst}
-        else
-          throw $ .impossible
+        modify fun stt => {stt with tcConsts := stt.tcConsts.insert f $ .some newConst}
     | .none => throw .impossible
     | _ => pure ()
 end
