@@ -1,6 +1,7 @@
 import Yatima.Lean.Utils
 import Yatima.ContAddr.ContAddrM
 import YatimaStdLib.RBMap
+import Yatima.Datatypes.LDON
 
 namespace Yatima.ContAddr
 
@@ -511,9 +512,6 @@ end
 
 open Lurk
 
-def tcConstToLDON : TC.Const → LDON
-  | _ => sorry
-
 partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
   let store := (← get).store
   match store.tcUnivCache.find? hash with
@@ -574,7 +572,7 @@ partial def commitTCConst (c : TC.Const) : ContAddrM F := do
   | some f => pure f
   | none =>
     -- this is expensive
-    let (f, encStt) := tcConstToLDON c |>.commit (← get).store.ldonHashState
+    let (f, encStt) := c.toLDON |>.commit (← get).store.ldonHashState
     modifyGet fun stt => (f, { stt with store := { stt.store with
       commitCache := stt.store.commitCache.insert c f
       ldonHashState := encStt } })
