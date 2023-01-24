@@ -5,7 +5,7 @@ namespace Yatima.ContAddr
 
 open Std (RBMap)
 
-open IR Lurk
+open IR
 
 structure ContAddrState where
   store : Yatima.Store
@@ -75,21 +75,12 @@ def addToStore : StoreEntry α → ContAddrM α
       irExprMeta := stt.store.irExprMeta.insert hashes.2 meta } })
   | .const anon meta =>
     let hashes := (hashConstAnon anon, hashConstMeta meta)
-    match anon, meta with
-    -- Mutual definition/inductive blocks do not get added to the set of constants
-    | .mutDefBlock _, .mutDefBlock _
-    | .mutIndBlock _, .mutIndBlock _ =>
-      modifyGet fun stt => (hashes, { stt with store := { stt.store with
-        irConstAnon := stt.store.irConstAnon.insert hashes.1 anon
-        irConstMeta := stt.store.irConstMeta.insert hashes.2 meta } })
-    | _, _ =>
-      modifyGet fun stt => (hashes, { stt with store := { stt.store with
-        irConstAnon  := stt.store.irConstAnon.insert hashes.1 anon
-        irConstMeta  := stt.store.irConstMeta.insert hashes.2 meta
-        irMetaToAnon := stt.store.irMetaToAnon.insert hashes.2 hashes.1 } })
+    modifyGet fun stt => (hashes, { stt with store := { stt.store with
+      irConstAnon := stt.store.irConstAnon.insert hashes.1 anon
+      irConstMeta := stt.store.irConstMeta.insert hashes.2 meta } })
 
-def addToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=
+def addIRHashesToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=
   modify fun stt => { stt with
-    env := { stt.env with consts := stt.env.consts.insert name hs } }
+    env := { stt.env with irHashes := stt.env.irHashes.insert name hs } }
 
 end Yatima.ContAddr

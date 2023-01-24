@@ -14,7 +14,6 @@ structure Yatima.Store where
   irExprMeta   : RBMap Hash ExprMeta  compare
   irConstAnon  : RBMap Hash ConstAnon compare
   irConstMeta  : RBMap Hash ConstMeta compare
-  irMetaToAnon : RBMap Hash Hash compare
 
   tcUnivCache  : RBMap Hash TC.Univ compare
   tcExprCache  : RBMap Hash TC.Expr compare
@@ -28,7 +27,8 @@ structure Yatima.Store where
 
 structure Yatima.Env where
   -- meta   : -- hold information about the content-addressing session
-  consts : RBMap Name (Hash × Hash) compare
+  irHashes : RBMap Name (Hash × Hash) compare
+  tcHashes : RBMap Name F compare
   deriving Inhabited
 
 end Yatima

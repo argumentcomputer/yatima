@@ -83,7 +83,7 @@ mutual
 
 partial def contAddrConst (const : Lean.ConstantInfo) :
     ContAddrM $ Hash × Hash := do
-  match (← get).env.consts.find? const.name with
+  match (← get).env.irHashes.find? const.name with
   | some c => pure c
   | none   => match const with
     | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
@@ -123,7 +123,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
           pure (.quotient ⟨val.levelParams.length, typAnon, val.kind⟩,
             .quotient ⟨val.name, val.levelParams, typMeta⟩)
       let hashes ← addToStore $ .const anon meta
-      addToEnv const.name hashes
+      addIRHashesToEnv const.name hashes
       return hashes
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) :
@@ -167,7 +167,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) :
     let valueAnon := .definitionProj ⟨defnAnon.lvls, defnAnon.type, blockHashes.1, idx⟩
     let valueMeta := .definitionProj ⟨defnMeta.name, defnMeta.lvls, defnMeta.type, blockHashes.2, i⟩
     let hashes ← addToStore $ .const valueAnon valueMeta
-    addToEnv defnMeta.name hashes
+    addIRHashesToEnv defnMeta.name hashes
     if defnMeta.name == struct.name then ret? := some hashes
 
   match ret? with
@@ -231,7 +231,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
     let hashes ← addToStore $ .const
       (.inductiveProj ⟨indAnon.lvls, indAnon.type, blockAnon, indIdx⟩)
       (.inductiveProj ⟨indMeta.name, indMeta.lvls, indMeta.type, blockMeta⟩)
-    addToEnv name hashes
+    addIRHashesToEnv name hashes
     if name == initInd.name then ret? := some hashes
 
     for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
@@ -239,14 +239,14 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
       let hashes ← addToStore $ .const
         (.constructorProj ⟨ctorAnon.lvls, ctorAnon.type, blockAnon, indIdx, ctorIdx⟩)
         (.constructorProj ⟨ctorMeta.name, ctorMeta.lvls, ctorMeta.type, blockMeta⟩)
-      addToEnv ctorMeta.name hashes
+      addIRHashesToEnv ctorMeta.name hashes
 
     for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
       -- Store and cache recursor projections
       let hashes ← addToStore $ .const
         (.recursorProj ⟨recrAnon.lvls, recrAnon.type, blockAnon, indIdx, recrIdx⟩)
         (.recursorProj ⟨recrMeta.name, recrMeta.lvls, recrMeta.type, blockMeta⟩)
-      addToEnv recrMeta.name hashes
+      addIRHashesToEnv recrMeta.name hashes
 
   match ret? with
   | some ret => return ret
@@ -583,10 +583,12 @@ end
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   let anons := (← delta.mapM contAddrConst).map (·.1)
   let consts ← anons.mapM mkTCConst
-  consts.forM fun c => do
+  let names := delta.map (·.name)
+  (names.zip consts).forM fun (n, c) => do
     let f ← commitTCConst c
-    modify fun stt => { stt with store := { stt.store with
-      tcConsts := stt.store.tcConsts.insert f c } }
+    modify fun stt => { stt with
+      store := { stt.store with tcConsts := stt.store.tcConsts.insert f c }
+      env := { stt.env with tcHashes := stt.env.tcHashes.insert n f } }
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
