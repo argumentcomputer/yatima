@@ -6,8 +6,6 @@ structure F where
   val : Nat
   deriving Inhabited, Ord, BEq
 
-instance : ToString F := ⟨toString ∘ F.val⟩
-
 inductive LDON
   | u64 : UInt64 → LDON
   | num : F → LDON
@@ -20,6 +18,6 @@ structure LDONHashState where
   deriving Inhabited
 
 def LDON.commit : LDON → LDONHashState → F × LDONHashState :=
-  default
+  sorry
 
 end Lurk

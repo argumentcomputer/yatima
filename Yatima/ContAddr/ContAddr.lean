@@ -524,6 +524,7 @@ partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
       | some $ .max u v => pure $ .max (← mkTCUniv u) (← mkTCUniv v)
       | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
       | some $ .var n => pure $ .var n
+    persistData (hash, u) UNIVDIR
     modifyGet fun stt => (u, { stt with store := { stt.store with
       tcUniv := stt.store.tcUniv.insert hash u } })
 
@@ -546,6 +547,7 @@ partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
       | some $ .letE x y z => pure $ .letE (← mkTCExpr x) (← mkTCExpr y) (← mkTCExpr z)
       | some $ .lit l => pure $ .lit l
       | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
+    persistData (hash, e) EXPRDIR
     modifyGet fun stt => (e, { stt with store := { stt.store with
       tcExpr := stt.store.tcExpr.insert hash e } })
 
@@ -564,6 +566,7 @@ partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
       | some $ .recursorProj x => sorry
       | some $ .definitionProj x => sorry
       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
+    persistData (hash, c) CONSTDIR
     modifyGet fun stt => (c, { stt with store := { stt.store with
       tcConst := stt.store.tcConst.insert hash c } })
 
@@ -573,6 +576,7 @@ partial def commitTCConst (c : TC.Const) : ContAddrM F := do
   | none =>
     -- this is expensive
     let (f, encStt) := c.toLDON |>.commit (← get).store.ldonHashState
+    persistData (c, f) COMMITSDIR
     modifyGet fun stt => (f, { stt with store := { stt.store with
       commits := stt.store.commits.insert c f
       ldonHashState := encStt } })
@@ -585,6 +589,7 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   let consts ← anons.mapM mkTCConst
   let names := delta.map (·.name)
   (names.zip consts).forM fun (n, c) => do addTCHashToEnv n (← commitTCConst c)
+  persistData (← get).store.ldonHashState LDONHASHCACHE false
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is

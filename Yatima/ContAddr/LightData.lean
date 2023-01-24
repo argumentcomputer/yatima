@@ -246,22 +246,84 @@ instance : Encodable ConstMeta LightData String where
     | .eit $ .right x          => return .mutIndBlock (← dec x)
     | x                        => throw s!"Invalid encoding for ConstMeta: {x}"
 
-def hashUnivAnon (x : UnivAnon) : ByteVector 32 :=
-  (Encodable.encode x : LightData).hash
+def hashUnivAnon (x : UnivAnon) : Hash × LightData :=
+  let x := Encodable.encode x; (x.hash, x)
 
-def hashExprAnon (x : ExprAnon) : ByteVector 32 :=
-  (Encodable.encode x : LightData).hash
+def hashExprAnon (x : ExprAnon) : Hash × LightData :=
+  let x := Encodable.encode x; (x.hash, x)
 
-def hashConstAnon (x : ConstAnon) : ByteVector 32 :=
-  (Encodable.encode x : LightData).hash
+def hashConstAnon (x : ConstAnon) : Hash × LightData :=
+  let x := Encodable.encode x; (x.hash, x)
 
-def hashUnivMeta (x : UnivMeta) : ByteVector 32 :=
-  (Encodable.encode x : LightData).hash
+def hashUnivMeta (x : UnivMeta) : Hash × LightData :=
+  let x := Encodable.encode x; (x.hash, x)
 
-def hashExprMeta (x : ExprMeta) : ByteVector 32 :=
-  (Encodable.encode x : LightData).hash
+def hashExprMeta (x : ExprMeta) : Hash × LightData :=
+  let x := Encodable.encode x; (x.hash, x)
 
-def hashConstMeta (x : ConstMeta) : ByteVector 32 :=
-  (Encodable.encode x : LightData).hash
+def hashConstMeta (x : ConstMeta) : Hash × LightData :=
+  let x := Encodable.encode x; (x.hash, x)
+
+open TC
+open Lurk (F LDONHashState)
+
+def univToLightData : Univ → LightData
+  | .zero     => .opt none
+  | .succ x   => .opt $ some (univToLightData x)
+  | .max x y  => .arr #[0, univToLightData x, univToLightData y]
+  | .imax x y => .arr #[1, univToLightData x, univToLightData y]
+  | .var x    => x
+
+partial def lightDataToUniv : LightData → Except String Univ
+  | .opt none       => pure .zero
+  | .opt $ some x   => return .succ (← lightDataToUniv x)
+  | .arr #[0, x, y] => return .max  (← lightDataToUniv x) (← lightDataToUniv y)
+  | .arr #[1, x, y] => return .imax (← lightDataToUniv x) (← lightDataToUniv y)
+  | x               => return .var  (← dec x)
+
+instance : Encodable Univ LightData String where
+  encode := univToLightData
+  decode := lightDataToUniv
+
+instance : Encodable F LightData String where
+  encode x := x.val.toByteArrayLE
+  decode
+    | .byt bytes => return ⟨bytes.asLEtoNat⟩
+    | x => throw s!"expected bytes but got {x}"
+
+def exprToLightData : Expr → LightData
+  | .sort x     => .prd (0, x)
+  | .lit x      => .prd (1, x)
+  | .var x      => .prd (2, x)
+  | .const x y  => .arr #[3, x, y]
+  | .app x y    => .arr #[4, exprToLightData x, exprToLightData y]
+  | .lam x y    => .arr #[5, exprToLightData x, exprToLightData y]
+  | .pi  x y    => .arr #[6, exprToLightData x, exprToLightData y]
+  | .letE x y z => .arr #[7, exprToLightData x, exprToLightData y, exprToLightData z]
+  | .proj x y   => .arr #[8, x, exprToLightData y]
+
+partial def lightDataToExpr : LightData → Except String Expr
+  | .prd (0, x) => return .sort (← lightDataToUniv x)
+  | .prd (1, x) => return .lit (← dec x)
+  | .prd (2, x) => return .var (← dec x)
+  | .arr #[3, x, y] => return .const (← dec x) (← dec y)
+  | .arr #[4, x, y] => return .app (← lightDataToExpr x) (← lightDataToExpr y)
+  | .arr #[5, x, y] => return .lam (← lightDataToExpr x) (← lightDataToExpr y)
+  | .arr #[6, x, y] => return .pi  (← lightDataToExpr x) (← lightDataToExpr y)
+  | .arr #[7, x, y, z] => return .letE (← lightDataToExpr x) (← lightDataToExpr y) (← lightDataToExpr z)
+  | .arr #[8, x, y] => return .proj (← dec x) (← lightDataToExpr y)
+  | x => throw s!"Invalid encoding for TC.Expr: {x}"
+
+instance : Encodable Expr LightData String where
+  encode := exprToLightData
+  decode := lightDataToExpr
+
+instance : Encodable Const LightData String where
+  encode := sorry
+  decode := sorry
+
+instance : Encodable LDONHashState LightData String where
+  encode := sorry
+  decode := sorry
 
 end Yatima.ContAddr

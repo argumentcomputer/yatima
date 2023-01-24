@@ -1,5 +1,6 @@
 import Yatima.ContAddr.LightData
 import Yatima.ContAddr.ContAddrError
+import Yatima.ContAddr.Directories
 
 namespace Yatima.ContAddr
 
@@ -58,21 +59,33 @@ inductive StoreEntry : Type → Type
   | const : ConstAnon → ConstMeta → StoreEntry (Hash × Hash)
 
 def addToStore : StoreEntry α → ContAddrM α
-  | .univ anon meta =>
-    let hashes := (hashUnivAnon anon, hashUnivMeta meta)
-    modifyGet fun stt => (hashes, { stt with store := { stt.store with
-      irUnivAnon := stt.store.irUnivAnon.insert hashes.1 anon
-      irUnivMeta := stt.store.irUnivMeta.insert hashes.2 meta } })
-  | .expr anon meta =>
-    let hashes := (hashExprAnon anon, hashExprMeta meta)
-    modifyGet fun stt => (hashes, { stt with store := { stt.store with
-      irExprAnon := stt.store.irExprAnon.insert hashes.1 anon
-      irExprMeta := stt.store.irExprMeta.insert hashes.2 meta } })
-  | .const anon meta =>
-    let hashes := (hashConstAnon anon, hashConstMeta meta)
-    modifyGet fun stt => (hashes, { stt with store := { stt.store with
-      irConstAnon := stt.store.irConstAnon.insert hashes.1 anon
-      irConstMeta := stt.store.irConstMeta.insert hashes.2 meta } })
+  | .univ anon meta => do
+    let entryAnon := hashUnivAnon anon
+    let entryMeta := hashUnivMeta meta
+    persistData entryAnon UNIVANONDIR
+    persistData entryMeta UNIVMETADIR
+    modifyGet fun stt => ((entryAnon.1, entryMeta.1), { stt with
+      store := { stt.store with
+        irUnivAnon := stt.store.irUnivAnon.insert entryAnon.1 anon
+        irUnivMeta := stt.store.irUnivMeta.insert entryMeta.1 meta } })
+  | .expr anon meta => do
+    let entryAnon := hashExprAnon anon
+    let entryMeta := hashExprMeta meta
+    persistData entryAnon EXPRANONDIR
+    persistData entryMeta EXPRMETADIR
+    modifyGet fun stt => ((entryAnon.1, entryMeta.1), { stt with
+      store := { stt.store with
+        irExprAnon := stt.store.irExprAnon.insert entryAnon.1 anon
+        irExprMeta := stt.store.irExprMeta.insert entryMeta.1 meta } })
+  | .const anon meta => do
+    let entryAnon := hashConstAnon anon
+    let entryMeta := hashConstMeta meta
+    persistData entryAnon CONSTANONDIR
+    persistData entryMeta CONSTMETADIR
+    modifyGet fun stt => ((entryAnon.1, entryMeta.1), { stt with
+      store := { stt.store with
+        irConstAnon := stt.store.irConstAnon.insert entryAnon.1 anon
+        irConstMeta := stt.store.irConstMeta.insert entryMeta.1 meta } })
 
 @[inline] def addIRHashesToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=
   modify fun stt => { stt with
