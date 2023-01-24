@@ -52,11 +52,6 @@ def withRecrs (recrCtx : RBMap Name RecrCtxEntry compare) :
 def withLevels (lvls : List Name) : ContAddrM α → ContAddrM α :=
   withReader $ fun c => ⟨c.constMap, lvls, c.bindCtx, c.recrCtx⟩
 
-def getFromRecrCtx (name : Name) : ContAddrM $ RecrCtxEntry := do
-  match (← read).recrCtx.find? name with
-  | some entry => pure entry
-  | none => throw $ .notFoundInRecrCtx name
-
 inductive StoreEntry : Type → Type
   | univ  : UnivAnon  → UnivMeta  → StoreEntry (Hash × Hash)
   | expr  : ExprAnon  → ExprMeta  → StoreEntry (Hash × Hash)
@@ -79,8 +74,13 @@ def addToStore : StoreEntry α → ContAddrM α
       irConstAnon := stt.store.irConstAnon.insert hashes.1 anon
       irConstMeta := stt.store.irConstMeta.insert hashes.2 meta } })
 
-def addIRHashesToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=
+@[inline] def addIRHashesToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=
   modify fun stt => { stt with
     env := { stt.env with irHashes := stt.env.irHashes.insert name hs } }
+
+open Lurk (F) in
+@[inline] def addTCHashToEnv (name : Name) (h : F) : ContAddrM Unit :=
+  modify fun stt => { stt with
+    env := { stt.env with tcHashes := stt.env.tcHashes.insert name h } }
 
 end Yatima.ContAddr

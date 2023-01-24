@@ -514,7 +514,7 @@ open Lurk
 
 partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
   let store := (← get).store
-  match store.tcUnivCache.find? hash with
+  match store.tcUniv.find? hash with
   | some u => pure u
   | none =>
     let u ← match store.irUnivAnon.find? hash with
@@ -525,13 +525,13 @@ partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
       | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
       | some $ .var n => pure $ .var n
     modifyGet fun stt => (u, { stt with store := { stt.store with
-      tcUnivCache := stt.store.tcUnivCache.insert hash u } })
+      tcUniv := stt.store.tcUniv.insert hash u } })
 
 mutual
 
 partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
   let store := (← get).store
-  match store.tcExprCache.find? hash with
+  match store.tcExpr.find? hash with
   | some e => pure e
   | none =>
     let e ← match store.irExprAnon.find? hash with
@@ -547,10 +547,10 @@ partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
       | some $ .lit l => pure $ .lit l
       | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
     modifyGet fun stt => (e, { stt with store := { stt.store with
-      tcExprCache := stt.store.tcExprCache.insert hash e } })
+      tcExpr := stt.store.tcExpr.insert hash e } })
 
 partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
-  match (← get).store.tcConstCache.find? hash with
+  match (← get).store.tcConst.find? hash with
   | some c => pure c
   | none =>
     let c ← match (← get).store.irConstAnon.find? hash with
@@ -565,16 +565,16 @@ partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
       | some $ .definitionProj x => sorry
       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
     modifyGet fun stt => (c, { stt with store := { stt.store with
-      tcConstCache := stt.store.tcConstCache.insert hash c } })
+      tcConst := stt.store.tcConst.insert hash c } })
 
 partial def commitTCConst (c : TC.Const) : ContAddrM F := do
-  match (← get).store.commitCache.find? c with
+  match (← get).store.commits.find? c with
   | some f => pure f
   | none =>
     -- this is expensive
     let (f, encStt) := c.toLDON |>.commit (← get).store.ldonHashState
     modifyGet fun stt => (f, { stt with store := { stt.store with
-      commitCache := stt.store.commitCache.insert c f
+      commits := stt.store.commits.insert c f
       ldonHashState := encStt } })
 
 end
@@ -584,11 +584,7 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   let anons := (← delta.mapM contAddrConst).map (·.1)
   let consts ← anons.mapM mkTCConst
   let names := delta.map (·.name)
-  (names.zip consts).forM fun (n, c) => do
-    let f ← commitTCConst c
-    modify fun stt => { stt with
-      store := { stt.store with tcConsts := stt.store.tcConsts.insert f c }
-      env := { stt.env with tcHashes := stt.env.tcHashes.insert n f } }
+  (names.zip consts).forM fun (n, c) => do addTCHashToEnv n (← commitTCConst c)
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is

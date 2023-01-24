@@ -4,25 +4,22 @@ import Std.Data.RBMap
 namespace Yatima
 
 open Std (RBMap)
-open IR
-open Lurk
+open IR Lurk
 
 structure Yatima.Store where
-  irUnivAnon   : RBMap Hash UnivAnon  compare
-  irUnivMeta   : RBMap Hash UnivMeta  compare
-  irExprAnon   : RBMap Hash ExprAnon  compare
-  irExprMeta   : RBMap Hash ExprMeta  compare
-  irConstAnon  : RBMap Hash ConstAnon compare
-  irConstMeta  : RBMap Hash ConstMeta compare
+  irUnivAnon  : RBMap Hash UnivAnon  compare
+  irUnivMeta  : RBMap Hash UnivMeta  compare
+  irExprAnon  : RBMap Hash ExprAnon  compare
+  irExprMeta  : RBMap Hash ExprMeta  compare
+  irConstAnon : RBMap Hash ConstAnon compare
+  irConstMeta : RBMap Hash ConstMeta compare
 
-  tcUnivCache  : RBMap Hash TC.Univ compare
-  tcExprCache  : RBMap Hash TC.Expr compare
-  tcConstCache : RBMap Hash TC.Const compare
+  tcUniv  : RBMap Hash TC.Univ compare
+  tcExpr  : RBMap Hash TC.Expr compare
+  tcConst : RBMap Hash TC.Const compare
 
-  commitCache   : RBMap TC.Const F compare
   ldonHashState : LDONHashState
-
-  tcConsts : RBMap F TC.Const compare
+  commits : RBMap TC.Const F compare
   deriving Inhabited
 
 structure Yatima.Env where
