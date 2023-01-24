@@ -9,7 +9,6 @@ structure F where
 instance : ToString F := ⟨toString ∘ F.val⟩
 
 inductive LDON
-  | u64 : UInt64 → LDON
   | num : F → LDON
   | str : String → LDON
   | sym : String → LDON
