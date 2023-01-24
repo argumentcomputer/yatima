@@ -226,16 +226,13 @@ mutual
           let typeSus := suspend type (← read) (← get)
           let value ← match data.safety with
             | .partial =>
-              let mutTypes ← data.all.foldlM (init := default) fun acc f => do
-                let const ← derefConst f
+              let mutTypes ← data.mutTypes.foldlM (init := default) fun acc type => do
                 -- TODO avoid repeated work here
-                let (type, _) ← isSort const.type
+                let (type, _) ← isSort type
                 let ctx ← read
                 let stt ← get
                 let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-                match const with
-                | .definition _ => pure $ acc.insert f typeSus
-                | _ => throw $ .custom "TODO"
+                pure $ acc.insert f typeSus
               withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
           pure $ TypedConst.definition type value data.safety
