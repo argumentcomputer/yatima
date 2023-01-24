@@ -1,7 +1,7 @@
 import Yatima.Lean.Utils
 import Yatima.ContAddr.ContAddrM
+import Yatima.ContAddr.ToLDON
 import YatimaStdLib.RBMap
-import Yatima.Datatypes.LDON
 
 namespace Yatima.ContAddr
 

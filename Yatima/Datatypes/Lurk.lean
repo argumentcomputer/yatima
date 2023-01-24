@@ -16,10 +16,6 @@ inductive LDON
   | cons : LDON → LDON → LDON
   deriving Inhabited
 
-/-- TODO -/
-instance : ToString LDON where
-  toString _ := "TODO FIXME"
-
 structure LDONHashState where
   deriving Inhabited
 
