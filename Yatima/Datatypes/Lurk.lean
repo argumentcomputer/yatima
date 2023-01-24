@@ -6,6 +6,8 @@ structure F where
   val : Nat
   deriving Inhabited, Ord, BEq
 
+instance : ToString F := ⟨toString ∘ F.val⟩
+
 inductive LDON
   | u64 : UInt64 → LDON
   | num : F → LDON
