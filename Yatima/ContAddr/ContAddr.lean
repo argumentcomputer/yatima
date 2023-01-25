@@ -551,6 +551,9 @@ partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
     modifyGet fun stt => (e, { stt with store := { stt.store with
       tcExpr := stt.store.tcExpr.insert hash e } })
 
+partial def mkTCCtor : IR.ConstructorAnon → ContAddrM TC.Constructor
+| ⟨lvls, typeHash, ids, params, fields, safe⟩ => do pure ⟨lvls, ← mkTCExpr typeHash, ids, params, fields, safe⟩
+
 partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
   match (← get).store.tcConst.find? hash with
   | some c => pure c
@@ -561,7 +564,15 @@ partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
       | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value⟩
       | some $ .opaque x => pure $ .opaque ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value, x.safe⟩
       | some $ .quotient x => pure $ .quotient ⟨x.lvls, ← mkTCExpr x.type, x.kind⟩
-      | some $ .inductiveProj x => pure $ .inductive sorry
+      | some $ .inductiveProj x => match (← get).store.irConstAnon.find? x.block with
+        | none => throw sorry
+        | some $ .mutIndBlock inds =>
+          let some ind := inds.get? x.idx | throw sorry
+          let struct := sorry
+          let unit := sorry
+          let type ← mkTCExpr ind.type
+          pure $ .inductive ⟨ind.lvls,type,ind.params,ind.indices, ← ind.ctors.mapM mkTCCtor,ind.recr,ind.safe,ind.refl,struct,unit⟩
+        | _ => throw sorry
       | some $ .constructorProj x => sorry
       | some $ .recursorProj x => sorry
       | some $ .definitionProj x => sorry
