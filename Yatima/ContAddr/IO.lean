@@ -63,18 +63,20 @@ def SUBDIRS : List FilePath := [
   UNIVDIR, EXPRDIR, CONSTDIR
 ]
 
-def mkDirs : IO Unit :=
+@[inline] def mkDirs : IO Unit :=
   SUBDIRS.forM IO.FS.createDirAll
 
-def persistData (data : LightData) (path : FilePath) (genName := true) : IO Unit :=
-  -- TODO : do it in a thread
+def persistData (data : LightData) (hash : Option $ ByteVector 32)
+    (path : FilePath) : IO Unit := -- TODO : do it in a thread
   let bytes := Encodable.encode data
-  let path := if genName then path / bytes.blake3.data.asHex else path
-  IO.FS.writeBinFile path bytes
+  let name := match hash with
+    | some hash => hash.data.asHex
+    | none => bytes.blake3.data.asHex
+  IO.FS.writeBinFile (path / name) bytes
 
 variable [h : Encodable (α × β) LightData String] [Ord α]
 
-def loadRBMap (dir : FilePath) : IO $ Std.RBMap α β compare := do
+def loadRBMap (dir : FilePath) : IO $ Std.RBMap α β compare := do -- probably useless?
   let entries ← dir.readDir
   let mut ret : Array (α × β) := default
   for entry in entries do

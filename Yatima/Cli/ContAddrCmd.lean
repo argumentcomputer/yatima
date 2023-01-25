@@ -47,7 +47,7 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
       return 1
     if !(p.hasFlag "prelude") then Lean.setLibsPaths
     mkDirs
-    let mut envIn : Yatima.Env := default
+    let mut envIn := default
     match p.getStringFlag? "in" with
     | some fileName =>
       match LightData.ofByteArray (← IO.FS.readBinFile ⟨fileName⟩) with
@@ -55,14 +55,14 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
         IO.eprintln s!"Error deserializing input environment: {e}"
         return 1
       | .ok data =>
-        have h : Encodable Yatima.Env LightData String := inferInstance
+        have h : Encodable Yatima.IR.Env LightData String := inferInstance
         match h.decode data with
         | .ok env => envIn := env
         | .error e =>
           IO.eprintln s!"Error decoding input environment: {e}"
           return 1
     | none => pure ()
-    let mut stt := ⟨default, envIn⟩
+    let mut stt := envIn
     for arg in args do
       for filePath in ← getLeanFilePaths ⟨arg⟩ do
         let env ← Lean.runFrontend filePath
@@ -70,7 +70,7 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
         match ← contAddr constMap delta stt with
         | .error err => IO.eprintln err; return 1
         | .ok stt' => stt := stt'
-    let envOutLD : LightData := Encodable.encode stt.env
+    let envOutLD : LightData := Encodable.encode stt
     IO.FS.writeBinFile ⟨p.getStringFlagD "out" defaultEnv⟩ envOutLD.toByteArray
     return 0
 

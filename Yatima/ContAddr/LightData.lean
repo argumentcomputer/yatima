@@ -1,5 +1,6 @@
 import LightData
-import Yatima.Datatypes.Store
+import Yatima.Datatypes.Const
+import Yatima.Datatypes.Env
 
 namespace Yatima.ContAddr
 
@@ -246,23 +247,23 @@ instance : Encodable ConstMeta LightData String where
     | .eit $ .right x          => return .mutIndBlock (← dec x)
     | x                        => throw s!"Invalid encoding for ConstMeta: {x}"
 
-def hashUnivAnon (x : UnivAnon) : Hash × LightData :=
-  let x := Encodable.encode x; (x.hash, x)
+def hashUnivAnon (x : UnivAnon) : LightData × Hash :=
+  let x := Encodable.encode x; (x, x.hash)
 
-def hashExprAnon (x : ExprAnon) : Hash × LightData :=
-  let x := Encodable.encode x; (x.hash, x)
+def hashExprAnon (x : ExprAnon) : LightData × Hash :=
+  let x := Encodable.encode x; (x, x.hash)
 
-def hashConstAnon (x : ConstAnon) : Hash × LightData :=
-  let x := Encodable.encode x; (x.hash, x)
+def hashConstAnon (x : ConstAnon) : LightData × Hash :=
+  let x := Encodable.encode x; (x, x.hash)
 
-def hashUnivMeta (x : UnivMeta) : Hash × LightData :=
-  let x := Encodable.encode x; (x.hash, x)
+def hashUnivMeta (x : UnivMeta) : LightData × Hash :=
+  let x := Encodable.encode x; (x, x.hash)
 
-def hashExprMeta (x : ExprMeta) : Hash × LightData :=
-  let x := Encodable.encode x; (x.hash, x)
+def hashExprMeta (x : ExprMeta) : LightData × Hash :=
+  let x := Encodable.encode x; (x, x.hash)
 
-def hashConstMeta (x : ConstMeta) : Hash × LightData :=
-  let x := Encodable.encode x; (x.hash, x)
+def hashConstMeta (x : ConstMeta) : LightData × Hash :=
+  let x := Encodable.encode x; (x, x.hash)
 
 open TC
 open Lurk (F LDONHashState)
@@ -365,10 +366,8 @@ instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
   encode x := h.encode ⟨x.toList⟩
   decode x := return .ofArray (← dec x) _
 
-instance : Encodable Env LightData String where
-  encode x := .prd (x.irHashes, x.tcHashes)
-  decode
-    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
-    | x => throw s!"Invalid encoding for Yatima.Env: {x}"
+instance : Encodable IR.Env LightData String where
+  encode x := x.consts
+  decode | x => return ⟨← dec x⟩
 
 end Yatima.ContAddr

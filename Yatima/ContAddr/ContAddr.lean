@@ -83,7 +83,7 @@ mutual
 
 partial def contAddrConst (const : Lean.ConstantInfo) :
     ContAddrM $ Hash × Hash := do
-  match (← get).env.irHashes.find? const.name with
+  match (← get).consts.find? const.name with
   | some c => pure c
   | none   => match const with
     | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
@@ -123,7 +123,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
           pure (.quotient ⟨val.levelParams.length, typAnon, val.kind⟩,
             .quotient ⟨val.name, val.levelParams, typMeta⟩)
       let hashes ← addToStore $ .const anon meta
-      addIRHashesToEnv const.name hashes
+      addToEnv const.name hashes
       return hashes
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) :
@@ -167,7 +167,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) :
     let valueAnon := .definitionProj ⟨defnAnon.lvls, defnAnon.type, blockHashes.1, idx⟩
     let valueMeta := .definitionProj ⟨defnMeta.name, defnMeta.lvls, defnMeta.type, blockHashes.2, i⟩
     let hashes ← addToStore $ .const valueAnon valueMeta
-    addIRHashesToEnv defnMeta.name hashes
+    addToEnv defnMeta.name hashes
     if defnMeta.name == struct.name then ret? := some hashes
 
   match ret? with
@@ -230,7 +230,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
     let hashes ← addToStore $ .const
       (.inductiveProj ⟨indAnon.lvls, indAnon.type, blockAnon, indIdx⟩)
       (.inductiveProj ⟨indMeta.name, indMeta.lvls, indMeta.type, blockMeta⟩)
-    addIRHashesToEnv name hashes
+    addToEnv name hashes
     if name == initInd.name then ret? := some hashes
 
     for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
@@ -238,14 +238,14 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
       let hashes ← addToStore $ .const
         (.constructorProj ⟨ctorAnon.lvls, ctorAnon.type, blockAnon, indIdx, ctorIdx⟩)
         (.constructorProj ⟨ctorMeta.name, ctorMeta.lvls, ctorMeta.type, blockMeta⟩)
-      addIRHashesToEnv ctorMeta.name hashes
+      addToEnv ctorMeta.name hashes
 
     for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
       -- Store and cache recursor projections
       let hashes ← addToStore $ .const
         (.recursorProj ⟨recrAnon.lvls, recrAnon.type, blockAnon, indIdx, recrIdx⟩)
         (.recursorProj ⟨recrMeta.name, recrMeta.lvls, recrMeta.type, blockMeta⟩)
-      addIRHashesToEnv recrMeta.name hashes
+      addToEnv recrMeta.name hashes
 
   match ret? with
   | some ret => return ret
@@ -504,124 +504,125 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
 
 end
 
-open Lurk
+-- open Lurk
 
-partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
-  let store := (← get).store
-  match store.tcUniv.find? hash with
-  | some u => pure u
-  | none =>
-    let u ← match store.irUnivAnon.find? hash with
-      | none => throw sorry
-      | some .zero => pure .zero
-      | some $ .succ u => pure $ .succ (← mkTCUniv u)
-      | some $ .max u v => pure $ .max (← mkTCUniv u) (← mkTCUniv v)
-      | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
-      | some $ .var n => pure $ .var n
-    persistData (hash, u) UNIVDIR
-    modifyGet fun stt => (u, { stt with store := { stt.store with
-      tcUniv := stt.store.tcUniv.insert hash u } })
+-- partial def mkTCUniv (hash : Hash) : ContAddrM TC.Univ := do
+--   let store := (← get).store
+--   match store.tcUniv.find? hash with
+--   | some u => pure u
+--   | none =>
+--     let u ← match store.irUnivAnon.find? hash with
+--       | none => throw sorry
+--       | some .zero => pure .zero
+--       | some $ .succ u => pure $ .succ (← mkTCUniv u)
+--       | some $ .max u v => pure $ .max (← mkTCUniv u) (← mkTCUniv v)
+--       | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
+--       | some $ .var n => pure $ .var n
+--     persistData (hash, u) UNIVDIR
+--     modifyGet fun stt => (u, { stt with store := { stt.store with
+--       tcUniv := stt.store.tcUniv.insert hash u } })
 
-mutual
+-- mutual
 
-partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
-  let store := (← get).store
-  match store.tcExpr.find? hash with
-  | some e => pure e
-  | none =>
-    let e ← match store.irExprAnon.find? hash with
-      | none => throw sorry
-      | some $ .var i us => sorry
-      | some $ .sort u => pure $ .sort (← mkTCUniv u)
-      | some $ .const c us =>
-        pure $ .const (← commitTCConst (← mkTCConst c)) (← us.mapM mkTCUniv)
-      | some $ .app x y => pure $ .app (← mkTCExpr x) (← mkTCExpr y)
-      | some $ .lam x y => pure $ .lam (← mkTCExpr x) (← mkTCExpr y)
-      | some $ .pi  x y => pure $ .pi  (← mkTCExpr x) (← mkTCExpr y)
-      | some $ .letE x y z => pure $ .letE (← mkTCExpr x) (← mkTCExpr y) (← mkTCExpr z)
-      | some $ .lit l => pure $ .lit l
-      | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
-    persistData (hash, e) EXPRDIR
-    modifyGet fun stt => (e, { stt with store := { stt.store with
-      tcExpr := stt.store.tcExpr.insert hash e } })
+-- partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
+--   let store := (← get).store
+--   match store.tcExpr.find? hash with
+--   | some e => pure e
+--   | none =>
+--     let e ← match store.irExprAnon.find? hash with
+--       | none => throw sorry
+--       | some $ .var i us => sorry
+--       | some $ .sort u => pure $ .sort (← mkTCUniv u)
+--       | some $ .const c us =>
+--         pure $ .const (← commitTCConst (← mkTCConst c)) (← us.mapM mkTCUniv)
+--       | some $ .app x y => pure $ .app (← mkTCExpr x) (← mkTCExpr y)
+--       | some $ .lam x y => pure $ .lam (← mkTCExpr x) (← mkTCExpr y)
+--       | some $ .pi  x y => pure $ .pi  (← mkTCExpr x) (← mkTCExpr y)
+--       | some $ .letE x y z => pure $ .letE (← mkTCExpr x) (← mkTCExpr y) (← mkTCExpr z)
+--       | some $ .lit l => pure $ .lit l
+--       | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
+--     persistData (hash, e) EXPRDIR
+--     modifyGet fun stt => (e, { stt with store := { stt.store with
+--       tcExpr := stt.store.tcExpr.insert hash e } })
 
-partial def mkTCCtor : IR.ConstructorAnon → ContAddrM TC.Constructor
-| ⟨lvls, typeHash, ids, params, fields, safe⟩ => do pure ⟨lvls, ← mkTCExpr typeHash, ids, params, fields, safe⟩
+-- partial def mkTCCtor : IR.ConstructorAnon → ContAddrM TC.Constructor
+-- | ⟨lvls, typeHash, ids, params, fields, safe⟩ => do pure ⟨lvls, ← mkTCExpr typeHash, ids, params, fields, safe⟩
 
-partial def mkTCInd : IR.InductiveAnon → ContAddrM TC.Inductive
-| ⟨lvls, type, params, indices, ctors, _, recr, safe, refl⟩ => do
-    -- Structures can't be recursive nor have indices
-    let (struct, unit) ← if recr || indices != 0 then pure (none, false) else
-      match ctors with
-      -- Structures can only have one constructor
-      | [ctor] => do
-        let f ← commitTCConst $ .constructor $ ← mkTCCtor ctor
-        pure $ (some f, ctor.fields == 0)
-      | _ => pure (none, false)
-    pure $ ⟨lvls, ← mkTCExpr type, params, indices, ← ctors.mapM mkTCCtor, recr, safe, refl, struct, unit⟩
+-- partial def mkTCInd : IR.InductiveAnon → ContAddrM TC.Inductive
+-- | ⟨lvls, type, params, indices, ctors, _, recr, safe, refl⟩ => do
+--     -- Structures can't be recursive nor have indices
+--     let (struct, unit) ← if recr || indices != 0 then pure (none, false) else
+--       match ctors with
+--       -- Structures can only have one constructor
+--       | [ctor] => do
+--         let f ← commitTCConst $ .constructor $ ← mkTCCtor ctor
+--         pure $ (some f, ctor.fields == 0)
+--       | _ => pure (none, false)
+--     pure $ ⟨lvls, ← mkTCExpr type, params, indices, ← ctors.mapM mkTCCtor, recr, safe, refl, struct, unit⟩
 
-partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
-  match (← get).store.tcConst.find? hash with
-  | some c => pure c
-  | none =>
-    let c ← match (← get).store.irConstAnon.find? hash with
-      | none => throw sorry
-      | some $ .axiom x => pure $ .axiom ⟨x.lvls, ← mkTCExpr x.type, x.safe⟩
-      | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value⟩
-      | some $ .opaque x => pure $ .opaque ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value, x.safe⟩
-      | some $ .quotient x => pure $ .quotient ⟨x.lvls, ← mkTCExpr x.type, x.kind⟩
-      | some $ .inductiveProj x =>
-        match (← get).store.irConstAnon.find? x.block with
-          | none => throw sorry
-          | some $ .mutIndBlock inds =>
-            let some ind := inds.get? x.idx | throw sorry
-            pure $ .inductive $ ← mkTCInd ind
-          | _ => throw sorry
-      | some $ .constructorProj x =>
-        match (← get).store.irConstAnon.find? x.block with
-          | none => throw sorry
-          | some $ .mutIndBlock inds =>
-            let some ind := inds.get? x.idx | throw sorry
-            let some ⟨lvls, type, idx, params, fields, safe⟩ := ind.ctors.get? x.idx | throw sorry
-            pure $ .constructor ⟨lvls, ← mkTCExpr type, idx, params, fields, safe⟩
-          | _ => throw sorry
-      | some $ .recursorProj x =>
-        match (← get).store.irConstAnon.find? x.block with
-          | none => throw sorry
-          | some $ .mutIndBlock inds =>
-            let some ind := inds.get? x.idx | throw sorry
-            let indF ← commitTCConst $ .inductive $ ← mkTCInd ind
-            let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
-            pure $ .recursor ⟨lvls, ← mkTCExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
-          | _ => throw sorry
-      | some $ .definitionProj x =>
-        match (← get).store.irConstAnon.find? x.block with
-          | none => throw sorry
-          | some $ .mutDefBlock defs =>
-            let some ⟨lvls, type, value, safety⟩ := defs.get? x.idx | throw sorry
-            pure $ .definition ⟨lvls, ← mkTCExpr type, ← mkTCExpr value, safety, sorry⟩
-          | _ => throw sorry
-      | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
-    persistData (hash, c) CONSTDIR
-    modifyGet fun stt => (c, { stt with store := { stt.store with
-      tcConst := stt.store.tcConst.insert hash c } })
+-- partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
+--   match (← get).store.tcConst.find? hash with
+--   | some c => pure c
+--   | none =>
+--     let c ← match (← get).store.irConstAnon.find? hash with
+--       | none => throw sorry
+--       | some $ .axiom x => pure $ .axiom ⟨x.lvls, ← mkTCExpr x.type, x.safe⟩
+--       | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value⟩
+--       | some $ .opaque x => pure $ .opaque ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value, x.safe⟩
+--       | some $ .quotient x => pure $ .quotient ⟨x.lvls, ← mkTCExpr x.type, x.kind⟩
+--       | some $ .inductiveProj x =>
+--         match (← get).store.irConstAnon.find? x.block with
+--           | none => throw sorry
+--           | some $ .mutIndBlock inds =>
+--             let some ind := inds.get? x.idx | throw sorry
+--             pure $ .inductive $ ← mkTCInd ind
+--           | _ => throw sorry
+--       | some $ .constructorProj x =>
+--         match (← get).store.irConstAnon.find? x.block with
+--           | none => throw sorry
+--           | some $ .mutIndBlock inds =>
+--             let some ind := inds.get? x.idx | throw sorry
+--             let some ⟨lvls, type, idx, params, fields, safe⟩ := ind.ctors.get? x.idx | throw sorry
+--             pure $ .constructor ⟨lvls, ← mkTCExpr type, idx, params, fields, safe⟩
+--           | _ => throw sorry
+--       | some $ .recursorProj x =>
+--         match (← get).store.irConstAnon.find? x.block with
+--           | none => throw sorry
+--           | some $ .mutIndBlock inds =>
+--             let some ind := inds.get? x.idx | throw sorry
+--             let indF ← commitTCConst $ .inductive $ ← mkTCInd ind
+--             let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
+--             pure $ .recursor ⟨lvls, ← mkTCExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
+--           | _ => throw sorry
+--       | some $ .definitionProj x =>
+--         match (← get).store.irConstAnon.find? x.block with
+--           | none => throw sorry
+--           | some $ .mutDefBlock defs =>
+--             let some ⟨lvls, type, value, safety⟩ := defs.get? x.idx | throw sorry
+--             pure $ .definition ⟨lvls, ← mkTCExpr type, ← mkTCExpr value, safety, sorry⟩
+--           | _ => throw sorry
+--       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
+--     persistData (hash, c) CONSTDIR
+--     modifyGet fun stt => (c, { stt with store := { stt.store with
+--       tcConst := stt.store.tcConst.insert hash c } })
 
-partial def commitTCConst (c : TC.Const) : ContAddrM F := do
-  match (← get).store.commits.find? c with
-  | some f => pure f
-  | none =>
-    -- this is expensive
-    let (f, encStt) := c.toLDON |>.commit (← get).store.ldonHashState
-    persistData (c, f) COMMITSDIR
-    modifyGet fun stt => (f, { stt with store := { stt.store with
-      commits := stt.store.commits.insert c f
-      ldonHashState := encStt } })
+-- partial def commitTCConst (c : TC.Const) : ContAddrM F := do
+--   match (← get).store.commits.find? c with
+--   | some f => pure f
+--   | none =>
+--     -- this is expensive
+--     let (f, encStt) := c.toLDON |>.commit (← get).store.ldonHashState
+--     persistData (c, f) COMMITSDIR
+--     modifyGet fun stt => (f, { stt with store := { stt.store with
+--       commits := stt.store.commits.insert c f
+--       ldonHashState := encStt } })
 
-end
+-- end
 
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
-def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
-  let anons := (← delta.mapM contAddrConst).map (·.1)
+def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit :=
+  delta.forM (discard $ contAddrConst ·)
+  -- let anons := (← delta.mapM contAddrConst).map (·.1)
   -- let consts ← anons.mapM mkTCConst
   -- let names := delta.map (·.name)
   -- (names.zip consts).forM fun (n, c) => do addTCHashToEnv n (← commitTCConst c)
@@ -636,7 +637,7 @@ Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
 def contAddr (constants : Lean.ConstMap) (delta : List Lean.ConstantInfo)
-    (stt : ContAddrState := default) : IO $ Except ContAddrError ContAddrState :=
-  ContAddrM.run (.init constants) stt (contAddrM delta)
+    (yenv : Env := default) : IO $ Except ContAddrError Env :=
+  ContAddrM.run (.init constants) yenv (contAddrM delta)
 
 end Yatima.ContAddr
