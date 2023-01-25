@@ -360,4 +360,15 @@ instance : Encodable LDONHashState LightData String where
   encode := default -- TODO
   decode := default -- TODO
 
+instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
+    Encodable (Std.RBMap α β compare) LightData String where
+  encode x := h.encode ⟨x.toList⟩
+  decode x := return .ofArray (← dec x) _
+
+instance : Encodable Env LightData String where
+  encode x := .prd (x.irHashes, x.tcHashes)
+  decode
+    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
+    | x => throw s!"Invalid encoding for Yatima.Env: {x}"
+
 end Yatima.ContAddr

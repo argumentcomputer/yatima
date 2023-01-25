@@ -6,7 +6,7 @@ namespace Yatima
 open Std (RBMap)
 open IR Lurk
 
-structure Yatima.Store where
+structure Store where
   irUnivAnon  : RBMap Hash UnivAnon  compare
   irUnivMeta  : RBMap Hash UnivMeta  compare
   irExprAnon  : RBMap Hash ExprAnon  compare
@@ -22,7 +22,7 @@ structure Yatima.Store where
   commits : RBMap TC.Const F compare
   deriving Inhabited
 
-structure Yatima.Env where
+structure Env where
   -- meta   : -- hold information about the content-addressing session
   irHashes : RBMap Name (Hash × Hash) compare
   tcHashes : RBMap Name F compare

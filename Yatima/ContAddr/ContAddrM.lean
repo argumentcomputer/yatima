@@ -1,6 +1,6 @@
 import Yatima.ContAddr.LightData
 import Yatima.ContAddr.ContAddrError
-import Yatima.ContAddr.Directories
+import Yatima.ContAddr.IO
 
 namespace Yatima.ContAddr
 
@@ -9,8 +9,8 @@ open Std (RBMap)
 open IR
 
 structure ContAddrState where
-  store : Yatima.Store
-  env   : Yatima.Env
+  store : Store
+  env   : Env
   deriving Inhabited
 
 /--
