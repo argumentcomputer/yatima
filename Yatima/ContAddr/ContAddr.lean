@@ -548,6 +548,18 @@ partial def mkTCExpr (hash : Hash) : ContAddrM TC.Expr := do
 partial def mkTCCtor : IR.ConstructorAnon → ContAddrM TC.Constructor
 | ⟨lvls, typeHash, ids, params, fields, safe⟩ => do pure ⟨lvls, ← mkTCExpr typeHash, ids, params, fields, safe⟩
 
+partial def mkTCInd : IR.InductiveAnon → ContAddrM TC.Inductive
+| ⟨lvls, type, params, indices, ctors, _, recr, safe, refl⟩ => do
+    -- Structures can't be recursive nor have indices
+    let (struct, unit) ← if recr || indices != 0 then pure (none, false) else
+      match ctors with
+      -- Structures can only have one constructor
+      | [ctor] => do
+        let f ← commitTCConst $ .constructor $ ← mkTCCtor ctor
+        pure $ (some f, ctor.fields == 0)
+      | _ => pure (none, false)
+    pure $ ⟨lvls, ← mkTCExpr type, params, indices, ← ctors.mapM mkTCCtor, recr, safe, refl, struct, unit⟩
+
 partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
   match (← get).store.tcConst.find? hash with
   | some c => pure c
@@ -558,18 +570,37 @@ partial def mkTCConst (hash : Hash) : ContAddrM TC.Const := do
       | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value⟩
       | some $ .opaque x => pure $ .opaque ⟨x.lvls, ← mkTCExpr x.type, ← mkTCExpr x.value, x.safe⟩
       | some $ .quotient x => pure $ .quotient ⟨x.lvls, ← mkTCExpr x.type, x.kind⟩
-      | some $ .inductiveProj x => match (← get).store.irConstAnon.find? x.block with
-        | none => throw sorry
-        | some $ .mutIndBlock inds =>
-          let some ind := inds.get? x.idx | throw sorry
-          let struct := sorry
-          let unit := sorry
-          let type ← mkTCExpr ind.type
-          pure $ .inductive ⟨ind.lvls,type,ind.params,ind.indices, ← ind.ctors.mapM mkTCCtor,ind.recr,ind.safe,ind.refl,struct,unit⟩
-        | _ => throw sorry
-      | some $ .constructorProj x => sorry
-      | some $ .recursorProj x => sorry
-      | some $ .definitionProj x => sorry
+      | some $ .inductiveProj x =>
+        match (← get).store.irConstAnon.find? x.block with
+          | none => throw sorry
+          | some $ .mutIndBlock inds =>
+            let some ind := inds.get? x.idx | throw sorry
+            pure $ .inductive $ ← mkTCInd ind
+          | _ => throw sorry
+      | some $ .constructorProj x =>
+        match (← get).store.irConstAnon.find? x.block with
+          | none => throw sorry
+          | some $ .mutIndBlock inds =>
+            let some ind := inds.get? x.idx | throw sorry
+            let some ⟨lvls, type, idx, params, fields, safe⟩ := ind.ctors.get? x.idx | throw sorry
+            pure $ .constructor ⟨lvls, ← mkTCExpr type, idx, params, fields, safe⟩
+          | _ => throw sorry
+      | some $ .recursorProj x =>
+        match (← get).store.irConstAnon.find? x.block with
+          | none => throw sorry
+          | some $ .mutIndBlock inds =>
+            let some ind := inds.get? x.idx | throw sorry
+            let indF ← commitTCConst $ .inductive $ ← mkTCInd ind
+            let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
+            pure $ .recursor ⟨lvls, ← mkTCExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
+          | _ => throw sorry
+      | some $ .definitionProj x =>
+        match (← get).store.irConstAnon.find? x.block with
+          | none => throw sorry
+          | some $ .mutDefBlock defs =>
+            let some ⟨lvls, type, value, safety⟩ := defs.get? x.idx | throw sorry
+            pure $ .definition ⟨lvls, ← mkTCExpr type, ← mkTCExpr value, safety, sorry⟩
+          | _ => throw sorry
       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
     persistData (hash, c) CONSTDIR
     modifyGet fun stt => (c, { stt with store := { stt.store with
