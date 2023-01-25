@@ -56,6 +56,18 @@ def ConstMap.patchUnsafeRec (cs : ConstMap) : ConstMap :=
       else .opaqueInfo o
     | _ => c
 
+def PersistentHashMap.filter [BEq α] [Hashable α]
+    (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
+  map.foldl (init := .empty) fun acc x y =>
+    match p x y with
+    | true => acc.insert x y
+    | false => acc
+
+def Environment.getConstsAndDelta (env : Environment) : ConstMap × List ConstantInfo :=
+  let constants := env.constants.patchUnsafeRec
+  let delta := constants.map₂.filter fun n _ => !n.isInternal
+  (constants, delta.toList.map (·.2))
+
 /--
 Sets the directories where `olean` files can be found.
 
@@ -86,12 +98,5 @@ def runFrontend (filePath : System.FilePath) : IO Environment := do
     throw $ IO.userError $ "\n\n".intercalate $
       (← msgs.toList.mapM (·.toString)).map String.trim
   else return s.commandState.env
-
-def PersistentHashMap.filter [BEq α] [Hashable α]
-    (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
-  map.foldl (init := .empty) fun acc x y =>
-    match p x y with
-    | true => acc.insert x y
-    | false => acc
 
 end Lean

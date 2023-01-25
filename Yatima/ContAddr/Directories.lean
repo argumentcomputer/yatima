@@ -1,6 +1,11 @@
 import LightData
 
-def ByteArray.asHex : ByteArray → String := sorry
+def UInt8.asHex (u : UInt8) : Char × Char × Char × Char := sorry
+
+def ByteArray.asHex (bytes : ByteArray) : String :=
+  let chars := bytes.data.data.foldr (init := []) fun b acc =>
+    let (b₁, b₂, b₃, b₄) := b.asHex; b₁ :: b₂ :: b₃ :: b₄ :: acc
+  ⟨chars⟩
 
 open System (FilePath)
 

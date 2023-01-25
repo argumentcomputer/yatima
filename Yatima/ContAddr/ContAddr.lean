@@ -586,10 +586,10 @@ end
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   let anons := (← delta.mapM contAddrConst).map (·.1)
-  let consts ← anons.mapM mkTCConst
-  let names := delta.map (·.name)
-  (names.zip consts).forM fun (n, c) => do addTCHashToEnv n (← commitTCConst c)
-  persistData (← get).store.ldonHashState LDONHASHCACHE false
+  -- let consts ← anons.mapM mkTCConst
+  -- let names := delta.map (·.name)
+  -- (names.zip consts).forM fun (n, c) => do addTCHashToEnv n (← commitTCConst c)
+  -- persistData (← get).store.ldonHashState LDONHASHCACHE false
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
@@ -599,10 +599,8 @@ Important: constants with open references in their expressions are filtered out.
 Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
-def contAddr (env : Lean.Environment) (stt : ContAddrState := default) :
-    IO $ Except ContAddrError ContAddrState :=
-  let constants := env.constants.patchUnsafeRec
-  let delta := constants.map₂.filter fun n _ => !n.isInternal
-  ContAddrM.run (.init constants) stt (contAddrM $ delta.toList.map (·.2))
+def contAddr (constants : Lean.ConstMap) (delta : List Lean.ConstantInfo)
+    (stt : ContAddrState := default) : IO $ Except ContAddrError ContAddrState :=
+  ContAddrM.run (.init constants) stt (contAddrM delta)
 
 end Yatima.ContAddr

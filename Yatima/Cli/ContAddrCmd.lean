@@ -1,53 +1,57 @@
-import Yatima.Cli.Utils
-import Yatima.Ipld.ToIpld
+import Cli
 import Yatima.ContAddr.ContAddr
-import Yatima.Cli.Cronos
 
-open System Yatima.ContAddr in
+def getToolchain : IO $ Except String String := do
+  let out ← IO.Process.output {
+    cmd := "lake"
+    args := #["--version"]
+  }
+  if out.exitCode != 0 then
+    return .error "Couldn't run 'lake --version' command"
+  else
+    let version := out.stdout.splitOn "(Lean version " |>.get! 1
+    return .ok $ version.splitOn ")" |>.head!
+
+open System (FilePath)
+
+partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
+    IO $ Array FilePath := do
+  if ← fp.isDir then
+    (← fp.readDir).foldlM (fun acc dir => getLeanFilePaths dir.path acc) acc
+  else return if fp.extension == some "lean" then acc.push fp else acc
+
+open Yatima.ContAddr in
 def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
   match ← getToolchain with
   | .error msg => IO.eprintln msg; return 1
   | .ok toolchain =>
     if toolchain != Lean.versionString then
       IO.eprintln s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
+      return 1
   match p.variableArgsAs? String with
   | none =>
-    IO.eprintln $ "Couldn't parse arguments.\n" ++
-      "Run `yatima ca -h` for further information."
+    IO.eprintln $ "Couldn't parse arguments.\nRun `yatima ca -h` for further information."
     return 1
   | some ⟨args⟩ =>
     if args.isEmpty then
-      IO.eprintln $ "No argument was found.\n" ++
-        "Run `yatima ca -h` for further information."
+      IO.eprintln $ "No argument was found.\nRun `yatima ca -h` for further information."
       return 1
-    else
-      if !(p.hasFlag "prelude") then Lean.setLibsPaths
-      let mut stt := default
-      let log := p.hasFlag "log"
-      let mut cronos := Cronos.new
-      for arg in args do
-        for filePath in ← getLeanFilePathsList ⟨arg⟩ do
-          let filePathStr := filePath.toString
-          cronos ← cronos.clock filePathStr
-          match ← contAddr filePath log stt with
-          | .ok stt' =>
-            -- making sure that constants with the same name are the very same
-            for (name, (cid', _)) in stt'.cache.toList do
-              match stt.cache.find? name with
-              | some (cid, _) =>
-                if cid != cid' then
-                  IO.eprintln s!"Conflicting constants for {name}"
-                  return 1
-              | none => pure ()
-            cronos ← cronos.clock filePathStr
-            stt := stt'
-          | .error err => IO.eprintln err; return 1
-      if p.hasFlag "summary" then
-        IO.println s!"{stt.summary}"
-        IO.println s!"\n{cronos.summary}"
-      let ipld := Yatima.Ipld.storeToIpld stt.ipldStore
-      IO.FS.writeBinFile (p.getStringFlagD "output" "output.ir") (DagCbor.serialize ipld)
-      return 0
+    if !(p.hasFlag "prelude") then Lean.setLibsPaths
+    let mut stt := default
+    mkDirs
+    for arg in args do
+      for filePath in ← getLeanFilePaths ⟨arg⟩ do
+        let env ← Lean.runFrontend filePath
+        let (constMap, delta) := env.getConstsAndDelta
+        match ← contAddr constMap delta stt with
+        | .error err => IO.eprintln err; return 1
+        | .ok stt' =>
+          for (name, _) in constMap.toList do
+            if stt.env.irHashes.contains name then
+              IO.eprintln s!"Conflicting constants for {name}"
+              return 1
+          stt := stt'
+    return 0
 
 def contAddrCmd : Cli.Cmd := `[Cli|
   ca VIA contAddrRun;
@@ -60,7 +64,6 @@ def contAddrCmd : Cli.Cmd := `[Cli|
     p, "prelude"; "Optimizes the content-addressing of prelude files without" ++
       " imports. All files to be content-addressed must follow this rule"
     l, "log";     "Logs content-addressing progress"
-    s, "summary"; "Prints a summary at the end of the process"
 
   ARGS:
     ...sources : String; "List of Lean files or directories"

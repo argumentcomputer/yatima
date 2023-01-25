@@ -18,7 +18,7 @@ structure Yatima.Store where
   tcExpr  : RBMap Hash TC.Expr compare
   tcConst : RBMap Hash TC.Const compare
 
-  ldonHashState : LDONHashState
+  ldonHashState : LDONHashState -- to speed up committing
   commits : RBMap TC.Const F compare
   deriving Inhabited
 
