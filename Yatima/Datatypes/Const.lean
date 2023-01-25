@@ -259,7 +259,7 @@ structure Definition where
   type     : Expr
   value    : Expr
   safety   : DefinitionSafety
-  -- the types of all of the mutual definitions in this block; needed to prevent infinite loops while typechecking
+  /-- the types of all of the mutual definitions in this block; needed to prevent infinite loops while typechecking -/
   mutTypes : List Expr
   deriving Inhabited, Ord, BEq
 
@@ -287,11 +287,11 @@ structure Recursor where
   rules    : List RecursorRule
   isK      : Bool
   internal : Bool
-  -- reference to this recursor's inductive constant;
-  -- needed for eta-expansion of structs
+  /-- reference to this recursor's inductive constant;
+  needed for eta-expansion of structs -/
   ind      : F
-  -- all of the recursors related to this inductive; needed to prevent infinite loops while typechecking
-  -- in the case of a nested inductive
+  /-- all of the recursors related to this inductive; needed to prevent infinite loops while typechecking
+  in the case of a nested inductive -/
   all      : List F
   deriving Ord, BEq
 
@@ -304,16 +304,15 @@ structure Inductive where
   recr    : Bool
   safe    : Bool
   refl    : Bool
-  -- reference to this inductive's constructor constant;
-  -- needed for eta-expansion of structs
+  /-- reference to this inductive's constructor constant;
+  needed for eta-expansion of structs -/
   struct  : Option F
-  -- whether or not this inductive is unit-like;
-  -- needed for unit-like equality
+  /-- whether or not this inductive is unit-like;
+  needed for unit-like equality -/
   unit    : Bool
   deriving Inhabited, Ord, BEq
 
 inductive Const where
-  -- standalone constants
   | «axiom»     : Axiom    → Const
   | «theorem»   : Theorem  → Const
   | «opaque»    : Opaque   → Const
