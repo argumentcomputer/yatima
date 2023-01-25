@@ -92,12 +92,12 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
       match ← getLeanConstant val.induct with
       | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
       | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
-      contAddrConst (.ctorInfo val)
+      contAddrConst const
     | .recInfo val => do
       match ← getLeanConstant val.getInduct with
       | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
       | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
-      contAddrConst (.recInfo val)
+      contAddrConst const
     -- The rest adds the constants to the cache one by one
     | const => withLevelsAndReset const.levelParams do
       let (anon, meta) ← match const with
@@ -180,8 +180,7 @@ partial def definitionToIR (defn : Lean.DefinitionVal) :
   let valueHashes ← contAddrExpr defn.value
   return (
     ⟨defn.levelParams.length, typeHashes.1, valueHashes.1, defn.safety⟩,
-    ⟨defn.name, defn.levelParams, typeHashes.2, valueHashes.2⟩
-  )
+    ⟨defn.name, defn.levelParams, typeHashes.2, valueHashes.2⟩)
 
 /--
 Content-addresses an inductive and all inductives in the mutual block as a
@@ -445,11 +444,9 @@ partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
 
 /-- AST equality between two Lean definitions.
   `weakOrd` contains the best known current mutual ordering -/
-partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
-    (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) : ContAddrM Bool := do
-  match (← cmpDef weakOrd x y) with
-  | .eq => pure true
-  | _ => pure false
+@[inline] partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
+    (x y : Lean.DefinitionVal) : ContAddrM Bool :=
+  return (← cmpDef weakOrd x y) == .eq
 
 /--
 `sortDefs` recursively sorts a list of mutual definitions into weakly equal blocks.
