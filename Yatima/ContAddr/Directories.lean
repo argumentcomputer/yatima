@@ -67,6 +67,6 @@ def mkDirs : IO Unit :=
 
 def persistData (data : LightData) (path : FilePath) (genName := true) : IO Unit :=
   -- TODO : do it in a thread
-  let bytes : ByteArray := Encodable.encode data
+  let bytes := Encodable.encode data
   let path := if genName then path / bytes.blake3.data.asHex else path
   IO.FS.writeBinFile path bytes

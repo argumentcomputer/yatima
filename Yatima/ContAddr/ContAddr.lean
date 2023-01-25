@@ -293,9 +293,9 @@ partial def internalRecToIR (ctors : List Lean.Name) :
 
 partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $
     (ConstructorAnon × ConstructorMeta) × (RecursorRuleAnon × RecursorRuleMeta) := do
+  let (rhsAnon, rhsMeta) ← contAddrExpr rule.rhs
   match ← getLeanConstant rule.ctor with
   | .ctorInfo ctor => withLevels ctor.levelParams do
-    let (rhsAnon, rhsMeta) ← contAddrExpr rule.rhs
     let (typAnon, typMeta) ← contAddrExpr ctor.type
     let ctors := (
       ⟨ctor.levelParams.length, typAnon, ctor.cidx, ctor.numParams, ctor.numFields, !ctor.isUnsafe⟩,

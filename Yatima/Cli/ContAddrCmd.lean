@@ -1,4 +1,4 @@
-import Cli
+import Cli.Basic
 import Yatima.ContAddr.ContAddr
 
 def getToolchain : IO $ Except String String := do
