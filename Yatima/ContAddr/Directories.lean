@@ -1,11 +1,17 @@
 import LightData
 
-def UInt8.asHex (u : UInt8) : Char × Char × Char × Char := sorry
+def hexChar (u : UInt8) : Char :=
+  match u with
+  | 0  => '0' | 1  => '1' | 2  => '2' | 3  => '3' | 4  => '4' | 5 => '5'
+  | 6  => '6' | 7  => '7' | 8  => '8' | 9  => '9' | 10 => 'a'
+  | 11 => 'b' | 12 => 'c' | 13 => 'd' | 14 => 'e' | 15 => 'f' | _ => '*'
 
 def ByteArray.asHex (bytes : ByteArray) : String :=
-  let chars := bytes.data.data.foldr (init := []) fun b acc =>
-    let (b₁, b₂, b₃, b₄) := b.asHex; b₁ :: b₂ :: b₃ :: b₄ :: acc
-  ⟨chars⟩
+  let chars := bytes.data.foldr (init := []) fun b acc =>
+    (hexChar $ b / 16) :: (hexChar $ b % 16) :: acc
+  match chars with
+  | '0' :: tail => ⟨tail⟩
+  | x => ⟨x⟩
 
 open System (FilePath)
 
@@ -56,9 +62,8 @@ def SUBDIRS : List FilePath := [
   UNIVDIR, EXPRDIR, CONSTDIR
 ]
 
-def mkDirs : IO Unit := do
-  IO.FS.createDirAll STOREDIR
-  SUBDIRS.forM IO.FS.createDir
+def mkDirs : IO Unit :=
+  SUBDIRS.forM IO.FS.createDirAll
 
 def persistData (data : LightData) (path : FilePath) (genName := true) : IO Unit :=
   -- TODO : do it in a thread

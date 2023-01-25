@@ -44,14 +44,14 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
 def contAddrUniv (l : Lean.Level) : ContAddrM (Hash × Hash) := do
   let (anon, meta) ← match l with
     | .zero => pure (.zero, .zero)
-    | .succ n    =>
+    | .succ n =>
       let (anon, meta) ← contAddrUniv n
       pure (.succ anon, .succ meta)
-    | .max  a b  =>
+    | .max a b  =>
       let (aAnon, aMeta) ← contAddrUniv a
       let (bAnon, bMeta) ← contAddrUniv b
       pure (.max aAnon bAnon, .max aMeta bMeta)
-    | .imax  a b  =>
+    | .imax a b  =>
       let (aAnon, aMeta) ← contAddrUniv a
       let (bAnon, bMeta) ← contAddrUniv b
       pure (.imax aAnon bAnon, .max aMeta bMeta)
@@ -284,8 +284,7 @@ partial def internalRecToIR (ctors : List Lean.Name) :
         if ctors.contains r.ctor then
           let (ctor, rule) ← recRuleToIR r
           pure $ (ctor :: retCtors, rule :: retRules)
-        -- this is an external recursor rule
-        else pure (retCtors, retRules)
+        else pure (retCtors, retRules) -- this is an external recursor rule
     let recAnon := ⟨rec.levelParams.length, typAnon, rec.numParams,
       rec.numIndices, rec.numMotives, rec.numMinors, retRules.map (·.1),
       rec.k, true⟩
@@ -503,10 +502,8 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
   -- must normalize, see comments
   let normDss    := dss.map    fun ds => ds.map (·.name) |>.sort
   let normNewDss := newDss.map fun ds => ds.map (·.name) |>.sort
-  if normDss == normNewDss then
-    return newDss
-  else
-    sortDefs newDss
+  if normDss == normNewDss then return newDss
+  else sortDefs newDss
 
 end
 

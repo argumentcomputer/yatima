@@ -318,12 +318,46 @@ instance : Encodable Expr LightData String where
   encode := exprToLightData
   decode := lightDataToExpr
 
+instance : Encodable Constructor LightData String where
+  encode | ⟨a, b, c, d, e, f⟩ => .arr #[a, b, c, d, e, f]
+  decode
+    | .arr #[a, b, c, d, e, f] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f⟩
+    | x => throw s!"Invalid encoding for TC.Constructor: {x}"
+
+instance : Encodable RecursorRule LightData String where
+  encode | ⟨a, b⟩ => .prd (a, b)
+  decode
+    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
+    | x => throw s!"Invalid encoding for TC.Constructor: {x}"
+
 instance : Encodable Const LightData String where
-  encode := sorry
-  decode := sorry
+  encode
+    | .axiom ⟨a, b, c⟩     => .arr #[0, a, b, c]
+    | .theorem ⟨a, b, c⟩   => .arr #[1, a, b, c]
+    | .opaque ⟨a, b, c, d⟩ => .arr #[2, a, b, c, d]
+    | .quotient ⟨a, b, c⟩  => .arr #[3, a, b, c]
+    | .inductive ⟨a, b, c, d, e, f, g, h, i, j⟩   => .arr #[4, a, b, c, d, e, f, g, h, i, j]
+    | .recursor ⟨a, b, c, d, e, f, g, h, i, j, l⟩ => .arr #[5, a, b, c, d, e, f, g, h, i, j, l]
+    | .definition ⟨a, b, c, d, e⟩                 => .arr #[6, a, b, c, d, e]
+    | .constructor x => .opt $ some x
+  decode
+    | .arr #[0, a, b, c] => return .axiom ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[1, a, b, c] => return .theorem ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[2, a, b, c, d] => return .opaque ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[3, a, b, c] => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[4, a, b, c, d, e, f, g, h, i, j] =>
+      return .inductive ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e,
+        ← dec f, ← dec g, ← dec h, ← dec i, ← dec j⟩
+    | .arr #[5, a, b, c, d, e, f, g, h, i, j, l] =>
+      return .recursor ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e,
+        ← dec f, ← dec g, ← dec h, ← dec i, ← dec j, ← dec l⟩
+    | .arr #[6, a, b, c, d, e] =>
+      return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
+    | .opt $ some x => return .constructor (← dec x)
+    | x => throw s!"Invalid encoding for TC.Const: {x}"
 
 instance : Encodable LDONHashState LightData String where
-  encode := sorry
-  decode := sorry
+  encode := default -- TODO
+  decode := default -- TODO
 
 end Yatima.ContAddr
