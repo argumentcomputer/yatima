@@ -1,6 +1,5 @@
 import Cli.Basic
 import Yatima.Cli.Utils
-import Yatima.ContAddr.LightData
 import Yatima.Commit.Commit
 
 open Yatima.Commit in

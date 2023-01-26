@@ -1,6 +1,6 @@
-import Yatima.ContAddr.LightData
+import Yatima.Datatypes.LightData
 import Yatima.ContAddr.ContAddrError
-import Yatima.ContAddr.IO
+import Yatima.Common.IO
 
 namespace Yatima.ContAddr
 

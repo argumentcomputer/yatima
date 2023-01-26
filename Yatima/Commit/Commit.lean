@@ -1,7 +1,7 @@
 import Yatima.Commit.CommitM
 import Yatima.Commit.ToLDON
-import Yatima.ContAddr.IO
-import Yatima.ContAddr.LightData
+import Yatima.Datatypes.LightData
+import Yatima.Common.IO
 
 namespace Yatima.Commit
 
@@ -115,7 +115,7 @@ partial def commitConst (hash : Hash) : CommitM F := do
     let const ← mkTCConst hash
     -- this is expensive
     let (f, encStt) := const.toLDON.commit (← get).ldonHashState
-    persistData (Coe.coe f) (COMMITSDIR / hash.data.asHex)
+    persistData f (COMMITSDIR / hash.data.asHex)
     modifyGet fun stt => (f, { stt with
       commits := stt.commits.insert hash f
       ldonHashState := encStt })
