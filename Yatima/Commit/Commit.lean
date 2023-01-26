@@ -1,4 +1,5 @@
 import Yatima.Commit.CommitM
+import Yatima.Commit.ToLDON
 
 namespace Yatima.Commit
 
@@ -29,7 +30,7 @@ partial def mkTCExpr (hash : Hash) : CommitM Expr := do
       | some $ .var i us => sorry
       | some $ .sort u => pure $ .sort (← mkTCUniv u)
       | some $ .const c us =>
-        pure $ .const (← commitTCConst (← mkTCConst c)) (← us.mapM mkTCUniv)
+        pure $ .const (← commitConst c) (← us.mapM mkTCUniv)
       | some $ .app x y => pure $ .app (← mkTCExpr x) (← mkTCExpr y)
       | some $ .lam x y => pure $ .lam (← mkTCExpr x) (← mkTCExpr y)
       | some $ .pi  x y => pure $ .pi  (← mkTCExpr x) (← mkTCExpr y)
@@ -101,7 +102,7 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
     -- persistData (hash, c) CONSTDIR
     modifyGet fun stt => (c, { stt with const := stt.const.insert hash c })
 
-partial def commitTCConst (c : Const) : CommitM F := do
+partial def commitTCConst (c : Const) : CommitM F := do -- get rid of this function
   sorry
   -- match (← get).store.commits.find? c with
   -- | some f => pure f
@@ -113,10 +114,22 @@ partial def commitTCConst (c : Const) : CommitM F := do
   --     commits := stt.store.commits.insert c f
   --     ldonHashState := encStt } })
 
+partial def commitConst (hash : Hash) : CommitM F := do
+  match (← get).commits.find? hash with
+  | some f => pure f
+  | none =>
+    let const ← mkTCConst hash
+    let ldon := const.toLDON
+    -- this is expensive
+    let (f, encStt) := ldon |>.commit (← get).ldonHashState
+    modifyGet fun stt => (f, { stt with
+      commits := stt.commits.insert hash f
+      ldonHashState := encStt })
+
 end
 
 def commitM (hashes : Array Hash) : CommitM $ Array F :=
-  sorry
+  hashes.mapM commitConst
 
 def commit (hashes : Array Hash) (store : Store) :
     IO $ Except String (Array F) := do
