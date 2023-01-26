@@ -18,7 +18,7 @@ partial def mkTCUniv (hash : Hash) : CommitM Univ := do
       | some $ .max u v => pure $ .max (← mkTCUniv u) (← mkTCUniv v)
       | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
       | some $ .var n => pure $ .var n
-    persistData (Coe.coe u) (UNIVDIR / hash.data.asHex)
+    persistData (Coe.coe u) (UNIVDIR / hash.data.toHex)
     modifyGet fun stt => (u, { stt with univ := stt.univ.insert hash u })
 
 mutual
@@ -39,7 +39,7 @@ partial def mkTCExpr (hash : Hash) : CommitM Expr := do
       | some $ .letE x y z => pure $ .letE (← mkTCExpr x) (← mkTCExpr y) (← mkTCExpr z)
       | some $ .lit l => pure $ .lit l
       | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
-    persistData (Coe.coe e) (EXPRDIR / hash.data.asHex)
+    persistData (Coe.coe e) (EXPRDIR / hash.data.toHex)
     modifyGet fun stt => (e, { stt with expr := stt.expr.insert hash e })
 
 partial def mkTCCtor : IR.ConstructorAnon → CommitM Constructor
@@ -105,7 +105,7 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
           pure $ .definition ⟨lvls, ← mkTCExpr type, ← mkTCExpr value, safety, sorry⟩
         | _ => throw sorry
       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
-    persistData (Coe.coe c) (CONSTDIR / hash.data.asHex)
+    persistData (Coe.coe c) (CONSTDIR / hash.data.toHex)
     modifyGet fun stt => (c, { stt with const := stt.const.insert hash c })
 
 partial def commitConst (hash : Hash) : CommitM F := do
@@ -115,7 +115,7 @@ partial def commitConst (hash : Hash) : CommitM F := do
     let const ← mkTCConst hash
     -- this is expensive
     let (f, encStt) := const.toLDON.commit (← get).ldonHashState
-    persistData f (COMMITSDIR / hash.data.asHex)
+    persistData f (COMMITSDIR / hash.data.toHex)
     modifyGet fun stt => (f, { stt with
       commits := stt.commits.insert hash f
       ldonHashState := encStt })
@@ -127,10 +127,14 @@ def commitM (hashes : Array Hash) : CommitM $ Array F := do
   persistData (← get).ldonHashState LDONHASHCACHE
   return hashes
 
-def commit (hashes : Array Hash) (store : Store) :
-    IO $ Except String (Array F) := do
-  match ← StateT.run (ReaderT.run (commitM hashes) store) default with
-  | (.error e, _) => return .error e
-  | (.ok hs, _) => return .ok hs
+def mkStore (hashes : Array Hash) : IO $ Except String Store := sorry
+
+def commit (hashes : Array Hash) : IO $ Except String (Array F) := do
+  match ← mkStore hashes with
+  | .error e => return .error e
+  | .ok store =>
+    match ← StateT.run (ReaderT.run (commitM hashes) store) default with
+    | (.error e, _) => return .error e
+    | (.ok hs, _) => return .ok hs
 
 end Yatima.Commit

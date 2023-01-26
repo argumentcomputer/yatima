@@ -2,17 +2,24 @@ import Cli.Basic
 import Yatima.Cli.Utils
 import Yatima.Commit.Commit
 
-open Yatima.Commit in
+open Yatima.Commit
+
 def commitRun (p : Cli.Parsed) : IO UInt32 := do
   let some decls := p.variableArgsAs? String |>.map (·.map (·.toNameSafe))
     | IO.eprintln "TODO"; return 1
   let some envFileName := p.flag? "env" |>.map (·.value)
     | IO.eprintln "TODO"; return 1
-  let .ok env ← loadEnv envFileName
-    | IO.eprintln "TODO"; return 1
-  let store := sorry
-  match ← commit sorry store with
-  | .error e => sorry
+  let mut env := default
+  match ← loadEnv envFileName with
+  | .error e => IO.eprintln e; return 1
+  | .ok env' => env := env'
+  let mut hashes := #[]
+  for decl in decls do
+    match env.consts.find? decl with
+    | some (_, hash) => hashes := hashes.push hash
+    | none => IO.eprintln s!"{decl} not found in the environment"; return 1
+  match ← commit hashes with
+  | .error e => IO.eprintln e; return 1
   | .ok comms => IO.println comms; return 0
 
 def commitCmd : Cli.Cmd := `[Cli|
