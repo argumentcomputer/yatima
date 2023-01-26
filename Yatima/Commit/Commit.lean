@@ -1,5 +1,6 @@
 import Yatima.Commit.CommitM
 import Yatima.Commit.ToLDON
+import Yatima.ContAddr.LightData
 
 namespace Yatima.Commit
 
@@ -51,7 +52,7 @@ partial def mkTCInd : IR.InductiveAnon → CommitM Inductive
       match ctors with
       -- Structures can only have one constructor
       | [ctor] => do
-        let f ← commitTCConst $ .constructor $ ← mkTCCtor ctor
+        let f ← commitConst (ctor : LightData).hash
         pure $ (some f, ctor.fields == 0)
       | _ => pure (none, false)
     return ⟨lvls, ← mkTCExpr type, params, indices, ← ctors.mapM mkTCCtor, recr,
@@ -87,7 +88,7 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
         | none => throw sorry
         | some $ .mutIndBlock inds =>
           let some ind := inds.get? x.idx | throw sorry
-          let indF ← commitTCConst $ .inductive $ ← mkTCInd ind
+          let indF ← commitConst (ind : LightData).hash
           let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
           pure $ .recursor ⟨lvls, ← mkTCExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
         | _ => throw sorry
@@ -101,18 +102,6 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
     -- persistData (hash, c) CONSTDIR
     modifyGet fun stt => (c, { stt with const := stt.const.insert hash c })
-
-partial def commitTCConst (c : Const) : CommitM F := do -- get rid of this function
-  sorry
-  -- match (← get).store.commits.find? c with
-  -- | some f => pure f
-  -- | none =>
-  --   -- this is expensive
-  --   let (f, encStt) := c.toLDON |>.commit (← get).store.ldonHashState
-  --   persistData (c, f) COMMITSDIR
-  --   modifyGet fun stt => (f, { stt with store := { stt.store with
-  --     commits := stt.store.commits.insert c f
-  --     ldonHashState := encStt } })
 
 partial def commitConst (hash : Hash) : CommitM F := do
   match (← get).commits.find? hash with
