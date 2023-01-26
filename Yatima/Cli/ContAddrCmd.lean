@@ -1,4 +1,5 @@
 import Cli.Basic
+import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
 
 def getToolchain : IO $ Except String String := do
@@ -35,30 +36,27 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
     | IO.eprintln "No source was provided"; return 1
 
   -- Run Lean frontend
-  if !(p.hasFlag "prelude") then Lean.setLibsPaths
+  Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend source
   let (constMap, delta) := leanEnv.getConstsAndDelta
 
   -- Load input environment
   let mut env := default
-  have h : Encodable Yatima.IR.Env LightData String := inferInstance
-  match p.flag? "env-in" |>.map (·.value) with
+  match p.flag? "env" |>.map (·.value) with
   | none => pure ()
-  | some envFileName =>
-    match LightData.ofByteArray (← IO.FS.readBinFile ⟨envFileName⟩) with
-    | .error e => IO.eprintln s!"Error deserializing input environment: {e}"; return 1
-    | .ok data => match h.decode data with
-      | .error e => IO.eprintln s!"Error decoding input environment: {e}"; return 1
-      | .ok env' => env := env'
+  | some envFileName => match ← loadEnv envFileName with
+    | .error e => IO.eprintln e; return 1
+    | .ok env' => env := env'
 
   -- Start content-addressing
   mkDirs
   match ← contAddr constMap delta env with
   | .error err => IO.eprintln err; return 1
   | .ok env' => env := env'
-  
+
   -- Persist resulting environment
-  let target := ⟨p.flag? "env-out" |>.map (·.value) |>.getD defaultEnv⟩
+  let target := ⟨p.flag? "output" |>.map (·.value) |>.getD defaultEnv⟩
+  have h : Encodable Yatima.IR.Env LightData String := inferInstance
   IO.FS.writeBinFile target (h.encode env)
   return 0
 
@@ -67,9 +65,8 @@ def contAddrCmd : Cli.Cmd := `[Cli|
   "Content-addresses Lean 4 code to Yatima IR"
 
   FLAGS:
-    ei, "env-in"  : String; "Optional input environment file used as cache"
-    eo, "env-out" : String; s!"Output environment file. Defaults to '{defaultEnv}'"
-    p, "prelude"; "Doesn't set the paths to olean files (faster for preludes)"
+    e, "env"    : String; "Optional input environment file used as cache"
+    o, "output" : String; s!"Output environment file. Defaults to '{defaultEnv}'"
 
   ARGS:
     source : String; "Lean source file"

@@ -1,4 +1,5 @@
 import Yatima.Cli.ContAddrCmd
+-- import Yatima.Cli.CommitCmd
 -- import Yatima.Cli.TypecheckCmd
 -- import Yatima.Cli.CodeGenCmd
 -- import Yatima.Cli.ProveCmd
@@ -6,7 +7,7 @@ import Yatima.Cli.ContAddrCmd
 -- import Yatima.Cli.IpfsCmd
 -- import Yatima.Cli.PrintPrimsCmd
 
-opaque VERSION : String :=
+def VERSION : String :=
   s!"{Lean.versionString}|0.0.1"
 
 def yatimaCmd : Cli.Cmd := `[Cli|
@@ -15,6 +16,7 @@ def yatimaCmd : Cli.Cmd := `[Cli|
 
   SUBCOMMANDS:
     contAddrCmd
+    -- commitCmd
     -- typecheckCmd;
     -- codeGenCmd;
     -- proveCmd;

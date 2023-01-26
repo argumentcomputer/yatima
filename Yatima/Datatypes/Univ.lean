@@ -1,11 +1,9 @@
-import YatimaStdLib.ByteVector
+import Yatima.Datatypes.Hash
 import Yatima.Datatypes.Lean
 
 namespace Yatima
 
 namespace IR
-
-abbrev Hash := ByteVector 32
 
 inductive UnivAnon
   | zero

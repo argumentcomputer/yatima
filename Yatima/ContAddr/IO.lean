@@ -10,9 +10,7 @@ def hexChar (u : UInt8) : Char :=
 def ByteArray.asHex (bytes : ByteArray) : String :=
   let chars := bytes.data.foldr (init := []) fun b acc =>
     (hexChar $ b / 16) :: (hexChar $ b % 16) :: acc
-  match chars with
-  | '0' :: tail => ⟨tail⟩
-  | x => ⟨x⟩
+  ⟨chars⟩
 
 open System (FilePath)
 
