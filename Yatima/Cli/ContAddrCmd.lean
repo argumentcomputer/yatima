@@ -20,12 +20,6 @@ partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
     (← fp.readDir).foldlM (fun acc dir => getLeanFilePaths dir.path acc) acc
   else return if fp.extension == some "lean" then acc.push fp else acc
 
-def Cli.Parsed.getStringFlag? (p : Cli.Parsed) (flag : String) : Option String :=
-  p.flag? flag |>.map (Flag.as! · String)
-
-def Cli.Parsed.getStringFlagD (p : Cli.Parsed) (flag : String) (default : String) : String :=
-  p.getStringFlag? flag |>.getD default
-
 def defaultEnv : String :=
   "env.yenv"
 
@@ -37,52 +31,46 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
     if toolchain != Lean.versionString then
       IO.eprintln s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
       return 1
-  match p.variableArgsAs? String with
-  | none =>
-    IO.eprintln $ "Couldn't parse arguments.\nRun `yatima ca -h` for further information."
-    return 1
-  | some ⟨args⟩ =>
-    if args.isEmpty then
-      IO.eprintln $ "No argument was found.\nRun `yatima ca -h` for further information."
-      return 1
-    if !(p.hasFlag "prelude") then Lean.setLibsPaths
-    mkDirs
-    let mut envIn := default
-    match p.getStringFlag? "in" with
-    | some fileName =>
-      match LightData.ofByteArray (← IO.FS.readBinFile ⟨fileName⟩) with
-      | .error e =>
-        IO.eprintln s!"Error deserializing input environment: {e}"
-        return 1
-      | .ok data =>
-        have h : Encodable Yatima.IR.Env LightData String := inferInstance
-        match h.decode data with
-        | .ok env => envIn := env
-        | .error e =>
-          IO.eprintln s!"Error decoding input environment: {e}"
-          return 1
-    | none => pure ()
-    let mut stt := envIn
-    for arg in args do
-      for filePath in ← getLeanFilePaths ⟨arg⟩ do
-        let env ← Lean.runFrontend filePath
-        let (constMap, delta) := env.getConstsAndDelta
-        match ← contAddr constMap delta stt with
-        | .error err => IO.eprintln err; return 1
-        | .ok stt' => stt := stt'
-    let envOutLD : LightData := Encodable.encode stt
-    IO.FS.writeBinFile ⟨p.getStringFlagD "out" defaultEnv⟩ envOutLD.toByteArray
-    return 0
+  let some source := p.positionalArg? "source" |>.map (·.value)
+    | IO.eprintln "No source was provided"; return 1
+
+  -- Run Lean frontend
+  if !(p.hasFlag "prelude") then Lean.setLibsPaths
+  let leanEnv ← Lean.runFrontend source
+  let (constMap, delta) := leanEnv.getConstsAndDelta
+
+  -- Load input environment
+  let mut env := default
+  have h : Encodable Yatima.IR.Env LightData String := inferInstance
+  match p.flag? "env-in" |>.map (·.value) with
+  | none => pure ()
+  | some envFileName =>
+    match LightData.ofByteArray (← IO.FS.readBinFile ⟨envFileName⟩) with
+    | .error e => IO.eprintln s!"Error deserializing input environment: {e}"; return 1
+    | .ok data => match h.decode data with
+      | .error e => IO.eprintln s!"Error decoding input environment: {e}"; return 1
+      | .ok env' => env := env'
+
+  -- Start content-addressing
+  mkDirs
+  match ← contAddr constMap delta env with
+  | .error err => IO.eprintln err; return 1
+  | .ok env' => env := env'
+  
+  -- Persist resulting environment
+  let target := ⟨p.flag? "env-out" |>.map (·.value) |>.getD defaultEnv⟩
+  IO.FS.writeBinFile target (h.encode env)
+  return 0
 
 def contAddrCmd : Cli.Cmd := `[Cli|
   ca VIA contAddrRun;
   "Content-addresses Lean 4 code to Yatima IR"
 
   FLAGS:
-    i, "in"  : String; "Optional input environment file used as cache"
-    o, "out" : String; s!"Output environment file. Defaults to '{defaultEnv}'"
+    ei, "env-in"  : String; "Optional input environment file used as cache"
+    eo, "env-out" : String; s!"Output environment file. Defaults to '{defaultEnv}'"
     p, "prelude"; "Doesn't set the paths to olean files (faster for preludes)"
 
   ARGS:
-    ...sources : String; "List of Lean files or directories"
+    source : String; "Lean source file"
 ]
