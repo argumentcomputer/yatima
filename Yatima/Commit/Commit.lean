@@ -1,6 +1,5 @@
 import Yatima.Commit.CommitM
 import Yatima.Commit.ToLDON
-import Yatima.ContAddr.LightData
 
 namespace Yatima.Commit
 
@@ -51,8 +50,10 @@ partial def mkTCInd : IR.InductiveAnon → CommitM Inductive
     let (struct, unit) ← if recr || indices != 0 then pure (none, false) else
       match ctors with
       -- Structures can only have one constructor
-      | [ctor] => do
-        let f ← commitConst (ctor : LightData).hash
+      | [ctor] =>
+        let some hash := (← read).ctor'.find? ctor
+          | throw sorry
+        let f ← commitConst hash
         pure $ (some f, ctor.fields == 0)
       | _ => pure (none, false)
     return ⟨lvls, ← mkTCExpr type, params, indices, ← ctors.mapM mkTCCtor, recr,
@@ -88,7 +89,9 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
         | none => throw sorry
         | some $ .mutIndBlock inds =>
           let some ind := inds.get? x.idx | throw sorry
-          let indF ← commitConst (ind : LightData).hash
+          let some hash := (← read).ind'.find? ind
+            | throw sorry
+          let indF ← commitConst hash
           let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
           pure $ .recursor ⟨lvls, ← mkTCExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
         | _ => throw sorry
@@ -108,9 +111,8 @@ partial def commitConst (hash : Hash) : CommitM F := do
   | some f => pure f
   | none =>
     let const ← mkTCConst hash
-    let ldon := const.toLDON
     -- this is expensive
-    let (f, encStt) := ldon |>.commit (← get).ldonHashState
+    let (f, encStt) := const.toLDON.commit (← get).ldonHashState
     modifyGet fun stt => (f, { stt with
       commits := stt.commits.insert hash f
       ldonHashState := encStt })

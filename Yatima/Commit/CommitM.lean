@@ -10,6 +10,9 @@ structure Store where
   univ  : RBMap Hash UnivAnon  compare
   expr  : RBMap Hash ExprAnon  compare
   const : RBMap Hash ConstAnon compare
+
+  ctor' : RBMap ConstructorAnon Hash compare
+  ind'  : RBMap InductiveAnon   Hash compare
   deriving Inhabited
 
 open TC Lurk
