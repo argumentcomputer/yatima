@@ -7,23 +7,26 @@ open Std (RBMap)
 open IR
 
 structure Store where
-  univ  : RBMap Hash UnivAnon  compare
-  expr  : RBMap Hash ExprAnon  compare
-  const : RBMap Hash ConstAnon compare
-
-  ctor' : RBMap ConstructorAnon Hash compare
-  ind'  : RBMap InductiveAnon   Hash compare
+  univs  : RBMap Hash UnivAnon  compare
+  exprs  : RBMap Hash ExprAnon  compare
+  consts : RBMap Hash ConstAnon compare
   deriving Inhabited
 
 open TC Lurk
+open System (FilePath)
 
 structure CommitState where
-  univ  : RBMap Hash Univ compare
-  expr  : RBMap Hash Expr compare
-  const : RBMap Hash Const compare
+  univPaths   : RBMap Hash FilePath compare
+  exprPaths   : RBMap Hash FilePath compare
+  constPaths  : RBMap Hash FilePath compare
+  commitPaths : RBMap Hash FilePath compare
+
+  univs   : RBMap Hash Univ  compare
+  exprs   : RBMap Hash Expr  compare
+  consts  : RBMap Hash Const compare
+  commits : RBMap Hash F     compare
 
   ldonHashState : LDONHashState -- to speed up committing
-  commits : RBMap Hash F compare
   deriving Inhabited
 
 abbrev CommitM := ReaderT Store $ ExceptT String $ StateT CommitState IO
