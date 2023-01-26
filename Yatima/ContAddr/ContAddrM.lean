@@ -57,20 +57,20 @@ def addToStore : StoreEntry α → ContAddrM α
   | .univ anon meta => do
     let (anonData, anonHash) := hashUnivAnon anon
     let (metaData, metaHash) := hashUnivMeta meta
-    persistData anonData (some anonHash) UNIVANONDIR
-    persistData metaData (some metaHash) UNIVMETADIR
+    persistData anonData (UNIVANONDIR / anonHash.data.asHex)
+    persistData metaData (UNIVMETADIR / metaHash.data.asHex)
     return (anonHash, metaHash)
   | .expr anon meta => do
     let (anonData, anonHash) := hashExprAnon anon
     let (metaData, metaHash) := hashExprMeta meta
-    persistData anonData (some anonHash) EXPRANONDIR
-    persistData metaData (some metaHash) EXPRMETADIR
+    persistData anonData (EXPRANONDIR / anonHash.data.asHex)
+    persistData metaData (EXPRMETADIR / metaHash.data.asHex)
     return (anonHash, metaHash)
   | .const anon meta => do
     let (anonData, anonHash) := hashConstAnon anon
     let (metaData, metaHash) := hashConstMeta meta
-    persistData anonData (some anonHash) CONSTANONDIR
-    persistData metaData (some metaHash) CONSTMETADIR
+    persistData anonData (CONSTANONDIR / anonHash.data.asHex)
+    persistData metaData (CONSTMETADIR / metaHash.data.asHex)
     return (anonHash, metaHash)
 
 @[inline] def addToEnv (name : Name) (hs : Hash × Hash) : ContAddrM Unit :=

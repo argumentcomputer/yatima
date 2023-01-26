@@ -1,5 +1,7 @@
 import Yatima.Commit.CommitM
 import Yatima.Commit.ToLDON
+import Yatima.ContAddr.IO
+import Yatima.ContAddr.LightData
 
 namespace Yatima.Commit
 
@@ -16,7 +18,7 @@ partial def mkTCUniv (hash : Hash) : CommitM Univ := do
       | some $ .max u v => pure $ .max (← mkTCUniv u) (← mkTCUniv v)
       | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
       | some $ .var n => pure $ .var n
-    -- persistData (hash, u) UNIVDIR
+    persistData (Coe.coe u) (UNIVDIR / hash.data.asHex)
     modifyGet fun stt => (u, { stt with univ := stt.univ.insert hash u })
 
 mutual
@@ -37,7 +39,7 @@ partial def mkTCExpr (hash : Hash) : CommitM Expr := do
       | some $ .letE x y z => pure $ .letE (← mkTCExpr x) (← mkTCExpr y) (← mkTCExpr z)
       | some $ .lit l => pure $ .lit l
       | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
-    -- persistData (hash, e) EXPRDIR
+    persistData (Coe.coe e) (EXPRDIR / hash.data.asHex)
     modifyGet fun stt => (e, { stt with expr := stt.expr.insert hash e })
 
 partial def mkTCCtor : IR.ConstructorAnon → CommitM Constructor
@@ -103,7 +105,7 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
           pure $ .definition ⟨lvls, ← mkTCExpr type, ← mkTCExpr value, safety, sorry⟩
         | _ => throw sorry
       | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
-    -- persistData (hash, c) CONSTDIR
+    persistData (Coe.coe c) (CONSTDIR / hash.data.asHex)
     modifyGet fun stt => (c, { stt with const := stt.const.insert hash c })
 
 partial def commitConst (hash : Hash) : CommitM F := do
@@ -113,14 +115,17 @@ partial def commitConst (hash : Hash) : CommitM F := do
     let const ← mkTCConst hash
     -- this is expensive
     let (f, encStt) := const.toLDON.commit (← get).ldonHashState
+    persistData (Coe.coe f) (COMMITSDIR / hash.data.asHex)
     modifyGet fun stt => (f, { stt with
       commits := stt.commits.insert hash f
       ldonHashState := encStt })
 
 end
 
-def commitM (hashes : Array Hash) : CommitM $ Array F :=
-  hashes.mapM commitConst
+def commitM (hashes : Array Hash) : CommitM $ Array F := do
+  let hashes ← hashes.mapM commitConst
+  persistData (← get).ldonHashState LDONHASHCACHE
+  return hashes
 
 def commit (hashes : Array Hash) (store : Store) :
     IO $ Except String (Array F) := do

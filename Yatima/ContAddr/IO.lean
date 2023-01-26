@@ -64,13 +64,10 @@ def SUBDIRS : List FilePath := [
 @[inline] def mkDirs : IO Unit :=
   SUBDIRS.forM IO.FS.createDirAll
 
-def persistData (data : LightData) (hash : Option $ ByteVector 32)
-    (path : FilePath) : IO Unit := -- TODO : do it in a thread
+def persistData (data : LightData) (path : FilePath) : IO Unit :=
+  -- TODO : do it in a thread
   let bytes := Encodable.encode data
-  let name := match hash with
-    | some hash => hash.data.asHex
-    | none => bytes.blake3.data.asHex
-  IO.FS.writeBinFile (path / name) bytes
+  IO.FS.writeBinFile path bytes
 
 variable [h : Encodable (α × β) LightData String] [Ord α]
 
