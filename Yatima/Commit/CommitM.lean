@@ -22,8 +22,6 @@ structure CommitState where
   expr  : RBMap Hash Expr compare
   const : RBMap Hash Const compare
 
-  constCache : RBMap Hash Const compare
-
   ldonHashState : LDONHashState -- to speed up committing
   commits : RBMap Hash F compare
   deriving Inhabited
