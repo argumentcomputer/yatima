@@ -34,7 +34,7 @@ initialize STOREDIR : FilePath ← do
   | some path => return path / "yatima_store"
   | none => match ← IO.getEnv "HOME" with
     | some path => return path / ".cache" / "yatima_store"
-    | none => throw $ .userError "Environment variable HOME is not defined"
+    | none => return ⟨"."⟩
 
 def UNIVANONDIR : FilePath :=
   STOREDIR / "univ_anon"
@@ -69,11 +69,23 @@ def COMMITSDIR : FilePath :=
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
+def QUNIVDIR : FilePath :=
+  STOREDIR / "quniv"
+
+def QEXPRDIR : FilePath :=
+  STOREDIR / "qexpr"
+
+def QCONSTDIR : FilePath :=
+  STOREDIR / "qconst"
+
+def QCOMMITSDIR : FilePath :=
+  STOREDIR / "qcommits"
+
 def SUBDIRS : List FilePath := [
-  UNIVANONDIR, UNIVMETADIR,
-  EXPRANONDIR, EXPRMETADIR,
-  CONSTANONDIR, CONSTMETADIR,
-  UNIVDIR, EXPRDIR, CONSTDIR
+  UNIVANONDIR, EXPRANONDIR, CONSTANONDIR,
+  UNIVMETADIR, EXPRMETADIR, CONSTMETADIR,
+  UNIVDIR, EXPRDIR, CONSTDIR, COMMITSDIR,
+  QUNIVDIR, QEXPRDIR, QCONSTDIR, QCOMMITSDIR
 ]
 
 @[inline] def mkDirs : IO Unit :=
