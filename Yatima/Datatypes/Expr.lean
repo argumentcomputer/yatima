@@ -43,8 +43,6 @@ namespace TC
 open Lurk (F)
 
 inductive Expr
-  /-- Variables are also used to represent recursive calls. When referencing
-    constants, the third argument keeps track of the universe levels -/
   | var   : Nat → Expr
   | sort  : Univ → Expr
   | const : F → List Univ → Expr
@@ -54,7 +52,7 @@ inductive Expr
   | letE  : Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
   | proj  : Nat → Expr → Expr
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Hashable
 
 end TC
 

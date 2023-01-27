@@ -40,7 +40,7 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
   let (constMap, delta) := leanEnv.getConstsAndDelta
 
   -- Start content-addressing
-  mkDirs
+  mkCADirs
   let start ← IO.monoMsNow
   let stt ← match contAddr constMap delta env with
     | .error err => IO.eprintln err; return 1

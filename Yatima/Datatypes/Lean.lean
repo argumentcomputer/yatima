@@ -34,6 +34,9 @@ instance : Ord QuotKind where compare
   | .lift, .ind  => .lt
   | .ind , _     => .gt
 
+instance : Hashable QuotKind where hash
+  | .type => 0 | .ctor => 1 | .lift => 2 | .ind => 3
+
 instance : Ord BinderInfo where compare
   | .default       , .default
   | .implicit      , .implicit
@@ -61,6 +64,9 @@ instance : Ord DefinitionSafety where compare
   | _       , .safe    => .gt
   | .unsafe , .partial => .lt
   | .partial, _        => .gt
+
+instance : Hashable DefinitionSafety where hash
+  | .unsafe => 0 | .safe => 1 | .partial => 2
 
 instance : BEq Lean.ReducibilityHints where beq
   | .opaque,    .opaque    => true

@@ -49,14 +49,14 @@ partial def mkUniv (hash : Hash) : CommitM Univ := do
   | none =>
     let u ← match ← loadUniv hash with
       | some u => pure u
-      | none => match (← read).univs.find? hash with
+      | none => match (← read).store.univs.find? hash with
         | none => throw sorry
         | some .zero => pure .zero
         | some $ .succ u => pure $ .succ (← mkUniv u)
         | some $ .max u v => pure $ .max (← mkUniv u) (← mkUniv v)
         | some $ .imax u v => pure $ .imax (← mkUniv u) (← mkUniv v)
         | some $ .var n => pure $ .var n
-      dumpData u $ (← get).univPaths.find! hash
+      if !(← read).quick then dumpData u $ (← get).univPaths.find! hash
     modifyGet fun stt => (u, { stt with univs := stt.univs.insert hash u })
 
 mutual
@@ -67,7 +67,7 @@ partial def mkExpr (hash : Hash) : CommitM Expr := do
   | none =>
     let e ← match ← loadExpr hash with
       | some e => pure e
-      | none => match (← read).exprs.find? hash with
+      | none => match (← read).store.exprs.find? hash with
         | none => throw sorry
         | some $ .var i us => sorry
         | some $ .sort u => pure $ .sort (← mkUniv u)
@@ -78,7 +78,7 @@ partial def mkExpr (hash : Hash) : CommitM Expr := do
         | some $ .letE x y z => pure $ .letE (← mkExpr x) (← mkExpr y) (← mkExpr z)
         | some $ .lit l => pure $ .lit l
         | some $ .proj n e => pure $ .proj n (← mkExpr e)
-      dumpData e $ (← get).exprPaths.find! hash
+      if !(← read).quick then dumpData e $ (← get).exprPaths.find! hash
     modifyGet fun stt => (e, { stt with exprs := stt.exprs.insert hash e })
 
 partial def mkCtor : IR.ConstructorAnon → CommitM Constructor
@@ -104,21 +104,21 @@ partial def mkConst (hash : Hash) : CommitM Const := do
   | none =>
     let c ← match ← loadConst hash with
       | some c => pure c
-      | none => match (← read).consts.find? hash with
+      | none => match (← read).store.consts.find? hash with
         | none => throw sorry
         | some $ .axiom x => pure $ .axiom ⟨x.lvls, ← mkExpr x.type, x.safe⟩
         | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value⟩
         | some $ .opaque x => pure $ .opaque ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value, x.safe⟩
         | some $ .quotient x => pure $ .quotient ⟨x.lvls, ← mkExpr x.type, x.kind⟩
         | some $ .inductiveProj x =>
-          match (← read).consts.find? x.block with
+          match (← read).store.consts.find? x.block with
           | none => throw sorry
           | some $ .mutIndBlock inds =>
             let some ind := inds.get? x.idx | throw sorry
             pure $ .inductive $ ← mkInd ind
           | _ => throw sorry
         | some $ .constructorProj x =>
-          match (← read).consts.find? x.block with
+          match (← read).store.consts.find? x.block with
           | none => throw sorry
           | some $ .mutIndBlock inds =>
             let some ind := inds.get? x.idx | throw sorry
@@ -126,7 +126,7 @@ partial def mkConst (hash : Hash) : CommitM Const := do
             pure $ .constructor ⟨lvls, ← mkExpr type, idx, params, fields, safe⟩
           | _ => throw sorry
         | some $ .recursorProj x =>
-          match (← read).consts.find? x.block with
+          match (← read).store.consts.find? x.block with
           | none => throw sorry
           | some $ .mutIndBlock inds =>
             let some ind := inds.get? x.idx | throw sorry
@@ -135,14 +135,14 @@ partial def mkConst (hash : Hash) : CommitM Const := do
             pure $ .recursor ⟨lvls, ← mkExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
           | _ => throw sorry
         | some $ .definitionProj x =>
-          match (← read).consts.find? x.block with
+          match (← read).store.consts.find? x.block with
           | none => throw sorry
           | some $ .mutDefBlock defs =>
             let some ⟨lvls, type, value, safety⟩ := defs.get? x.idx | throw sorry
             pure $ .definition ⟨lvls, ← mkExpr type, ← mkExpr value, safety, sorry⟩
           | _ => throw sorry
         | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
-      dumpData c $ (← get).constPaths.find! hash
+      if !(← read).quick then dumpData c $ (← get).constPaths.find! hash
     modifyGet fun stt => (c, { stt with consts := stt.consts.insert hash c })
 
 partial def commitConst (hash : Hash) : CommitM F := do
@@ -153,25 +153,28 @@ partial def commitConst (hash : Hash) : CommitM F := do
       modifyGet fun stt => (f, {stt with commits := stt.commits.insert hash f})
     | none =>
       let const ← mkConst hash
-      let (f, encStt) := const.toLDON.commit (← get).ldonHashState -- expensive
-      dumpData f $ (← get).commitPaths.find! hash
-      modifyGet fun stt => (f, { stt with
-        commits := stt.commits.insert hash f
-        ldonHashState := encStt })
+      if (← read).quick then
+        let f := .ofNat $ (Hashable.hash const).toNat
+        modifyGet fun stt => (f, {stt with commits := stt.commits.insert hash f})
+      else
+        -- committing is expensive
+        let (f, encStt) := const.toLDON.commit (← get).ldonHashState
+        dumpData f $ (← get).commitPaths.find! hash
+        modifyGet fun stt => (f, { stt with
+          commits := stt.commits.insert hash f
+          ldonHashState := encStt })
 
 end
 
 def commitM (hashes : Array Hash) : CommitM $ Array F := do
   let hashes ← hashes.mapM commitConst
-  dumpData (← get).ldonHashState LDONHASHCACHE
+  if !(← read).quick then dumpData (← get).ldonHashState LDONHASHCACHE
   return hashes
 
-def commit (hashes : Array Hash) : IO $ Except String (Array F) := do
-  match ← StoreAnon.load hashes with
-  | .error e => return .error e
-  | .ok store =>
-    match ← StateT.run (ReaderT.run (commitM hashes) store) default with
-    | (.error e, _) => return .error e
-    | (.ok hs, _) => return .ok hs
+def commit (hashes : Array Hash) (store : StoreAnon) (quick : Bool) :
+    IO $ Except String (Array F) := do
+  match ← StateT.run (ReaderT.run (commitM hashes) ⟨store, quick⟩) default with
+  | (.error e, _) => return .error e
+  | (.ok hs, _) => return .ok hs
 
 end Yatima.Commit

@@ -31,7 +31,7 @@ inductive Univ
   | max  : Univ → Univ → Univ
   | imax : Univ → Univ → Univ
   | var  : Nat → Univ
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Hashable
 
 namespace Univ
 

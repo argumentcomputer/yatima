@@ -22,6 +22,10 @@ structure CommitState where
   ldonHashState : LDONHashState -- to speed up committing
   deriving Inhabited
 
-abbrev CommitM := ReaderT StoreAnon $ ExceptT String $ StateT CommitState IO
+structure CommitCtx where
+  store : StoreAnon
+  quick : Bool
+
+abbrev CommitM := ReaderT CommitCtx $ ExceptT String $ StateT CommitState IO
 
 end Yatima.Commit

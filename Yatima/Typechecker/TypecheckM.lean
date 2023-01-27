@@ -1,5 +1,5 @@
 import Yatima.Typechecker.Datatypes
-import Yatima.Datatypes.Const
+import Yatima.Common.Store
 import Std.Data.RBMap
 
 /-!
@@ -12,12 +12,7 @@ initialize its context.
 namespace Yatima.Typechecker
 
 open TC
-
 open Lurk (F)
-
-structure Store where
-  consts : Std.RBMap F Const compare
-  deriving Inhabited
 
 /--
 The context available to the typechecker monad. The available fields are

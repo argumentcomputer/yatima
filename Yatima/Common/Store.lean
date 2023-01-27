@@ -3,7 +3,9 @@ import Std.Data.RBMap
 import Yatima.Common.IO
 import Yatima.Common.LightData
 
-namespace Yatima.IR
+namespace Yatima
+
+namespace IR
 
 open Std (RBMap)
 
@@ -114,4 +116,14 @@ structure StoreMeta where
   consts : RBMap Hash ConstMeta compare
   deriving Inhabited
 
-end Yatima.IR
+end IR
+
+namespace TC
+
+open Lurk (F)
+
+abbrev Store := Std.RBMap F Const compare
+
+end TC
+
+end Yatima

@@ -233,26 +233,26 @@ structure Axiom where
   lvls : Nat
   type : Expr
   safe : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure Theorem where
   lvls  : Nat
   type  : Expr
   value : Expr
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure Opaque where
   lvls  : Nat
   type  : Expr
   value : Expr
   safe  : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure Quotient where
   lvls : Nat
   type : Expr
   kind : QuotKind
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure Definition where
   lvls     : Nat
@@ -261,7 +261,7 @@ structure Definition where
   safety   : DefinitionSafety
   /-- the types of all of the mutual definitions in this block; needed to prevent infinite loops while typechecking -/
   mutTypes : List Expr
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Hashable
 
 structure Constructor where
   lvls   : Nat
@@ -270,12 +270,12 @@ structure Constructor where
   params : Nat
   fields : Nat
   safe   : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure RecursorRule where
   fields : Nat
   rhs    : Expr
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure Recursor where
   lvls     : Nat
@@ -293,7 +293,7 @@ structure Recursor where
   /-- all of the recursors related to this inductive; needed to prevent infinite loops while typechecking
   in the case of a nested inductive -/
   all      : List F
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable
 
 structure Inductive where
   lvls    : Nat
@@ -310,7 +310,7 @@ structure Inductive where
   /-- whether or not this inductive is unit-like;
   needed for unit-like equality -/
   unit    : Bool
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Hashable
 
 inductive Const where
   | «axiom»     : Axiom    → Const
@@ -321,7 +321,7 @@ inductive Const where
   | constructor : Constructor → Const
   | recursor    : Recursor → Const
   | definition  : Definition → Const
-  deriving Ord, BEq
+  deriving Ord, BEq, Hashable, Inhabited
 
 namespace Const
 

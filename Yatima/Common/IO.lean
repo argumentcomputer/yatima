@@ -69,27 +69,20 @@ def COMMITSDIR : FilePath :=
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
-def QUNIVDIR : FilePath :=
-  STOREDIR / "quniv"
-
-def QEXPRDIR : FilePath :=
-  STOREDIR / "qexpr"
-
-def QCONSTDIR : FilePath :=
-  STOREDIR / "qconst"
-
-def QCOMMITSDIR : FilePath :=
-  STOREDIR / "qcommits"
-
-def SUBDIRS : List FilePath := [
+def CADIRS : List FilePath := [
   UNIVANONDIR, EXPRANONDIR, CONSTANONDIR,
-  UNIVMETADIR, EXPRMETADIR, CONSTMETADIR,
-  UNIVDIR, EXPRDIR, CONSTDIR, COMMITSDIR,
-  QUNIVDIR, QEXPRDIR, QCONSTDIR, QCOMMITSDIR
+  UNIVMETADIR, EXPRMETADIR, CONSTMETADIR
 ]
 
-@[inline] def mkDirs : IO Unit :=
-  SUBDIRS.forM IO.FS.createDirAll
+def CMDIRS : List FilePath := [
+  UNIVDIR, EXPRDIR, CONSTDIR, COMMITSDIR
+]
+
+@[inline] def mkCADirs : IO Unit :=
+  CADIRS.forM IO.FS.createDirAll
+
+@[inline] def mkCMDirs : IO Unit :=
+  CMDIRS.forM IO.FS.createDirAll
 
 variable [h : Encodable α LightData String]
 

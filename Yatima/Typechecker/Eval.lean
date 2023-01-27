@@ -25,15 +25,14 @@ open TC
 open Lurk (F)
 
 /--
-Looks for a constant by its hash `f : F` in the `TypecheckCtx` store and
-returns it if it is found. If the constant is not found it throws an error.
+Looks for a constant by its hash `f : F` in a store and
+returns it if found. Panics otherwise.
 
-Note: The `name : Name` is used only in the error messaging
+In the code generator, this function has to be overwritten with `(open f)`,
+ignoring the second argument.
 -/
-def derefConst (f : F) : TypecheckM Const := do
-  match (← read).store.consts.find? f with
-  | some const => pure const
-  | none => throw $ .custom "TODO"
+def derefConst (f : F) (store : Store) : Const :=
+  store.find! f
 
 /--
 Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
@@ -89,7 +88,7 @@ mutual
       let val ← eval expr
       match val with
       | .app (.const f _) args =>
-        match ← derefConst f with
+        match derefConst f (← read).store with
         | .constructor ctor =>
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
@@ -101,20 +100,19 @@ mutual
       | .app .. => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
       | e => throw $ .custom s!"Value {e} is impossible to project"
 
-  partial def evalConst' (const : F) (univs : List Univ) :
-      TypecheckM Value := do
-    match ← derefConst const with
+  partial def evalConst' (f : F) (univs : List Univ) : TypecheckM Value := do
+    match derefConst f (← read).store with
     | .theorem _
     | .definition _ =>
-      match ← derefTypedConst const with
+      match ← derefTypedConst f with
       | .theorem _ deref => withEnv ⟨[], univs⟩ $ eval deref
       | .definition _ deref safety =>
         match safety with
         | .safe    => withEnv ⟨[], univs⟩ $ eval deref
-        | .partial => pure $ mkConst const univs
+        | .partial => pure $ mkConst f univs
         | .unsafe  => throw .unsafeDefinition
       | _ => throw .impossible
-    | _ => pure $ mkConst const univs
+    | _ => pure $ mkConst f univs
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
   partial def evalConst (const : F) (univs : List Univ) : TypecheckM Value := do
@@ -252,8 +250,7 @@ mutual
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
           pure $ .app (.const succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
-      | e => do
-        match ← derefConst indF with
+      | e => do match derefConst indF (← read).store with
         | .inductive (.mk (struct := struct) (ctors := ctors) ..) =>
           if let some ctorF := struct then
             let ctor ← match ctors with
