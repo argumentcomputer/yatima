@@ -27,6 +27,7 @@ structure TypecheckCtx where
   types    : List SusValue
   store    : Store
   mutTypes : Std.RBMap F (List Univ → SusValue) compare
+  quick    : Bool
   deriving Inhabited
 
 /--
@@ -66,13 +67,15 @@ def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
 Evaluates a `TypecheckM` computation with a reset `TypecheckCtx`.
 -/
 def withResetCtx : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, mutTypes := default}
+  withReader fun ctx => { ctx with
+    lvl := 0, env := default, types := default, mutTypes := default }
 
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
 -/
-def withMutTypes (mutTypes : Std.RBMap F (List Univ → SusValue) compare) : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => {ctx with mutTypes}
+def withMutTypes (mutTypes : Std.RBMap F (List Univ → SusValue) compare) :
+    TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with mutTypes := mutTypes }
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` which has been extended with an additional
@@ -103,18 +106,23 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
 -- TODO hardcode these maps once we have the hashes
-def primsToFs : PrimConst → Option F := sorry
-def fsToPrims : F → Option PrimConst := sorry
+def primToF : PrimConst → Option F := sorry
+def fToPrim : F → Option PrimConst := sorry
+def primToFQuick : PrimConst → Option F := sorry
+def fToPrimQuick : F → Option PrimConst := sorry
 
 def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
-    (someHandle : F → TypecheckM α) : TypecheckM α :=
-  match primsToFs p with | none => noneHandle | some a => someHandle a
+    (someHandle : F → TypecheckM α) : TypecheckM α := do
+  if !(← read).quick then
+    match primToF p with | none => noneHandle | some a => someHandle a
+  else match primToFQuick p with | none => noneHandle | some a => someHandle a
 
 def primF (p : PrimConst) : TypecheckM F :=
   primFWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
 
-def fPrim (f : F) : TypecheckM $ Option PrimConst :=
-  pure $ fsToPrims f
+def fPrim (f : F) : TypecheckM $ Option PrimConst := do
+  if !(← read).quick then pure $ fToPrim f
+  else pure $ fToPrimQuick f
 
 structure PrimOp where
   op : Array SusValue → TypecheckM (Option Value)

@@ -179,9 +179,11 @@ mutual
         let argsArr := (Array.mk newArgs).reverse
         match ← op.op $ argsArr.map (·.1) with
         | .some v => pure v
-        | .none => if p.reducible then
-                     argsArr.foldlM (init := (← evalConst' f univs)) fun acc (arg, info) => apply acc arg info
-                   else pure $ .app (.const f univs) newArgs
+        | .none =>
+          if p.reducible then
+            argsArr.foldlM (init := ← evalConst' f univs)
+              fun acc (arg, info) => apply acc arg info
+          else pure $ .app (.const f univs) newArgs
     -- Assumes a partial application of f to args, which means in particular,
     -- that it is in normal form
     else match ← derefTypedConst f with

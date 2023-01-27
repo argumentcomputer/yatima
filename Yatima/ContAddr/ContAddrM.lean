@@ -75,17 +75,18 @@ def ContAddrM.run (constMap : Lean.ConstMap) (yenv : Env) (m : ContAddrM α) :
   | (.error e, _) => throw e
 
 def withBinder (name : Name) : ContAddrM α → ContAddrM α :=
-  withReader $ fun c => ⟨c.constMap, c.univCtx, name :: c.bindCtx, c.recrCtx⟩
+  withReader $ fun c => { c with bindCtx := name :: c.bindCtx }
 
 def withLevelsAndReset (levels : List Name) : ContAddrM α → ContAddrM α :=
-  withReader $ fun c => ⟨c.constMap, levels, [], .empty⟩
+  withReader $ fun c =>
+    { c with univCtx := levels, bindCtx := [], recrCtx := .empty }
 
 def withRecrs (recrCtx : RBMap Name RecrCtxEntry compare) :
     ContAddrM α → ContAddrM α :=
-  withReader $ fun c => ⟨c.constMap, c.univCtx, c.bindCtx, recrCtx⟩
+  withReader $ fun c => { c with recrCtx := recrCtx }
 
 def withLevels (lvls : List Name) : ContAddrM α → ContAddrM α :=
-  withReader $ fun c => ⟨c.constMap, lvls, c.bindCtx, c.recrCtx⟩
+  withReader $ fun c => { c with univCtx := lvls }
 
 inductive StoreEntry : Type → Type
   | univ  : UnivAnon  → UnivMeta  → StoreEntry (Hash × Hash)
