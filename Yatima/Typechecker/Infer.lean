@@ -154,8 +154,7 @@ mutual
         pure (.const (← susInfoFromType typ) k constUnivs, typ)
       else
         let univs := (← read).env.univs
-        let const ← derefConst k
-        checkConst const k
+        checkConst k
         let tconst ← derefTypedConst k
         let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
         let typ := suspend tconst.type { ← read with env := env } (← get)
@@ -203,10 +202,11 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (c : Const) (f : F) : TypecheckM Unit := withResetCtx default do
+  partial def checkConst (f : F) : TypecheckM Unit := withResetCtx default do
     match (← get).typedConsts.find? f with
     | some _ => pure ()
     | none =>
+      let c ← derefConst f
       let mut univs := []
       for i in [0:c.levels] do
         univs := .var (c.levels - 1 - i) :: univs
@@ -230,8 +230,7 @@ mutual
                 -- TODO avoid repeated work here
                 let (type, _) ← isSort type
                 let ctx ← read
-                let stt ← get
-                let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
+                let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                 pure $ acc.insert f typeSus
               withMutTypes mutTypes $ check data.value typeSus
             | _ => check data.value typeSus
