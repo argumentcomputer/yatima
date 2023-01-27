@@ -289,7 +289,7 @@ instance : Encodable Univ LightData String where
 instance : Encodable F LightData String where
   encode x := x.val.toByteArrayLE
   decode
-    | .byt bytes => return ⟨bytes.asLEtoNat⟩
+    | .byt bytes => return .ofNat bytes.asLEtoNat
     | x => throw s!"expected bytes but got {x}"
 
 def exprToLightData : Expr → LightData

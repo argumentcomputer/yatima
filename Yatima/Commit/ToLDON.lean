@@ -4,12 +4,12 @@ import Yatima.Datatypes.Const
 open Lurk
 
 def Nat.toLDON : Nat → LDON
-  | n => .num ⟨n⟩
+  | n => .num (.ofNat n)
 
 namespace Yatima.TC
 
 instance : OfNat LDON n where
-  ofNat := .num ⟨n⟩
+  ofNat := .num (.ofNat n)
 
 instance : Coe String LDON where
   coe := .str

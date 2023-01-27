@@ -1,12 +1,8 @@
+import Lurk.Field
+
 namespace Lurk
 
 /-! placeholder types -/
-
-structure F where
-  val : Nat
-  deriving Inhabited, Ord, BEq
-
-instance : ToString F := ⟨toString ∘ F.val⟩
 
 inductive LDON
   | num : F → LDON

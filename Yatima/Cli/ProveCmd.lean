@@ -1,3 +1,4 @@
+import Cli.Basic
 import Yatima.Cli.Utils
 
 open Cli.Parsed in

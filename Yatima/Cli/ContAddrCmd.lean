@@ -1,5 +1,4 @@
 import Cli.Basic
-import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
 
 def getToolchain : IO $ Except String String := do
@@ -26,38 +25,40 @@ def defaultEnv : String :=
 
 open Yatima.ContAddr in
 def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
+
+  -- Check toolchain
   match ← getToolchain with
   | .error msg => IO.eprintln msg; return 1
   | .ok toolchain =>
     if toolchain != Lean.versionString then
       IO.eprintln s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
       return 1
+
+  -- Get Lean source file name
   let some source := p.positionalArg? "source" |>.map (·.value)
     | IO.eprintln "No source was provided"; return 1
+
+  -- Load input environment
+  let env ← match p.flag? "env" |>.map (·.value) with
+  | none => default
+  | some envFileName => match ← loadData envFileName false with
+    | none => return 1
+    | some env => pure env
 
   -- Run Lean frontend
   Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend source
   let (constMap, delta) := leanEnv.getConstsAndDelta
 
-  -- Load input environment
-  let mut env := default
-  match p.flag? "env" |>.map (·.value) with
-  | none => pure ()
-  | some envFileName => match ← loadEnv envFileName with
-    | .error e => IO.eprintln e; return 1
-    | .ok env' => env := env'
-
   -- Start content-addressing
   mkDirs
-  match ← contAddr constMap delta env with
-  | .error err => IO.eprintln err; return 1
-  | .ok env' => env := env'
+  let stt ← match contAddr constMap delta env with
+    | .error err => IO.eprintln err; return 1
+    | .ok stt => pure stt
 
-  -- Persist resulting environment
+  -- Persist resulting state
   let target := ⟨p.flag? "output" |>.map (·.value) |>.getD defaultEnv⟩
-  have h : Encodable Yatima.IR.Env LightData String := inferInstance
-  IO.FS.writeBinFile target (h.encode env)
+  stt.dump target
   return 0
 
 def contAddrCmd : Cli.Cmd := `[Cli|

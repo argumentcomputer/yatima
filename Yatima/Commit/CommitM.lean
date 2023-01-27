@@ -1,18 +1,11 @@
 import Std.Data.RBMap
 import Yatima.Datatypes.Const
+import Yatima.Common.Store
 
 namespace Yatima.Commit
 
 open Std (RBMap)
-open IR
-
-structure Store where
-  univs  : RBMap Hash UnivAnon  compare
-  exprs  : RBMap Hash ExprAnon  compare
-  consts : RBMap Hash ConstAnon compare
-  deriving Inhabited
-
-open TC Lurk
+open IR TC Lurk
 open System (FilePath)
 
 structure CommitState where
@@ -29,6 +22,6 @@ structure CommitState where
   ldonHashState : LDONHashState -- to speed up committing
   deriving Inhabited
 
-abbrev CommitM := ReaderT Store $ ExceptT String $ StateT CommitState IO
+abbrev CommitM := ReaderT StoreAnon $ ExceptT String $ StateT CommitState IO
 
 end Yatima.Commit

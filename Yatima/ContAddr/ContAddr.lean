@@ -82,7 +82,7 @@ mutual
 
 partial def contAddrConst (const : Lean.ConstantInfo) :
     ContAddrM $ Hash × Hash := do
-  match (← get).consts.find? const.name with
+  match (← get).env.consts.find? const.name with
   | some c => pure c
   | none   => match const with
     | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
@@ -515,8 +515,8 @@ Important: constants with open references in their expressions are filtered out.
 Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
-def contAddr (constants : Lean.ConstMap) (delta : List Lean.ConstantInfo)
-    (yenv : Env := default) : IO $ Except ContAddrError Env :=
-  ContAddrM.run (.init constants) yenv (contAddrM delta)
+def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
+    (yenv : Env := default) : Except ContAddrError ContAddrState :=
+  ContAddrM.run constMap yenv (contAddrM delta)
 
 end Yatima.ContAddr

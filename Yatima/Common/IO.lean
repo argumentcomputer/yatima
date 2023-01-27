@@ -91,23 +91,23 @@ def SUBDIRS : List FilePath := [
 @[inline] def mkDirs : IO Unit :=
   SUBDIRS.forM IO.FS.createDirAll
 
-def dumpData (data : LightData) (path : FilePath) : IO Unit :=
-  -- TODO : do it in a thread
-  let bytes := Encodable.encode data
-  IO.FS.writeBinFile path bytes
-
 variable [h : Encodable α LightData String]
 
-def loadData (path : FilePath) : IO $ Option α := do
+def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
+  -- TODO : do it in a thread
+  if overwite || !(← path.pathExists) then
+    IO.FS.writeBinFile path (h.encode data)
+
+def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := do
   if !(← path.pathExists) then return none
   match LightData.ofByteArray (← IO.FS.readBinFile path) with
   | .error e =>
     IO.println s!"Error when deserializing {path}: {e}"
-    IO.FS.removeFile path
+    if deleteIfCorrupted then IO.FS.removeFile path
     return none
   | .ok data => match h.decode data with
     | .error e =>
       IO.println s!"Error when decoding {path}: {e}"
-      IO.FS.removeFile path
+      if deleteIfCorrupted then IO.FS.removeFile path
       return none
     | .ok a => return some a

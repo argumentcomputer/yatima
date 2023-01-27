@@ -1,5 +1,6 @@
 import Yatima.Typechecker.Datatypes
-import Yatima.Datatypes.Store
+import Yatima.Datatypes.Const
+import Std.Data.RBMap
 
 /-!
 # The Typechecker monad

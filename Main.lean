@@ -1,7 +1,7 @@
 import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.CommitCmd
+import Yatima.Cli.CodeGenCmd
 -- import Yatima.Cli.TypecheckCmd
--- import Yatima.Cli.CodeGenCmd
 -- import Yatima.Cli.ProveCmd
 -- import Yatima.Cli.VerifyCmd
 -- import Yatima.Cli.IpfsCmd
@@ -16,9 +16,9 @@ def yatimaCmd : Cli.Cmd := `[Cli|
 
   SUBCOMMANDS:
     contAddrCmd;
-    commitCmd
+    commitCmd;
+    codeGenCmd
     -- typecheckCmd;
-    -- codeGenCmd;
     -- proveCmd;
     -- verifyCmd;
     -- ipfsCmd;
