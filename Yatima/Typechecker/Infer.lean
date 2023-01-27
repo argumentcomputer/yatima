@@ -200,7 +200,7 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (f : F) : TypecheckM Unit := withResetCtx default do
+  partial def checkConst (f : F) : TypecheckM Unit := withResetCtx do
     match (← get).typedConsts.find? f with
     | some _ => pure ()
     | none =>

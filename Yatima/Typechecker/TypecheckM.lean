@@ -31,7 +31,6 @@ structure TypecheckCtx where
   env      : Env
   types    : List SusValue
   store    : Store
-  const    : Name
   mutTypes : Std.RBMap F (List Univ → SusValue) compare
   deriving Inhabited
 
@@ -71,8 +70,8 @@ def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
 /--
 Evaluates a `TypecheckM` computation with a reset `TypecheckCtx`.
 -/
-def withResetCtx (const : Name) : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, const := const, mutTypes := default}
+def withResetCtx : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, mutTypes := default}
 
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
@@ -116,10 +115,10 @@ def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
     (someHandle : F → TypecheckM α) : TypecheckM α :=
   match primsToFs p with | none => noneHandle | some a => someHandle a
 
-def primF (p : PrimConst) : TypecheckM F := do
+def primF (p : PrimConst) : TypecheckM F :=
   primFWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
 
-def fPrim (f : F) : TypecheckM (Option PrimConst) := do
+def fPrim (f : F) : TypecheckM $ Option PrimConst :=
   pure $ fsToPrims f
 
 structure PrimOp where
