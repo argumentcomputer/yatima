@@ -79,26 +79,23 @@ def SUBDIRS : List FilePath := [
 @[inline] def mkDirs : IO Unit :=
   SUBDIRS.forM IO.FS.createDirAll
 
-def persistData (data : LightData) (path : FilePath) : IO Unit :=
+def dumpData (data : LightData) (path : FilePath) : IO Unit :=
   -- TODO : do it in a thread
   let bytes := Encodable.encode data
   IO.FS.writeBinFile path bytes
 
-variable [h : Encodable (α × β) LightData String] [Ord α]
+variable [h : Encodable α LightData String]
 
-def loadRBMap (dir : FilePath) : IO $ Std.RBMap α β compare := do -- probably useless?
-  let entries ← dir.readDir
-  let mut ret : Array (α × β) := default
-  for entry in entries do
-    let path := entry.path
-    let bytes ← IO.FS.readBinFile path
-    match LightData.ofByteArray bytes with
+def loadData (path : FilePath) : IO $ Option α := do
+  if !(← path.pathExists) then return none
+  match LightData.ofByteArray (← IO.FS.readBinFile path) with
+  | .error e =>
+    IO.println s!"Error when deserializing {path}: {e}"
+    IO.FS.removeFile path
+    return none
+  | .ok data => match h.decode data with
     | .error e =>
-      IO.println s!"Error when deserializing {path}: {e}"
+      IO.println s!"Error when decoding {path}: {e}"
       IO.FS.removeFile path
-    | .ok ld => match h.decode ld with
-      | .error e =>
-        IO.println s!"Error when decoding {path}: {e}"
-        IO.FS.removeFile path
-      | .ok x => ret := ret.push x
-  return .ofArray ret _
+      return none
+    | .ok a => return some a

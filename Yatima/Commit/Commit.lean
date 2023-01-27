@@ -14,13 +14,34 @@ def loadUniv (hash : Hash) : CommitM $ Option Univ := do
       let path := UNIVDIR / hash.data.toHex
       modifyGet fun stt => (path, { stt with
         univPaths := stt.univPaths.insert hash path })
-  if !(← path.pathExists) then return none
-  let bytes ← IO.FS.readBinFile path
-  sorry
+  loadData path
 
-def loadExpr (hash : Hash) : CommitM $ Option Expr := sorry
-def loadConst (hash : Hash) : CommitM $ Option Const := sorry
-def loadCommit (hash : Hash) : CommitM $ Option F := sorry
+def loadExpr (hash : Hash) : CommitM $ Option Expr := do
+  let path ← match (← get).exprPaths.find? hash with
+    | some path => pure path
+    | none =>
+      let path := EXPRDIR / hash.data.toHex
+      modifyGet fun stt => (path, { stt with
+        exprPaths := stt.exprPaths.insert hash path })
+  loadData path
+
+def loadConst (hash : Hash) : CommitM $ Option Const := do
+  let path ← match (← get).constPaths.find? hash with
+    | some path => pure path
+    | none =>
+      let path := CONSTDIR / hash.data.toHex
+      modifyGet fun stt => (path, { stt with
+        constPaths := stt.constPaths.insert hash path })
+  loadData path
+
+def loadCommit (hash : Hash) : CommitM $ Option F := do
+  let path ← match (← get).commitPaths.find? hash with
+    | some path => pure path
+    | none =>
+      let path := COMMITSDIR / hash.data.toHex
+      modifyGet fun stt => (path, { stt with
+        commitPaths := stt.commitPaths.insert hash path })
+  loadData path
 
 partial def mkTCUniv (hash : Hash) : CommitM Univ := do
   match (← get).univs.find? hash with
@@ -35,7 +56,7 @@ partial def mkTCUniv (hash : Hash) : CommitM Univ := do
         | some $ .max u v => pure $ .max (← mkTCUniv u) (← mkTCUniv v)
         | some $ .imax u v => pure $ .imax (← mkTCUniv u) (← mkTCUniv v)
         | some $ .var n => pure $ .var n
-      persistData (Coe.coe u) $ (← get).univPaths.find! hash
+      dumpData (Coe.coe u) $ (← get).univPaths.find! hash
     modifyGet fun stt => (u, { stt with univs := stt.univs.insert hash u })
 
 mutual
@@ -57,7 +78,7 @@ partial def mkTCExpr (hash : Hash) : CommitM Expr := do
         | some $ .letE x y z => pure $ .letE (← mkTCExpr x) (← mkTCExpr y) (← mkTCExpr z)
         | some $ .lit l => pure $ .lit l
         | some $ .proj n e => pure $ .proj n (← mkTCExpr e)
-      persistData (Coe.coe e) $ (← get).exprPaths.find! hash
+      dumpData (Coe.coe e) $ (← get).exprPaths.find! hash
     modifyGet fun stt => (e, { stt with exprs := stt.exprs.insert hash e })
 
 partial def mkTCCtor : IR.ConstructorAnon → CommitM Constructor
@@ -121,7 +142,7 @@ partial def mkTCConst (hash : Hash) : CommitM Const := do
             pure $ .definition ⟨lvls, ← mkTCExpr type, ← mkTCExpr value, safety, sorry⟩
           | _ => throw sorry
         | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
-      persistData (Coe.coe c) $ (← get).constPaths.find! hash
+      dumpData (Coe.coe c) $ (← get).constPaths.find! hash
     modifyGet fun stt => (c, { stt with consts := stt.consts.insert hash c })
 
 partial def commitConst (hash : Hash) : CommitM F := do
@@ -134,7 +155,7 @@ partial def commitConst (hash : Hash) : CommitM F := do
       let const ← mkTCConst hash
       -- this is expensive
       let (f, encStt) := const.toLDON.commit (← get).ldonHashState
-      persistData f $ (← get).commitPaths.find! hash
+      dumpData f $ (← get).commitPaths.find! hash
       modifyGet fun stt => (f, { stt with
         commits := stt.commits.insert hash f
         ldonHashState := encStt })
@@ -143,7 +164,7 @@ end
 
 def commitM (hashes : Array Hash) : CommitM $ Array F := do
   let hashes ← hashes.mapM commitConst
-  persistData (← get).ldonHashState LDONHASHCACHE
+  dumpData (← get).ldonHashState LDONHASHCACHE
   return hashes
 
 open Std (RBSet)
@@ -165,28 +186,19 @@ def withVisitedExpr (hash : Hash) : StoreM α → StoreM α :=
 def withVisitedConst (hash : Hash) : StoreM α → StoreM α :=
   withReader fun visited => {visited with consts := visited.consts.insert hash}
 
-variable
-  [hUniv  : Encodable UnivAnon  LightData String]
-  [hExpr  : Encodable ExprAnon  LightData String]
-  [hConst : Encodable ConstAnon LightData String]
-
 partial def storeUniv (hash : Hash) : StoreM Unit := do
   if (← get).univs.contains hash then return
   if (← read).univs.contains hash then
     throw s!"Cycle detected for UnivAnon hash {hash}"
   withVisitedUniv hash do
     let path := UNIVANONDIR / hash.data.toHex
-    if !(← path.pathExists) then throw s!"{path} not found"
-    match LightData.ofByteArray (← IO.FS.readBinFile path) with
-    | .error e => throw e
-    | .ok data => match hUniv.decode data with
-      | .error e => throw e
-      | .ok univ =>
-        modify fun store => { store with univs := store.univs.insert hash univ }
-        match univ with
-        | .succ x => storeUniv x
-        | .max x y | .imax x y => do storeUniv x; storeUniv y
-        | _ => pure ()
+    let some univ ← loadData path
+      | throw s!"{path} not found"
+    modify fun store => { store with univs := store.univs.insert hash univ }
+    match univ with
+    | .succ x => storeUniv x
+    | .max x y | .imax x y => do storeUniv x; storeUniv y
+    | _ => pure ()
 
 mutual
 
@@ -196,14 +208,10 @@ partial def storeConst (hash : Hash) : StoreM Unit := do
     throw s!"Cycle detected for ConstAnon hash {hash}"
   withVisitedConst hash do
     let path := CONSTANONDIR / hash.data.toHex
-    if !(← path.pathExists) then throw s!"{path} not found"
-    match LightData.ofByteArray (← IO.FS.readBinFile path) with
-    | .error e => throw e
-    | .ok data => match hConst.decode data with
-      | .error e => throw e
-      | .ok const =>
-        modify fun store => {store with consts := store.consts.insert hash const}
-        storeConstInternals const
+    let some const ← loadData path
+      | throw s!"{path} not found"
+    modify fun store => {store with consts := store.consts.insert hash const}
+    storeConstInternals const
 
 partial def storeConstInternals : ConstAnon → StoreM Unit
   | .axiom ⟨_, x, _⟩
@@ -226,14 +234,10 @@ partial def storeExpr (hash : Hash) : StoreM Unit := do
     throw s!"Cycle detected for ExprAnon hash {hash}"
   withVisitedConst hash do
     let path := EXPRANONDIR / hash.data.toHex
-    if !(← path.pathExists) then throw s!"{path} not found"
-    match LightData.ofByteArray (← IO.FS.readBinFile path) with
-    | .error e => throw e
-    | .ok data => match hExpr.decode data with
-      | .error e => throw e
-      | .ok expr =>
-        modify fun store => { store with exprs := store.exprs.insert hash expr }
-        storeExprInternals expr
+    let some expr ← loadData path
+      | throw s!"{path} not found"
+    modify fun store => { store with exprs := store.exprs.insert hash expr }
+    storeExprInternals expr
 
 partial def storeExprInternals : ExprAnon → StoreM Unit
   | .var _ us => us.forM storeUniv
