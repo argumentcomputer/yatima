@@ -40,12 +40,8 @@ structure TypecheckState where
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
-def TypecheckCtx.init (store : Store) : TypecheckCtx :=
-  { (default : TypecheckCtx) with store }
-
-/-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
-def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=
-  { (default : TypecheckCtx) with store, env }
+def TypecheckCtx.init (store : Store) (quick : Bool) : TypecheckCtx :=
+  { (default : TypecheckCtx) with store := store, quick := quick }
 
 /--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
