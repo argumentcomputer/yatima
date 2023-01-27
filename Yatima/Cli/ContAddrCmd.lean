@@ -1,24 +1,18 @@
 import Cli.Basic
+import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
 
-def getToolchain : IO $ Except String String := do
-  let out ← IO.Process.output {
-    cmd := "lake"
-    args := #["--version"]
-  }
-  if out.exitCode != 0 then
-    return .error "Couldn't run 'lake --version' command"
-  else
-    let version := out.stdout.splitOn "(Lean version " |>.get! 1
-    return .ok $ version.splitOn ")" |>.head!
-
-open System (FilePath)
-
-partial def getLeanFilePaths (fp : FilePath) (acc : Array FilePath := #[]) :
-    IO $ Array FilePath := do
-  if ← fp.isDir then
-    (← fp.readDir).foldlM (fun acc dir => getLeanFilePaths dir.path acc) acc
-  else return if fp.extension == some "lean" then acc.push fp else acc
+def validToolchain : IO Bool := do
+  match ← runCmd "lake" #["--version"] with
+  | .error e => IO.eprintln e; return false
+  | .ok out =>
+    let version := out.splitOn "(Lean version " |>.get! 1
+    let version := version.splitOn ")" |>.head!
+    let expectedVersion := Lean.versionString
+    if version != expectedVersion then
+      IO.eprintln s!"Expected toolchain '{expectedVersion}' but got '{version}'"
+      return false
+    return true
 
 def defaultEnv : String :=
   "env.yenv"
@@ -27,12 +21,7 @@ open Yatima.ContAddr in
 def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Check toolchain
-  match ← getToolchain with
-  | .error msg => IO.eprintln msg; return 1
-  | .ok toolchain =>
-    if toolchain != Lean.versionString then
-      IO.eprintln s!"Expected toolchain '{Lean.versionString}' but got '{toolchain}'"
-      return 1
+  if !(← validToolchain) then return 1
 
   -- Get Lean source file name
   let some source := p.positionalArg? "source" |>.map (·.value)
