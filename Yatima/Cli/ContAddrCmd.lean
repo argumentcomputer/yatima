@@ -40,7 +40,7 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Load input environment
   let env ← match p.flag? "env" |>.map (·.value) with
-  | none => default
+  | none => pure default
   | some envFileName => match ← loadData envFileName false with
     | none => return 1
     | some env => pure env
@@ -52,9 +52,13 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Start content-addressing
   mkDirs
+  let start ← IO.monoMsNow
   let stt ← match contAddr constMap delta env with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure stt
+  let finish ← IO.monoMsNow
+  let duration : Float := (finish.toFloat - start.toFloat) / 1000.0
+  IO.println s!"Content-addressing finished in {duration}s"
 
   -- Persist resulting state
   let target := ⟨p.flag? "output" |>.map (·.value) |>.getD defaultEnv⟩
