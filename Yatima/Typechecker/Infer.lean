@@ -84,10 +84,8 @@ mutual
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      dbg_trace s!"failed checking {(← read).const}"
       throw $ .valueMismatch (toString type.get) (toString inferType.get)
-    else
-      pure term
+    else pure term
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
@@ -207,10 +205,8 @@ mutual
     | some _ => pure ()
     | none =>
       let c ← derefConst f
-      let mut univs := []
-      for i in [0:c.levels] do
-        univs := .var (c.levels - 1 - i) :: univs
-      withEnv ⟨ [], univs ⟩ $ do
+      let univs := List.range c.levels |>.map .var
+      withEnv ⟨ [], univs ⟩ do
         let (type, _) ← isSort c.type
         let newConst ← match c with
         | .axiom  _    => pure $ TypedConst.axiom type

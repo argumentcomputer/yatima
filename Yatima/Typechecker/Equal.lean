@@ -49,7 +49,7 @@ mutual
               args.enum.foldlM (init := true) fun acc (i, arg) => do
                 match arg.1.get with
                 | .app (.proj _ idx val) _ =>
-                pure $ acc && i == idx && (← equal lvl term val.sus)
+                  pure $ acc && i == idx && (← equal lvl term val.sus)
                 | _ => pure false
             else
               pure false
@@ -64,7 +64,7 @@ mutual
   It is assumed here that the values are typechecked, have both the same type and their
   original unevaluated terms both lived in the same context.
   -/
-  partial def equal (lvl : Nat) (term term' : SusValue) : TypecheckM Bool := do
+  partial def equal (lvl : Nat) (term term' : SusValue) : TypecheckM Bool :=
     match term.info, term'.info with
     | .unit, .unit => pure true
     | .proof, .proof => pure true
@@ -78,18 +78,18 @@ mutual
         let img' := suspend img' { ← read with env := env'.extendWith (mkSusVar dom'.info lvl) } (← get)
         let res' ← equal (lvl + 1) img img'
         pure $ res && res'
-      | .lam dom bod env, .lam dom' bod' env' =>
+      | .lam dom bod env, .lam dom' bod' env' => do
         let res  ← equal lvl dom dom'
         let bod  := suspend bod  { ← read with env := env.extendWith  (mkSusVar dom.info  lvl) } (← get)
         let bod' := suspend bod' { ← read with env := env'.extendWith (mkSusVar dom'.info lvl) } (← get)
         let res' ← equal (lvl + 1) bod bod'
         pure $ res && res'
-      | .lam dom bod env, .app neu' args' =>
+      | .lam dom bod env, .app neu' args' => do
         let var := mkSusVar dom.info lvl
         let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
         let app := Value.app neu' ((var, bod.info) :: args')
         equal (lvl + 1) bod (.mk bod.info app)
-      | .app neu args, .lam dom bod env =>
+      | .app neu args, .lam dom bod env => do
         let var := mkSusVar dom.info lvl
         let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
         let app := Value.app neu ((var, bod.info) :: args)
@@ -110,7 +110,7 @@ mutual
       | .app (.const _ _) _, _ =>
         tryEtaStruct lvl term' term
       | .app (.proj ind idx val) args, .app (.proj ind' idx' val') args' =>
-          if ind == ind' && idx == idx' then
+          if ind == ind' && idx == idx' then do
             let eqVal ← equal lvl val.sus val'.sus
             let eqThunks ← equalThunks lvl args args'
             pure (eqVal && eqThunks)
