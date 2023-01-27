@@ -1,18 +1,24 @@
-import Yatima.Cli.Utils
+-- import Yatima.Cli.Utils
+import Cli.Basic
 import Yatima.CodeGen.CodeGen
 import Yatima.Lean.Utils
 import Lurk.Backend.Eval
 
 open System Yatima.CodeGen in
 def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
-  let fileName := p.getArg! "input"
-  let decl := String.toNameSafe <| p.getStringFlagD "decl" "root"
+  let some source := p.positionalArg? "source" |>.map (·.value)
+    | IO.eprintln "No source was provided"; return 1
+  let some decl := p.flag? "decl" |>.map (·.value.toNameSafe)
+    | IO.eprintln "No declaration provided"; return 1
   Lean.setLibsPaths
-  match codeGen (← Lean.runFrontend ⟨fileName⟩) decl with
+  match codeGen (← Lean.runFrontend ⟨source⟩) decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr =>
     let expr := if p.hasFlag "anon" then expr.anon else expr
-    let output := ⟨p.getStringFlagD "output" s!"lurk/{decl}.lurk"⟩
+    let mut output : FilePath := default
+    match p.flag? "output" |>.map (·.value) with
+    | some output' => output := ⟨output'⟩
+    | none => output := "lurk" / "{decl}.lurk"
     match output.parent with
     | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
     | none => pure ()
@@ -41,7 +47,7 @@ def codeGenCmd : Cli.Cmd := `[Cli|
   "Generates Lurk code from Lean 4 code"
 
   FLAGS:
-    d, "decl"   : String; "Sets the topmost call for the Lurk evaluation (defaults to \"root\")"
+    d, "decl"   : String; "Sets the topmost call for the Lurk evaluation"
     o, "output" : String; "Specifies the target file name for the Lurk code (defaults to \"output.lurk\")"
     a, "anon";            "Anonimizes variable names for a more compact code"
     r, "run";             "Evaluates the resulting Lurk expression with the custom evaluator"
@@ -49,5 +55,5 @@ def codeGenCmd : Cli.Cmd := `[Cli|
     rs, "lurkrs";         "Evaluates the resulting Lurk expression with `lurkrs`"
 
   ARGS:
-    input : String; "Lean 4 file name to be translated to Lurk"
+    source : String; "Lean 4 file name to be translated to Lurk"
 ]
