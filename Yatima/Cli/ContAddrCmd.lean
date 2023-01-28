@@ -23,19 +23,19 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
     | some env => pure env
 
   -- Run Lean frontend
+  let mut cronos ← Cronos.new.clock "Run Lean frontend"
   Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend source
   let (constMap, delta) := leanEnv.getConstsAndDelta
+  cronos ← cronos.clock! "Run Lean frontend"
 
   -- Start content-addressing
   mkCADirs
-  let start ← IO.monoMsNow
+  cronos ← cronos.clock "Content-address Lean environment"
   let stt ← match contAddr constMap delta env with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure stt
-  let finish ← IO.monoMsNow
-  let duration : Float := (finish.toFloat - start.toFloat) / 1000.0
-  IO.println s!"Content-addressing finished in {duration}s"
+  cronos ← cronos.clock! "Content-address Lean environment"
 
   -- Persist resulting state
   let target := ⟨p.flag? "output" |>.map (·.value) |>.getD defaultEnv⟩

@@ -23,19 +23,19 @@ def commitRun (p : Cli.Parsed) : IO UInt32 := do
     | some (_, hash) => hashes := hashes.push hash
     | none => IO.eprintln s!"{decl} not found in the environment"; return 1
 
+  let mut cronos ← Cronos.new.clock "Load store"
   let store ← match ← Yatima.IR.StoreAnon.load hashes with
     | .ok store => pure store
     | .error e => IO.println e; return 1
+  cronos ← cronos.clock! "Load store"
 
-  -- Do slow commit
+  -- Do slow commitments with persistence
   mkCMDirs
-  let start ← IO.monoMsNow
-  let commits ← match ← commit hashes store false with
+  cronos ← cronos.clock "Commit"
+  let commits ← match ← commit hashes store false true with
   | .error e => IO.eprintln e; return 1
   | .ok comms => pure comms
-  let finish ← IO.monoMsNow
-  let duration : Float := (finish.toFloat - start.toFloat) / 1000.0
-  IO.println s!"Committing finished in {duration}s"
+  cronos ← cronos.clock! "Commit"
 
   decls.zip commits |>.forM IO.println
   return 0

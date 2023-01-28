@@ -35,6 +35,7 @@ structure CommitCtx where
   store   : StoreAnon
   recrCtx : RecrCtx
   quick   : Bool
+  persist : Bool
 
 abbrev CommitM := ReaderT CommitCtx $ ExceptT String $ StateT CommitState IO
 

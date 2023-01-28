@@ -56,7 +56,7 @@ partial def mkUniv (hash : Hash) : CommitM Univ := do
         | some $ .max u v => pure $ .max (← mkUniv u) (← mkUniv v)
         | some $ .imax u v => pure $ .imax (← mkUniv u) (← mkUniv v)
         | some $ .var n => pure $ .var n
-      if !(← read).quick then dumpData u $ (← get).univPaths.find! hash
+      if (← read).persist then dumpData u $ (← get).univPaths.find! hash
     modifyGet fun stt => (u, { stt with univs := stt.univs.insert hash u })
 
 mutual
@@ -78,7 +78,7 @@ partial def mkExpr (hash : Hash) : CommitM Expr := do
         | some $ .letE x y z => pure $ .letE (← mkExpr x) (← mkExpr y) (← mkExpr z)
         | some $ .lit l => pure $ .lit l
         | some $ .proj n e => pure $ .proj n (← mkExpr e)
-      if !(← read).quick then dumpData e $ (← get).exprPaths.find! hash
+      if (← read).persist then dumpData e $ (← get).exprPaths.find! hash
     modifyGet fun stt => (e, { stt with exprs := stt.exprs.insert hash e })
 
 partial def mkCtor : IR.ConstructorAnon → CommitM Constructor
@@ -165,7 +165,7 @@ partial def mkConst (hash : Hash) : CommitM Const := do
             pure $ .definition ⟨lvls, ← mkExpr type, ← mkExprRecr value, safety, mutTypes⟩
           | _ => throw sorry
         | .mutDefBlock _ | .mutIndBlock _ => throw sorry
-      if !(← read).quick then dumpData c $ (← get).constPaths.find! hash
+      if (← read).persist then dumpData c $ (← get).constPaths.find! hash
     modifyGet fun stt => (c, { stt with consts := stt.consts.insert hash c })
 
 partial def commitConst (hash : Hash) : CommitM F := do
@@ -191,12 +191,15 @@ end
 
 def commitM (hashes : Array Hash) : CommitM $ Array F := do
   let hashes ← hashes.mapM commitConst
-  if !(← read).quick then dumpData (← get).ldonHashState LDONHASHCACHE
+  if (← read).persist then dumpData (← get).ldonHashState LDONHASHCACHE
   return hashes
 
-def commit (hashes : Array Hash) (store : StoreAnon) (quick : Bool) :
+/-- Quick commitments never persist data -/
+def commit (hashes : Array Hash) (store : StoreAnon) (quick persist : Bool) :
     IO $ Except String (Array F) := do
-  match ← StateT.run (ReaderT.run (commitM hashes) ⟨store, quick⟩) default with
+  let persist := if quick then false else persist
+  match ← StateT.run (ReaderT.run (commitM hashes)
+    ⟨store, default, quick, persist⟩) default with
   | (.error e, _) => return .error e
   | (.ok hs, _) => return .ok hs
 
