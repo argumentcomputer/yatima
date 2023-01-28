@@ -115,7 +115,7 @@ instance : Coe RecursorRule LDON where
 
 def Recursor.toLDON : Recursor → LDON
   | ⟨lvls, type, params, indices, motives, minors, rules, isK, internal, ind, all⟩ =>
-    (["Yatima.TC.Recursor", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, motives.toLDON, minors.toLDON, rules.map RecursorRule.toLDON, isK, internal, ind, all.map LDON.num] : List LDON)
+    (["Yatima.TC.Recursor", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, motives.toLDON, minors.toLDON, rules.map RecursorRule.toLDON, isK, internal, ind, all.map Expr.toLDON] : List LDON)
 
 instance : Coe Recursor LDON where
   coe := Recursor.toLDON

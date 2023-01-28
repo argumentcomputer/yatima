@@ -232,17 +232,14 @@ mutual
           | .inductive   data => pure $ .inductive type data.struct.isSome
           | .constructor data => pure $ .constructor type data.idx data.fields
           | .recursor data => do
-            let mutTypes ← data.all.foldlM (init := default) fun acc f => do
-              match derefConst f (← read).store with
-              | .recursor data =>
-                -- FIXME repeated computation (this will happen again when we
-                -- actually check the constructor on its own)
-                let (type, _)  ← withMutTypes acc $ isSort data.type
-                let ctx ← read
-                let stt ← get
-                let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-                pure $ acc.insert f typeSus
-              | _ => pure acc
+            let mutTypes ← data.mutTypes.foldlM (init := default) fun acc type => do
+              -- FIXME repeated computation (this will happen again when we
+              -- actually check the recursor on its own)
+              let (type, _)  ← withMutTypes acc $ isSort type
+              let ctx ← read
+              let stt ← get
+              let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
+              pure $ acc.insert f typeSus
             let rules ← data.rules.mapM fun rule => do
               let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
               pure (rule.fields, rhs)

@@ -2,7 +2,6 @@ import Yatima.Datatypes.Store
 import YatimaStdLib.RBMap
 import Yatima.Typechecker.Extractor.ExtractError
 import Yatima.Typechecker.Extractor.ExtractM
-import Yatima.Ipld.PrimCids
 
 namespace Yatima.Extractor
 

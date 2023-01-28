@@ -290,9 +290,9 @@ structure Recursor where
   /-- reference to this recursor's inductive constant;
   needed for eta-expansion of structs -/
   ind      : F
-  /-- all of the recursors related to this inductive; needed to prevent infinite loops while typechecking
-  in the case of a nested inductive -/
-  all      : List F
+  /-- the types of all of the recursors related to this inductive;
+  needed to prevent infinite loops while typechecking in the case of a nested inductive -/
+  mutTypes : List Expr
   deriving Ord, BEq, Hashable
 
 structure Inductive where

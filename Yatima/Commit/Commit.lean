@@ -85,6 +85,10 @@ partial def mkCtor : IR.ConstructorAnon → CommitM Constructor
   | ⟨lvls, typeHash, ids, params, fields, safe⟩ =>
     return ⟨lvls, ← mkExpr typeHash, ids, params, fields, safe⟩
 
+partial def mkRecursorRule : IR.RecursorRuleAnon → CommitM RecursorRule
+  | ⟨fields, rhsHash⟩ =>
+    return ⟨fields, ← mkExpr rhsHash⟩
+
 partial def mkInd : IR.InductiveAnon → CommitM Inductive
   | ⟨lvls, type, params, indices, ctors, _, recr, safe, refl⟩ => do
     -- Structures can't be recursive nor have indices
@@ -104,44 +108,63 @@ partial def mkConst (hash : Hash) : CommitM Const := do
   | none =>
     let c ← match ← loadConst hash with
       | some c => pure c
-      | none => match (← read).store.consts.find? hash with
-        | none => throw sorry
-        | some $ .axiom x => pure $ .axiom ⟨x.lvls, ← mkExpr x.type, x.safe⟩
-        | some $ .theorem x => pure $ .theorem ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value⟩
-        | some $ .opaque x => pure $ .opaque ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value, x.safe⟩
-        | some $ .quotient x => pure $ .quotient ⟨x.lvls, ← mkExpr x.type, x.kind⟩
-        | some $ .inductiveProj x =>
-          match (← read).store.consts.find? x.block with
-          | none => throw sorry
-          | some $ .mutIndBlock inds =>
-            let some ind := inds.get? x.idx | throw sorry
-            pure $ .inductive $ ← mkInd ind
+      | none =>
+        let some const := ((← read).store.consts.find? hash) | throw sorry
+        match const with
+        | .axiom x => pure $ .axiom ⟨x.lvls, ← mkExpr x.type, x.safe⟩
+        | .theorem x => pure $ .theorem ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value⟩
+        | .opaque x => pure $ .opaque ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value, x.safe⟩
+        | .quotient x => pure $ .quotient ⟨x.lvls, ← mkExpr x.type, x.kind⟩
+        | .inductiveProj x
+        | .recursorProj x
+        | .constructorProj x =>
+          let recrCtx := sorry
+          let mkExprRecr x := withRecrs recrCtx (mkExpr x)
+          match const with
+          | .inductiveProj x =>
+            match (← read).store.consts.find? x.block with
+            | none => throw sorry
+            | some $ .mutIndBlock inds =>
+              let some ind := inds.get? x.idx | throw sorry
+              pure $ .inductive $ ← mkInd ind
+            | _ => throw sorry
+          | .constructorProj x =>
+            match (← read).store.consts.find? x.block with
+            | none => throw sorry
+            | some $ .mutIndBlock inds =>
+              let some ind := inds.get? x.idx | throw sorry
+              let some ⟨lvls, type, idx, params, fields, safe⟩ := ind.ctors.get? x.idx | throw sorry
+              pure $ .constructor ⟨lvls, ← mkExprRecr type, idx, params, fields, safe⟩
+            | _ => throw sorry
+          | .recursorProj x =>
+            match (← read).store.consts.find? x.block with
+            | none => throw sorry
+            | some $ .mutIndBlock inds =>
+              let some ind := inds.get? x.idx | throw sorry
+              let indF ← commitConst (ind : LightData).hash -- can we avoid hashing?
+              let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
+              let mut mutTypes := []
+              for recr in ind.recrs do
+                mutTypes := (← mkExprRecr recr.type) :: mutTypes
+              let mut recrRules := []
+              for recr in rules do
+                recrRules := (← mkRecursorRule recr) :: recrRules
+              pure $ .recursor ⟨lvls, ← mkExprRecr type, params, indices, motives, minors, recrRules, isK, internal, indF, mutTypes⟩
+            | _ => throw sorry
           | _ => throw sorry
-        | some $ .constructorProj x =>
-          match (← read).store.consts.find? x.block with
-          | none => throw sorry
-          | some $ .mutIndBlock inds =>
-            let some ind := inds.get? x.idx | throw sorry
-            let some ⟨lvls, type, idx, params, fields, safe⟩ := ind.ctors.get? x.idx | throw sorry
-            pure $ .constructor ⟨lvls, ← mkExpr type, idx, params, fields, safe⟩
-          | _ => throw sorry
-        | some $ .recursorProj x =>
-          match (← read).store.consts.find? x.block with
-          | none => throw sorry
-          | some $ .mutIndBlock inds =>
-            let some ind := inds.get? x.idx | throw sorry
-            let indF ← commitConst (ind : LightData).hash -- can we avoid hashing?
-            let some ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ := ind.recrs.get? x.idx | throw sorry
-            pure $ .recursor ⟨lvls, ← mkExpr type, params, indices, motives, minors, sorry, isK, internal, indF, sorry⟩
-          | _ => throw sorry
-        | some $ .definitionProj x =>
+        | .definitionProj x =>
+          let recrCtx := sorry
+          let mkExprRecr x := withRecrs recrCtx (mkExpr x)
           match (← read).store.consts.find? x.block with
           | none => throw sorry
           | some $ .mutDefBlock defs =>
             let some ⟨lvls, type, value, safety⟩ := defs.get? x.idx | throw sorry
-            pure $ .definition ⟨lvls, ← mkExpr type, ← mkExpr value, safety, sorry⟩
+            let mut mutTypes := []
+            for defn in defs do
+              mutTypes := (← mkExprRecr defn.type) :: mutTypes
+            pure $ .definition ⟨lvls, ← mkExpr type, ← mkExprRecr value, safety, mutTypes⟩
           | _ => throw sorry
-        | some $ .mutDefBlock _ | some $ .mutIndBlock _ => throw sorry
+        | .mutDefBlock _ | .mutIndBlock _ => throw sorry
       if !(← read).quick then dumpData c $ (← get).constPaths.find! hash
     modifyGet fun stt => (c, { stt with consts := stt.consts.insert hash c })
 
