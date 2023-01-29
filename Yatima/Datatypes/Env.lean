@@ -8,4 +8,7 @@ structure IR.Env where
   consts : Std.RBMap Name (Hash × Hash) compare
   deriving Inhabited
 
+def IR.Env.anonHashes (env : IR.Env) : Array Hash :=
+  env.consts.foldl (init := #[]) fun acc _ (h, _) => acc.push h
+
 end Yatima

@@ -196,11 +196,11 @@ def commitM (hashes : Array Hash) : CommitM $ Array F := do
 
 /-- Quick commitments never persist data -/
 def commit (hashes : Array Hash) (store : StoreAnon) (quick persist : Bool) :
-    IO $ Except String (Array F) := do
+    IO $ Except String (CommitState × Array F) := do
   let persist := if quick then false else persist
   match ← StateT.run (ReaderT.run (commitM hashes)
     ⟨store, default, quick, persist⟩) default with
   | (.error e, _) => return .error e
-  | (.ok hs, _) => return .ok hs
+  | (.ok hs, stt) => return .ok (stt, hs)
 
 end Yatima.Commit

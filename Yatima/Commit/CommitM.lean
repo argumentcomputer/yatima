@@ -22,6 +22,12 @@ structure CommitState where
   ldonHashState : LDONHashState -- to speed up committing
   deriving Inhabited
 
+def CommitState.tcStore (stt : CommitState) : RBMap F Const compare :=
+  stt.commits.foldl (init := default) fun acc h f =>
+    match stt.consts.find? h with
+    | some c => acc.insert f c
+    | none => acc
+
 /--
 `RecrCtx` contains information for the reconstruction of (mutual) definitions
 and inductives. Each item (identified by an index) in the recursive context is

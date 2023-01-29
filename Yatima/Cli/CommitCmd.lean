@@ -23,6 +23,7 @@ def commitRun (p : Cli.Parsed) : IO UInt32 := do
     | some (_, hash) => hashes := hashes.push hash
     | none => IO.eprintln s!"{decl} not found in the environment"; return 1
 
+  -- Load anon store from FS
   let mut cronos ← Cronos.new.clock "Load store"
   let store ← match ← Yatima.IR.StoreAnon.load hashes with
     | .ok store => pure store
@@ -32,7 +33,7 @@ def commitRun (p : Cli.Parsed) : IO UInt32 := do
   -- Do slow commitments with persistence
   mkCMDirs
   cronos ← cronos.clock "Commit"
-  let commits ← match ← commit hashes store false true with
+  let (_, commits) ← match ← commit hashes store false true with
   | .error e => IO.eprintln e; return 1
   | .ok comms => pure comms
   cronos ← cronos.clock! "Commit"

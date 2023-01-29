@@ -31,11 +31,11 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Start content-addressing
   mkCADirs
-  cronos ← cronos.clock "Content-address Lean environment"
+  cronos ← cronos.clock "Content-address"
   let stt ← match contAddr constMap delta env with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure stt
-  cronos ← cronos.clock! "Content-address Lean environment"
+  cronos ← cronos.clock! "Content-address"
 
   -- Persist resulting state
   let target := ⟨p.flag? "output" |>.map (·.value) |>.getD defaultEnv⟩
