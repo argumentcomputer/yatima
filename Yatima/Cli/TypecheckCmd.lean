@@ -11,26 +11,46 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
   let some source := p.positionalArg? "source" |>.map (·.value)
     | IO.eprintln "No source was provided"; return 1
 
-  -- Check toolchain
-  if !(← validToolchain) then return 1
+  let mut cronos := Cronos.new
 
-  -- Run Lean frontend
-  let mut cronos ← Cronos.new.clock "Run Lean frontend"
-  Lean.setLibsPaths
-  let leanEnv ← Lean.runFrontend ⟨source⟩
-  let (constMap, delta) := leanEnv.getConstsAndDelta
-  cronos ← cronos.clock! "Run Lean frontend"
+  let (anonHashes, storeAnon) ←
+  if source.endsWith ".lean" then
 
-  -- Start content-addressing
-  cronos ← cronos.clock "Content-address"
-  let caStt ← match contAddr constMap delta default with
-    | .error err => IO.eprintln err; return 1
-    | .ok stt => pure stt
-  cronos ← cronos.clock! "Content-address"
+    -- Check toolchain
+    if !(← validToolchain) then return 1
+
+    -- Run Lean frontend
+    cronos ← cronos.clock "Run Lean frontend"
+    Lean.setLibsPaths
+    let leanEnv ← Lean.runFrontend ⟨source⟩
+    let (constMap, delta) := leanEnv.getConstsAndDelta
+    cronos ← cronos.clock! "Run Lean frontend"
+
+    -- Start content-addressing
+    cronos ← cronos.clock "Content-address"
+    let caStt ← match contAddr constMap delta default with
+      | .error err => IO.eprintln err; return 1
+      | .ok stt => pure stt
+    cronos ← cronos.clock! "Content-address"
+    
+    pure (caStt.env.anonHashes, caStt.storeAnon)
+  else
+
+    -- Load environment from FS
+    let some (env : Yatima.IR.Env) ← loadData source false | return 1
+    let anonHashes := env.anonHashes
+
+    -- Load anon store from FS
+    cronos ← Cronos.new.clock "Load store"
+    match ← Yatima.IR.StoreAnon.load anonHashes with
+    | .error e => IO.println e; return 1
+    | .ok store =>
+      cronos ← cronos.clock! "Load store"
+      pure (anonHashes, store)
 
   -- Quick commit
   cronos ← cronos.clock "Commit"
-  let store ← match ← commit caStt.env.anonHashes caStt.storeAnon true false with
+  let store ← match ← commit anonHashes storeAnon true false with
   | .error e => IO.eprintln e; return 1
   | .ok (stt, _) => pure stt.tcStore
   cronos ← cronos.clock! "Commit"
@@ -46,5 +66,5 @@ def typecheckCmd : Cli.Cmd := `[Cli|
   "Typechecks all constants in a Lean file using cheap hashes"
 
   ARGS:
-    source : String; "Lean source file"
+    source : String; "Lean source or environment file"
 ]
