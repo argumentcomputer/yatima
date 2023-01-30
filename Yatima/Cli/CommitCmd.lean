@@ -31,11 +31,10 @@ def commitRun (p : Cli.Parsed) : IO UInt32 := do
   cronos ← cronos.clock! "Load store"
 
   -- Do slow commitments with persistence
-  mkCMDirs
   cronos ← cronos.clock "Commit"
-  let (_, commits) ← match ← commit hashes store false true with
+  let commits ← match ← commit hashes store false true with
   | .error e => IO.eprintln e; return 1
-  | .ok comms => pure comms
+  | .ok (_, commits) => pure commits
   cronos ← cronos.clock! "Commit"
 
   decls.zip commits |>.forM IO.println

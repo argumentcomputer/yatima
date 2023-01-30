@@ -22,7 +22,8 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
     -- Run Lean frontend
     cronos ← cronos.clock "Run Lean frontend"
     Lean.setLibsPaths
-    let leanEnv ← Lean.runFrontend ⟨source⟩
+    let path := ⟨source⟩
+    let leanEnv ← Lean.runFrontend (← IO.FS.readFile path) path
     let (constMap, delta) := leanEnv.getConstsAndDelta
     cronos ← cronos.clock! "Run Lean frontend"
 

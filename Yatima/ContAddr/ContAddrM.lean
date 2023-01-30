@@ -36,6 +36,7 @@ def ContAddrState.storeMeta (stt : ContAddrState) : StoreMeta := ⟨
 instance : Encodable LightData LightData String := ⟨id, pure⟩
 
 def ContAddrState.dump (stt : ContAddrState) (envPath : System.FilePath) : IO Unit := do
+  mkCADirs
   dumpData stt.env envPath
   stt.univData.forM fun _ ((anonHash, metaHash), (anonData, metaData)) => do
     dumpData anonData (UNIVANONDIR / anonHash.data.toHex) false

@@ -198,6 +198,7 @@ def commitM (hashes : Array Hash) : CommitM $ Array F := do
 def commit (hashes : Array Hash) (store : StoreAnon) (quick persist : Bool) :
     IO $ Except String (CommitState × Array F) := do
   let persist := if quick then false else persist
+  if persist then mkCMDirs
   match ← StateT.run (ReaderT.run (commitM hashes)
     ⟨store, default, quick, persist⟩) default with
   | (.error e, _) => return .error e

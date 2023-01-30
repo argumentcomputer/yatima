@@ -1,7 +1,9 @@
+import Cli.Basic
 import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
+import Yatima.Commit.Commit
 
-open System Yatima.ContAddr
+open System Yatima.ContAddr Yatima.Commit
 
 def primConstNames : Std.RBSet Lean.Name compare := .ofList [
   ``Nat, ``Bool, ``Bool.true, ``Bool.false, ``Nat.zero, ``String,
@@ -24,37 +26,38 @@ def natBlt := Nat.blt
 def natSucc := Nat.succ
 "
 
-def printPrimsM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
-  for const in delta do
-    let name := const.name
-    if primConstNames.contains name then
-      let (c, _) ← getContAddrConst const
-      IO.println s!"{c.anon.data} : {name}"
-
-open Lean Elab in
-def runFrontend (input : String) : IO Environment := do
-  let inputCtx := Parser.mkInputContext input default
-  let (header, parserState, messages) ← Parser.parseHeader inputCtx
-  let (env, messages) ← processHeader header default messages inputCtx 0
-  let env := env.setMainModule default
-  let commandState := Command.mkState env messages default
-  let s ← IO.processCommands inputCtx parserState commandState
-  let msgs := s.commandState.messages
-  if msgs.hasErrors then
-    throw $ IO.userError $ "\n\n".intercalate $
-      (← msgs.toList.mapM (·.toString)).map String.trim
-  else return s.commandState.env
-
 def printPrimsRun (_p : Cli.Parsed) : IO UInt32 := do
   Lean.setLibsPaths
-  let env ← runFrontend primsInput
-  let constants := env.constants
-  let delta := constants.toList.filter (primConstNames.contains ·.1)
-    |>.map Prod.snd
-  discard $ ContAddrM.run (.init constants false) default (printPrimsM delta)
+  let leanEnv ← Lean.runFrontend primsInput default
+  let (constMap, delta) := leanEnv.getConstsAndDelta
+  let delta := delta.filter (primConstNames.contains ·.name)
+  let caStt ← match contAddr constMap delta default with
+    | .error err => IO.eprintln err; return 1
+    | .ok stt => pure stt
+  let anonHashes := caStt.env.consts.foldl (init := #[]) fun acc name (h, _) =>
+    if primConstNames.contains name then acc.push h else acc
+  
+  let store := caStt.storeAnon
+
+  let (_, commits) ← match ← commit anonHashes store false false with
+  | .error e => IO.eprintln e; return 1
+  | .ok comms => pure comms
+
+  let (_, commitsQuick) ← match ← commit anonHashes store true false with
+  | .error e => IO.eprintln e; return 1
+  | .ok comms => pure comms
+
+  let decls := primConstNames.toList
+
+  IO.println "Primitive hashes"
+  decls.zip commits.toList |>.forM IO.println
+
+  IO.println "\nPrimitive hashes (quick)"
+  decls.zip commitsQuick.toList |>.forM IO.println
+
   return 0
 
 def printPrimsCmd : Cli.Cmd := `[Cli|
   pp VIA printPrimsRun;
-  "Prints the anon hashes for primitives"
+  "Prints the commit hashes for primitives"
 ]

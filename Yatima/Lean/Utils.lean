@@ -85,8 +85,8 @@ def setLibsPaths : IO Unit := do
   Lean.initSearchPath (← Lean.findSysroot) paths
 
 open Elab in
-def runFrontend (filePath : System.FilePath) : IO Environment := do
-  let input ← IO.FS.readFile filePath
+open System (FilePath) in
+def runFrontend (input : String) (filePath : FilePath) : IO Environment := do
   let inputCtx := Parser.mkInputContext input filePath.toString
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
   let (env, messages) ← processHeader header default messages inputCtx 0

@@ -15,7 +15,8 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   -- Compute Lurk expression
   let mut expr := default
   Lean.setLibsPaths
-  match codeGen (← Lean.runFrontend ⟨source⟩) decl with
+  let path := ⟨source⟩
+  match codeGen (← Lean.runFrontend (← IO.FS.readFile path) path) decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr' => expr := expr'
   expr := if p.hasFlag "anon" then expr.anon else expr

@@ -25,12 +25,12 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
   -- Run Lean frontend
   let mut cronos ← Cronos.new.clock "Run Lean frontend"
   Lean.setLibsPaths
-  let leanEnv ← Lean.runFrontend source
+  let path := ⟨source⟩
+  let leanEnv ← Lean.runFrontend (← IO.FS.readFile path) path
   let (constMap, delta) := leanEnv.getConstsAndDelta
   cronos ← cronos.clock! "Run Lean frontend"
 
   -- Start content-addressing
-  mkCADirs
   cronos ← cronos.clock "Content-address"
   let stt ← match contAddr constMap delta env with
     | .error err => IO.eprintln err; return 1
