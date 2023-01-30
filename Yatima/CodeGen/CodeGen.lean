@@ -36,7 +36,8 @@ def preloads : List (Name × Expr) := [
   Lurk.Preloads.lor,
   Lurk.Preloads.land,
   Lurk.Preloads.lnot,
-  Lurk.Preloads.lneq
+  Lurk.Preloads.lneq,
+  Lurk.Preloads.throw
 ]
 
 def preloadNames : Lean.NameSet :=

@@ -6,7 +6,7 @@ open Lurk.Backend DSL
 open Yatima.CodeGen
 
 def panicCore : Override := Override.decl ⟨``panicCore, ⟦
-  (lambda (α inst msg) ((str_append "panic! with: " msg)))
+  (lambda (α inst msg) (throw (str_append "panic! with: " msg)))
 ⟧⟩
 
 def dbgTrace : Override := Override.decl ⟨``dbgTrace, ⟦
