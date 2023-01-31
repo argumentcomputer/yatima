@@ -14,7 +14,8 @@ instance [BEq α] [BEq β] : BEq (Except α β) where beq
 
 def extractCodeGenTests (fixture : String) (expect : List (String × Value)) : IO TestSeq := do
   Lean.setLibsPaths
-  let leanEnv ← Lean.runFrontend ⟨fixture⟩
+  let input ← IO.FS.readFile fixture
+  let leanEnv ← Lean.runFrontend input default
   expect.foldlM (init := .done) fun tSeq (root, expected) => do
     return withExceptOk s!"Code generation of {root} succeeds" (codeGen leanEnv root) fun expr =>
       withExceptOk s!"Evaluation of {root} succeeds" expr.eval fun val =>

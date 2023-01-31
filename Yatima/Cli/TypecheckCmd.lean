@@ -64,7 +64,7 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
 
 def typecheckCmd : Cli.Cmd := `[Cli|
   tc VIA typecheckRun;
-  "Typechecks all constants in a Lean file using cheap hashes"
+  "Typechecks all constants in a Lean source or environment file using cheap hashes"
 
   ARGS:
     source : String; "Lean source or environment file"

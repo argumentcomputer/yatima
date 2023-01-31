@@ -30,7 +30,7 @@ def All.module :=
   Nat.module ++
   String.module ++
   Thunk.module ++
-  Yatima.Typechecker.module ++ 
+  Yatima.Typechecker.module ++
   UInt.module
 
 end Lurk.Overrides
