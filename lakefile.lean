@@ -11,8 +11,6 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
-lean_lib Yatima2 { roots := #[`Yatima2] }
-
 require Ipld from git
   "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
 
@@ -87,7 +85,7 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
 script setup do
   IO.println "building yatima"
   match ← runCmd "lake build" with
-  | .ok  _   => match ← IO.getEnv "HOME" with
+  | .ok _ => match ← IO.getEnv "HOME" with
     | some homePath =>
       let binDir : String := s!"{homePath}/.local/bin"
       IO.print s!"target directory for the yatima binary? (default={binDir}) "
