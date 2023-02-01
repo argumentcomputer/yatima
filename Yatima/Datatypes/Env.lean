@@ -11,4 +11,7 @@ structure IR.Env where
 def IR.Env.anonHashes (env : IR.Env) : Array Hash :=
   env.consts.foldl (init := #[]) fun acc _ (h, _) => acc.push h
 
+def IR.Env.metaHashes (env : IR.Env) : Array Hash :=
+  env.consts.foldl (init := #[]) fun acc _ (_, h) => acc.push h
+
 end Yatima

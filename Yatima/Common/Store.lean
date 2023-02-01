@@ -112,7 +112,7 @@ structure StoreMeta where
   univs  : RBMap Hash UnivMeta  compare
   exprs  : RBMap Hash ExprMeta  compare
   consts : RBMap Hash ConstMeta compare
-  deriving Inhabited
+  deriving Inhabited, BEq
 
 namespace StoreMeta
 
