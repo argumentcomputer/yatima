@@ -2031,9 +2031,7 @@ structure Char where
   /-- The value must be a legal codepoint. -/
   valid : val.isValidChar
 
--- TODO fix private definitions
--- private theorem isValidChar_UInt32 {n : Nat} (h : n.isValidChar) : LT.lt n UInt32.size :=
-theorem isValidChar_UInt32 {n : Nat} (h : n.isValidChar) : LT.lt n UInt32.size :=
+private theorem isValidChar_UInt32 {n : Nat} (h : n.isValidChar) : LT.lt n UInt32.size :=
   match h with
   | Or.inl h      => Nat.lt_trans h (by decide)
   | Or.inr ⟨_, h⟩ => Nat.lt_trans h (by decide)
@@ -4146,17 +4144,13 @@ def MacroScopesView.review (view : MacroScopesView) : Name :=
     let base := (Name.mkStr (Name.appendCore (Name.appendCore (Name.mkStr view.name "_@") view.imported) view.mainModule) "_hyg")
     view.scopes.foldl Name.mkNum base
 
--- TODO fix private definitions
--- private def assembleParts : List Name → Name → Name
-def assembleParts : List Name → Name → Name
+private def assembleParts : List Name → Name → Name
   | .nil,                acc => acc
   | .cons (.str _ s) ps, acc => assembleParts ps (Name.mkStr acc s)
   | .cons (.num _ n) ps, acc => assembleParts ps (Name.mkNum acc n)
   | _,                   _   => panic "Error: unreachable @ assembleParts"
 
--- TODO fix private definitions
--- private def extractImported (scps : List MacroScope) (mainModule : Name) : Name → List Name → MacroScopesView
-def extractImported (scps : List MacroScope) (mainModule : Name) : Name → List Name → MacroScopesView
+private def extractImported (scps : List MacroScope) (mainModule : Name) : Name → List Name → MacroScopesView
   | n@(Name.str p str), parts =>
     match beq str "_@" with
     | true  => { name := p, mainModule := mainModule, imported := assembleParts parts Name.anonymous, scopes := scps }
@@ -4164,9 +4158,7 @@ def extractImported (scps : List MacroScope) (mainModule : Name) : Name → List
   | n@(Name.num p _), parts => extractImported scps mainModule p (List.cons n parts)
   | _,                    _     => panic "Error: unreachable @ extractImported"
 
--- TODO fix private definitions
--- private def extractMainModule (scps : List MacroScope) : Name → List Name → MacroScopesView
-def extractMainModule (scps : List MacroScope) : Name → List Name → MacroScopesView
+private def extractMainModule (scps : List MacroScope) : Name → List Name → MacroScopesView
   | n@(Name.str p str), parts =>
     match beq str "_@" with
     | true  => { name := p, mainModule := assembleParts parts Name.anonymous, imported := Name.anonymous, scopes := scps }
@@ -4174,9 +4166,7 @@ def extractMainModule (scps : List MacroScope) : Name → List Name → MacroSco
   | n@(Name.num _ _), acc => extractImported scps (assembleParts acc Name.anonymous) n List.nil
   | _,                    _   => panic "Error: unreachable @ extractMainModule"
 
--- TODO fix private definitions
--- private def extractMacroScopesAux : Name → List MacroScope → MacroScopesView
-def extractMacroScopesAux : Name → List MacroScope → MacroScopesView
+private def extractMacroScopesAux : Name → List MacroScope → MacroScopesView
   | Name.num p scp, acc => extractMacroScopesAux p (List.cons scp acc)
   | Name.str p _  , acc => extractMainModule acc p List.nil -- str must be "_hyg"
   | _,                _   => panic "Error: unreachable @ extractMacroScopesAux"
@@ -4273,9 +4263,7 @@ namespace Macro
 /-- References -/
 private opaque MethodsRefPointed : NonemptyType.{0}
 
--- TODO fix private definitions
--- private def MethodsRef : Type := MethodsRefPointed.type
-def MethodsRef : Type := MethodsRefPointed.type
+private def MethodsRef : Type := MethodsRefPointed.type
 
 instance : Nonempty MethodsRef := MethodsRefPointed.property
 

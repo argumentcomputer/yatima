@@ -82,10 +82,10 @@ def getConstPairs (state : ContAddr.ContAddrState) (consts : List (Name × Name)
   let mut pairList := #[]
   let mut notFound := #[]
   for (constName, rconstName) in consts do
-    match state.cache.find? constName with
+    match state.env.consts.find? constName with
     | none            => notFound := notFound.push constName
     | some (_, idx) =>
-      match state.cache.find? rconstName with
+      match state.env.consts.find? rconstName with
       | none            => notFound := notFound.push rconstName
       | some (_, ridx)  =>
         let some (.definition const) ← pure state.tcStore.consts[idx]? | throw "invalid definition index"

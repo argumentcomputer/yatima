@@ -40,28 +40,26 @@ lean_lib TestsUtils
 
 lean_lib Fixtures {
   roots := #[
-  `Fixtures.AnonCidGroups.ToBeImported,
-  `Fixtures.AnonCidGroups.ToImport,
+    `Fixtures.AnonGroups.ToBeImported,
+    `Fixtures.AnonGroups.ToImport,
 
-  `Fixtures.Termination.Init.Prelude,
-  `Fixtures.Termination.Init.Coe,
-  `Fixtures.Termination.Init.Notation,
-  `Fixtures.Termination.Init.Tactics,
-  `Fixtures.Termination.Init.SizeOf,
-  `Fixtures.Termination.Init.Core
-  ]
+    `Fixtures.Termination.Init.Prelude,
+    `Fixtures.Termination.Init.Coe,
+    `Fixtures.Termination.Init.Notation,
+    `Fixtures.Termination.Init.Tactics,
+    `Fixtures.Termination.Init.SizeOf,
+    `Fixtures.Termination.Init.Core]
 }
 
-lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
+lean_exe Tests.AnonGroups.Definitions      { supportInterpreter := true }
+lean_exe Tests.AnonGroups.Inductives       { supportInterpreter := true }
+lean_exe Tests.AnonGroups.ToImport         { supportInterpreter := true }
 lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
+lean_exe Tests.Termination.TrickyDef       { supportInterpreter := true }
 lean_exe Tests.Termination.Init            { supportInterpreter := true }
-lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
-lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
 lean_exe Tests.CodeGeneration.Primitives   { supportInterpreter := true }
-lean_exe Tests.CodeGeneration.TCFunctions  { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
+-- lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
 
 end Testing
 

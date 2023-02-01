@@ -1,16 +1,15 @@
 import TestsUtils.ContAddrAndExtractTests
 
+def initFixturesPath : System.FilePath :=
+  "Fixtures" / "Termination" / "Init"
+
 open LSpec in
 def main := do
-  let tSeq ← contAddrAndExtractTests'
-    #["Fixtures/Termination/Init/Prelude.lean",
-      "Fixtures/Termination/Init/Coe.lean",
-      "Fixtures/Termination/Init/Notation.lean",
-      "Fixtures/Termination/Init/Tactics.lean",
-      "Fixtures/Termination/Init/SizeOf.lean"
-      ]
-    [
-      extractIpldTests,
-      extractExtractorTests,
-      extractPositiveTypecheckTests]
-  lspecIO tSeq
+  lspecIO $ ← ensembleTestExtractors'
+    [ initFixturesPath / "Prelude.lean",
+      initFixturesPath / "Coe.lean",
+      initFixturesPath / "Notation.lean",
+      initFixturesPath / "Tactics.lean",
+      initFixturesPath / "SizeOf.lean"]
+    []
+    [extractGeneralTests]
