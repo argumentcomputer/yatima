@@ -6,6 +6,7 @@ import Yatima.Lean.Utils
 import Yatima.CodeGen.CodeGen
 import Yatima.Typechecker.Typechecker -- forcing oleans generation
 
+/-- We will need a smarter solution to be shipped in the `yatima` binary -/
 def mkTCCode (f : Lurk.F) : String :=
 s!"import Yatima.Typechecker.Typechecker
 def tc := Yatima.Typechecker.typecheckConstNoStore (.ofNat {f.val})
@@ -51,7 +52,7 @@ def proveCmd : Cli.Cmd := `[Cli|
 
   FLAGS:
     e, "env" : String;    "Input environment file"
-    a, "anon";            "Anonimizes variable names for a more compact code"
+    a, "anon";            "Anonymizes variable names for a more compact code"
     o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk_tc/<decl>.lurk')"
 
   ARGS:

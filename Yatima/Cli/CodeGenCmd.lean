@@ -53,7 +53,7 @@ def codeGenCmd : Cli.Cmd := `[Cli|
 
   FLAGS:
     d, "decl"   : String; "Sets the topmost call for the Lurk evaluation"
-    a, "anon";            "Anonimizes variable names for a more compact code"
+    a, "anon";            "Anonymizes variable names for a more compact code"
     o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk/<decl>.lurk')"
     r, "run";             "Evaluates the resulting Lurk expression with the custom evaluator"
     f, "frames" : Nat;    "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
