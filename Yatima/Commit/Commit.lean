@@ -114,6 +114,9 @@ partial def mkConst (hash : Hash) : CommitM Const := do
         | .axiom x => pure $ .axiom ⟨x.lvls, ← mkExpr x.type, x.safe⟩
         | .theorem x => pure $ .theorem ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value⟩
         | .opaque x => pure $ .opaque ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value, x.safe⟩
+        | .definition x => do
+          let type ← mkExpr x.type
+          return .definition ⟨x.lvls, type, ← mkExpr x.value, x.safety, [type]⟩
         | .quotient x => pure $ .quotient ⟨x.lvls, ← mkExpr x.type, x.kind⟩
         | .inductiveProj x
         | .recursorProj x
