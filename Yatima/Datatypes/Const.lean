@@ -193,10 +193,11 @@ structure RecursorProjMeta where
 
 inductive ConstAnon where
   -- standalone constants
-  | «axiom»   : AxiomAnon    → ConstAnon
-  | «theorem» : TheoremAnon  → ConstAnon
-  | «opaque»  : OpaqueAnon   → ConstAnon
-  | quotient  : QuotientAnon → ConstAnon
+  | «axiom»    : AxiomAnon      → ConstAnon
+  | «theorem»  : TheoremAnon    → ConstAnon
+  | «opaque»   : OpaqueAnon     → ConstAnon
+  | definition : DefinitionAnon → ConstAnon
+  | quotient   : QuotientAnon   → ConstAnon
   -- projections of mutual blocks
   | inductiveProj   : InductiveProjAnon   → ConstAnon
   | constructorProj : ConstructorProjAnon → ConstAnon
@@ -209,10 +210,11 @@ inductive ConstAnon where
 
 inductive ConstMeta where
   -- standalone constants
-  | «axiom»   : AxiomMeta    → ConstMeta
-  | «theorem» : TheoremMeta  → ConstMeta
-  | «opaque»  : OpaqueMeta   → ConstMeta
-  | quotient  : QuotientMeta → ConstMeta
+  | «axiom»    : AxiomMeta      → ConstMeta
+  | «theorem»  : TheoremMeta    → ConstMeta
+  | «opaque»   : OpaqueMeta     → ConstMeta
+  | definition : DefinitionMeta → ConstMeta
+  | quotient   : QuotientMeta   → ConstMeta
   -- projections of mutual blocks
   | inductiveProj   : InductiveProjMeta   → ConstMeta
   | constructorProj : ConstructorProjMeta → ConstMeta

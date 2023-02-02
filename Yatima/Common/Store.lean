@@ -66,6 +66,7 @@ partial def loadConstInternals : ConstAnon → LoadM StoreAnon Unit
   | .quotient ⟨_, x, _⟩ => loadExpr x
   | .theorem ⟨_, x, y⟩
   | .opaque ⟨_, x, y, _⟩ => do loadExpr x; loadExpr y
+  | .definition ⟨_, x, y, _⟩ => do loadExpr x; loadExpr y
   | .inductiveProj ⟨_, x, y, _⟩
   | .constructorProj ⟨_, x, y, _, _⟩
   | .recursorProj ⟨_, x, y, _, _⟩
@@ -148,6 +149,7 @@ partial def loadConstInternals : ConstMeta → LoadM StoreMeta Unit
   | .quotient ⟨_, _, x⟩ => loadExpr x
   | .theorem ⟨_, _, x, y⟩
   | .opaque ⟨_, _, x, y⟩
+  | .definition ⟨_, _, x, y⟩
   | .inductiveProj ⟨_, _, x, y⟩
   | .constructorProj ⟨_, _, x, y⟩
   | .recursorProj ⟨_, _, x, y⟩

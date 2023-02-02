@@ -129,12 +129,17 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) :
     ContAddrM $ Hash × Hash := do
   let mutualSize := struct.all.length
 
-  -- This solves an issue in which the constant name comes different in the
-  -- `all` attribute
-  let all := if mutualSize == 1 then [struct.name] else struct.all
+  -- If the mutual size is one, simply content address the single definition
+  if mutualSize == 1 then 
+    let (defnAnon, defnMeta) ← definitionToIR struct
+    let valueAnon := .definition defnAnon
+    let valueMeta := .definition defnMeta
+    let hashes ← addToStore $ .const valueAnon valueMeta
+    addToEnv defnMeta.name hashes
+    return hashes
 
   -- Collecting and sorting all definitions in the mutual block
-  let mutualDefs ← all.mapM fun name => do
+  let mutualDefs ← struct.all.mapM fun name => do
     match ← getLeanConstant name with
     | .defnInfo defn => pure defn
     | const => throw $ .invalidConstantKind const.name "definition" const.ctorName
