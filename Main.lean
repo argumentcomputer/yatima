@@ -3,6 +3,7 @@ import Yatima.Cli.CommitCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.CodeGenCmd
 import Yatima.Cli.PrintPrimsCmd
+import Yatima.Cli.ProveCmd
 -- import Yatima.Cli.IpfsCmd
 
 def VERSION : String :=
@@ -17,7 +18,8 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     commitCmd;
     typecheckCmd;
     codeGenCmd;
-    printPrimsCmd
+    printPrimsCmd;
+    proveCmd
     -- ipfsCmd
 ]
 

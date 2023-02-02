@@ -13,13 +13,11 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
     | IO.eprintln "No declaration provided"; return 1
 
   -- Compute Lurk expression
-  let mut expr := default
   Lean.setLibsPaths
   let path := ⟨source⟩
-  match codeGen (← Lean.runFrontend (← IO.FS.readFile path) path) decl with
+  let expr ← match codeGen (← Lean.runFrontend (← IO.FS.readFile path) path) decl with
   | .error msg => IO.eprintln msg; return 1
-  | .ok expr' => expr := expr'
-  expr := if p.hasFlag "anon" then expr.anon else expr
+  | .ok expr => pure $ if p.hasFlag "anon" then expr.anon else expr
 
   -- Write Lurk file
   let output := match p.flag? "output" |>.map (·.value) with
@@ -55,8 +53,8 @@ def codeGenCmd : Cli.Cmd := `[Cli|
 
   FLAGS:
     d, "decl"   : String; "Sets the topmost call for the Lurk evaluation"
-    o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk/<decl>.lurk')"
     a, "anon";            "Anonimizes variable names for a more compact code"
+    o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk/<decl>.lurk')"
     r, "run";             "Evaluates the resulting Lurk expression with the custom evaluator"
     f, "frames" : Nat;    "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
     rs, "lurkrs";         "Evaluates the resulting Lurk expression with `lurkrs`"
