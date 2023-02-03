@@ -63,11 +63,7 @@ end Testing
 
 section Setup
 
-inductive CmdResult
-  | ok  : String → CmdResult
-  | err : String → CmdResult
-
-def runCmd (cmd : String) : ScriptM CmdResult := do
+def runCmd (cmd : String) : ScriptM $ Except String String := do
   let cmd := cmd.splitOn " "
   if h : cmd ≠ [] then
     let (cmd, args) := match h' : cmd with
@@ -78,33 +74,33 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
       args := args
     }
     return if out.exitCode != 0
-      then .err out.stderr
+      then .error out.stderr
       else .ok out.stdout
   else return .ok ""
 
 script setup do
   IO.println "building yatima"
   match ← runCmd "lake build" with
-  | .ok _ => match ← IO.getEnv "HOME" with
-    | some homePath =>
-      let binDir : String := s!"{homePath}/.local/bin"
-      IO.print s!"target directory for the yatima binary? (default={binDir}) "
-      let input := (← (← IO.getStdin).getLine).trim
-      let binDir := if input.isEmpty then binDir else input
-      cpBin binDir
-    | none =>
-      IO.print s!"target directory for the yatima binary? "
-      let binDir := (← (← IO.getStdin).getLine).trim
-      if binDir.isEmpty then
-        IO.eprintln "target directory can't be empty"
-        return 1
-      cpBin binDir
-  | .err res => IO.eprintln res; return 1
-where
-  cpBin (binDir : String) : ScriptM UInt32 := do
-    match ← runCmd s!"cp build/bin/yatima {binDir}/yatima" with
-    | .ok _    => IO.println s!"yatima binary placed at {binDir}/"; return 0
-    | .err res => IO.eprintln res; return 1
+  | .error res => IO.eprintln res; return 1
+  | .ok _ =>
+    let binDir ← match ← IO.getEnv "HOME" with
+      | some homeDir =>
+        let binDir : FilePath := homeDir / ".local" / "bin"
+        IO.print s!"target directory for the yatima binary? (default={binDir}) "
+        let input := (← (← IO.getStdin).getLine).trim
+        pure $ if input.isEmpty then binDir else ⟨input⟩
+      | none =>
+        IO.print s!"target directory for the yatima binary? "
+        let binDir := (← (← IO.getStdin).getLine).trim
+        if binDir.isEmpty then
+          IO.eprintln "target directory can't be empty"; return 1
+        pure ⟨binDir⟩
+    IO.FS.writeBinFile (binDir / "yatima")
+      (← IO.FS.readBinFile $ "build" / "bin" / "yatima")
+    IO.println s!"yatima binary placed at {binDir}"
+    match ← runCmd "lake exe yatima gentc" with
+    | .error err => IO.eprintln err; return 1
+    | .ok _ => IO.println "Lurk typechecker template stored"; return 0
 
 end Setup
 
