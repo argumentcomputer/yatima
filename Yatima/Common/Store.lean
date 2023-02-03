@@ -65,12 +65,12 @@ partial def loadConstInternals : ConstAnon → LoadM StoreAnon Unit
   | .axiom ⟨_, x, _⟩
   | .quotient ⟨_, x, _⟩ => loadExpr x
   | .theorem ⟨_, x, y⟩
-  | .opaque ⟨_, x, y, _⟩ => do loadExpr x; loadExpr y
+  | .opaque ⟨_, x, y, _⟩
   | .definition ⟨_, x, y, _⟩ => do loadExpr x; loadExpr y
-  | .inductiveProj ⟨_, x, y, _⟩
-  | .constructorProj ⟨_, x, y, _, _⟩
-  | .recursorProj ⟨_, x, y, _, _⟩
-  | .definitionProj ⟨_, x, y, _⟩=> do loadExpr x; loadConst y
+  | .inductiveProj _
+  | .constructorProj _
+  | .recursorProj _
+  | .definitionProj _ => pure ()
   | .mutDefBlock ds => ds.forM fun d => do loadExpr d.type; loadExpr d.value
   | .mutIndBlock is => is.forM fun i => do
     loadExpr i.type
@@ -149,11 +149,11 @@ partial def loadConstInternals : ConstMeta → LoadM StoreMeta Unit
   | .quotient ⟨_, _, x⟩ => loadExpr x
   | .theorem ⟨_, _, x, y⟩
   | .opaque ⟨_, _, x, y⟩
-  | .definition ⟨_, _, x, y⟩
-  | .inductiveProj ⟨_, _, x, y⟩
-  | .constructorProj ⟨_, _, x, y⟩
-  | .recursorProj ⟨_, _, x, y⟩
-  | .definitionProj ⟨_, _, x, y, _⟩=> do loadExpr x; loadConst y
+  | .definition ⟨_, _, x, y⟩ => do loadExpr x; loadExpr y
+  | .inductiveProj _
+  | .constructorProj _
+  | .recursorProj _
+  | .definitionProj _ => pure ()
   | .mutDefBlock dss => dss.forM fun ds =>
     ds.forM fun d => do loadExpr d.type; loadExpr d.value
   | .mutIndBlock is => is.forM fun i => do

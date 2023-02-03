@@ -127,10 +127,9 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) :
     ContAddrM $ Hash × Hash := do
-  let mutualSize := struct.all.length
 
   -- If the mutual size is one, simply content address the single definition
-  if mutualSize == 1 then 
+  if struct.all matches [_] then 
     let (defnAnon, defnMeta) ← definitionToIR struct
     let valueAnon := .definition defnAnon
     let valueMeta := .definition defnMeta
@@ -164,12 +163,12 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) :
   -- the correct objects to return
   let mut ret? : Option (Hash × Hash) := none
 
-  for (i, (defnAnon, defnMeta)) in definitions.join.enum do
+  for (i, (_defnAnon, defnMeta)) in definitions.join.enum do
     -- Storing and caching the definition projection
     -- Also adds the constant to the array of constants
     let some (idx, _) := recrCtx.find? defnMeta.name | throw $ .cantFindMutDefIndex defnMeta.name
-    let valueAnon := .definitionProj ⟨defnAnon.lvls, defnAnon.type, blockHashes.1, idx⟩
-    let valueMeta := .definitionProj ⟨defnMeta.name, defnMeta.lvls, defnMeta.type, blockHashes.2, i⟩
+    let valueAnon := .definitionProj ⟨blockHashes.1, idx⟩
+    let valueMeta := .definitionProj ⟨blockHashes.2, i⟩
     let hashes ← addToStore $ .const valueAnon valueMeta
     addToEnv defnMeta.name hashes
     if defnMeta.name == struct.name then ret? := some hashes
@@ -232,23 +231,23 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
     -- Store and cache inductive projections
     let name := indMeta.name
     let hashes ← addToStore $ .const
-      (.inductiveProj ⟨indAnon.lvls, indAnon.type, blockAnon, indIdx⟩)
-      (.inductiveProj ⟨indMeta.name, indMeta.lvls, indMeta.type, blockMeta⟩)
+      (.inductiveProj ⟨blockAnon, indIdx⟩)
+      (.inductiveProj ⟨blockMeta, indIdx⟩)
     addToEnv name hashes
     if name == initInd.name then ret? := some hashes
 
-    for (ctorIdx, (ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
+    for (ctorIdx, (_ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
       -- Store and cache constructor projections
       let hashes ← addToStore $ .const
-        (.constructorProj ⟨ctorAnon.lvls, ctorAnon.type, blockAnon, indIdx, ctorIdx⟩)
-        (.constructorProj ⟨ctorMeta.name, ctorMeta.lvls, ctorMeta.type, blockMeta⟩)
+        (.constructorProj ⟨blockAnon, indIdx, ctorIdx⟩)
+        (.constructorProj ⟨blockMeta, indIdx, ctorIdx⟩)
       addToEnv ctorMeta.name hashes
 
-    for (recrIdx, (recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
+    for (recrIdx, (_recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
       -- Store and cache recursor projections
       let hashes ← addToStore $ .const
-        (.recursorProj ⟨recrAnon.lvls, recrAnon.type, blockAnon, indIdx, recrIdx⟩)
-        (.recursorProj ⟨recrMeta.name, recrMeta.lvls, recrMeta.type, blockMeta⟩)
+        (.recursorProj ⟨blockAnon, indIdx, recrIdx⟩)
+        (.recursorProj ⟨blockMeta, indIdx, recrIdx⟩)
       addToEnv recrMeta.name hashes
 
   match ret? with

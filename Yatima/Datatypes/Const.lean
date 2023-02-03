@@ -70,16 +70,11 @@ structure DefinitionMeta where
   deriving Inhabited, Ord, BEq
 
 structure DefinitionProjAnon where
-  lvls  : Nat
-  type  : Hash
   block : Hash
   idx   : Nat
   deriving Ord, BEq
 
 structure DefinitionProjMeta where
-  name  : Name
-  lvls  : List Name
-  type  : Hash
   block : Hash
   idx   : Nat
   deriving Ord, BEq
@@ -148,47 +143,37 @@ structure InductiveMeta where
   deriving Inhabited, Ord, BEq
 
 structure InductiveProjAnon where
-  lvls  : Nat
-  type  : Hash
   block : Hash
   idx   : Nat
   deriving Ord, BEq
 
 structure InductiveProjMeta where
-  name  : Name
-  lvls  : List Name
-  type  : Hash
   block : Hash
+  idx   : Nat
   deriving Ord, BEq
 
 structure ConstructorProjAnon where
-  lvls  : Nat
-  type  : Hash
   block : Hash
   idx   : Nat
   cidx  : Nat
   deriving Ord, BEq
 
 structure ConstructorProjMeta where
-  name  : Name
-  lvls  : List Name
-  type  : Hash
   block : Hash
+  idx   : Nat
+  cidx  : Nat
   deriving Ord, BEq
 
 structure RecursorProjAnon where
-  lvls  : Nat
-  type  : Hash
   block : Hash
   idx   : Nat
   ridx  : Nat
   deriving Ord, BEq
 
 structure RecursorProjMeta where
-  name  : Name
-  lvls  : List Name
-  type  : Hash
   block : Hash
+  idx   : Nat
+  ridx  : Nat
   deriving Ord, BEq
 
 inductive ConstAnon where
