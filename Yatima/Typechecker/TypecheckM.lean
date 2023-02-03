@@ -101,11 +101,66 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
--- TODO hardcode these maps once we have the hashes
-def primToF : PrimConst → Option F := sorry
-def fToPrim : F → Option PrimConst := sorry
-def primToFQuick : PrimConst → Option F := sorry
-def fToPrimQuick : F → Option PrimConst := sorry
+--PRIMBEGIN
+def primToF : PrimConst → Option F
+  | .op .natBle  => return .ofNat 10
+  | .string      => return .ofNat 5
+  | .nat         => return .ofNat 0
+  | .bool        => return .ofNat 1
+  | .boolTrue    => return .ofNat 2
+  | .boolFalse   => return .ofNat 3
+  | .natZero     => return .ofNat 4
+  | .op .natAdd  => return .ofNat 6
+  | .op .natMul  => return .ofNat 7
+  | .op .natPow  => return .ofNat 8
+  | .op .natBeq  => return .ofNat 9
+  | .op .natBlt  => return .ofNat 11
+  | .op .natSucc => return .ofNat 12
+def fToPrim : F → Option PrimConst
+  | .ofNat 0 => sorry
+  | .ofNat 1 => sorry
+  | .ofNat 2 => sorry
+  | .ofNat 3 => sorry
+  | .ofNat 4 => sorry
+  | .ofNat 5 => sorry
+  | .ofNat 6 => sorry
+  | .ofNat 7 => sorry
+  | .ofNat 8 => sorry
+  | .ofNat 9 => sorry
+  | .ofNat 10 => sorry
+  | .ofNat 11 => sorry
+  | .ofNat 12 => sorry
+  | _ => none
+def primToFQuick : PrimConst → Option F
+  | .nat         => return .ofNat 0
+  | .bool        => return .ofNat 1
+  | .boolTrue    => return .ofNat 2
+  | .boolFalse   => return .ofNat 3
+  | .natZero     => return .ofNat 4
+  | .string      => return .ofNat 5
+  | .op .natAdd  => return .ofNat 6
+  | .op .natMul  => return .ofNat 7
+  | .op .natPow  => return .ofNat 8
+  | .op .natBeq  => return .ofNat 9
+  | .op .natBle  => return .ofNat 10
+  | .op .natBlt  => return .ofNat 11
+  | .op .natSucc => return .ofNat 12
+def fToPrimQuick : F → Option PrimConst
+  | .ofNat 0 => sorry
+  | .ofNat 1 => sorry
+  | .ofNat 2 => sorry
+  | .ofNat 3 => sorry
+  | .ofNat 4 => sorry
+  | .ofNat 5 => sorry
+  | .ofNat 6 => sorry
+  | .ofNat 7 => sorry
+  | .ofNat 8 => sorry
+  | .ofNat 9 => sorry
+  | .ofNat 10 => sorry
+  | .ofNat 11 => sorry
+  | .ofNat 12 => sorry
+  | _ => none
+--PRIMEND
 
 def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
     (someHandle : F → TypecheckM α) : TypecheckM α := do

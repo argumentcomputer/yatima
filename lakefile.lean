@@ -80,7 +80,7 @@ def runCmd (cmd : String) : ScriptM $ Except String String := do
 
 script setup do
   IO.println "building yatima"
-  match ← runCmd "lake build" with
+  match ← runCmd "lake exe yatima pp" with
   | .error res => IO.eprintln res; return 1
   | .ok _ =>
     let binDir ← match ← IO.getEnv "HOME" with
