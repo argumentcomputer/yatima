@@ -66,6 +66,9 @@ def CONSTDIR : FilePath :=
 def COMMITSDIR : FilePath :=
   STOREDIR / "commits"
 
+def LURKTCPATH : FilePath :=
+  STOREDIR / "tc.lurk"
+
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 

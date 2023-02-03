@@ -3,6 +3,7 @@ import Yatima.Cli.CommitCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.CodeGenCmd
 import Yatima.Cli.PrintPrimsCmd
+import Yatima.Cli.GenTypecheckerCmd
 import Yatima.Cli.ProveCmd
 -- import Yatima.Cli.IpfsCmd
 
@@ -19,6 +20,7 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     typecheckCmd;
     codeGenCmd;
     printPrimsCmd;
+    genTypecheckerCmd;
     proveCmd
     -- ipfsCmd
 ]

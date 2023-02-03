@@ -1,19 +1,12 @@
 import Cli.Basic
-import Yatima.Datatypes.Env
 import Yatima.Common.IO
 import Yatima.Common.LightData
-import Yatima.Lean.Utils
-import Yatima.CodeGen.CodeGen
-import Yatima.Typechecker.Typechecker -- forcing oleans generation
 
-/-- We will need a smarter solution to be shipped in the `yatima` binary -/
-def mkTCCode (f : Lurk.F) : String :=
-s!"import Yatima.Typechecker.Typechecker
-def tc := Yatima.Typechecker.typecheckConstNoStore (.ofNat {f.val})
-"
-
-open Yatima.CodeGen in
 def proveRun (p : Cli.Parsed) : IO UInt32 := do
+
+  let tc ←
+    if ← LURKTCPATH.pathExists then IO.FS.readFile LURKTCPATH
+    else IO.eprintln ""; return 1
 
   -- Get environment file name
   let some decl := p.positionalArg? "decl" |>.map (·.value.toNameSafe)
@@ -30,10 +23,6 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   let some (comm : Lurk.F) ← loadData (COMMITSDIR / anonHash.data.toHex) true
     | IO.eprintln s!"Commitment for {decl} not found"; return 1
 
-  let expr ← match codeGen (← Lean.runFrontend (mkTCCode comm) default) "tc" with
-  | .error msg => IO.eprintln msg; return 1
-  | .ok expr => pure $ if p.hasFlag "anon" then expr.anon else expr
-
   -- Write Lurk file
   let output := match p.flag? "output" |>.map (·.value) with
     | some output => ⟨output⟩
@@ -42,7 +31,8 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
   | none => pure ()
   IO.println s!"Writing output to {output}"
-  IO.FS.writeFile output (expr.toString true)
+  IO.FS.writeFile output $
+    tc.replace "(|Lurk.F.ofNat| 0)" s!"(|Lurk.F.ofNat| {comm.val})"
 
   return 0
 
@@ -52,7 +42,6 @@ def proveCmd : Cli.Cmd := `[Cli|
 
   FLAGS:
     e, "env" : String;    "Input environment file"
-    a, "anon";            "Anonymizes variable names for a more compact code"
     o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk_tc/<decl>.lurk')"
 
   ARGS:

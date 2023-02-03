@@ -195,12 +195,7 @@ end StoreMeta
 
 end IR
 
-namespace TC
-
-open Lurk (F)
-
-abbrev Store := Std.RBMap F Const compare
-
-end TC
+open Lurk (F) in
+abbrev TC.Store := Std.RBMap F Const compare
 
 end Yatima
