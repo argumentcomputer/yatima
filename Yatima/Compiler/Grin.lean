@@ -1,9 +1,11 @@
-import YatimaStdLib.NonEmpty
 import Lean.Expr
 import Lean.Compiler.LCNF
+import YatimaStdLib.NonEmpty
+
+open Lean.Compiler.LCNF
 
 -- Based on https://nbviewer.org/github/grin-compiler/grin/blob/master/papers/boquist.pdf
-namespace Grin
+namespace Yatima.Grin
 
 /-- Var represents a variable binding, such as in a function definition in a pattern -/
 structure Var where
@@ -11,6 +13,10 @@ structure Var where
 /-- Id represents a known definition, such as a function or constructor -/
 structure Id where
   data : Lean.Name
+/-- VarKind tells us whether a variable is a pointer or a basic value -/
+inductive VarKind
+| pointer
+| basic
 
 inductive Tag where
 -- Suspended full applications
@@ -20,9 +26,7 @@ inductive Tag where
 -- Saturated constructors
 | C : Id → Tag
 
-inductive Literal
-  | str : String → Literal
-  | num : Nat → Literal
+abbrev Literal := LitValue
 
 inductive SVal where
   | lit : Literal → SVal
@@ -48,6 +52,7 @@ inductive LPat where
   | svar  : Var → LPat
 
 inductive SExpr where
+  | unit   : Val → SExpr
   | store  : Val → SExpr
   | fetch  : Var → Option Nat → SExpr
   | update : Var → Val → SExpr
@@ -59,37 +64,16 @@ inductive SExpr where
   | apply  : Var → NEList SVal → SExpr
 
 inductive Expr where
-  | unit : Val → Expr
-  | seq  : Expr → LPat → Expr → Expr
-  | op   : SExpr → LPat → Expr → Expr
+  | ret  : SExpr → Expr
+  | seq  : SExpr → LPat → Expr → Expr
+  | join : Expr → LPat → Expr → Expr
   | case : Val → NEList (CPat × Expr) → Expr
-  | «if» : Val → Expr → Expr → Expr
 
 structure Binding where
   defn : Id
-  args : NEList Var
+  args : List Var
   body : Expr
 
-abbrev Prog := NEList Binding 
+abbrev Prog := NEList Binding
 
-open Lean.Compiler
-
-def Expr.fromLCNF : LCNF.Code → Expr
-| .let decl k => sorry
-| .fun decl k => sorry
-| .jp decl k => sorry
-| .jmp fvarId args => sorry
-| .cases cases => sorry
-| .return fvarId => sorry
-| .unreach type => sorry
-
-def Binding.fromLCNF (decl : LCNF.Decl) : Binding :=
-  let defn := ⟨decl.name⟩
-  match decl.params.toList.map (fun param => Var.mk param.fvarId) with
-  | [] => sorry
-  | arg :: args =>
-    let args := arg :| args
-    let body := sorry
-    { defn, args, body }
-
-end Grin
+end Yatima.Grin
