@@ -19,10 +19,12 @@ Functions that can not be reduced further evaluate to unreduced Values or suspen
 to evaluate further.
 -/
 
-namespace Yatima.Typechecker
+namespace Yatima
 
 open TC
 open Lurk (F)
+
+namespace Typechecker
 
 /--
 Looks for a constant by its hash `f : F` in a store and
@@ -46,6 +48,78 @@ def derefTypedConst (f : F) : TypecheckM TypedConst := do
   match (← get).typedConsts.find? f with
   | some const => pure const
   | none => throw $ .custom "TODO"
+
+end Typechecker
+
+namespace TC.Const
+
+open Typechecker (TypecheckM derefConst)
+
+def levels : Const → TypecheckM Nat
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .quotient    x => pure x.lvls
+  | .inductive   ⟨f, i⟩ => do match derefConst f (← read).store with
+    | .mutIndBlock inds => match inds.get? i with
+      | .some ind => pure ind.lvls
+      | _ => throw sorry
+    | _ => throw sorry
+  | .definition  ⟨f, i⟩ => do match derefConst f (← read).store with
+    | .mutDefBlock defs => match defs.get? i with
+      | .some defn => pure defn.lvls
+      | _ => throw sorry
+    | _ => throw sorry
+  | .constructor ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+    | .mutIndBlock inds => match inds.get? i with
+      | .some ind => match ind.ctors.get? i with
+        | .some ctor => pure ctor.lvls
+        | _ => throw sorry
+      | _ => throw sorry
+    | _ => throw sorry
+  | .recursor    ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+    | .mutIndBlock inds => match inds.get? i with
+      | .some ind => match ind.recrs.get? i with
+        | .some recr => pure recr.lvls
+        | _ => throw sorry
+      | _ => throw sorry
+    | _ => throw sorry
+  | _ => throw sorry
+
+def type : Const → TypecheckM Expr
+  | .axiom       x
+  | .theorem     x
+  | .opaque      x
+  | .quotient    x => pure x.type
+  | .inductive   ⟨f, i⟩ => do match derefConst f (← read).store with
+    | .mutIndBlock inds => match inds.get? i with
+      | .some ind => pure ind.type
+      | _ => throw sorry
+    | _ => throw sorry
+  | .definition  ⟨f, i⟩ => do match derefConst f (← read).store with
+    | .mutDefBlock defs => match defs.get? i with
+      | .some defn => pure defn.type
+      | _ => throw sorry
+    | _ => throw sorry
+  | .constructor ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+    | .mutIndBlock inds => match inds.get? i with
+      | .some ind => match ind.ctors.get? i with
+        | .some ctor => pure ctor.type
+        | _ => throw sorry
+      | _ => throw sorry
+    | _ => throw sorry
+  | .recursor    ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+    | .mutIndBlock inds => match inds.get? i with
+      | .some ind => match ind.recrs.get? i with
+        | .some recr => pure recr.type
+        | _ => throw sorry
+      | _ => throw sorry
+    | _ => throw sorry
+  | _ => throw sorry
+
+end TC.Const
+
+namespace Typechecker
 
 mutual
   /--
@@ -353,4 +427,5 @@ mutual
     | .proj  f ind val => do
       pure $ .proj default f ind (← quote lvl val.info.toSus env val.value)
 end
-end Yatima.Typechecker
+end Typechecker
+end Yatima

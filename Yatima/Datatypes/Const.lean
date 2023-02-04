@@ -288,6 +288,7 @@ structure Inductive where
   params  : Nat
   indices : Nat
   ctors   : List Constructor
+  recrs   : List Recursor
   recr    : Bool
   safe    : Bool
   refl    : Bool
@@ -299,40 +300,42 @@ structure Inductive where
   unit    : Bool
   deriving Inhabited, Ord, BEq, Hashable
 
+structure InductiveProj where
+  block : F
+  idx   : Nat
+  deriving Inhabited, Ord, BEq, Hashable
+
+structure ConstructorProj where
+  block : F
+  idx   : Nat
+  cidx  : Nat
+  deriving Inhabited, Ord, BEq, Hashable
+
+structure RecursorProj where
+  block : F
+  idx   : Nat
+  ridx  : Nat
+  deriving Inhabited, Ord, BEq, Hashable
+
+structure DefinitionProj where
+  block : F
+  idx   : Nat
+  deriving Inhabited, Ord, BEq, Hashable
+
 inductive Const where
   | «axiom»     : Axiom    → Const
   | «theorem»   : Theorem  → Const
   | «opaque»    : Opaque   → Const
   | quotient    : Quotient → Const
-  | «inductive» : Inductive → Const
-  | constructor : Constructor → Const
-  | recursor    : Recursor → Const
-  | definition  : Definition → Const
+  -- projections of mutual blocks
+  | «inductive» : InductiveProj   → Const
+  | constructor : ConstructorProj → Const
+  | recursor    : RecursorProj    → Const
+  | definition  : DefinitionProj  → Const
+  -- constants to represent mutual blocks
+  | mutDefBlock : List Definition → Const
+  | mutIndBlock : List Inductive  → Const
   deriving Ord, BEq, Hashable, Inhabited
-
-namespace Const
-
-def levels : Const → Nat
-  | .axiom       x
-  | .theorem     x
-  | .inductive   x
-  | .opaque      x
-  | .definition  x
-  | .constructor x
-  | .recursor    x
-  | .quotient    x => x.lvls
-
-def type : Const → Expr
-  | .axiom       x
-  | .theorem     x
-  | .inductive   x
-  | .opaque      x
-  | .definition  x
-  | .constructor x
-  | .recursor    x
-  | .quotient    x => x.type
-
-end Const
 
 end TC
 
