@@ -93,8 +93,8 @@ instance : Coe Lean.DefinitionSafety LDON where coe
   | .partial => (["Lean.DefinitionSafety", 2] : List LDON)
 
 def Definition.toLDON : Definition → LDON
-  | ⟨lvls, type, value, safety, all⟩ =>
-    (["Yatima.TC.Definition", 0, lvls.toLDON, type, value, safety, all.map Expr.toLDON] : List LDON)
+  | ⟨lvls, type, value, safety⟩ =>
+    (["Yatima.TC.Definition", 0, lvls.toLDON, type, value, safety] : List LDON)
 
 instance : Coe Definition LDON where
   coe := Definition.toLDON
@@ -113,8 +113,8 @@ instance : Coe RecursorRule LDON where
   coe := RecursorRule.toLDON
 
 def Recursor.toLDON : Recursor → LDON
-  | ⟨lvls, type, params, indices, motives, minors, rules, isK, internal, ind, all⟩ =>
-    (["Yatima.TC.Recursor", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, motives.toLDON, minors.toLDON, rules.map RecursorRule.toLDON, isK, internal, ind, all.map Expr.toLDON] : List LDON)
+  | ⟨lvls, type, params, indices, motives, minors, rules, isK, internal⟩ =>
+    (["Yatima.TC.Recursor", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, motives.toLDON, minors.toLDON, rules.map RecursorRule.toLDON, isK, internal] : List LDON)
 
 instance : Coe Recursor LDON where
   coe := Recursor.toLDON
@@ -155,15 +155,16 @@ instance : Coe DefinitionProj LDON where
   coe := DefinitionProj.toLDON
 
 def Const.toLDON : Const → LDON
-  | .axiom x       => (["Yatima.TC.Const", 0, x] : List LDON)
-  | .theorem x     => (["Yatima.TC.Const", 1, x] : List LDON)
-  | .opaque x      => (["Yatima.TC.Const", 2, x] : List LDON)
-  | .quotient x    => (["Yatima.TC.Const", 3, x] : List LDON)
-  | .inductive x   => (["Yatima.TC.Const", 4, x] : List LDON)
-  | .constructor x => (["Yatima.TC.Const", 5, x] : List LDON)
-  | .recursor x    => (["Yatima.TC.Const", 6, x] : List LDON)
-  | .definition x  => (["Yatima.TC.Const", 7, x] : List LDON)
-  | .mutDefBlock x => (["Yatima.TC.Const", 8, x.map Definition.toLDON] : List LDON)
-  | .mutIndBlock x => (["Yatima.TC.Const", 9, x.map Inductive.toLDON] : List LDON)
+  | .axiom x           => (["Yatima.TC.Const", 0, x] : List LDON)
+  | .theorem x         => (["Yatima.TC.Const", 1, x] : List LDON)
+  | .opaque x          => (["Yatima.TC.Const", 2, x] : List LDON)
+  | .definition x      => (["Yatima.TC.Const", 3, x] : List LDON)
+  | .quotient x        => (["Yatima.TC.Const", 4, x] : List LDON)
+  | .inductiveProj x   => (["Yatima.TC.Const", 5, x] : List LDON)
+  | .constructorProj x => (["Yatima.TC.Const", 6, x] : List LDON)
+  | .recursorProj x    => (["Yatima.TC.Const", 7, x] : List LDON)
+  | .definitionProj x  => (["Yatima.TC.Const", 8, x] : List LDON)
+  | .mutDefBlock x     => (["Yatima.TC.Const", 9, x.map Definition.toLDON] : List LDON)
+  | .mutIndBlock x     => (["Yatima.TC.Const", 10, x.map Inductive.toLDON] : List LDON)
 
 end Yatima.TC

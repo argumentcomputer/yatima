@@ -336,17 +336,16 @@ instance : Encodable RecursorRule LightData String where
     | x => throw s!"Invalid encoding for TC.Constructor: {x}"
 
 instance : Encodable Definition LightData String where
-  encode | ⟨a, b, c, d, e⟩ => .arr #[a, b, c, d, e]
+  encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
   decode
-    | .arr #[a, b, c, d, e] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
+    | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for TC.Definition: {x}"
 
 instance : Encodable Recursor LightData String where
-  encode | ⟨a, b, c, d, e, f, g, h, i, j, k⟩ => .arr #[a, b, c, d, e, f, g, h, i, j, k]
+  encode | ⟨a, b, c, d, e, f, g, h, i⟩ => .arr #[a, b, c, d, e, f, g, h, i]
   decode
-    | .arr #[a, b, c, d, e, f, g, h, i, j, k] =>
-      return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g,
-        ← dec h, ← dec i, ← dec j, ← dec k⟩
+    | .arr #[a, b, c, d, e, f, g, h, i] =>
+      return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g, ← dec h, ← dec i⟩
     | x => throw s!"Invalid encoding for TC.Recursor: {x}"
 
 instance : Encodable Inductive LightData String where
@@ -359,25 +358,27 @@ instance : Encodable Inductive LightData String where
 
 instance : Encodable Const LightData String where
   encode
-    | .axiom ⟨a, b, c⟩       => .arr #[0, a, b, c]
-    | .theorem ⟨a, b, c⟩     => .arr #[1, a, b, c]
-    | .opaque ⟨a, b, c, d⟩   => .arr #[2, a, b, c, d]
-    | .quotient ⟨a, b, c⟩    => .arr #[3, a, b, c]
-    | .inductive ⟨a, b⟩      => .arr #[4, a, b]
-    | .recursor ⟨a, b, c⟩    => .arr #[5, a, b, c]
-    | .definition ⟨a, b⟩     => .arr #[6, a, b]
-    | .constructor ⟨a, b, c⟩ => .arr #[7, a, b, c]
+    | .axiom ⟨a, b, c⟩           => .arr #[0, a, b, c]
+    | .theorem ⟨a, b, c⟩         => .arr #[1, a, b, c]
+    | .opaque ⟨a, b, c, d⟩       => .arr #[2, a, b, c, d]
+    | .definition ⟨a, b, c, d⟩   => .arr #[3, a, b, c, d]
+    | .quotient ⟨a, b, c⟩        => .arr #[4, a, b, c]
+    | .inductiveProj ⟨a, b⟩      => .arr #[5, a, b]
+    | .constructorProj ⟨a, b, c⟩ => .arr #[6, a, b, c]
+    | .recursorProj ⟨a, b, c⟩    => .arr #[7, a, b, c]
+    | .definitionProj ⟨a, b⟩     => .arr #[8, a, b]
     | .mutIndBlock x => .eit $ .left x
     | .mutDefBlock x => .eit $ .right x
   decode
     | .arr #[0, a, b, c] => return .axiom ⟨← dec a, ← dec b, ← dec c⟩
     | .arr #[1, a, b, c] => return .theorem ⟨← dec a, ← dec b, ← dec c⟩
     | .arr #[2, a, b, c, d] => return .opaque ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
-    | .arr #[3, a, b, c] => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[4, a, b] => return .inductive ⟨← dec a, ← dec b⟩
-    | .arr #[5, a, b, c] => return .recursor ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[6, a, b] => return .definition ⟨← dec a, ← dec b⟩
-    | .arr #[7, a, b, c] => return .constructor ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[3, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[4, a, b, c] => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[5, a, b] => return .inductiveProj ⟨← dec a, ← dec b⟩
+    | .arr #[6, a, b, c] => return .constructorProj ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[7, a, b, c] => return .recursorProj ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[8, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
     | .eit $ .left x => return .mutIndBlock (← dec x)
     | .eit $ .right x => return .mutDefBlock (← dec x)
     | x => throw s!"Invalid encoding for TC.Const: {x}"
