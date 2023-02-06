@@ -120,11 +120,39 @@ instance : Coe Recursor LDON where
   coe := Recursor.toLDON
 
 def Inductive.toLDON : Inductive → LDON
-  | ⟨lvls, type, params, indices, ctors, recr, safe, refl, struct, unit⟩ =>
-    (["Yatima.TC.Inductive", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, ctors.map Constructor.toLDON, recr, safe, safe, refl, struct, unit] : List LDON)
+  | ⟨lvls, type, params, indices, ctors, recrs, recr, safe, refl, struct, unit⟩ =>
+    (["Yatima.TC.Inductive", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, ctors.map Constructor.toLDON, recrs.map Recursor.toLDON, recr, safe, safe, refl, struct, unit] : List LDON)
 
 instance : Coe Inductive LDON where
   coe := Inductive.toLDON
+
+def InductiveProj.toLDON : InductiveProj → LDON
+  | ⟨block, idx⟩ =>
+    (["Yatima.TC.InductiveProj", 0, block, idx.toLDON] : List LDON)
+
+instance : Coe InductiveProj LDON where
+  coe := InductiveProj.toLDON
+
+def ConstructorProj.toLDON : ConstructorProj → LDON
+  | ⟨block, idx, cidx⟩ =>
+    (["Yatima.TC.ConstructorProj", 0, block, idx.toLDON, cidx.toLDON] : List LDON)
+
+instance : Coe ConstructorProj LDON where
+  coe := ConstructorProj.toLDON
+
+def RecursorProj.toLDON : RecursorProj → LDON
+  | ⟨block, idx, ridx⟩ =>
+    (["Yatima.TC.RecursorProj", 0, block, idx.toLDON, ridx.toLDON] : List LDON)
+
+instance : Coe RecursorProj LDON where
+  coe := RecursorProj.toLDON
+
+def DefinitionProj.toLDON : DefinitionProj → LDON
+  | ⟨block, idx⟩ =>
+    (["Yatima.TC.DefinitionProj", 0, block, idx.toLDON] : List LDON)
+
+instance : Coe DefinitionProj LDON where
+  coe := DefinitionProj.toLDON
 
 def Const.toLDON : Const → LDON
   | .axiom x       => (["Yatima.TC.Const", 0, x] : List LDON)
@@ -135,5 +163,7 @@ def Const.toLDON : Const → LDON
   | .constructor x => (["Yatima.TC.Const", 5, x] : List LDON)
   | .recursor x    => (["Yatima.TC.Const", 6, x] : List LDON)
   | .definition x  => (["Yatima.TC.Const", 7, x] : List LDON)
+  | .mutDefBlock x => (["Yatima.TC.Const", 8, x.map Definition.toLDON] : List LDON)
+  | .mutIndBlock x => (["Yatima.TC.Const", 9, x.map Inductive.toLDON] : List LDON)
 
 end Yatima.TC
