@@ -246,8 +246,6 @@ structure Definition where
   type     : Expr
   value    : Expr
   safety   : DefinitionSafety
-  /-- the types of all of the mutual definitions in this block; needed to prevent infinite loops while typechecking -/
-  mutTypes : List Expr
   deriving Inhabited, Ord, BEq, Hashable
 
 structure Constructor where
@@ -274,12 +272,6 @@ structure Recursor where
   rules    : List RecursorRule
   isK      : Bool
   internal : Bool
-  /-- reference to this recursor's inductive constant;
-  needed for eta-expansion of structs -/
-  ind      : F
-  /-- the types of all of the recursors related to this inductive;
-  needed to prevent infinite loops while typechecking in the case of a nested inductive -/
-  mutTypes : List Expr
   deriving Ord, BEq, Hashable
 
 structure Inductive where
@@ -292,9 +284,7 @@ structure Inductive where
   recr    : Bool
   safe    : Bool
   refl    : Bool
-  /-- reference to this inductive's constructor constant;
-  needed for eta-expansion of structs -/
-  struct  : Option F
+  struct  : Bool
   /-- whether or not this inductive is unit-like;
   needed for unit-like equality -/
   unit    : Bool
@@ -323,15 +313,16 @@ structure DefinitionProj where
   deriving Inhabited, Ord, BEq, Hashable
 
 inductive Const where
-  | «axiom»     : Axiom    → Const
-  | «theorem»   : Theorem  → Const
-  | «opaque»    : Opaque   → Const
-  | quotient    : Quotient → Const
+  | «axiom»     : Axiom      → Const
+  | «theorem»   : Theorem    → Const
+  | «opaque»    : Opaque     → Const
+  | definition  : Definition → Const
+  | quotient    : Quotient   → Const
   -- projections of mutual blocks
-  | «inductive» : InductiveProj   → Const
-  | constructor : ConstructorProj → Const
-  | recursor    : RecursorProj    → Const
-  | definition  : DefinitionProj  → Const
+  | inductiveProj   : InductiveProj   → Const
+  | constructorProj : ConstructorProj → Const
+  | recursorProj    : RecursorProj    → Const
+  | definitionProj  : DefinitionProj  → Const
   -- constants to represent mutual blocks
   | mutDefBlock : List Definition → Const
   | mutIndBlock : List Inductive  → Const
