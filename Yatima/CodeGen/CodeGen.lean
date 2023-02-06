@@ -256,18 +256,23 @@ mutual
       let (name, decl) ← mkLetDecl decl
       let k ← mkCode k
       return .let name decl k
-    | .fun decl k | .jp decl k => do -- `.fun` and `.jp` are the same case to Lurk
-      -- dbg_trace s!">> mkCode fun"
+    | .fun decl k => do
+      dbg_trace s!">> mkCode fun"
+      let (name, decl) ← mkFunDecl decl
+      let k ← mkCode k
+      return .let name decl k
+    | .jp decl k => do
+      dbg_trace s!">> mkCode jp"
       let (name, decl) ← mkFunDecl decl
       let k ← mkCode k
       return .let name decl k
     | .jmp fvarId args => do
-      -- dbg_trace s!">> mkCode jmp"
+      dbg_trace s!">> mkCode jmp"
       let fvarId ← mkFVarId fvarId
       let args ← args.mapM mkArg
       return mkApp fvarId args.data
     | .cases cases =>
-      -- dbg_trace s!">> mkCode cases"
+      dbg_trace s!">> mkCode cases"
       mkCases cases
     | .return fvarId =>
       -- dbg_trace s!">> mkCode return {fvarId.name}"
@@ -279,8 +284,20 @@ mutual
     let ⟨name, _, _, params, value, _, _, _⟩ := decl
     visit name
     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
+    let which := match value with
+    | .let .. => "let"
+    | .fun .. => "fun"
+    | .jp .. => "jp"
+    | .jmp .. => "jmp"
+    | .cases .. => "cases"
+    | .return .. => "return"
+    | .unreach .. => "unreach"
     let value : Expr ← mkCode value
-    let body := if params.isEmpty then value else mkLambda params value
+    let body := if params.isEmpty
+      then dbg_trace "`{decl.name}` params empty"; value
+      else
+        dbg_trace "`{decl.name}` params size {params.length}, the code is\n{which}"
+        mkLambda params value
     appendBinding (name, body)
 
   partial def appendName (name : Name) : CodeGenM Unit := do

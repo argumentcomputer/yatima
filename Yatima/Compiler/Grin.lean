@@ -9,7 +9,7 @@ namespace Yatima.Grin
 
 /-- Var represents a variable binding, such as in a function definition in a pattern -/
 structure Var where
-  data : Lean.FVarId
+  data : Lean.Name
 /-- Id represents a known definition, such as a function or constructor -/
 structure Id where
   data : Lean.Name

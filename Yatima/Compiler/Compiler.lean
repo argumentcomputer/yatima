@@ -1,8 +1,21 @@
 import Yatima.Compiler.GrinM
-
+import Lean.Expr
 open Lean.Compiler.LCNF
 
+def Lean.FVarId.toVar (id : Lean.FVarId) : Yatima.Grin.Var := .mk id.name
+
 namespace Yatima.Grin
+
+def mkFreshVar : GrinM Var := do
+  pure ⟨← Lean.mkFreshId⟩
+
+def fetch? (id : Lean.FVarId) : GrinM SExpr := do
+  match ← varKind id with
+  | .pointer => pure $ .fetch id.toVar .none
+  | .basic => pure $ .unit $ .sval $ .var id.toVar
+
+def PScheme : Alt → GrinM Expr :=
+  sorry
 
 def RScheme : Code → GrinM Expr
 | .let decl k => match decl.value with
@@ -27,14 +40,19 @@ def RScheme : Code → GrinM Expr
     let pat := sorry
     let expr ← RScheme k
     pure $ .seq op pat expr
-| .cases _cases => throw "TODO"
+| .cases case => do
+  -- Since every variable is initially strict, we don't need to eval before
+  let new_var ← mkFreshVar
+  let expr := .seq (← fetch? case.discr) (.svar new_var) sorry
+  -- let val := .sval $ .var ⟨cases.discr⟩
+  -- let nelistPatExpr := sorry
+  -- pure $ .case val nelistPatExpr
+  pure expr
 | .return fvarId => do
   -- In the lazy case, a return is a call to eval, but since we chose strict semantics this
   -- will either be a `fetch` or `unit` instruction depending on whether the variable is a
   -- pointer or basic value
-  match ← varKind fvarId with
-  | .pointer => pure $ .ret $ .fetch ⟨fvarId⟩ .none
-  | .basic => pure $ .ret $ .unit $ .sval $ .var ⟨fvarId⟩
+  pure $ .ret $ ← fetch? fvarId
 | .fun _decl _k => throw "Should not happen (?)"
 -- We need to figure out a way to implement join points
 | .jp _decl _k => throw "TODO"
@@ -43,7 +61,7 @@ def RScheme : Code → GrinM Expr
 
 def compileDeclaration (decl : Decl) : GrinM Binding := do
   let defn := ⟨decl.name⟩
-  let args := decl.params.toList.map (fun param => Var.mk param.fvarId)
+  let args := decl.params.toList.map (fun param => param.fvarId.toVar)
   let body ← RScheme decl.value
   let binding := { defn, args, body }
   pure binding
