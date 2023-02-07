@@ -38,6 +38,7 @@ ignoring the second argument.
 def derefConst (f : F) (store : Store) : Const :=
   store.find! f
 
+/-- TODO document. This function is overwritten btw -/
 def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) : F :=
   let ctorF : Const := .constructorProj ⟨block, idx, cidx⟩
   let (ctorF, _) := ctorF.toLDON.commit default
