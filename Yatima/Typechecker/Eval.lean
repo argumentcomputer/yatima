@@ -56,63 +56,65 @@ namespace TC.Const
 open Typechecker (TypecheckM derefConst)
 
 def levels : Const → TypecheckM Nat
-  | .axiom       x
-  | .theorem     x
-  | .opaque      x
-  | .quotient    x => pure x.lvls
-  | .inductive   ⟨f, i⟩ => do match derefConst f (← read).store with
+  | .axiom      x
+  | .theorem    x
+  | .opaque     x
+  | .definition x
+  | .quotient   x => pure x.lvls
+  | .inductiveProj ⟨f, i⟩ => do match derefConst f (← read).store with
     | .mutIndBlock inds => match inds.get? i with
       | .some ind => pure ind.lvls
       | _ => throw sorry
     | _ => throw sorry
-  | .definition  ⟨f, i⟩ => do match derefConst f (← read).store with
-    | .mutDefBlock defs => match defs.get? i with
-      | .some defn => pure defn.lvls
-      | _ => throw sorry
-    | _ => throw sorry
-  | .constructor ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+  | .constructorProj ⟨f, i, ci⟩ => do match derefConst f (← read).store with
     | .mutIndBlock inds => match inds.get? i with
-      | .some ind => match ind.ctors.get? i with
+      | .some ind => match ind.ctors.get? ci with
         | .some ctor => pure ctor.lvls
         | _ => throw sorry
       | _ => throw sorry
     | _ => throw sorry
-  | .recursor    ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+  | .recursorProj ⟨f, i, ri⟩ => do match derefConst f (← read).store with
     | .mutIndBlock inds => match inds.get? i with
       | .some ind => match ind.recrs.get? i with
         | .some recr => pure recr.lvls
         | _ => throw sorry
       | _ => throw sorry
     | _ => throw sorry
+  | .definitionProj ⟨f, i⟩ => do match derefConst f (← read).store with
+    | .mutDefBlock defs => match defs.get? ri with
+      | .some defn => pure defn.lvls
+      | _ => throw sorry
+    | _ => throw sorry
   | _ => throw sorry
 
 def type : Const → TypecheckM Expr
-  | .axiom       x
-  | .theorem     x
-  | .opaque      x
-  | .quotient    x => pure x.type
-  | .inductive   ⟨f, i⟩ => do match derefConst f (← read).store with
+  | .axiom      x
+  | .theorem    x
+  | .opaque     x
+  | .definition x
+  | .quotient   x => pure x.type
+  | .inductiveProj ⟨f, i⟩ => do match derefConst f (← read).store with
     | .mutIndBlock inds => match inds.get? i with
       | .some ind => pure ind.type
       | _ => throw sorry
     | _ => throw sorry
-  | .definition  ⟨f, i⟩ => do match derefConst f (← read).store with
-    | .mutDefBlock defs => match defs.get? i with
-      | .some defn => pure defn.type
-      | _ => throw sorry
-    | _ => throw sorry
-  | .constructor ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+  | .constructorProj ⟨f, i, ci⟩ => do match derefConst f (← read).store with
     | .mutIndBlock inds => match inds.get? i with
-      | .some ind => match ind.ctors.get? i with
+      | .some ind => match ind.ctors.get? ci with
         | .some ctor => pure ctor.type
         | _ => throw sorry
       | _ => throw sorry
     | _ => throw sorry
-  | .recursor    ⟨f, i, i'⟩ => do match derefConst f (← read).store with
+  | .recursorProj ⟨f, i, ri⟩ => do match derefConst f (← read).store with
     | .mutIndBlock inds => match inds.get? i with
-      | .some ind => match ind.recrs.get? i with
+      | .some ind => match ind.recrs.get? ri with
         | .some recr => pure recr.type
         | _ => throw sorry
+      | _ => throw sorry
+    | _ => throw sorry
+  | .definitionProj ⟨f, i⟩ => do match derefConst f (← read).store with
+    | .mutDefBlock defs => match defs.get? i with
+      | .some defn => pure defn.type
       | _ => throw sorry
     | _ => throw sorry
   | _ => throw sorry
@@ -163,7 +165,10 @@ mutual
       match val with
       | .app (.const f _) args =>
         match derefConst f (← read).store with
-        | .constructor ctor =>
+        | .constructorProj ⟨f, i, ci⟩ =>
+          let .mutIndBlock inds := derefConst f (← read).store | throw sorry
+          let some ind := inds.get? i | throw sorry
+          let some ctor := ind.ctors.get? ci | throw sorry
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx
@@ -327,11 +332,15 @@ mutual
           pure $ .app (.const succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
       | e => do match derefConst indF (← read).store with
-        | .inductive (.mk (struct := struct) (ctors := ctors) ..) =>
-          if let some ctorF := struct then
-            let ctor ← match ctors with
+        | .inductiveProj ⟨f, i⟩ =>
+          let .mutIndBlock inds := derefConst f (← read).store | throw sorry
+          let some ind := inds.get? i | throw sorry
+        -- | .inductive (.mk (struct := struct) (ctors := ctors) ..) =>
+          if ind.struct then
+            let ctor ← match ind.ctors with
               | [ctor] => pure ctor
               | _ => throw .impossible
+            let ctorF := ⟨f, ⟩
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut projArgs : List SusValue := params
               for idx in [:ctor.fields] do
