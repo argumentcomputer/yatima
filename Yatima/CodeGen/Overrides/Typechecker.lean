@@ -11,8 +11,16 @@ def derefConst : Override := Override.decl ⟨`Yatima.Typechecker.derefConst, �
   (lambda (f store) (open f))
 ⟧⟩
 
+def mkConstructorProjF : Override := Override.decl ⟨`Yatima.Typechecker.mkConstructorProjF, ⟦
+  (lambda (block idx cidx) 
+    (num (commit 
+      (Yatima.TC.Const.constructorProj
+        (Yatima.TC.ConstructorProj.mk block idx cidx)))))
+⟧⟩
+
 def module := [
-  derefConst
+  derefConst,
+  mkConstructorProjF
 ]
 
 end Yatima.Typechecker

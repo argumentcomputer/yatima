@@ -1,5 +1,7 @@
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Printing
+import Yatima.Commit.ToLDON
+import Yatima.Datatypes.Lurk
 
 /-!
 # Yatima typechecker: Eval
@@ -35,6 +37,11 @@ ignoring the second argument.
 -/
 def derefConst (f : F) (store : Store) : Const :=
   store.find! f
+
+def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) : F :=
+  let ctorF : Const := .constructorProj ⟨block, idx, cidx⟩
+  let (ctorF, _) := ctorF.toLDON.commit default
+  ctorF
 
 /--
 Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
@@ -81,7 +88,7 @@ def levels : Const → TypecheckM Nat
       | _ => throw sorry
     | _ => throw sorry
   | .definitionProj ⟨f, i⟩ => do match derefConst f (← read).store with
-    | .mutDefBlock defs => match defs.get? ri with
+    | .mutDefBlock defs => match defs.get? i with
       | .some defn => pure defn.lvls
       | _ => throw sorry
     | _ => throw sorry
@@ -340,7 +347,7 @@ mutual
             let ctor ← match ind.ctors with
               | [ctor] => pure ctor
               | _ => throw .impossible
-            let ctorF := ⟨f, ⟩
+            let ctorF := mkConstructorProjF f i 0
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut projArgs : List SusValue := params
               for idx in [:ctor.fields] do
