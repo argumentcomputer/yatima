@@ -107,7 +107,7 @@ instance : Coe Constructor LDON where
   coe := Constructor.toLDON
 
 def RecursorRule.toLDON : RecursorRule → LDON
-  | ⟨fields, rhs⟩ => (["Yatima.TC.REcursorRule", 0, fields.toLDON, rhs] : List LDON)
+  | ⟨fields, rhs⟩ => (["Yatima.TC.RecursorRule", 0, fields.toLDON, rhs] : List LDON)
 
 instance : Coe RecursorRule LDON where
   coe := RecursorRule.toLDON

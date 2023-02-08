@@ -28,25 +28,11 @@ def CommitState.tcStore (stt : CommitState) : RBMap F Const compare :=
     | some c => acc.insert f c
     | none => acc
 
-/--
-`RecrCtx` contains information for the reconstruction of (mutual) definitions
-and inductives. Each item (identified by an index) in the recursive context is
-mapped to its constant index and its name. In the case of definitions, the items
-are also identified by a second index that indicates their position among weakly
-equal definitions.
--/
-abbrev RecrCtx := RBMap (Nat × Option Nat) (Nat × Name) compare
-
 structure CommitCtx where
   store   : StoreAnon
-  recrCtx : RecrCtx
   quick   : Bool
   persist : Bool
 
 abbrev CommitM := ReaderT CommitCtx $ ExceptT String $ StateT CommitState IO
-
-/-- Runs a computation with a certain `RecrCtx` -/
-def withRecrs (recrCtx : RecrCtx) : CommitM α → CommitM α :=
-  withReader $ fun e => { e with recrCtx }
 
 end Yatima.Commit

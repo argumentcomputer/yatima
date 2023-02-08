@@ -39,16 +39,16 @@ def derefConst (f : F) (store : Store) : Const :=
   store.find! f
 
 /-- TODO document. This function is overwritten btw -/
-def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) : F :=
+def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) (quick : Bool) : F :=
   let ctorF : Const := .constructorProj ⟨block, idx, cidx⟩
-  let (ctorF, _) := ctorF.toLDON.commit default
-  ctorF
+  if quick then .ofNat $ (Hashable.hash ctorF).toNat
+  else ctorF.toLDON.commit default |>.1
 
 /-- TODO document. This function is overwritten btw -/
-def mkInductiveProjF (block : F) (idx : Nat) : F :=
+def mkInductiveProjF (block : F) (idx : Nat) (quick : Bool) : F :=
   let indF : Const := .inductiveProj ⟨block, idx⟩
-  let (indF, _) := indF.toLDON.commit default
-  indF
+  if quick then .ofNat $ (Hashable.hash indF).toNat
+  else indF.toLDON.commit default |>.1
 
 /--
 Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
@@ -347,12 +347,14 @@ mutual
             let ctor ← match ind.ctors with
               | [ctor] => pure ctor
               | _ => throw .impossible
-            let ctorF := mkConstructorProjF f i 0
+            let quick := (← read).quick
+            let ctorF := mkConstructorProjF f i 0 quick
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut projArgs : List SusValue := params
               for idx in [:ctor.fields] do
                 -- FIXME get the correct TypeInfo for the projection
-                projArgs := projArgs ++ [.mk .none $ .mk fun _ => .app (.proj (mkInductiveProjF f i) idx $ .mk info e) []]
+                projArgs := projArgs ++ [.mk .none $ .mk fun _ =>
+                  .app (.proj (mkInductiveProjF f i quick) idx $ .mk info e) []]
               let mut annotatedArgs := []
               if projArgs.length > 0 then do
                 let some lastArg := projArgs.get? (projArgs.length - 1) | throw .impossible

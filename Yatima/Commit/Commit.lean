@@ -69,7 +69,7 @@ partial def mkExpr (hash : Hash) : CommitM Expr := do
       | some e => pure e
       | none => match (← read).store.exprs.find? hash with
         | none => throw s!"malformed store: encountered hash for `Expr` not found:\n  {hash}"
-        | some $ .var i us => pure $ .var i -- TODO: someone please check my work
+        | some $ .var i us => pure $ .var i (← us.mapM mkUniv)
         | some $ .sort u => pure $ .sort (← mkUniv u)
         | some $ .const c us => pure $ .const (← commitConst c) (← us.mapM mkUniv)
         | some $ .app x y => pure $ .app (← mkExpr x) (← mkExpr y)
@@ -172,7 +172,7 @@ def commit (hashes : Array Hash) (store : StoreAnon) (quick persist : Bool) :
   let persist := if quick then false else persist
   if persist then mkCMDirs
   match ← StateT.run (ReaderT.run (commitM hashes)
-    ⟨store, default, quick, persist⟩) default with
+    ⟨store, quick, persist⟩) default with
   | (.error e, _) => return .error e
   | (.ok hs, stt) => return .ok (stt, hs)
 
