@@ -1,5 +1,4 @@
 import Yatima.Datatypes.Const
-import Yatima.Typechecker.TypecheckError
 
 namespace Yatima.Typechecker
 
@@ -29,10 +28,7 @@ open Lurk (F)
   - `prop` tells us that the expression's type is `Prop` itself
 -/
 inductive TypeInfo
-  | unit  : TypeInfo
-  | proof : TypeInfo
-  | prop  : TypeInfo
-  | none  : TypeInfo
+  | unit | proof | prop | none
   deriving BEq, Inhabited, Repr
 
 /--
@@ -42,11 +38,8 @@ inductive TypeInfo
   (i.e. Sort 0), for example in the types of universe-polymorphic constants.
 -/
 inductive SusTypeInfo
-  | unit  : SusTypeInfo
-  | proof : SusTypeInfo
-  | prop  : SusTypeInfo
+  | unit | proof | prop | none
   | sort  : Univ → SusTypeInfo
-  | none  : SusTypeInfo
   deriving BEq, Inhabited
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo
@@ -105,24 +98,24 @@ mutual
   that of their expression under its environment.
   -/
   inductive Value
-    -- Type universes. It is assumed `Univ` is reduced/simplified
+    /-- Type universes. It is assumed `Univ` is reduced/simplified -/
     | sort : Univ → Value
-    -- Values can only be an application if its a stuck application. That is, if
-    -- the head of the application is neutral.
-    -- For `Value.app neu [(a_1, ti_1), (a_2, ti_2), ... (a_n, ti_n)]`,
-    -- `ti_i` representst the `TypeInfo` of the partial application thus far (`neu a_1 a_2 ... a_i`);
-    -- this preserves information necessary to implement the quoting (i.e. read-back)
-    -- functionality that is used in lambda inference
+    /-- Values can only be an application if its a stuck application. That is, if
+    the head of the application is neutral.
+    For `Value.app neu [(a_1, ti_1), (a_2, ti_2), ... (a_n, ti_n)]`,
+    `ti_i` representst the `TypeInfo` of the partial application thus far (`neu a_1 a_2 ... a_i`);
+    this preserves information necessary to implement the quoting (i.e. read-back)
+    functionality that is used in lambda inference -/
     | app : Neutral → List (SusValue × TypeInfo) → Value
-    -- Lambdas are unevaluated expressions with environments for their free
-    -- variables apart from their argument variables
+    /-- Lambdas are unevaluated expressions with environments for their free
+    variables apart from their argument variables -/
     | lam : SusValue → TypedExpr → Env → Value
-    -- Pi types will have thunks for their domains and unevaluated expressions
-    -- analogous to lambda bodies for their codomains
+    /-- Pi types will have thunks for their domains and unevaluated expressions
+    analogous to lambda bodies for their codomains -/
     | pi : SusValue → TypedExpr → Env → Value
     | lit : Literal → Value
     -- An exception constructor is used to catch bugs in the evaluator/typechecker
-    | exception : TypecheckError → Value
+    | exception : String → Value
     deriving Inhabited
 
   inductive TypedValue

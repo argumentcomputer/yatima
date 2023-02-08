@@ -15,7 +15,7 @@ def typecheckAll (store : Store) : Except String Unit :=
   let aux := do (← read).store.forM fun f _ => checkConst f
   match TypecheckM.run (.init store true) default aux with
   | .ok u => .ok u
-  | .error err => throw $ toString err
+  | .error err => throw err
 
 open Lurk (F)
 
@@ -26,6 +26,6 @@ of retrieving constants from a `Yatima.TC.Store`
 def typecheckConstNoStore (f : F) : Except String Unit :=
   match TypecheckM.run default default (checkConst f) with
   | .ok u => .ok u
-  | .error err => throw $ toString err
+  | .error err => throw err
 
 end Yatima.Typechecker

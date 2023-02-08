@@ -49,10 +49,10 @@ def TypecheckCtx.init (store : Store) (quick : Bool) : TypecheckCtx :=
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
 and can throw exceptions of the form `TypecheckError`
 -/
-abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT TypecheckError Id
+abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT String Id
 
 /-- Basic runner for the typechecker monad -/
-def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except TypecheckError α :=
+def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except String α :=
   match ExceptT.run $ (StateT.run (ReaderT.run m ctx) stt) with
   | .error e => .error e
   | .ok (a, _) => .ok a
@@ -171,7 +171,7 @@ def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
   else match primToFQuick p with | none => noneHandle | some a => someHandle a
 
 def primF (p : PrimConst) : TypecheckM F :=
-  primFWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
+  primFWith p (throw s!"Cannot find constant `{p}` in store") pure
 
 def fPrim (f : F) : TypecheckM $ Option PrimConst := do
   if !(← read).quick then pure $ fToPrim f
@@ -182,27 +182,27 @@ structure PrimOp where
 
 def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
   | .natSucc => .mk fun vs => do
-    let some v := vs.get? 0 | throw $ .impossible
+    let some v := vs.get? 0 | throw sorry
     match v.get with
-    | .lit (.natVal v) => pure $ .some $ .lit (.natVal (v+1))
+    | .lit (.natVal v) => pure $ .some $ .lit (.natVal v.succ)
     | _ => pure none
   | .natAdd => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v+v'))
     | _, _ => pure none
   | .natMul => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v*v'))
     | _, _ => pure none
   | .natPow => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
     | _, _ => pure none
   | .natBeq => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v = v' then do
@@ -211,7 +211,7 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
         pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBle => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v ≤ v' then do
@@ -220,7 +220,7 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
         pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBlt => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v < v' then do

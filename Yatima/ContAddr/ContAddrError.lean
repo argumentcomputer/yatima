@@ -4,9 +4,6 @@ namespace Yatima.ContAddr
 
 /-- Errors that can be thrown in `Yatima.ContAddr.ContAddrM` -/
 inductive ContAddrError
-  | notFoundInCache : Name → ContAddrError
-  | notFoundInRecrCtx : Name → ContAddrError
-  | invalidConstantIndex : Nat → Nat → ContAddrError
   | unknownConstant : Name → ContAddrError
   | unfilledLevelMetavariable : Lean.Level → ContAddrError
   | unfilledExprMetavariable : Lean.Expr → ContAddrError
@@ -19,14 +16,9 @@ inductive ContAddrError
   | constantNotContentAddressed : Name → ContAddrError
   | nonRecursorExtractedFromChildren : Name → ContAddrError
   | cantFindMutDefIndex : Name → ContAddrError
-  | custom : String → ContAddrError
   deriving Inhabited
 
 instance : ToString ContAddrError where toString
-  | .notFoundInCache n => s!"Could not find cid of '{n}' in cache"
-  | .notFoundInRecrCtx n => s!"Could not find '{n}' in recrCtx"
-  | .invalidConstantIndex idx size =>
-    s!"Invalid index {idx} for dereferring a constant. Must be < {size}."
   | .unknownConstant n => s!"Unknown constant '{n}'"
   | .unfilledLevelMetavariable l => s!"Unfilled level metavariable on universe '{l}'"
   | .unfilledExprMetavariable e => s!"Unfilled level metavariable on expression '{e}'"
@@ -41,6 +33,5 @@ instance : ToString ContAddrError where toString
   | .nonRecursorExtractedFromChildren n =>
     s!"Non-recursor '{n}' extracted from children"
   | .cantFindMutDefIndex n => s!"Can't find index for mutual definition '{n}'"
-  | .custom s => s
 
 end Yatima.ContAddr

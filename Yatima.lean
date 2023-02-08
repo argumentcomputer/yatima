@@ -1,9 +1,11 @@
 import Yatima.Cli.CodeGenCmd
 import Yatima.Cli.CommitCmd
 import Yatima.Cli.ContAddrCmd
+import Yatima.Cli.GenTypecheckerCmd
 import Yatima.Cli.GetCmd
 import Yatima.Cli.IpfsCmd
 import Yatima.Cli.PrintPrimsCmd
+import Yatima.Cli.ProveCmd
 import Yatima.Cli.PutCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.Utils
@@ -51,11 +53,7 @@ import Yatima.Lean.Utils
 import Yatima.Typechecker.Datatypes
 import Yatima.Typechecker.Equal
 import Yatima.Typechecker.Eval
-import Yatima.Typechecker.Extractor.ExtractError
-import Yatima.Typechecker.Extractor.ExtractM
-import Yatima.Typechecker.Extractor.Extractor
 import Yatima.Typechecker.Infer
 import Yatima.Typechecker.Printing
-import Yatima.Typechecker.TypecheckError
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Typechecker

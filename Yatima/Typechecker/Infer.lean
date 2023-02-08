@@ -31,7 +31,7 @@ def isStruct : Value → TypecheckM (Option (F × Constructor × List Univ × Li
         | true => do
           let some ctor := ind.ctors.get? 0 | throw sorry
           -- Sanity check
-          if ind.params != params.length then throw .impossible else
+          if ind.params != params.length then throw sorry else
           pure (k, ctor, univs, (params.map (·.1)))
         | false => pure none
     | _ => pure none
@@ -85,7 +85,7 @@ mutual
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      throw $ .valueMismatch (toString type.get) (toString inferType.get)
+      throw sorry
     else pure term
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
@@ -94,7 +94,7 @@ mutual
     | .var idx us =>
       let types := (← read).types
       -- TODO get from `mutTypes` if out of range
-      let some type := types.get? idx | throw $ .outOfEnvironmentRange default idx types.length
+      let some type := types.get? idx | throw sorry
       let term := .var (← susInfoFromType type) idx
       pure (term, type)
     | .sort lvl =>
@@ -113,7 +113,7 @@ mutual
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
         let term := .app (← susInfoFromType typ) fnc arg
         pure (term, typ)
-      | val => throw $ .notPi (toString val)
+      | val => throw sorry
     | .lam dom bod => do
       let (dom, _) ← isSort dom
       let ctx ← read
@@ -162,7 +162,7 @@ mutual
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
       let some (ind, ctor, univs, params) ← isStruct exprType.get
-        | throw $ .typNotStructure (toString exprType.get)
+        | throw sorry
       -- annotate constructor type
       let (ctorType, _) ← infer ctor.type
       let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
@@ -180,11 +180,11 @@ mutual
           let term := .proj (← susInfoFromType dom) ind idx expr
           pure (term, dom)
         | .prop, _ =>
-          throw $ .projEscapesProp s!"{toString expr}.{idx}"
+          throw sorry
         | _, _ =>
           let term := .proj (← susInfoFromType dom) ind idx expr
           pure (term, dom)
-      | _ => throw .impossible
+      | _ => throw sorry
 
   /--
   Checks if `expr : Expr` is `Sort lvl` for some level `lvl`, and throws `TypecheckerError.notTyp`
@@ -194,7 +194,7 @@ mutual
     let (expr, typ) ← infer expr
     match typ.get with
     | .sort u => pure (expr, u)
-    | val => throw $ .notTyp (toString val)
+    | val => throw sorry
 
   /-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
   otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.

@@ -61,7 +61,7 @@ Note: The `name : Name` is used only in the error messaging
 def derefTypedConst (f : F) : TypecheckM TypedConst := do
   match (← get).typedConsts.find? f with
   | some const => pure const
-  | none => throw $ .custom "TODO"
+  | none => throw sorry
 
 end Typechecker
 
@@ -144,8 +144,7 @@ mutual
       let dom' := suspend dom ctx (← get)
       pure $ .lam dom' bod ctx.env
     | .var _ idx => do
-      let exprs := (← read).env.exprs
-      let some thunk := exprs.get? idx | throw $ .outOfRangeError "TODO" idx exprs.length
+      let some thunk := (← read).env.exprs.get? idx | throw sorry
       pure $ thunk.get
     | .const _ f const_univs => do
       let env := (← read).env
@@ -173,11 +172,11 @@ mutual
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx
           let some arg := args.reverse.get? idx
-            | throw $ .custom s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
+            | throw s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.1.get
         | _ => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
       | .app .. => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
-      | e => throw $ .custom s!"Value {e} is impossible to project"
+      | e => throw s!"Value {e} is impossible to project"
 
   partial def evalConst' (f : F) (univs : List Univ) : TypecheckM Value := do
     match derefConst f (← read).store with
@@ -189,8 +188,8 @@ mutual
         match safety with
         | .safe    => withEnv ⟨[], univs⟩ $ eval deref
         | .partial => pure $ mkConst f univs
-        | .unsafe  => throw .unsafeDefinition
-      | _ => throw .impossible
+        | .unsafe  => throw s!"Can't evaluate unsafe definition {f}"
+      | _ => throw sorry
     | _ => pure $ mkConst f univs
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
@@ -238,7 +237,7 @@ mutual
     | .app var@(.fvar ..) args => pure $ .app var ((arg, i) :: args)
     | .app proj@(.proj ..) args => pure $ .app proj ((arg, i) :: args)
     -- Since terms are well-typed we know that any other case is impossible
-    | _ => throw .impossible
+    | _ => throw sorry
 
   /--
   Applies a named constant, referred by its constant index `f : F` to the list of arguments
@@ -269,13 +268,13 @@ mutual
     | .recursor _ params motives minors indices isK indProj rules =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
-        pure $ .app (Neutral.const f univs) ((arg, info) :: args)
+        pure $ .app (.const f univs) ((arg, info) :: args)
       else if isK then
         -- sanity check
         if args.length < (params + motives + 1) then
-          throw .impossible
+          throw sorry
         let minorIdx := args.length - (params + motives + 1)
-        let some minor := args.get? minorIdx | throw .impossible
+        let some minor := args.get? minorIdx | throw sorry
         pure minor.1.get
       else
         let params := args.take params
@@ -289,7 +288,7 @@ mutual
               withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
-            | none => throw .hasNoRecursionRule --panic! "Constructor has no associated recursion rule. Implementation is broken."
+            | none => throw s!"Constructor {f} has no associated recursion rule"
           | _ => pure $ .app (Neutral.const f univs) ((arg, info) :: args)
         | _ => pure $ .app (Neutral.const f univs) ((arg, info) :: args)
     | .quotient _ kind => match kind with
@@ -310,16 +309,16 @@ mutual
         match ← derefTypedConst majorFn with
         | .quotient _ .ctor =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
-          if majorArgs.length != 3 then throw .impossible
-          let some majorArg := majorArgs.head? | throw .impossible
-          let some head := args.get? argPos | throw .impossible
+          if majorArgs.length != 3 then throw sorry
+          let some majorArg := majorArgs.head? | throw sorry
+          let some head := args.get? argPos | throw sorry
           apply head.1.get majorArg.1 info
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
       pure default
     else
-      throw .impossible
+      throw sorry
 
   partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
     | .mk info thunk => match thunk.get with
@@ -330,7 +329,7 @@ mutual
         else
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
           pure $ .app (.const succIdx []) [(thunk, .none)]
-      | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
+      | .lit (.strVal _) => throw "TODO Reduction of string"
       | e => do match indProj with
         | ⟨f, i⟩ =>
           let ind ← getIndFromProj indProj
@@ -338,7 +337,7 @@ mutual
           if ind.struct then
             let ctor ← match ind.ctors with
               | [ctor] => pure ctor
-              | _ => throw .impossible
+              | _ => throw sorry
             let quick := (← read).quick
             let ctorF := mkConstructorProjF f i 0 quick
             let etaExpand (e : Value) : TypecheckM Value := do
@@ -349,7 +348,7 @@ mutual
                   .app (.proj (mkInductiveProjF f i quick) idx $ .mk info e) []]
               let mut annotatedArgs := []
               if projArgs.length > 0 then do
-                let some lastArg := projArgs.get? (projArgs.length - 1) | throw .impossible
+                let some lastArg := projArgs.get? (projArgs.length - 1) | throw sorry
                 annotatedArgs := projArgs.take (projArgs.length - 1) |>.map (·, .none)
                 annotatedArgs := annotatedArgs ++ [(lastArg, info)]
               pure $ .app (.const ctorF univs) $ annotatedArgs
@@ -401,7 +400,7 @@ mutual
       -- this allows us to add values to the environment without knowing which `TypeInfo` it should take. See their
       -- previous note
      | some val => quote lvl info env val.get
-     | none => throw $ .custom s!"Unbound variable _@{idx}"
+     | none => throw s!"Unbound variable _@{idx}"
     | .app info fnc arg => do
       let fnc ← quoteExpr lvl fnc env
       let arg ← quoteExpr lvl arg env
