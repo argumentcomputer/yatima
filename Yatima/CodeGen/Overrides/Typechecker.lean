@@ -18,6 +18,13 @@ def mkConstructorProjF : Override := Override.decl ⟨`Yatima.Typechecker.mkCons
         (Yatima.TC.ConstructorProj.mk block idx cidx)))))
 ⟧⟩
 
+def mkInductiveProjF : Override := Override.decl ⟨`Yatima.Typechecker.mkInductiveProjF, ⟦
+  (lambda (block idx) 
+    (num (commit 
+      (Yatima.TC.Const.inductiveProj
+        (Yatima.TC.InductiveProj.mk block idx)))))
+⟧⟩
+
 def module := [
   derefConst,
   mkConstructorProjF

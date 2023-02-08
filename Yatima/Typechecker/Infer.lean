@@ -25,16 +25,15 @@ open Lurk (F)
 def isStruct : Value → TypecheckM (Option (F × Constructor × List Univ × List SusValue))
   | .app (.const k univs) params => do
     match derefConst k (← read).store with
-    | .inductive ind => do
+    | .inductiveProj p => do
+      let ind ← getIndFromProj p
       match ind.struct with
-        | some ctorF => do
-          let ctor ← match derefConst ctorF (← read).store with
-            | .constructor ctor => pure ctor
-            | _ => throw .impossible
+        | true => do
+          let some ctor := ind.ctors.get? 0 | throw sorry
           -- Sanity check
           if ind.params != params.length then throw .impossible else
           pure (k, ctor, univs, (params.map (·.1)))
-        | none => pure none
+        | false => pure none
     | _ => pure none
   | _ => pure none
 
@@ -59,7 +58,9 @@ def infoFromType (typ : SusValue) : TypecheckM TypeInfo :=
   | _ =>
     match typ.get with
     | .app (.const f _) _ => do match derefConst f (← read).store with
-      | .inductive induct => if induct.unit then pure .unit else pure .none
+      | .inductiveProj p => 
+        let induct ← getIndFromProj p
+        if induct.unit then pure .unit else pure .none
       | _ => pure .none
     | .sort lvl => if lvl.isZero then pure .prop else pure .none
     | _ => pure .none
@@ -70,7 +71,9 @@ def susInfoFromType (typ : SusValue) : TypecheckM SusTypeInfo :=
   | _ =>
     match typ.get with
     | .app (.const f _) _ => do match derefConst f (← read).store with
-      | .inductive induct => if induct.unit then pure .unit else pure .none
+      | .inductiveProj p =>
+        let induct ← getIndFromProj p
+        if induct.unit then pure .unit else pure .none
       | _ => pure .none
     | .sort lvl => if lvl.isZero then pure .prop else pure (.sort lvl)
     | _ => pure .none
@@ -88,8 +91,9 @@ mutual
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
     match term with
-    | .var idx =>
+    | .var idx us =>
       let types := (← read).types
+      -- TODO get from `mutTypes` if out of range
       let some type := types.get? idx | throw $ .outOfEnvironmentRange default idx types.length
       let term := .var (← susInfoFromType type) idx
       pure (term, type)
@@ -203,9 +207,9 @@ mutual
     | some _ => pure ()
     | none =>
       let c := derefConst f (← read).store
-      let univs := List.range c.levels |>.map .var
+      let univs := List.range (← c.levels) |>.map .var
       withEnv ⟨ [], univs ⟩ do
-        let (type, _) ← isSort c.type
+        let (type, _) ← isSort (← c.type)
         let newConst ← match c with
           | .axiom  _    => pure $ TypedConst.axiom type
           | .opaque data =>
@@ -220,32 +224,68 @@ mutual
             let typeSus := suspend type (← read) (← get)
             let value ← match data.safety with
               | .partial =>
-                let mutTypes ← data.mutTypes.foldlM (init := default) fun acc type => do
+                let mut mutTypes := default
+                mutTypes ← do
                   -- TODO avoid repeated work here
-                  let (type, _) ← isSort type
+                  let (type, _) ← isSort data.type
                   let ctx ← read
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
-                  pure $ acc.insert f typeSus
+                  pure $ mutTypes.insert 0 typeSus
                 withMutTypes mutTypes $ check data.value typeSus
               | _ => check data.value typeSus
             pure $ TypedConst.definition type value data.safety
-          | .inductive   data => pure $ .inductive type data.struct.isSome
-          | .constructor data => pure $ .constructor type data.idx data.fields
-          | .recursor data => do
-            let mutTypes ← data.mutTypes.foldlM (init := default) fun acc type => do
+          | .definitionProj p@⟨defBlockF, idx⟩ =>
+            let data ← getDefFromProj p
+            let defBlock ← match derefConst defBlockF (← read).store with
+              | .mutDefBlock blk => pure blk
+              | _ => throw sorry
+            let typeSus := suspend type (← read) (← get)
+            let value ← match data.safety with
+              | .partial =>
+                -- TODO check order (should be same as `recrCtx` in CA)
+                let mutTypes ← defBlock.enum.foldlM (init := default) fun acc (i, defn) => do
+                  -- TODO avoid repeated work here
+                  let (type, _) ← isSort defn.type
+                  let ctx ← read
+                  let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
+                  pure $ acc.insert i typeSus
+                withMutTypes mutTypes $ check data.value typeSus
+              | _ => check data.value typeSus
+            pure $ TypedConst.definition type value data.safety
+          | .inductiveProj   p =>
+            let data ← getIndFromProj p
+            pure $ .inductive type data.struct
+          | .constructorProj p =>
+            let data ← getCtorFromProj p
+            pure $ .constructor type data.idx data.fields
+          | .recursorProj p@⟨indBlockF, idx, ridx⟩ => do
+            let data ← getRecrFromProj p
+            let indBlock ← match derefConst indBlockF (← read).store with
+              | .mutIndBlock blk => pure blk
+              | _ => throw sorry
+            let mut indTypes : List Expr := []
+            let mut ctorTypes : List Expr := []
+            let mut recTypes : List Expr := []
+            for ind in indBlock do
+              indTypes := indTypes ++ [ind.type]
+              ctorTypes := ctorTypes ++ (← ind.ctors.mapM fun ctor => do pure ctor.type)
+              recTypes := recTypes.append (← ind.recrs.mapM fun recr => do pure recr.type)
+            -- TODO check order (should be same as `recrCtx` in CA)
+            let mutTypes ← (indTypes ++ ctorTypes ++ recTypes).enum.foldlM (init := default) fun acc (i, type) => do
               -- FIXME repeated computation (this will happen again when we
               -- actually check the recursor on its own)
-              let (type, _)  ← withMutTypes acc $ isSort type
+              let (type, _) ← withMutTypes acc $ isSort type
               let ctx ← read
               let stt ← get
               let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-              pure $ acc.insert f typeSus
+              pure $ acc.insert i typeSus
             let rules ← data.rules.mapM fun rule => do
               let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
               pure (rule.fields, rhs)
             pure $ .recursor type data.params data.motives data.minors
-              data.indices data.isK data.ind rules
+              data.indices data.isK ⟨indBlockF, idx⟩ rules
           | .quotient data => pure $ .quotient type data.kind
+          | _ => throw sorry
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f newConst }
 end
 

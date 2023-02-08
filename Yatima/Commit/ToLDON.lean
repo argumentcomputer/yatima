@@ -43,7 +43,7 @@ instance : Coe Univ LDON where
   coe := Univ.toLDON
 
 def Expr.toLDON : Expr → LDON
-  | .var n          => (["Yatima.TC.Expr", 0, n.toLDON] : List LDON)
+  | .var n lvls     => (["Yatima.TC.Expr", 0, n.toLDON, lvls.map TC.Univ.toLDON] : List LDON)
   | .sort u         => (["Yatima.TC.Expr", 1, u] : List LDON)
   | .const ptr lvls => (["Yatima.TC.Expr", 2, ptr, lvls.map TC.Univ.toLDON] : List LDON)
   | .app fn arg     => (["Yatima.TC.Expr", 3, fn.toLDON, arg.toLDON] : List LDON)

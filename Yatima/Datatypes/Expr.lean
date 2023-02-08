@@ -43,7 +43,7 @@ namespace TC
 open Lurk (F)
 
 inductive Expr
-  | var   : Nat → Expr
+  | var   : Nat → List Univ → Expr
   | sort  : Univ → Expr
   | const : F → List Univ → Expr
   | app   : Expr → Expr → Expr

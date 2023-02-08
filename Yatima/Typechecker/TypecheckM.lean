@@ -26,7 +26,9 @@ structure TypecheckCtx where
   env      : Env
   types    : List SusValue
   store    : Store
-  mutTypes : Std.RBMap F (List Univ → SusValue) compare
+  /-- Maps a variable index (which represents a reference to a mutual const)
+    To a function returning a `SusValue` for that constant given a list of universes. -/
+  mutTypes : Std.RBMap Nat (List Univ → SusValue) compare
   quick    : Bool
   deriving Inhabited
 
@@ -69,7 +71,7 @@ def withResetCtx : TypecheckM α → TypecheckM α :=
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
 -/
-def withMutTypes (mutTypes : Std.RBMap F (List Univ → SusValue) compare) :
+def withMutTypes (mutTypes : Std.RBMap Nat (List Univ → SusValue) compare) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with mutTypes := mutTypes }
 

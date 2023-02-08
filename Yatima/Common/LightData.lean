@@ -299,7 +299,7 @@ instance : Encodable F LightData String where
 def exprToLightData : Expr → LightData
   | .sort x     => .prd (0, x)
   | .lit x      => .prd (1, x)
-  | .var x      => .prd (2, x)
+  | .var x y    => .arr #[2, x, y]
   | .const x y  => .arr #[3, x, y]
   | .app x y    => .arr #[4, exprToLightData x, exprToLightData y]
   | .lam x y    => .arr #[5, exprToLightData x, exprToLightData y]
@@ -310,7 +310,7 @@ def exprToLightData : Expr → LightData
 partial def lightDataToExpr : LightData → Except String Expr
   | .prd (0, x) => return .sort (← lightDataToUniv x)
   | .prd (1, x) => return .lit (← dec x)
-  | .prd (2, x) => return .var (← dec x)
+  | .arr #[2, x, y] => return .var (← dec x) (← dec y)
   | .arr #[3, x, y] => return .const (← dec x) (← dec y)
   | .arr #[4, x, y] => return .app (← lightDataToExpr x) (← lightDataToExpr y)
   | .arr #[5, x, y] => return .lam (← lightDataToExpr x) (← lightDataToExpr y)

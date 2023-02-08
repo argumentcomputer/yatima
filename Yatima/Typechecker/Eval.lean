@@ -44,6 +44,12 @@ def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) : F :=
   let (ctorF, _) := ctorF.toLDON.commit default
   ctorF
 
+/-- TODO document. This function is overwritten btw -/
+def mkInductiveProjF (block : F) (idx : Nat) : F :=
+  let indF : Const := .inductiveProj ⟨block, idx⟩
+  let (indF, _) := indF.toLDON.commit default
+  indF
+
 /--
 Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
 returns it if it is found. If the constant is not found it throws an error.
@@ -59,7 +65,7 @@ def derefTypedConst (f : F) : TypecheckM TypedConst := do
 
 end Typechecker
 
-namespace TC.Const
+namespace TC
 
 open Typechecker (TypecheckM derefConst)
 
@@ -86,6 +92,8 @@ def getRecrFromProj : RecursorProj → TypecheckM Recursor
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
     let some recr := ind.recrs.get? cidx | throw sorry
     pure recr
+
+namespace Const
 
 def levels : Const → TypecheckM Nat
   | .axiom      x
@@ -119,11 +127,11 @@ def type : Const → TypecheckM Expr
     pure (← getDefFromProj p).type
   | _ => throw sorry
 
-end TC.Const
+end Const
+
+end TC
 
 namespace Typechecker
-
-open TC.Const
 
 mutual
   /--
@@ -266,7 +274,7 @@ mutual
     -- Assumes a partial application of f to args, which means in particular,
     -- that it is in normal form
     else match ← derefTypedConst f with
-    | .recursor _ params motives minors indices isK indF rules =>
+    | .recursor _ params motives minors indices isK indProj rules =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         pure $ .app (Neutral.const f univs) ((arg, info) :: args)
@@ -279,7 +287,7 @@ mutual
         pure minor.1.get
       else
         let params := args.take params
-        match ← toCtorIfLitOrStruct indF (params.map (·.1)) univs arg with
+        match ← toCtorIfLitOrStruct indProj (params.map (·.1)) univs arg with
         | .app (Neutral.const f _) args' => match ← derefTypedConst f with
           | .constructor _ idx _ =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
@@ -321,7 +329,7 @@ mutual
     else
       throw .impossible
 
-  partial def toCtorIfLitOrStruct (indF : F) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
+  partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
     | .mk info thunk => match thunk.get with
       | .lit (.natVal v) => do
         let zeroIdx ← primF .natZero
@@ -331,9 +339,9 @@ mutual
           let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
           pure $ .app (.const succIdx []) [(thunk, .none)]
       | .lit (.strVal _) => throw $ .custom "TODO Reduction of string"
-      | e => do match derefConst indF (← read).store with
-        | .inductiveProj p@⟨f, i⟩ =>
-          let ind ← getIndFromProj p
+      | e => do match indProj with
+        | ⟨f, i⟩ =>
+          let ind ← getIndFromProj indProj
         -- | .inductive (.mk (struct := struct) (ctors := ctors) ..) =>
           if ind.struct then
             let ctor ← match ind.ctors with
@@ -344,7 +352,7 @@ mutual
               let mut projArgs : List SusValue := params
               for idx in [:ctor.fields] do
                 -- FIXME get the correct TypeInfo for the projection
-                projArgs := projArgs ++ [.mk .none $ .mk fun _ => .app (.proj indF idx $ .mk info e) []]
+                projArgs := projArgs ++ [.mk .none $ .mk fun _ => .app (.proj (mkInductiveProjF f i) idx $ .mk info e) []]
               let mut annotatedArgs := []
               if projArgs.length > 0 then do
                 let some lastArg := projArgs.get? (projArgs.length - 1) | throw .impossible
@@ -365,7 +373,6 @@ mutual
             | _ => etaExpand e
           else
             pure e
-        | _ => throw .impossible
 end
 
 mutual

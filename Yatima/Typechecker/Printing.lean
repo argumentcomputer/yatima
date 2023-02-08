@@ -30,7 +30,7 @@ end
 
 /-- Printer of expressions -/
 def printExpr : Expr → String
-  | .var idx => s!"_@{idx}"
+  | .var idx _ => s!"_@{idx}"
   | .sort u => s!"(Sort {printUniv u})"
   | .const k univs => s!"_@{k}.{univs.map printUniv}"
   | .app fnc arg => s!"({printExpr fnc} {printExpr arg})"
