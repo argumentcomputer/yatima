@@ -101,14 +101,10 @@ def levels : Const → TypecheckM Nat
   | .opaque     x
   | .definition x
   | .quotient   x => pure x.lvls
-  | .inductiveProj p => do
-    pure (← getIndFromProj p).lvls
-  | .constructorProj p => do
-    pure (← getCtorFromProj p).lvls
-  | .recursorProj p => do
-    pure (← getRecrFromProj p).lvls
-  | .definitionProj p => do
-    pure (← getDefFromProj p).lvls
+  | .inductiveProj   p => do pure (← getIndFromProj  p).lvls
+  | .constructorProj p => do pure (← getCtorFromProj p).lvls
+  | .recursorProj    p => do pure (← getRecrFromProj p).lvls
+  | .definitionProj  p => do pure (← getDefFromProj  p).lvls
   | _ => throw sorry
 
 def type : Const → TypecheckM Expr
@@ -117,14 +113,10 @@ def type : Const → TypecheckM Expr
   | .opaque     x
   | .definition x
   | .quotient   x => pure x.type
-  | .inductiveProj p => do
-    pure (← getIndFromProj p).type
-  | .constructorProj p => do
-    pure (← getCtorFromProj p).type
-  | .recursorProj p => do
-    pure (← getRecrFromProj p).type
-  | .definitionProj p => do
-    pure (← getDefFromProj p).type
+  | .inductiveProj   p => do pure (← getIndFromProj  p).type
+  | .constructorProj p => do pure (← getCtorFromProj p).type
+  | .recursorProj    p => do pure (← getRecrFromProj p).type
+  | .definitionProj  p => do pure (← getDefFromProj  p).type
   | _ => throw sorry
 
 end Const
