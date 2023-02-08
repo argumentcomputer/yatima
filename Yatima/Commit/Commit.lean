@@ -50,7 +50,7 @@ partial def mkUniv (hash : Hash) : CommitM Univ := do
     let u ← match ← loadUniv hash with
       | some u => pure u
       | none => match (← read).store.univs.find? hash with
-        | none => throw s!"malformed store: encountered hash for `Univ` not found:\n  {hash}"
+        | none => throw s!"Hash for Univ not found on store:\n  {hash}"
         | some .zero => pure .zero
         | some $ .succ u => pure $ .succ (← mkUniv u)
         | some $ .max u v => pure $ .max (← mkUniv u) (← mkUniv v)
@@ -68,7 +68,7 @@ partial def mkExpr (hash : Hash) : CommitM Expr := do
     let e ← match ← loadExpr hash with
       | some e => pure e
       | none => match (← read).store.exprs.find? hash with
-        | none => throw s!"malformed store: encountered hash for `Expr` not found:\n  {hash}"
+        | none => throw s!"Hash for Expr not found on store:\n  {hash}"
         | some $ .var i us => pure $ .var i (← us.mapM mkUniv)
         | some $ .sort u => pure $ .sort (← mkUniv u)
         | some $ .const c us => pure $ .const (← commitConst c) (← us.mapM mkUniv)
@@ -116,7 +116,7 @@ partial def mkConst (hash : Hash) : CommitM Const := do
       | some c => pure c
       | none =>
         let some const := ((← read).store.consts.find? hash) 
-          | throw s!"malformed store: encountered hash for `Const` not found:\n  {hash}"
+          | throw s!"Hash for Const not found on store:\n  {hash}"
         match const with
         | .axiom x => pure $ .axiom ⟨x.lvls, ← mkExpr x.type, x.safe⟩
         | .theorem x => pure $ .theorem ⟨x.lvls, ← mkExpr x.type, ← mkExpr x.value⟩
