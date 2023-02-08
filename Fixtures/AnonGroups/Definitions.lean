@@ -1,3 +1,4 @@
+set_option linter.all false -- prevent error messages from runFrontend
 namespace WellFounded
 
 mutual
