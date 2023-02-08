@@ -14,7 +14,7 @@ def inductivesExtractor := extractAnonGroupsTests [
 open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
-    ("Fixtures" / "AnonCidGroups" / "Inductives.lean")
+    ("Fixtures" / "AnonGroups" / "Inductives.lean")
     [inductivesExtractor]
     [extractGeneralTests]
     false

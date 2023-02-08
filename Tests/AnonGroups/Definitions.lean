@@ -23,6 +23,6 @@ def unsafeExtractor := extractAnonGroupsTests [
 open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
-    ("Fixtures" / "AnonCidGroups" / "Definitions.lean")
+    ("Fixtures" / "AnonGroups" / "Definitions.lean")
     [wellFoundedExtractor, partialExtractor, unsafeExtractor]
     [extractGeneralTests]
