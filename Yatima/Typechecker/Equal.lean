@@ -33,7 +33,7 @@ def applyType : Value → List SusValue → TypecheckM Value
     let res ← withEnv (imgCtx.extendWith arg) (eval img)
     applyType res args
   | type, [] => pure type
-  | _, _ => throw sorry
+  | _, _ => throw "Invalid case for applyType"
 
 mutual
   partial def tryEtaStruct (lvl : Nat) (term term' : SusValue) : TypecheckM Bool := do
