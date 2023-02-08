@@ -61,7 +61,7 @@ Note: The `name : Name` is used only in the error messaging
 def derefTypedConst (f : F) : TypecheckM TypedConst := do
   match (← get).typedConsts.find? f with
   | some const => pure const
-  | none => throw sorry
+  | none => throw s!"TypedConst for {f} not found"
 
 end Typechecker
 
@@ -71,26 +71,32 @@ open Typechecker (TypecheckM derefConst)
 
 def getIndFromProj : InductiveProj → TypecheckM Inductive
   | ⟨indBlockF, idx⟩ => do
-    let .mutIndBlock inds := derefConst indBlockF (← read).store | throw sorry
-    let some ind := inds.get? idx | throw sorry
+    let .mutIndBlock inds := derefConst indBlockF (← read).store
+      | throw "Invalid Const kind. Expected mutIndBlock"
+    let some ind := inds.get? idx
+      | throw s!"Mutual inductive block doesn't contain index {idx}"
     pure ind
 
 def getDefFromProj : DefinitionProj → TypecheckM Definition
   | ⟨defBlockF, idx⟩ => do
-    let .mutDefBlock defs := derefConst defBlockF (← read).store | throw sorry
-    let some defn := defs.get? idx | throw sorry
+    let .mutDefBlock defs := derefConst defBlockF (← read).store
+      | throw "Invalid Const kind. Expected mutDefBlock"
+    let some defn := defs.get? idx
+      | throw s!"Mutual definition block doesn't contain index {idx}"
     pure defn
 
 def getCtorFromProj : ConstructorProj → TypecheckM Constructor
   | ⟨indBlockF, idx, cidx⟩ => do
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
-    let some ctor := ind.ctors.get? cidx | throw sorry
+    let some ctor := ind.ctors.get? cidx
+      | throw s!"Inductive doesn't contain constructor with index {cidx}"
     pure ctor
 
 def getRecrFromProj : RecursorProj → TypecheckM Recursor
-  | ⟨indBlockF, idx, cidx⟩ => do
+  | ⟨indBlockF, idx, ridx⟩ => do
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
-    let some recr := ind.recrs.get? cidx | throw sorry
+    let some recr := ind.recrs.get? ridx
+      | throw s!"Inductive doesn't contain recursor with index {ridx}"
     pure recr
 
 namespace Const
@@ -105,7 +111,7 @@ def levels : Const → TypecheckM Nat
   | .constructorProj p => do pure (← getCtorFromProj p).lvls
   | .recursorProj    p => do pure (← getRecrFromProj p).lvls
   | .definitionProj  p => do pure (← getDefFromProj  p).lvls
-  | _ => throw sorry
+  | _ => throw "Can't retrieve universe levels of mutual blocks"
 
 def type : Const → TypecheckM Expr
   | .axiom      x
@@ -117,7 +123,7 @@ def type : Const → TypecheckM Expr
   | .constructorProj p => do pure (← getCtorFromProj p).type
   | .recursorProj    p => do pure (← getRecrFromProj p).type
   | .definitionProj  p => do pure (← getDefFromProj  p).type
-  | _ => throw sorry
+  | _ => throw "Can't retrieve type of mutual blocks"
 
 end Const
 
@@ -144,7 +150,8 @@ mutual
       let dom' := suspend dom ctx (← get)
       pure $ .lam dom' bod ctx.env
     | .var _ idx => do
-      let some thunk := (← read).env.exprs.get? idx | throw sorry
+      let some thunk := (← read).env.exprs.get? idx
+        | throw s!"Index {idx} is out of range for expression environment"
       pure $ thunk.get
     | .const _ f const_univs => do
       let env := (← read).env
@@ -189,7 +196,7 @@ mutual
         | .safe    => withEnv ⟨[], univs⟩ $ eval deref
         | .partial => pure $ mkConst f univs
         | .unsafe  => throw s!"Can't evaluate unsafe definition {f}"
-      | _ => throw sorry
+      | _ => throw "Invalid const kind for evaluation"
     | _ => pure $ mkConst f univs
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
@@ -237,7 +244,7 @@ mutual
     | .app var@(.fvar ..) args => pure $ .app var ((arg, i) :: args)
     | .app proj@(.proj ..) args => pure $ .app proj ((arg, i) :: args)
     -- Since terms are well-typed we know that any other case is impossible
-    | _ => throw sorry
+    | _ => throw "Invalid case for apply"
 
   /--
   Applies a named constant, referred by its constant index `f : F` to the list of arguments
@@ -271,10 +278,12 @@ mutual
         pure $ .app (.const f univs) ((arg, info) :: args)
       else if isK then
         -- sanity check
-        if args.length < (params + motives + 1) then
-          throw sorry
-        let minorIdx := args.length - (params + motives + 1)
-        let some minor := args.get? minorIdx | throw sorry
+        let nArgs := args.length
+        let nDrop := params + motives + 1
+        if nArgs < nDrop then
+          throw "Too few arguments"
+        let minorIdx := nArgs - nDrop
+        let some minor := args.get? minorIdx | throw "TODO: this is provably unreachable"
         pure minor.1.get
       else
         let params := args.take params
@@ -309,16 +318,16 @@ mutual
         match ← derefTypedConst majorFn with
         | .quotient _ .ctor =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
-          if majorArgs.length != 3 then throw sorry
-          let some majorArg := majorArgs.head? | throw sorry
-          let some head := args.get? argPos | throw sorry
+          if majorArgs.length != 3 then throw "majorArgs should have size 3"
+          let some majorArg := majorArgs.head? | throw "majorArgs can't be empty"
+          let some head := args.get? argPos | throw s!"{argPos} is an invalid index for args"
           apply head.1.get majorArg.1 info
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
       pure default
     else
-      throw sorry
+      throw "argsLength can't be greater than reduceSize"
 
   partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
     | .mk info thunk => match thunk.get with
@@ -337,7 +346,7 @@ mutual
           if ind.struct then
             let ctor ← match ind.ctors with
               | [ctor] => pure ctor
-              | _ => throw sorry
+              | _ => throw "Structures should have only one constructor"
             let quick := (← read).quick
             let ctorF := mkConstructorProjF f i 0 quick
             let etaExpand (e : Value) : TypecheckM Value := do
@@ -347,9 +356,11 @@ mutual
                 projArgs := projArgs ++ [.mk .none $ .mk fun _ =>
                   .app (.proj (mkInductiveProjF f i quick) idx $ .mk info e) []]
               let mut annotatedArgs := []
-              if projArgs.length > 0 then do
-                let some lastArg := projArgs.get? (projArgs.length - 1) | throw sorry
-                annotatedArgs := projArgs.take (projArgs.length - 1) |>.map (·, .none)
+              let len := projArgs.length
+              if h : len > 0 then do
+                let lastIdx := len.pred
+                let lastArg := projArgs.get ⟨lastIdx, Nat.pred_lt' h⟩
+                annotatedArgs := projArgs.take lastIdx |>.map (·, .none)
                 annotatedArgs := annotatedArgs ++ [(lastArg, info)]
               pure $ .app (.const ctorF univs) $ annotatedArgs
             match e with
@@ -435,5 +446,5 @@ mutual
     | .proj  f ind val => do
       pure $ .proj default f ind (← quote lvl val.info.toSus env val.value)
 end
-end Typechecker
-end Yatima
+
+end Yatima.Typechecker

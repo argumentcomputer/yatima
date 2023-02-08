@@ -182,27 +182,32 @@ structure PrimOp where
 
 def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
   | .natSucc => .mk fun vs => do
-    let some v := vs.get? 0 | throw sorry
+    let some v := vs.get? 0
+      | throw "At least one SusValue element needed for PrimConstOp.natSucc"
     match v.get with
     | .lit (.natVal v) => pure $ .some $ .lit (.natVal v.succ)
     | _ => pure none
   | .natAdd => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natAdd"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v+v'))
     | _, _ => pure none
   | .natMul => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natMul"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v*v'))
     | _, _ => pure none
   | .natPow => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natPow"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
     | _, _ => pure none
   | .natBeq => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natBeq"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v = v' then do
@@ -211,7 +216,8 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
         pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBle => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natBle"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v ≤ v' then do
@@ -220,7 +226,8 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
         pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBlt => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw sorry
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natBlt"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v < v' then do
