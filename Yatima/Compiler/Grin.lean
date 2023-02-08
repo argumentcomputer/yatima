@@ -43,6 +43,8 @@ inductive CPat where
   | ctag : Tag → List Var → CPat
   -- Single tag pattern
   | stag : Tag → CPat
+  -- Default case
+  | default : CPat
   | lit  : Literal → CPat
 
 inductive LPat where
