@@ -11,7 +11,7 @@ inductive UnivAnon
   | max  : Hash → Hash → UnivAnon
   | imax : Hash → Hash → UnivAnon
   | var  : Nat → UnivAnon
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 inductive UnivMeta
   | zero
@@ -19,7 +19,7 @@ inductive UnivMeta
   | max  : Hash → Hash → UnivMeta
   | imax : Hash → Hash → UnivMeta
   | var  : Name → UnivMeta
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 end IR
 

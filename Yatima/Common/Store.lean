@@ -30,7 +30,7 @@ structure StoreAnon where
   univs  : RBMap Hash UnivAnon  compare
   exprs  : RBMap Hash ExprAnon  compare
   consts : RBMap Hash ConstAnon compare
-  deriving Inhabited, BEq
+  deriving Inhabited, BEq, Repr
 
 namespace StoreAnon
 
@@ -113,7 +113,7 @@ structure StoreMeta where
   univs  : RBMap Hash UnivMeta  compare
   exprs  : RBMap Hash ExprMeta  compare
   consts : RBMap Hash ConstMeta compare
-  deriving Inhabited, BEq
+  deriving Inhabited, BEq, Repr
 
 namespace StoreMeta
 

@@ -8,76 +8,78 @@ structure AxiomAnon where
   lvls : Nat
   type : Hash
   safe : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure AxiomMeta where
   name : Name
   lvls : List Name
   type : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure TheoremAnon where
   lvls  : Nat
   type  : Hash
   value : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure TheoremMeta where
   name  : Name
   lvls  : List Name
   type  : Hash
   value : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure OpaqueAnon where
   lvls  : Nat
   type  : Hash
   value : Hash
   safe  : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure OpaqueMeta where
   name  : Name
   lvls  : List Name
   type  : Hash
   value : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
+
+deriving instance Repr for Lean.QuotKind
 
 structure QuotientAnon where
   lvls : Nat
   type : Hash
   kind : QuotKind
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure QuotientMeta where
   name : Name
   lvls : List Name
   type : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure DefinitionAnon where
   lvls   : Nat
   type   : Hash
   value  : Hash
   safety : DefinitionSafety
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 structure DefinitionMeta where
   name   : Name
   lvls   : List Name
   type   : Hash
   value  : Hash
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 structure DefinitionProjAnon where
   block : Hash
   idx   : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure DefinitionProjMeta where
   block : Hash
   idx   : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure ConstructorAnon where
   lvls   : Nat
@@ -86,22 +88,22 @@ structure ConstructorAnon where
   params : Nat
   fields : Nat
   safe   : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure ConstructorMeta where
   name   : Name
   lvls   : List Name
   type   : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure RecursorRuleAnon where
   fields : Nat
   rhs    : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure RecursorRuleMeta where
   rhs : Hash
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure RecursorAnon where
   lvls     : Nat
@@ -113,14 +115,14 @@ structure RecursorAnon where
   rules    : List RecursorRuleAnon
   isK      : Bool
   internal : Bool
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure RecursorMeta where
   name  : Name
   lvls  : List Name
   type  : Hash
   rules : List RecursorRuleMeta
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure InductiveAnon where
   lvls    : Nat
@@ -132,7 +134,7 @@ structure InductiveAnon where
   recr    : Bool
   safe    : Bool
   refl    : Bool
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 structure InductiveMeta where
   name  : Name
@@ -140,41 +142,41 @@ structure InductiveMeta where
   type  : Hash
   ctors : List ConstructorMeta
   recrs : List RecursorMeta
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 structure InductiveProjAnon where
   block : Hash
   idx   : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure InductiveProjMeta where
   block : Hash
   idx   : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure ConstructorProjAnon where
   block : Hash
   idx   : Nat
   cidx  : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure ConstructorProjMeta where
   block : Hash
   idx   : Nat
   cidx  : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure RecursorProjAnon where
   block : Hash
   idx   : Nat
   ridx  : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 structure RecursorProjMeta where
   block : Hash
   idx   : Nat
   ridx  : Nat
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 inductive ConstAnon where
   -- standalone constants
@@ -191,7 +193,7 @@ inductive ConstAnon where
   -- constants to represent mutual blocks
   | mutDefBlock : List DefinitionAnon → ConstAnon
   | mutIndBlock : List InductiveAnon  → ConstAnon
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 inductive ConstMeta where
   -- standalone constants
@@ -208,7 +210,7 @@ inductive ConstMeta where
   -- constants to represent mutual blocks
   | mutDefBlock : List (List DefinitionMeta) → ConstMeta
   | mutIndBlock : List InductiveMeta  → ConstMeta
-  deriving Ord, BEq
+  deriving Ord, BEq, Repr
 
 end IR
 

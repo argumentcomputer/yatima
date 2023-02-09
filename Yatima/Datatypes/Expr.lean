@@ -18,7 +18,7 @@ inductive ExprAnon
   | letE  : Hash → Hash → Hash → ExprAnon
   | lit   : Literal → ExprAnon
   | proj  : Nat → Hash → ExprAnon
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 inductive ExprMeta
   /-- Variables are also used to represent recursive calls. For mutual
@@ -34,7 +34,7 @@ inductive ExprMeta
   | letE  : Name → Hash → Hash → Hash → ExprMeta
   | lit
   | proj  : Hash → ExprMeta
-  deriving Inhabited, Ord, BEq
+  deriving Inhabited, Ord, BEq, Repr
 
 end IR
 
