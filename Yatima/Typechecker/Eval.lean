@@ -281,9 +281,9 @@ mutual
         let nArgs := args.length
         let nDrop := params + motives + 1
         if nArgs < nDrop then
-          throw "Too few arguments"
+          throw s!"Too few arguments ({nArgs}). At least {nDrop} needed"
         let minorIdx := nArgs - nDrop
-        let some minor := args.get? minorIdx | throw "TODO: this is provably unreachable"
+        let some minor := args.get? minorIdx | throw s!"Index {minorIdx} is out of range"
         pure minor.1.get
       else
         let params := args.take params
