@@ -29,10 +29,13 @@ def isStruct : Value → TypecheckM (Option (F × Constructor × List Univ × Li
       let ind ← getIndFromProj p
       match ind.struct with
         | true => do
-          let some ctor := ind.ctors.get? 0 | throw sorry
+          let some ctor := ind.ctors.get? 0 
+            | throw "Impossible case. Implementation broken."
           -- Sanity check
-          if ind.params != params.length then throw sorry else
-          pure (k, ctor, univs, (params.map (·.1)))
+          if ind.params != params.length then 
+            throw "Impossible case. Implementation broken." 
+          else
+            pure (k, ctor, univs, (params.map (·.1)))
         | false => pure none
     | _ => pure none
   | _ => pure none
@@ -85,16 +88,18 @@ mutual
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      throw sorry
-    else pure term
+      throw s!"Expected {type.get}, found {inferType.get}"
+    else
+      pure term
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
     match term with
-    | .var idx us =>
+    | .var idx _ =>
       let types := (← read).types
       -- TODO get from `mutTypes` if out of range
-      let some type := types.get? idx | throw sorry
+      let some type := types.get? idx 
+        | throw s!"var@{idx} out of environment range (size {types.length})"
       let term := .var (← susInfoFromType type) idx
       pure (term, type)
     | .sort lvl =>
@@ -113,7 +118,7 @@ mutual
         let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
         let term := .app (← susInfoFromType typ) fnc arg
         pure (term, typ)
-      | val => throw sorry
+      | val => throw s!"Expected a pi type, found '{val}'"
     | .lam dom bod => do
       let (dom, _) ← isSort dom
       let ctx ← read
@@ -162,7 +167,7 @@ mutual
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
       let some (ind, ctor, univs, params) ← isStruct exprType.get
-        | throw sorry
+        | throw s!"Expected a structure type, found {exprType.get}"
       -- annotate constructor type
       let (ctorType, _) ← infer ctor.type
       let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
@@ -180,11 +185,11 @@ mutual
           let term := .proj (← susInfoFromType dom) ind idx expr
           pure (term, dom)
         | .prop, _ =>
-          throw sorry
+          throw s!"Projection {expr}.{idx} not allowed"
         | _, _ =>
           let term := .proj (← susInfoFromType dom) ind idx expr
           pure (term, dom)
-      | _ => throw sorry
+      | _ => throw "Impossible case. Implementation broken."
 
   /--
   Checks if `expr : Expr` is `Sort lvl` for some level `lvl`, and throws `TypecheckerError.notTyp`
@@ -194,7 +199,7 @@ mutual
     let (expr, typ) ← infer expr
     match typ.get with
     | .sort u => pure (expr, u)
-    | val => throw sorry
+    | val => throw s!"Expected a sort type, found '{val}'"
 
   /-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
   otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.
@@ -234,11 +239,11 @@ mutual
                 withMutTypes mutTypes $ check data.value typeSus
               | _ => check data.value typeSus
             pure $ TypedConst.definition type value data.safety
-          | .definitionProj p@⟨defBlockF, idx⟩ =>
+          | .definitionProj p@⟨defBlockF, _⟩ =>
             let data ← getDefFromProj p
             let defBlock ← match derefConst defBlockF (← read).store with
               | .mutDefBlock blk => pure blk
-              | _ => throw sorry
+              | _ => throw "Invalid Const kind. Expected mutDefBlock"
             let typeSus := suspend type (← read) (← get)
             let value ← match data.safety with
               | .partial =>
@@ -258,11 +263,11 @@ mutual
           | .constructorProj p =>
             let data ← getCtorFromProj p
             pure $ .constructor type data.idx data.fields
-          | .recursorProj p@⟨indBlockF, idx, ridx⟩ => do
+          | .recursorProj p@⟨indBlockF, idx, _⟩ => do
             let data ← getRecrFromProj p
             let indBlock ← match derefConst indBlockF (← read).store with
               | .mutIndBlock blk => pure blk
-              | _ => throw sorry
+              | _ => throw "Invalid Const kind. Expected mutIndBlock"
             let mut indTypes : List Expr := []
             let mut ctorTypes : List Expr := []
             let mut recTypes : List Expr := []
@@ -285,7 +290,7 @@ mutual
             pure $ .recursor type data.params data.motives data.minors
               data.indices data.isK ⟨indBlockF, idx⟩ rules
           | .quotient data => pure $ .quotient type data.kind
-          | _ => throw sorry
+          | _ => throw "Impossible case. Cannot typecheck a mutual block."
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f newConst }
 end
 
