@@ -52,6 +52,7 @@ def TypeInfo.toSus : TypeInfo → SusTypeInfo
 inductive TypedExpr
   | var   : SusTypeInfo → Nat → TypedExpr
   | sort  : SusTypeInfo → Univ → TypedExpr
+  -- NOTE: F here represents a hash of a normal `TC.Expr`, as that is how we index into `TypecheckState.typedConsts`
   | const : SusTypeInfo → F → List Univ → TypedExpr
   | app   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
   | lam   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr

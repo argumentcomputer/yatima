@@ -95,13 +95,25 @@ mutual
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
     match term with
-    | .var idx _ =>
-      let types := (← read).types
-      -- TODO get from `mutTypes` if out of range
-      let some type := types.get? idx 
-        | throw s!"var@{idx} out of environment range (size {types.length})"
-      let term := .var (← susInfoFromType type) idx
-      pure (term, type)
+    | .var idx lvls =>
+      if idx < (← read).lvl then
+        -- this is a bound free variable
+        if !lvls.isEmpty then
+          -- bound free variables should never have universe levels (sanity check)
+          throw s!"found var@{idx} with unexpected universe variables"
+        let types := (← read).types
+        let some type := types.get? idx
+          | throw s!"var@{idx} out of environment range (size {types.length})"
+        let term := .var (← susInfoFromType type) idx
+        pure (term, type)
+      else
+        -- this free variable came from `recrCtx`, and thus represents a mutual reference
+        match (← read).mutTypes.find? (idx - (← read).lvl) with
+        | some (constF, typeValFn) =>
+          let type := typeValFn lvls
+          let term := .const (← susInfoFromType type) constF lvls
+          pure (term, type)
+        | none => throw s!"var@{idx} out of environment range (size {(← read).types.length}) and does not represent a mutual constant"
     | .sort lvl =>
       let univs := (← read).env.univs
       let lvl := Univ.instBulkReduce univs lvl
@@ -153,17 +165,12 @@ mutual
       let typ := .mk .none (mkConst (← primF .string) [])
       pure $ (.lit .none (.strVal s), typ)
     | .const k constUnivs =>
-      if let some typ := (← read).mutTypes.find? k then
-        let typ := typ (constUnivs.map (Univ.instBulkReduce (← read).env.univs))
-        -- mutual references are assumed to typecheck
-        pure (.const (← susInfoFromType typ) k constUnivs, typ)
-      else
-        let univs := (← read).env.univs
-        checkConst k
-        let tconst ← derefTypedConst k
-        let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-        let typ := suspend tconst.type { ← read with env := env } (← get)
-        pure (.const (← susInfoFromType typ) k constUnivs, typ)
+      let univs := (← read).env.univs
+      checkConst k
+      let tconst ← derefTypedConst k
+      let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
+      let typ := suspend tconst.type { ← read with env := env } (← get)
+      pure (.const (← susInfoFromType typ) k constUnivs, typ)
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
       let some (ind, ctor, univs, params) ← isStruct exprType.get
@@ -215,6 +222,7 @@ mutual
       let univs := List.range (← c.levels) |>.map .var
       withEnv ⟨ [], univs ⟩ do
         let (type, _) ← isSort (← c.type)
+        let quick := (← read).quick
         let newConst ← match c with
           | .axiom  _    => pure $ TypedConst.axiom type
           | .opaque data =>
@@ -235,7 +243,7 @@ mutual
                   let (type, _) ← isSort data.type
                   let ctx ← read
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
-                  pure $ mutTypes.insert 0 typeSus
+                  pure $ mutTypes.insert 0 (f, typeSus)
                 withMutTypes mutTypes $ check data.value typeSus
               | _ => check data.value typeSus
             pure $ TypedConst.definition type value data.safety
@@ -249,11 +257,12 @@ mutual
               | .partial =>
                 -- TODO check order (should be same as `recrCtx` in CA)
                 let mutTypes ← defBlock.enum.foldlM (init := default) fun acc (i, defn) => do
+                  let defProjF := mkDefinitionProjF defBlockF i quick
                   -- TODO avoid repeated work here
                   let (type, _) ← isSort defn.type
                   let ctx ← read
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
-                  pure $ acc.insert i typeSus
+                  pure $ acc.insert i (defProjF, typeSus)
                 withMutTypes mutTypes $ check data.value typeSus
               | _ => check data.value typeSus
             pure $ TypedConst.definition type value data.safety
@@ -268,22 +277,22 @@ mutual
             let indBlock ← match derefConst indBlockF (← read).store with
               | .mutIndBlock blk => pure blk
               | _ => throw "Invalid Const kind. Expected mutIndBlock"
-            let mut indTypes : List Expr := []
-            let mut ctorTypes : List Expr := []
-            let mut recTypes : List Expr := []
-            for ind in indBlock do
-              indTypes := indTypes ++ [ind.type]
-              ctorTypes := ctorTypes ++ (← ind.ctors.mapM fun ctor => do pure ctor.type)
-              recTypes := recTypes.append (← ind.recrs.mapM fun recr => do pure recr.type)
+            let mut indTypes : List (F × Expr) := []
+            let mut ctorTypes : List (F × Expr) := []
+            let mut recTypes : List (F × Expr) := []
+            for (indIdx, ind) in indBlock.enum do
+              indTypes := indTypes ++ [(mkInductiveProjF indBlockF indIdx quick, ind.type)]
+              ctorTypes := ctorTypes ++ (← ind.ctors.enum.mapM fun (cidx, ctor) => do pure (mkConstructorProjF indBlockF indIdx cidx quick, ctor.type))
+              recTypes := recTypes.append (← ind.recrs.enum.mapM fun (ridx, recr) => do pure (mkRecursorProjF indBlockF indIdx ridx quick, recr.type))
             -- TODO check order (should be same as `recrCtx` in CA)
-            let mutTypes ← (indTypes ++ ctorTypes ++ recTypes).enum.foldlM (init := default) fun acc (i, type) => do
+            let mutTypes ← (indTypes ++ ctorTypes ++ recTypes).enum.foldlM (init := default) fun acc (i, projF, type) => do
               -- FIXME repeated computation (this will happen again when we
               -- actually check the recursor on its own)
               let (type, _) ← withMutTypes acc $ isSort type
               let ctx ← read
               let stt ← get
               let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-              pure $ acc.insert i typeSus
+              pure $ acc.insert i (projF, typeSus)
             let rules ← data.rules.mapM fun rule => do
               let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
               pure (rule.fields, rhs)
@@ -291,6 +300,7 @@ mutual
               data.indices data.isK ⟨indBlockF, idx⟩ rules
           | .quotient data => pure $ .quotient type data.kind
           | _ => throw "Impossible case. Cannot typecheck a mutual block."
+        -- TODO is it okay to use the original hash for the `TypedConst`, or should we compute a new one?
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f newConst }
 end
 

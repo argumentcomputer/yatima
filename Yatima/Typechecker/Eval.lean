@@ -39,16 +39,28 @@ def derefConst (f : F) (store : Store) : Const :=
   store.find! f
 
 /-- TODO document. This function is overwritten btw -/
+def mkInductiveProjF (block : F) (idx : Nat) (quick : Bool) : F :=
+  let indF : Const := .inductiveProj ⟨block, idx⟩
+  if quick then .ofNat $ (Hashable.hash indF).toNat
+  else indF.toLDON.commit default |>.1
+
+/-- TODO document. This function is overwritten btw -/
 def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) (quick : Bool) : F :=
   let ctorF : Const := .constructorProj ⟨block, idx, cidx⟩
   if quick then .ofNat $ (Hashable.hash ctorF).toNat
   else ctorF.toLDON.commit default |>.1
 
 /-- TODO document. This function is overwritten btw -/
-def mkInductiveProjF (block : F) (idx : Nat) (quick : Bool) : F :=
-  let indF : Const := .inductiveProj ⟨block, idx⟩
-  if quick then .ofNat $ (Hashable.hash indF).toNat
-  else indF.toLDON.commit default |>.1
+def mkRecursorProjF (block : F) (idx : Nat) (ridx : Nat) (quick : Bool) : F :=
+  let recrF : Const := .recursorProj ⟨block, idx, ridx⟩
+  if quick then .ofNat $ (Hashable.hash recrF).toNat
+  else recrF.toLDON.commit default |>.1
+
+/-- TODO document. This function is overwritten btw -/
+def mkDefinitionProjF (block : F) (idx : Nat) (quick : Bool) : F :=
+  let defnF : Const := .definitionProj ⟨block, idx⟩
+  if quick then .ofNat $ (Hashable.hash defnF).toNat
+  else defnF.toLDON.commit default |>.1
 
 /--
 Looks for a constant by its hash `f : F` in the `TypecheckState` cache of `TypedConst` and
