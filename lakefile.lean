@@ -52,7 +52,6 @@ lean_lib Fixtures {
 lean_exe Tests.AnonGroups.Definitions      { supportInterpreter := true }
 lean_exe Tests.AnonGroups.Inductives       { supportInterpreter := true }
 lean_exe Tests.AnonGroups.ToImport         { supportInterpreter := true }
-lean_exe Tests.AnonGroups.Small            { supportInterpreter := true }
 lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
 lean_exe Tests.Termination.TrickyDef       { supportInterpreter := true }
 lean_exe Tests.Termination.Init            { supportInterpreter := true }
