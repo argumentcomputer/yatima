@@ -27,7 +27,7 @@ require Lurk from git
   "https://github.com/yatima-inc/Lurk.lean" @ "046f6ba0e1f907f7692502f5060e9e730e8c1d38"
 
 require LightData from git
-  "https://github.com/yatima-inc/LightData" @ "86c3ba909582366b03a778d8020044a73859a9ad"
+  "https://github.com/yatima-inc/LightData" @ "7385a013bc231d242fba1e9a4dd8d314ac96fdaa"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"
