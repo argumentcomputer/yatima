@@ -141,15 +141,15 @@ instance : Encodable UnivAnon LightData String where
 instance : Encodable UnivMeta LightData String where
   encode
     | .zero     => .opt none
-    | .succ x   => .opt $ some x
-    | .max x y  => .arr #[1, x, y]
-    | .imax x y => .arr #[2, x, y]
+    | .max x y  => .arr #[0, x, y]
+    | .imax x y => .arr #[1, x, y]
+    | .succ x   => x
     | .var n    => n
   decode
     | .opt none       => pure .zero
-    | .opt $ some x   => return .succ (← dec x)
-    | .arr #[1, x, y] => return .max  (← dec x) (← dec y)
-    | .arr #[2, x, y] => return .imax (← dec x) (← dec y)
+    | .arr #[0, x, y] => return .max  (← dec x) (← dec y)
+    | .arr #[1, x, y] => return .imax (← dec x) (← dec y)
+    | x@(.lnk _)      => return .succ (← dec x)
     | x               => return .var  (← dec x)
 
 instance : Encodable ExprAnon LightData String where
