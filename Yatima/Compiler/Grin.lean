@@ -63,7 +63,7 @@ inductive SExpr where
   -- Evaluation of unknown expression
   | eval   : Var → SExpr
   -- Application of unknown function to a list of arguments
-  | apply  : Var → NEList SVal → SExpr
+  | apply  : Var → SVal → SExpr
 
 inductive Expr where
   | ret  : SExpr → Expr
@@ -77,5 +77,9 @@ structure Binding where
   body : Expr
 
 abbrev Prog := NEList Binding
+
+-- Helper functions
+def svar (var : Var) : SExpr := .unit $ .sval $ .var var
+def slit (lit : Literal) : SExpr := .unit $ .sval $ .lit lit
 
 end Yatima.Grin

@@ -15,7 +15,17 @@ def paramsToVars (params : Array Param) : List Var :=
 def fetch? (id : Lean.FVarId) : GrinM SExpr := do
   match ← varKind id with
   | .pointer => pure $ .fetch id.toVar .none
-  | .basic => pure $ .unit $ .sval $ .var id.toVar
+  | .basic => pure $ svar id.toVar
+
+def applyArgs (fnc : Var) : (args : List Arg) → GrinM Expr
+| [] => pure $ .ret $ svar fnc
+| .erased :: args => applyArgs fnc args
+| .type _ :: args => applyArgs fnc args
+| .fvar id :: args => do
+  let apply := .apply fnc (.var id.toVar)
+  let newVar ← mkFreshVar
+  let rest ← applyArgs newVar args
+  pure $ .seq apply (.svar newVar) rest
 
 mutual
 partial def PScheme : Alt → GrinM (CPat × Expr)
@@ -32,33 +42,24 @@ partial def RScheme : Code → GrinM Expr
 | .let decl k => match decl.value with
   | .erased => RScheme k
   | .value val => do
-    let op := .unit $ .sval $ .lit val
-    let pat := sorry
-    let expr ← RScheme k
-    pure $ .seq op pat expr
+    pure $ .ret $ slit val
   | .proj _ idx struct => do
-    let op := sorry
-    let pat := sorry
-    let expr ← RScheme k
-    pure $ .seq op pat expr
-  | .const name _ args => do
-    let op := sorry
-    let pat := sorry
-    let expr ← RScheme k
-    pure $ .seq op pat expr
-  | .fvar var args => do
-    let op := sorry
-    let pat := sorry
-    let expr ← RScheme k
-    pure $ .seq op pat expr
+    let structPtr := struct.toVar
+    let proj := .fetch structPtr (some idx)
+    pure $ .ret proj
+  | .const _name _ _args => throw "TODO"
+  | .fvar fnc args => do
+    let fncVal ← fetch? fnc
+    let newVar ← mkFreshVar
+    pure $ .seq fncVal (.svar newVar) (← applyArgs newVar args.toList)
 | .cases case => do
-  -- Since every variable is initially strict, we don't need to eval before
-  let new_var ← mkFreshVar
-  let caseVal := .sval $ .var new_var
   let some patExprs := NEList.nonEmpty (← case.alts.toList.mapM PScheme)
     | throw "Empty pattern"
-  let caseExpr := .case caseVal patExprs
-  pure $ .seq (← fetch? case.discr) (.svar new_var) caseExpr
+  -- Since every variable is initially strict, we don't need to eval before
+  let caseVal ← fetch? case.discr
+  let newVar ← mkFreshVar
+  let caseExpr := .case (.sval $ .var newVar) patExprs
+  pure $ .seq caseVal (.svar newVar) caseExpr
   -- pure expr
 | .return fvarId => do
   -- In the lazy case, a return is a call to eval, but since we chose strict semantics this
