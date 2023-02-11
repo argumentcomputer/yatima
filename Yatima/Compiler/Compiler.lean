@@ -1,4 +1,5 @@
 import Yatima.Compiler.GrinM
+import Yatima.Compiler.Debug
 import Lean.Expr
 open Lean.Compiler.LCNF
 
