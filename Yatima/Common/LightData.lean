@@ -383,10 +383,6 @@ instance : Encodable Const LightData String where
     | .eit $ .right x => return .mutDefBlock (← dec x)
     | x => throw s!"Invalid encoding for TC.Const: {x}"
 
-instance : Encodable LDONHashState LightData String where
-  encode := default -- TODO
-  decode := default -- TODO
-
 instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
     Encodable (Std.RBMap α β compare) LightData String where
   encode x := h.encode ⟨x.toList⟩
@@ -395,5 +391,9 @@ instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
 instance : Encodable IR.Env LightData String where
   encode x := x.consts
   decode | x => return ⟨← dec x⟩
+
+instance : Encodable LDONHashState LightData String where
+  encode := default -- TODO
+  decode := default -- TODO
 
 end Yatima.ContAddr
