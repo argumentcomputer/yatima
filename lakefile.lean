@@ -18,7 +18,7 @@ require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "704823e421b333ea9960347e305c60f654618422"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "b3084d5fb020975555dabe507e6a4db659b0733d"
 
 require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "b76218dbaa20ac51cf4e6789407e42b76dd3061f"
