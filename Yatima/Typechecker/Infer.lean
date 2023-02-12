@@ -87,7 +87,8 @@ mutual
   -/
   partial def check (term : Expr) (type : SusValue) : TypecheckM TypedExpr := do
     dbg_trace s!">> check"
-    dbg_trace s!"{PP.ppExpr term}"
+    dbg_trace s!"term: {PP.ppExpr term}"
+    dbg_trace s!"type: {type.get}"
     let (term, inferType) ← infer term
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
       throw s!"Expected type {type.get}, found type {inferType.get}"
@@ -100,6 +101,7 @@ mutual
     | .var idx lvls =>
       dbg_trace s!">> infer var@{idx}"
       if idx < (← read).lvl then
+        dbg_trace s!"bound"
         -- this is a bound free variable
         if !lvls.isEmpty then
           -- bound free variables should never have universe levels (sanity check)
@@ -108,6 +110,8 @@ mutual
         let some type := types.get? idx
           | throw s!"var@{idx} out of environment range (size {types.length})"
         let term := .var (← susInfoFromType type) idx
+        dbg_trace s!"term: {term}"
+        dbg_trace s!"type: {type.get}"
         pure (term, type)
       else
         -- this free variable came from `recrCtx`, and thus represents a mutual reference
@@ -131,9 +135,10 @@ mutual
       return (.sort (.sort lvl') lvl, typ)
     | .app fnc arg =>
       dbg_trace s!">> infer app"
-      dbg_trace s!"{PP.ppExpr fnc}"
-      dbg_trace s!"{PP.ppExpr arg}"
+      dbg_trace s!"fnc: {PP.ppExpr fnc}"
+      dbg_trace s!"app: {PP.ppExpr arg}"
       let (fnc, fncType) ← infer fnc
+      dbg_trace s!"fncType: {fncType.get}"
       match fncType.get with
       | .pi dom img env =>
         dbg_trace s!"do a check 1"
@@ -155,10 +160,14 @@ mutual
       pure (term, typ)
     | .pi dom img =>
       dbg_trace s!">> infer pi"
+      dbg_trace s!"dom: {PP.ppExpr dom}"
+      dbg_trace s!"img: {PP.ppExpr img}"
       let (dom, domLvl) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
-      withExtendedCtx (mkSusVar (← infoFromType domVal) ctx.lvl) domVal $ do
+      let domSusVal := mkSusVar (← infoFromType domVal) ctx.lvl
+      dbg_trace s!"domVal: {domVal.get}"
+      withExtendedCtx domSusVal domVal $ do
         let (img, imgLvl) ← isSort img
         let typ := .mk .none ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
         let term := .pi (← susInfoFromType typ) dom img
@@ -220,9 +229,13 @@ mutual
   if it is not.
   -/
   partial def isSort (expr : Expr) : TypecheckM (TypedExpr × Univ) := do
+    dbg_trace s!">> isSort"
+    dbg_trace s!"expr: {PP.ppExpr expr}"
     let (expr, typ) ← infer expr
     match typ.get with
-    | .sort u => pure (expr, u)
+    | .sort u =>
+      dbg_trace s!">> isSort res expr: {expr} and {PP.ppUniv u}"
+      pure (expr, u)
     | val => throw s!"Expected a sort type, found '{val}'"
 
   partial def buildMutTypes (indBlockF : F) : TypecheckM RecrCtx := do
@@ -266,6 +279,7 @@ mutual
         return ()
       dbg_trace s!"{PP.ppConst c}"
       let univs := List.range (← c.levels) |>.map .var
+      dbg_trace s!"checkConst with univs: {univs.map PP.ppUniv}"
       withEnv ⟨ [], univs ⟩ do
         let quick := (← read).quick
         let newConst ← match c with
