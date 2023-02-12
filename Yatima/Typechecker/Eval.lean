@@ -106,9 +106,12 @@ def getCtorFromProj : ConstructorProj → TypecheckM Constructor
 
 def getRecrFromProj : RecursorProj → TypecheckM Recursor
   | ⟨indBlockF, idx, ridx⟩ => do
+    dbg_trace s!">> getRecrFromProj"
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
+    dbg_trace s!"{PP.ppInductive ind}"
     let some recr := ind.recrs.get? ridx
       | throw s!"Inductive doesn't contain recursor with index {ridx}"
+    dbg_trace s!"{PP.ppRecursor recr}"
     pure recr
 
 namespace Const

@@ -222,33 +222,33 @@ structure Axiom where
   lvls : Nat
   type : Expr
   safe : Bool
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure Theorem where
   lvls  : Nat
   type  : Expr
   value : Expr
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure Opaque where
   lvls  : Nat
   type  : Expr
   value : Expr
   safe  : Bool
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure Quotient where
   lvls : Nat
   type : Expr
   kind : QuotKind
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure Definition where
   lvls     : Nat
   type     : Expr
   value    : Expr
   safety   : DefinitionSafety
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure Constructor where
   lvls   : Nat
@@ -257,12 +257,12 @@ structure Constructor where
   params : Nat
   fields : Nat
   safe   : Bool
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure RecursorRule where
   fields : Nat
   rhs    : Expr
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure Recursor where
   lvls     : Nat
@@ -274,7 +274,7 @@ structure Recursor where
   rules    : List RecursorRule
   isK      : Bool
   internal : Bool
-  deriving Ord, BEq, Hashable
+  deriving Ord, BEq, Hashable, Repr
 
 structure Inductive where
   lvls    : Nat
@@ -290,29 +290,29 @@ structure Inductive where
   /-- whether or not this inductive is unit-like;
   needed for unit-like equality -/
   unit    : Bool
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure InductiveProj where
   block : F
   idx   : Nat
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure ConstructorProj where
   block : F
   idx   : Nat
   cidx  : Nat
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure RecursorProj where
   block : F
   idx   : Nat
   ridx  : Nat
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure DefinitionProj where
   block : F
   idx   : Nat
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 inductive Const where
   | «axiom»     : Axiom      → Const
@@ -328,7 +328,11 @@ inductive Const where
   -- constants to represent mutual blocks
   | mutDefBlock : List Definition → Const
   | mutIndBlock : List Inductive  → Const
-  deriving Ord, BEq, Hashable, Inhabited
+  deriving Ord, BEq, Hashable, Inhabited, Repr
+
+def Const.isMutType : Const → Bool
+  | .mutDefBlock _ | .mutIndBlock _ => true
+  | _ => false
 
 end TC
 

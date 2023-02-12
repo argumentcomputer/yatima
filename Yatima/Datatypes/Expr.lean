@@ -52,7 +52,7 @@ inductive Expr
   | letE  : Expr → Expr → Expr → Expr
   | lit   : Literal → Expr
   | proj  : Nat → Expr → Expr
-  deriving Inhabited, Ord, BEq, Hashable
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 end TC
 

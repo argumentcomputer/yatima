@@ -1,4 +1,5 @@
 import LightData
+import Yatima.Datatypes.Hash
 import Std.Data.RBMap
 
 def ByteArray.toHex (bytes : ByteArray) : String :=
@@ -89,10 +90,15 @@ def CMDIRS : List FilePath := [
 
 variable [h : Encodable α LightData String]
 
+deriving instance Repr for Either
+deriving instance Repr for LightData
+
 def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
   -- TODO : do it in a thread
   if overwite || !(← path.pathExists) then
-    IO.FS.writeBinFile path (h.encode data)
+    let ldata := h.encode data
+    dbg_trace s!"DUMP LIGHTDATA:\n{reprStr ldata}\n\n"
+    IO.FS.writeBinFile path ldata.toByteArray
 
 def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := do
   if !(← path.pathExists) then return none
@@ -101,7 +107,9 @@ def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := d
     IO.println s!"Error when deserializing {path}: {e}"
     if deleteIfCorrupted then IO.FS.removeFile path
     return none
-  | .ok data => match h.decode data with
+  | .ok data => 
+    dbg_trace s!"LOAD LIGHTDATA:\n{reprStr data}\n\n"
+    match h.decode data with
     | .error e =>
       IO.println s!"Error when decoding {path}: {e}"
       if deleteIfCorrupted then IO.FS.removeFile path

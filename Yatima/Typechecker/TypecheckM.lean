@@ -14,12 +14,14 @@ namespace Yatima.Typechecker
 open TC
 open Lurk (F)
 
+abbrev RecrCtx := Std.RBMap Nat (F × (List Univ → SusValue)) compare
+
 /--
 The context available to the typechecker monad. The available fields are
 * `lvl : Nat` : Depth of the subterm. Coincides with the length of the list of types
 * `env : Env` : A environment of known values, and universe levels. See `Env`
-* `types : List (Tunk Value)` : The types of the values in `Env`.
-* `store : Array Const` : An array of known constants in the context that can be referred to by their index.
+* `types : List SusValue` : The types of the values in `Env`.
+* `store : Store` : An store of known constants in the context.
 -/
 structure TypecheckCtx where
   lvl      : Nat
@@ -29,7 +31,7 @@ structure TypecheckCtx where
   /-- Maps a variable index (which represents a reference to a mutual const)
     to the hash of that constant (in `TypecheckState.typedConsts`) and
     a function returning a `SusValue` for that constant's type given a list of universes. -/
-  mutTypes : Std.RBMap Nat (F × (List Univ → SusValue)) compare
+  mutTypes : RecrCtx
   quick    : Bool
   deriving Inhabited
 
@@ -72,7 +74,7 @@ def withResetCtx : TypecheckM α → TypecheckM α :=
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
 -/
-def withMutTypes (mutTypes : Std.RBMap Nat (F × (List Univ → SusValue)) compare) :
+def withMutTypes (mutTypes : RecrCtx) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with mutTypes := mutTypes }
 
