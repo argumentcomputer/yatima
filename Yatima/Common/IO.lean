@@ -70,6 +70,9 @@ def COMMITSDIR : FilePath :=
 def LURKTCPATH : FilePath :=
   STOREDIR / "tc.lurk"
 
+def LURKTCANONPATH : FilePath :=
+  STOREDIR / "tc_anon.lurk"
+
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 

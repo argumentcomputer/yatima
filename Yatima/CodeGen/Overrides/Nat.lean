@@ -55,6 +55,13 @@ def Nat.sub : Override := Override.decl ⟨``Nat.sub, ⟦
       (- a b)))
 ⟧⟩
 
+def Nat.pred : Override := Override.decl ⟨``Nat.pred, ⟦
+  (lambda (a)
+    (if (= a 0)
+      0
+      (- a 1)))
+⟧⟩
+
 def Nat.mul : Override := Override.decl ⟨``Nat.mul, ⟦
   (lambda (a b) (* a b))
 ⟧⟩
@@ -141,6 +148,7 @@ def Nat.module := [
   Lurk.Overrides.Nat,
   Nat.add,
   Nat.sub,
+  Nat.pred,
   Nat.mul,
   Nat.div,
   Nat.mod,
