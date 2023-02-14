@@ -4,9 +4,10 @@ import Yatima.Common.LightData
 
 def proveRun (p : Cli.Parsed) : IO UInt32 := do
 
-  let tc ←
-    if ← LURKTCPATH.pathExists then IO.FS.readFile LURKTCPATH
-    else IO.eprintln ""; return 1
+  let tc ← do
+    let path := if p.hasFlag "anon" then LURKTCANONPATH else LURKTCPATH
+    if ← path.pathExists then IO.FS.readFile path
+    else IO.eprintln "Typecheck template not found"; return 1
 
   -- Get environment file name
   let some decl := p.positionalArg? "decl" |>.map (·.value.toNameSafe)
@@ -31,8 +32,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
   | none => pure ()
   IO.println s!"Writing output to {output}"
-  IO.FS.writeFile output $
-    tc.replace "(|Lurk.F.ofNat| 0)" s!"(|Lurk.F.ofNat| {comm.val})"
+  IO.FS.writeFile output s!"(\n{tc}\n  {comm.val})"
 
   return 0
 
@@ -42,6 +42,7 @@ def proveCmd : Cli.Cmd := `[Cli|
 
   FLAGS:
     e, "env" : String;    "Input environment file"
+    a, "anon";            "Anonymizes variable names for a more compact code"
     o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk_tc/<decl>.lurk')"
 
   ARGS:

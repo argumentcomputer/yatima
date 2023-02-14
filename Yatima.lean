@@ -47,6 +47,7 @@ import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Hash
 import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Lurk
+import Yatima.Datatypes.PrettyPrint
 import Yatima.Datatypes.Univ
 import Yatima.Lean.LCNF
 import Yatima.Lean.Utils

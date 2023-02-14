@@ -5,7 +5,7 @@ import Yatima.Typechecker.Typechecker -- forcing oleans generation
 
 def tcCode : String :=
 "import Yatima.Typechecker.Typechecker
-def tc := Yatima.Typechecker.typecheckConstNoStore (.ofNat 0)"
+def tc := Yatima.Typechecker.typecheckConstNoStore"
 
 open Yatima.CodeGen in
 def genTypecheckerRun (_p : Cli.Parsed) : IO UInt32 := do
@@ -15,6 +15,7 @@ def genTypecheckerRun (_p : Cli.Parsed) : IO UInt32 := do
   | .ok expr => pure expr
   IO.FS.createDirAll STOREDIR
   IO.FS.writeFile LURKTCPATH (expr.toString true)
+  IO.FS.writeFile LURKTCANONPATH (expr.anon.toString true)
   return 0
 
 def genTypecheckerCmd : Cli.Cmd := `[Cli|
