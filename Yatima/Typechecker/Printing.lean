@@ -1,4 +1,4 @@
-import Yatima.Typechecker.Datatypes
+import Yatima.Typechecker.TypecheckM
 import Yatima.Datatypes.PrettyPrint
 
 /-!
@@ -97,5 +97,16 @@ instance : ToFormat TypedExpr where format := ppTypedExpr
 instance : ToString TypedExpr where toString := pretty ∘ ppTypedExpr
 instance : ToFormat Value where format := printVal
 instance : ToString Value where toString := pretty ∘ printVal
+
+def ppTypecheckCtx (ctx : TypecheckCtx) : Format :=
+  let ⟨lvl, env, types, store, mutTypes, quick⟩ := ctx
+  let env := match env with 
+    | .mk vals us =>
+      let vals : List Value := vals.map fun v => SusValue.get v
+      let fields := f!"vals := {vals.map format}" ++ line ++ f!"us := {us.map PP.ppUniv}"
+      f!"env with{indentD fields}"
+  let types := types.map fun t => format t.get
+  let fields := f!"lvl := {lvl}" ++ line ++ f!"env := {env}" ++ line ++ f!"types := {types}"
+  f!"typecheckCtx with{indentD fields}"
 
 end Yatima.Typechecker
