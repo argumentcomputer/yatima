@@ -106,12 +106,12 @@ def getCtorFromProj : ConstructorProj → TypecheckM Constructor
 
 def getRecrFromProj : RecursorProj → TypecheckM Recursor
   | ⟨indBlockF, idx, ridx⟩ => do
-    dbg_trace s!">> getRecrFromProj"
+    -- dbg_trace s!">> getRecrFromProj"
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
-    dbg_trace s!"{PP.ppInductive ind}"
+    -- dbg_trace s!"{PP.ppInductive ind}"
     let some recr := ind.recrs.get? ridx
       | throw s!"Inductive doesn't contain recursor with index {ridx}"
-    dbg_trace s!"{PP.ppRecursor recr}"
+    -- dbg_trace s!"{PP.ppRecursor recr}"
     pure recr
 
 namespace Const
@@ -169,8 +169,13 @@ mutual
         | throw s!"Index {idx} is out of range for expression environment"
       pure $ thunk.get
     | .const _ f const_univs => do
+      dbg_trace s!">> eval"
+      dbg_trace s!"const_univs: {const_univs.map PP.ppUniv}"
       let env := (← read).env
-      evalConst f (const_univs.map (Univ.instBulkReduce env.univs))
+      dbg_trace s!"env.univs: {env.univs.map PP.ppUniv}"
+      let const_univs := const_univs.map (Univ.instBulkReduce env.univs)
+      dbg_trace s!"new const_univs: {const_univs.map PP.ppUniv}"
+      evalConst f const_univs
     | .letE _ _ val bod => do
       let thunk := suspend val (← read) (← get)
       withExtendedEnv thunk (eval bod)
@@ -237,7 +242,9 @@ mutual
   partial def suspend (expr : TypedExpr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
     let thunk := { fn := fun _ =>
       match TypecheckM.run ctx stt (eval expr) with
-      | .ok a => a
+      | .ok a => 
+        dbg_trace s!">> suspend with:\n{ppTypecheckCtx ctx}\nres: {expr} ↦ {a}"
+        a
       | .error e => .exception e }
     .mk (expr.info.update ctx.env.univs) thunk
 
