@@ -106,12 +106,12 @@ def getCtorFromProj : ConstructorProj → TypecheckM Constructor
 
 def getRecrFromProj : RecursorProj → TypecheckM Recursor
   | ⟨indBlockF, idx, ridx⟩ => do
-    dbg_trace s!">> getRecrFromProj"
+    -- dbg_trace s!">> getRecrFromProj"
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
-    dbg_trace s!"{PP.ppInductive ind}"
+    -- dbg_trace s!"{PP.ppInductive ind}"
     let some recr := ind.recrs.get? ridx
       | throw s!"Inductive doesn't contain recursor with index {ridx}"
-    dbg_trace s!"{PP.ppRecursor recr}"
+    -- dbg_trace s!"{PP.ppRecursor recr}"
     pure recr
 
 namespace Const
@@ -243,7 +243,7 @@ mutual
     let thunk := { fn := fun _ =>
       match TypecheckM.run ctx stt (eval expr) with
       | .ok a => 
-        dbg_trace s!">> suspend {expr} ↦ {a}"
+        dbg_trace s!">> suspend with:\n{ppTypecheckCtx ctx}\nres: {expr} ↦ {a}"
         a
       | .error e => .exception e }
     .mk (expr.info.update ctx.env.univs) thunk
