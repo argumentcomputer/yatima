@@ -87,5 +87,5 @@ def printPrimsRun (_p : Cli.Parsed) : IO UInt32 := do
 
 def printPrimsCmd : Cli.Cmd := `[Cli|
   pp VIA printPrimsRun;
-  "Prints the commit hashes for primitives"
+  "Edits the source file TypecheckM.lean file with the commit hashes for primitives"
 ]

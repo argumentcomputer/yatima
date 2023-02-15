@@ -8,7 +8,7 @@ import Yatima.Cli.ProveCmd
 -- import Yatima.Cli.IpfsCmd
 
 def VERSION : String :=
-  s!"{Lean.versionString}|0.0.1"
+  s!"{Lean.versionString}|0.0.2"
 
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima NOOP; [VERSION]
