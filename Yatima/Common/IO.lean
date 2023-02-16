@@ -100,7 +100,7 @@ def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
   -- TODO : do it in a thread
   if overwite || !(← path.pathExists) then
     let ldata := h.encode data
-    dbg_trace s!"DUMP LIGHTDATA:\n{reprStr ldata}\n\n"
+    -- dbg_trace s!"DUMP LIGHTDATA:\n{reprStr ldata}\n\n"
     IO.FS.writeBinFile path ldata.toByteArray
 
 def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := do
@@ -111,7 +111,7 @@ def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := d
     if deleteIfCorrupted then IO.FS.removeFile path
     return none
   | .ok data => 
-    dbg_trace s!"LOAD LIGHTDATA:\n{reprStr data}\n\n"
+    -- dbg_trace s!"LOAD LIGHTDATA:\n{reprStr data}\n\n"
     match h.decode data with
     | .error e =>
       IO.println s!"Error when decoding {path}: {e}"

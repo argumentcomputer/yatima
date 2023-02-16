@@ -169,12 +169,12 @@ mutual
         | throw s!"Index {idx} is out of range for expression environment"
       pure $ thunk.get
     | .const _ f const_univs => do
-      dbg_trace s!">> eval"
-      dbg_trace s!"const_univs: {const_univs.map PP.ppUniv}"
+      -- dbg_trace s!">> eval"
+      -- dbg_trace s!"const_univs: {const_univs.map PP.ppUniv}"
       let env := (← read).env
-      dbg_trace s!"env.univs: {env.univs.map PP.ppUniv}"
+      -- dbg_trace s!"env.univs: {env.univs.map PP.ppUniv}"
       let const_univs := const_univs.map (Univ.instBulkReduce env.univs)
-      dbg_trace s!"new const_univs: {const_univs.map PP.ppUniv}"
+      -- dbg_trace s!"new const_univs: {const_univs.map PP.ppUniv}"
       evalConst f const_univs
     | .letE _ _ val bod => do
       let thunk := suspend val (← read) (← get)
@@ -243,7 +243,7 @@ mutual
     let thunk := { fn := fun _ =>
       match TypecheckM.run ctx stt (eval expr) with
       | .ok a => 
-        dbg_trace s!">> suspend with:\n{ppTypecheckCtx ctx}\nres: {expr} ↦ {a}"
+        -- dbg_trace s!">> suspend with:\n{ppTypecheckCtx ctx}\nres: {expr} ↦ {a}"
         a
       | .error e => .exception e }
     .mk (expr.info.update ctx.env.univs) thunk

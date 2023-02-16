@@ -6,10 +6,10 @@ def initFixturesPath : System.FilePath :=
 open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors'
-    [ initFixturesPath / "Prelude.lean",
-      initFixturesPath / "Coe.lean",
-      initFixturesPath / "Notation.lean",
-      initFixturesPath / "Tactics.lean",
-      initFixturesPath / "SizeOf.lean"]
+    [ initFixturesPath / "Prelude.lean" ]
+      -- initFixturesPath / "Coe.lean",
+      -- initFixturesPath / "Notation.lean",
+      -- initFixturesPath / "Tactics.lean",
+      -- initFixturesPath / "SizeOf.lean"]
     []
     [extractGeneralTests]

@@ -22,24 +22,6 @@ namespace Yatima.Typechecker
 open TC PP
 open Lurk (F)
 
-def isStruct : Value → TypecheckM (Option (F × Constructor × List Univ × List SusValue))
-  | .app (.const k univs) params => do
-    match derefConst k (← read).store with
-    | .inductiveProj p => do
-      let ind ← getIndFromProj p
-      match ind.struct with
-        | true => do
-          let some ctor := ind.ctors.get? 0 
-            | throw "Impossible case. Implementation broken."
-          -- Sanity check
-          if ind.params != params.length then 
-            throw "Impossible case. Implementation broken." 
-          else
-            pure (k, ctor, univs, (params.map (·.1)))
-        | false => pure none
-    | _ => pure none
-  | _ => pure none
-
 /--
   Gives the correct type information for a lambda based on the information of the body.
   No lambdas can be a proposition, a struct or be elements of the unit type.
@@ -82,6 +64,42 @@ def susInfoFromType (typ : SusValue) : TypecheckM SusTypeInfo :=
     | _ => pure .none
 
 mutual
+  -- partial def isStruct : Value → TypecheckM (F × Constructor × List Univ × List SusValue)
+  --   | v@(.app (.const k univs) params) => do
+  --     match derefConst k (← read).store with
+  --     | .inductiveProj p => do
+  --       let ind ← getIndFromProj p
+  --       match ind.struct with
+  --         | true => do
+  --           let some ctor := ind.ctors.get? 0 
+  --             | throw "Impossible case. Implementation broken."
+  --           -- Sanity check
+  --           if ind.params != params.length then 
+  --             throw "Impossible case. Implementation broken." 
+  --           else
+  --             pure (k, ctor, univs, (params.map (·.1)))
+  --         | false => throw s!"Expected a structure type, found {v}"
+  --     | _ => throw s!"Expected a structure type, found {v}"
+  --   | v => throw s!"Expected a structure type, found {v}"
+
+  partial def getStructInfo (v : Value) : 
+      TypecheckM (F × TypedExpr × List Univ × List SusValue) :=
+    let err := s!"Expected a structure type, found {v}"
+    match v with
+    | .app (.const indF univs) params => do
+      let .inductiveProj p := derefConst indF (← read).store | throw err
+      let ind ← getIndFromProj p
+      -- Sanity check
+      unless ind.struct && ind.params == params.length do 
+        throw s!"Expected a structure type, found {v}"
+      checkConst indF
+      let ctorF := mkConstructorProjF p.block p.idx 0 (← read).quick
+      match (← get).typedConsts.find? ctorF with
+      | .some (.constructor type _ _) =>
+        return (indF, type, univs, params)
+      | _ => throw s!"Implementation broken: ctorF {ctorF} is not a constructor"
+    | v => throw s!"Expected a structure type, found {v}"
+
   /--
   Checks if `term : Expr` has type `type : SusValue`. Returns the typed IR for `term`
   -/
@@ -97,9 +115,10 @@ mutual
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
+    dbg_trace ">> infer {ppExpr term}"
     match term with
     | .var idx lvls =>
-      dbg_trace s!">> infer var@{idx}"
+      -- dbg_trace s!">> infer var@{idx}"
       if idx < (← read).lvl then
         -- dbg_trace s!"bound"
         -- this is a bound free variable
@@ -134,9 +153,9 @@ mutual
       -- because `lvl'` can never become `Univ.zero`.
       return (.sort (.sort lvl') lvl, typ)
     | .app fnc arg =>
-      dbg_trace s!">> infer app"
-      dbg_trace s!"fnc: {PP.ppExpr fnc}"
-      dbg_trace s!"app: {PP.ppExpr arg}"
+      -- dbg_trace s!">> infer app"
+      -- dbg_trace s!"fnc: {PP.ppExpr fnc}"
+      -- dbg_trace s!"app: {PP.ppExpr arg}"
       let (fnc, fncType) ← infer fnc
       -- dbg_trace s!"fncType: {fncType.get}"
       match fncType.get with
@@ -159,9 +178,9 @@ mutual
         Value.pi domVal (← quote (ctx.lvl+1) img.info.toSus ctx.env img.get) ctx.env
       pure (term, typ)
     | .pi dom img =>
-      dbg_trace s!">> infer pi"
-      dbg_trace s!"dom: {PP.ppExpr dom}"
-      dbg_trace s!"img: {PP.ppExpr img}"
+      -- dbg_trace s!">> infer pi"
+      -- dbg_trace s!"dom: {PP.ppExpr dom}"
+      -- dbg_trace s!"img: {PP.ppExpr img}"
       let (dom, domLvl) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
@@ -197,30 +216,30 @@ mutual
       let typ := suspend tconst.type { ← read with env := env } (← get)
       pure (.const (← susInfoFromType typ) k constUnivs, typ)
     | .proj idx expr =>
-      -- dbg_trace s!">> infer proj"
+      dbg_trace s!">> infer proj"
       let (expr, exprType) ← infer expr
-      let some (ind, ctor, univs, params) ← isStruct exprType.get
-        | throw s!"Expected a structure type, found {exprType.get}"
-      -- annotate constructor type
-      let (ctorType, _) ← infer ctor.type
+      let (indF, ctorType, univs, params) ←  getStructInfo exprType.get
+      dbg_trace s!"3. ctorType:\n{ctorType}"
       let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
       for i in [:idx] do
+        dbg_trace s!"iter {i}. ctorType:\n{ctorType}"
         match ctorType with
         | .pi dom img piEnv =>
           let info ← susInfoFromType dom
-          let proj := suspend (.proj info ind i expr) (← read) (← get)
+          let proj := suspend (.proj info indF i expr) (← read) (← get)
           ctorType ← withNewExtendedEnv piEnv proj $ eval img
         | _ => pure ()
+      dbg_trace s!">> infer proj end"
       match ctorType with
       | .pi dom _ _  =>
         match exprType.info, dom.info with
         | .prop, .prop =>
-          let term := .proj (← susInfoFromType dom) ind idx expr
+          let term := .proj (← susInfoFromType dom) indF idx expr
           pure (term, dom)
         | .prop, _ =>
           throw s!"Projection {expr}.{idx} not allowed"
         | _, _ =>
-          let term := .proj (← susInfoFromType dom) ind idx expr
+          let term := .proj (← susInfoFromType dom) indF idx expr
           pure (term, dom)
       | _ => throw "Impossible case. Implementation broken."
 
@@ -239,6 +258,7 @@ mutual
     | val => throw s!"Expected a sort type, found '{val}'"
 
   partial def checkIndBlock (indBlockF : F) : TypecheckM Unit := do
+    dbg_trace s!">> checkIndBlock"
     let quick := (← read).quick 
     let indBlock ← match derefConst indBlockF (← read).store with
       | .mutIndBlock blk => pure blk
@@ -247,6 +267,7 @@ mutual
     -- Check all inductives
     let mut mutTypes := .empty
     for (indIdx, ind) in indBlock.enum do
+      dbg_trace s!">> checkIndBlock inductives: ind := {indIdx}"
       let f := mkInductiveProjF indBlockF indIdx quick
       let univs := List.range ind.lvls |>.map .var
       let (type, _) ← withEnv ⟨ [], univs ⟩ $ isSort ind.type
@@ -257,24 +278,31 @@ mutual
       modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.inductive type ind.struct) }
 
     -- Check all constructors
-    let ctorStart := mutTypes.size
     for (indIdx, ind) in indBlock.enum do
+      let start := mutTypes.size
       for (cidx, ctor) in ind.ctors.enum do
+        dbg_trace s!">> checkIndBlock constructors: ind := {indIdx}, ridx := {cidx}"
         let f := mkConstructorProjF indBlockF indIdx cidx quick
         let univs := List.range ctor.lvls |>.map .var
         let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort ctor.type
         let ctx ← read
         let stt ← get
         let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-        mutTypes := mutTypes.insert (ctorStart+cidx) (f, typeSus)
+        mutTypes := mutTypes.insert (start + cidx) (f, typeSus)
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.constructor type ctor.idx ctor.fields) }
 
     -- Check all recursors
     for (indIdx, ind) in indBlock.enum do
+      let start := mutTypes.size
       for (ridx, recr) in ind.recrs.enum do
+        dbg_trace s!">> checkIndBlock recursors: ind := {indIdx}, ridx := {ridx}"
         let f := mkRecursorProjF indBlockF indIdx ridx quick
         let univs := List.range recr.lvls |>.map .var
         let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort recr.type
+        let ctx ← read
+        let stt ← get
+        let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
+        mutTypes := mutTypes.insert (start + ridx) (f, typeSus)
         let indProj := ⟨indBlockF, indIdx⟩
         let rules ← recr.rules.mapM fun rule => do
           let (rhs, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ infer rule.rhs
@@ -282,6 +310,7 @@ mutual
         let recrConst := .recursor type recr.params recr.motives recr.minors recr.indices recr.isK indProj rules
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f recrConst }
 
+    dbg_trace s!">> checkIndBlock end"
     return ()
 
   /-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
