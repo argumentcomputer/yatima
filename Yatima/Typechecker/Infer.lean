@@ -238,34 +238,51 @@ mutual
       pure (expr, u)
     | val => throw s!"Expected a sort type, found '{val}'"
 
-  partial def buildMutTypes (indBlockF : F) : TypecheckM RecrCtx := do
-    dbg_trace s!">> buildMutTypes"
+  partial def checkIndBlock (indBlockF : F) : TypecheckM Unit := do
     let quick := (← read).quick 
     let indBlock ← match derefConst indBlockF (← read).store with
       | .mutIndBlock blk => pure blk
       | _ => throw "Invalid Const kind. Expected mutIndBlock"
-    let mut indTypes : List (F × Nat × Expr) := []
-    let mut ctorTypes : List (F × Nat × Expr) := []
-    let mut recTypes : List (F × Nat × Expr) := []
+
+    -- Check all inductives
+    let mut mutTypes := .empty
     for (indIdx, ind) in indBlock.enum do
-      indTypes := indTypes ++ [(mkInductiveProjF indBlockF indIdx quick, ind.lvls, ind.type)]
-      ctorTypes := ctorTypes ++ (← ind.ctors.enum.mapM fun (cidx, ctor) => do pure (mkConstructorProjF indBlockF indIdx cidx quick, ctor.lvls, ctor.type))
-      recTypes := recTypes.append (← ind.recrs.enum.mapM fun (ridx, recr) => do pure (mkRecursorProjF indBlockF indIdx ridx quick, recr.lvls, recr.type))
-    -- TODO check order (should be same as `recrCtx` in CA)
-    let mutTypes ← (indTypes ++ ctorTypes ++ recTypes).enum.foldlM (init := default) 
-      fun acc (i, projF, lvls, type) => do
-        let univs := List.range lvls |>.map .var
-        withEnv ⟨ [], univs ⟩ do
-          -- FIXME repeated computation (this will happen again when we
-          -- actually check the recursor on its own)
-          -- dbg_trace s!"try building type:\n{PP.ppExpr type}"
-          let (type, _) ← withMutTypes acc $ isSort type
-          let ctx ← read
-          let stt ← get
-          let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-          pure $ acc.insert i (projF, typeSus)
-    dbg_trace s!">> buildMutTypes end"
-    pure mutTypes
+      let f := mkInductiveProjF indBlockF indIdx quick
+      let univs := List.range ind.lvls |>.map .var
+      let (type, _) ← withEnv ⟨ [], univs ⟩ $ isSort ind.type
+      let ctx ← read
+      let stt ← get
+      let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
+      mutTypes := mutTypes.insert indIdx (f, typeSus)
+      modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.inductive type ind.struct) }
+
+    -- Check all constructors
+    let ctorStart := mutTypes.size
+    for (indIdx, ind) in indBlock.enum do
+      for (cidx, ctor) in ind.ctors.enum do
+        let f := mkConstructorProjF indBlockF indIdx cidx quick
+        let univs := List.range ctor.lvls |>.map .var
+        let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort ctor.type
+        let ctx ← read
+        let stt ← get
+        let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
+        mutTypes := mutTypes.insert (ctorStart+cidx) (f, typeSus)
+        modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.constructor type ctor.idx ctor.fields) }
+
+    -- Check all recursors
+    for (indIdx, ind) in indBlock.enum do
+      for (ridx, recr) in ind.recrs.enum do
+        let f := mkRecursorProjF indBlockF indIdx ridx quick
+        let univs := List.range recr.lvls |>.map .var
+        let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort recr.type
+        let indProj := ⟨indBlockF, indIdx⟩
+        let rules ← recr.rules.mapM fun rule => do
+          let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
+          pure (rule.fields, rhs)
+        let recrConst := .recursor type recr.params recr.motives recr.minors recr.indices recr.isK indProj rules
+        modify fun stt => { stt with typedConsts := stt.typedConsts.insert f recrConst }
+
+    return ()
 
   /-- Typechecks a `Yatima.Const`. The `TypecheckM Unit` computation finishes if the check finishes,
   otherwise a `TypecheckError` is thrown in some other function in the typechecker stack.
@@ -347,32 +364,15 @@ mutual
                 withMutTypes mutTypes $ check data.value typeSus
               | _ => check data.value typeSus
             pure $ TypedConst.definition type value data.safety
-          | .inductiveProj p@⟨indBlockF, _⟩ =>
-            dbg_trace s!"inductive proj"
-            let data ← getIndFromProj p
-            dbg_trace s!"{ppInductive data}"
-            let mutTypes ← buildMutTypes indBlockF
-            -- dbg_trace s!"bad type:\n{PP.ppExpr data.type}"
-            let (type, _) ← withMutTypes mutTypes $ isSort data.type
-            pure $ .inductive type data.struct
-          | .constructorProj p@⟨indBlockF, _, _⟩ =>
-            dbg_trace s!"constructor proj"
-            let data ← getCtorFromProj p
-            dbg_trace s!"{ppConstructor data}"
-            let mutTypes ← buildMutTypes indBlockF
-            let (type, _) ← withMutTypes mutTypes $ isSort data.type
-            pure $ .constructor type data.idx data.fields
-          | .recursorProj p@⟨indBlockF, idx, _⟩ => do
-            dbg_trace s!"recursor proj"
-            let data ← getRecrFromProj p
-            dbg_trace s!"{ppRecursor data}"
-            let mutTypes ← buildMutTypes indBlockF
-            let rules ← data.rules.mapM fun rule => do
-              let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
-              pure (rule.fields, rhs)
-            let (type, _) ← withMutTypes mutTypes $ isSort (← c.type)
-            pure $ .recursor type data.params data.motives data.minors
-              data.indices data.isK ⟨indBlockF, idx⟩ rules
+          | .inductiveProj ⟨indBlockF, _⟩ =>
+            checkIndBlock indBlockF
+            return ()
+          | .constructorProj ⟨indBlockF, _, _⟩ =>
+            checkIndBlock indBlockF
+            return ()
+          | .recursorProj ⟨indBlockF, _, _⟩ =>
+            checkIndBlock indBlockF
+            return ()
           | .quotient data => 
             dbg_trace s!"quotient"
             let (type, _) ← isSort (← c.type)
