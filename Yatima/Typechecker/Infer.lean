@@ -277,7 +277,7 @@ mutual
         let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort recr.type
         let indProj := ⟨indBlockF, indIdx⟩
         let rules ← recr.rules.mapM fun rule => do
-          let (rhs, _) ← withMutTypes mutTypes $ infer rule.rhs
+          let (rhs, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ infer rule.rhs
           pure (rule.fields, rhs)
         let recrConst := .recursor type recr.params recr.motives recr.minors recr.indices recr.isK indProj rules
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f recrConst }
