@@ -15,6 +15,7 @@ open TC
 open Lurk (F)
 
 abbrev RecrCtx := Std.RBMap Nat (F × (List Univ → SusValue)) compare
+abbrev FMap    := Std.RBMap F Lean.Name compare
 
 /--
 The context available to the typechecker monad. The available fields are
@@ -32,6 +33,7 @@ structure TypecheckCtx where
     to the hash of that constant (in `TypecheckState.typedConsts`) and
     a function returning a `SusValue` for that constant's type given a list of universes. -/
   mutTypes : RecrCtx
+  fmap     : FMap
   quick    : Bool
   deriving Inhabited
 
@@ -45,8 +47,12 @@ structure TypecheckState where
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
-def TypecheckCtx.init (store : Store) (quick : Bool) : TypecheckCtx :=
-  { (default : TypecheckCtx) with store := store, quick := quick }
+def TypecheckCtx.init (store : Store) (fmap : FMap := .empty) (quick : Bool) : 
+    TypecheckCtx :=
+  { (default : TypecheckCtx) with 
+    store := store, 
+    fmap  := fmap, 
+    quick := quick }
 
 /--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
@@ -137,33 +143,33 @@ def fToPrim : F → Option PrimConst
   | .ofNat 16245233664916364549 => return .op .natAdd
   | _ => none
 def primToFQuick : PrimConst → Option F
-  | .op .natBlt => return .ofNat 7251320430134650332
-  | .op .natBle => return .ofNat 10102183310689148260
-  | .string => return .ofNat 6949939019387688787
-  | .op .natBeq => return .ofNat 9760045753923099497
+  | .op .natBlt => return .ofNat 9690859471905298127
+  | .op .natBle => return .ofNat 17982695273700216992
+  | .string => return .ofNat 11925729998000833825
+  | .op .natBeq => return .ofNat 8124137351521537953
   | .boolTrue => return .ofNat 3531769586140967142
-  | .nat => return .ofNat 36261279848039267
-  | .op .natPow => return .ofNat 13557009730483185550
+  | .nat => return .ofNat 483903733633847125
+  | .op .natPow => return .ofNat 15407569847678225740
   | .bool => return .ofNat 12141209139639517940
-  | .natZero => return .ofNat 18332866130654683503
-  | .op .natMul => return .ofNat 16426412488492540244
+  | .natZero => return .ofNat 2505172039281052005
+  | .op .natMul => return .ofNat 13825023936583445402
   | .boolFalse => return .ofNat 7441924181250763784
-  | .op .natSucc => return .ofNat 11811367283875677477
-  | .op .natAdd => return .ofNat 2584543329451145240
+  | .op .natSucc => return .ofNat 9081535940059458215
+  | .op .natAdd => return .ofNat 12469965364888358360
 def fToPrimQuick : F → Option PrimConst
-  | .ofNat 7251320430134650332 => return .op .natBlt
-  | .ofNat 10102183310689148260 => return .op .natBle
-  | .ofNat 6949939019387688787 => return .string
-  | .ofNat 9760045753923099497 => return .op .natBeq
+  | .ofNat 9690859471905298127 => return .op .natBlt
+  | .ofNat 17982695273700216992 => return .op .natBle
+  | .ofNat 11925729998000833825 => return .string
+  | .ofNat 8124137351521537953 => return .op .natBeq
   | .ofNat 3531769586140967142 => return .boolTrue
-  | .ofNat 36261279848039267 => return .nat
-  | .ofNat 13557009730483185550 => return .op .natPow
+  | .ofNat 483903733633847125 => return .nat
+  | .ofNat 15407569847678225740 => return .op .natPow
   | .ofNat 12141209139639517940 => return .bool
-  | .ofNat 18332866130654683503 => return .natZero
-  | .ofNat 16426412488492540244 => return .op .natMul
+  | .ofNat 2505172039281052005 => return .natZero
+  | .ofNat 13825023936583445402 => return .op .natMul
   | .ofNat 7441924181250763784 => return .boolFalse
-  | .ofNat 11811367283875677477 => return .op .natSucc
-  | .ofNat 2584543329451145240 => return .op .natAdd
+  | .ofNat 9081535940059458215 => return .op .natSucc
+  | .ofNat 12469965364888358360 => return .op .natAdd
   | _ => none
 --PRIMEND
 

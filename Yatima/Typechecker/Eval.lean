@@ -146,6 +146,8 @@ end TC
 
 namespace Typechecker
 
+open PP
+
 mutual
   /--
   Evaluates a `TypedExpr` into a `Value`.
@@ -203,7 +205,7 @@ mutual
           pure $ arg.1.get
         | _ => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
       | .app .. => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
-      | e => throw s!"Value {e} is impossible to project"
+      | e => throw s!"Value {← ppValue e} is impossible to project"
 
   partial def evalConst' (f : F) (univs : List Univ) : TypecheckM Value := do
     match derefConst f (← read).store with
@@ -277,6 +279,7 @@ mutual
    -/
   partial def applyConst (f : F) (univs : List Univ)
       (arg : SusValue) (args : Args) (info : TypeInfo) : TypecheckM Value := do
+    -- dbg_trace s!">> applyConst {PP.getF f}"
     if let some $ .op p ← fPrim f then
       let newArgs := args.cons (arg, info)
       if args.length < p.numArgs - 1 then
@@ -349,10 +352,12 @@ mutual
     else if argsLength < reduceSize then
       pure default
     else
-      throw "argsLength can't be greater than reduceSize"
+      throw s!"argsLength {argsLength} can't be greater than reduceSize {reduceSize}"
 
   partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
-    | .mk info thunk => match thunk.get with
+    | .mk info thunk =>
+
+      match thunk.get with
       | .lit (.natVal v) => do
         let zeroIdx ← primF .natZero
         let succIdx ← primF (.op .natSucc)
@@ -368,7 +373,9 @@ mutual
           if ind.struct then
             let ctor ← match ind.ctors with
               | [ctor] => pure ctor
-              | _ => throw "Structures should have only one constructor"
+              | _ =>
+                let f := mkInductiveProjF f i (← read).quick
+                throw s!"{(← read).fmap.getF f} should be a struct with only one constructor"
             let quick := (← read).quick
             let ctorF := mkConstructorProjF f i 0 quick
             let etaExpand (e : Value) : TypecheckM Value := do

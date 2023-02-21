@@ -50,7 +50,9 @@ This extractor creates general tests that we expect from any Lean source:
 -/
 def extractGeneralTests : IOExtractor := fun stt => do
   let storeAnon := stt.storeAnon
-  let anonHashes := stt.env.anonHashes
+  let (names, anonHashes) := 
+    stt.env.consts.foldl (init := (#[], #[])) 
+      fun (names, anonHashes) n (h, _) => (names.push n, anonHashes.push h)
   stt.dump "env.yenv"
   let storeRoundtripTests ← withExceptOkM "Loads the anon store"
       (← StoreAnon.load anonHashes) fun storeAnon' => do
@@ -60,10 +62,13 @@ def extractGeneralTests : IOExtractor := fun stt => do
       test "Meta store roundtrips" (stt.storeMeta == storeMeta')
   let commitAndTypecheckTests ← withExceptOkM "Committing succeeds"
       (← commit anonHashes storeAnon true false)
-    fun (cmStt, _) => pure $
+    fun (cmStt, comms) => pure $
+      let fmap : Std.RBMap Lurk.F Lean.Name compare :=
+        (names.zip comms).foldl (init := .empty) fun acc (name, comm) =>
+          acc.insert comm name
       test "Consts and commits have the same keys"
         (cmStt.consts.keysArray == cmStt.commits.keysArray) ++
-      withExceptOk "Typechecking succeeds" (typecheckAll cmStt.tcStore)
+      withExceptOk "Typechecking succeeds" (typecheckAll cmStt.tcStore fmap)
         fun _ => .done
   return storeRoundtripTests ++ commitAndTypecheckTests
 

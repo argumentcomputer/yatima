@@ -25,7 +25,7 @@ Note: Generally the values are assumed to already have the same type in the func
 
 namespace Yatima.Typechecker
 
-open TC
+open TC PP
 
 /-- Reduces the application of a `pi` type to its arguments -/
 def applyType : Value → List SusValue → TypecheckM Value
@@ -68,8 +68,11 @@ mutual
     match term.info, term'.info with
     | .unit, .unit => pure true
     | .proof, .proof => pure true
-    | _, _ =>
-      match term.get, term'.get with
+    | _, _ => do
+      let term! := term.get
+      let term'! := term'.get
+      -- dbg_trace s!">> equal?\n{← ppValue term!}\n  and\n{← ppValue term'!}"
+      match term!, term'! with
       | .lit lit, .lit lit' => pure $ lit == lit'
       | .sort u, .sort u' => pure $ u.equalUniv u'
       | .pi dom img env, .pi dom' img' env' => do
@@ -115,7 +118,10 @@ mutual
             let eqThunks ← equalThunks lvl args args'
             pure (eqVal && eqThunks)
           else pure false
-      | _, _ => pure false
+      | .exception e, _ | _, .exception e =>
+        throw s!"exception in equal: {e}"
+      | _, _ =>
+        pure false
 
 /--
 Checks if two list of thunks `vals vals' : List SusValue` are equal by evaluating the thunks

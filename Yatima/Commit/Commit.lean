@@ -84,7 +84,7 @@ partial def mkExpr (hash : Hash) : CommitM Expr := do
 partial def mkInd : IR.InductiveAnon → CommitM Inductive
   | ⟨lvls, type, params, indices, ctors, recrs, recr, safe, refl⟩ => do
     -- Structures can't be recursive nor have indices
-    let (struct, unit) ← if recr || indices != 0 then pure (true, false) else
+    let (struct, unit) ← if recr || indices != 0 then pure (false, false) else
       match ctors with
       -- Structures can only have one constructor
       | [ctor] => pure (true, ctor.fields == 0)
