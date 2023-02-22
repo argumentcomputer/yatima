@@ -278,7 +278,7 @@ mutual
         mutTypes := mutTypes.insert (start + cidx) (f, typeSus)
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.constructor type ctor.idx ctor.fields) }
 
-    -- Check all recursors
+    -- Check all recursor types
     for (indIdx, ind) in indBlock.enum do
       let start := mutTypes.size
       for (ridx, recr) in ind.recrs.enum do
@@ -291,6 +291,14 @@ mutual
         let stt ← get
         let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
         mutTypes := mutTypes.insert (start + ridx) (f, typeSus)
+
+    -- Check all recursor rules
+    for (indIdx, ind) in indBlock.enum do
+      for (ridx, recr) in ind.recrs.enum do
+        -- TODO: do not recompute `f`, `univs` and `type`
+        let f := mkRecursorProjF indBlockF indIdx ridx quick
+        let univs := List.range recr.lvls |>.map .var
+        let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort recr.type
         let indProj := ⟨indBlockF, indIdx⟩
         let rules ← recr.rules.mapM fun rule => do
           let (rhs, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ infer rule.rhs

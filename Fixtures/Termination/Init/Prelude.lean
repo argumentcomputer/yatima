@@ -3874,6 +3874,9 @@ produce different identifiers.
 abbrev MacroScope := Nat
 /-- Macro scope used internally. It is not available for our frontend. -/
 def reservedMacroScope := 0
+
+-- TODO For some reason `reservedMacroscope` is not typechecking. What's going on here??
+#exit
 /-- First macro scope available for our frontend -/
 def firstFrontendMacroScope := hAdd reservedMacroScope 1
 
