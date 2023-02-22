@@ -1,29 +1,7 @@
 import Yatima.Datatypes.Hash
 import Yatima.Datatypes.Lean
 
-namespace Yatima
-
-namespace IR
-
-inductive UnivAnon
-  | zero
-  | succ : Hash → UnivAnon
-  | max  : Hash → Hash → UnivAnon
-  | imax : Hash → Hash → UnivAnon
-  | var  : Nat → UnivAnon
-  deriving Inhabited, Ord, BEq, Repr
-
-inductive UnivMeta
-  | zero
-  | succ : Hash → UnivMeta
-  | max  : Hash → Hash → UnivMeta
-  | imax : Hash → Hash → UnivMeta
-  | var  : Name → UnivMeta
-  deriving Inhabited, Ord, BEq, Repr
-
-end IR
-
-namespace TC
+namespace Yatima.IR
 
 instance (priority := high) : Hashable Nat where
   hash x :=
@@ -212,8 +190,4 @@ def isZero : Univ → Bool
   -- expression with free variables, which are never semantically equal to zero
   | _ => false
 
-end Univ
-
-end TC
-
-end Yatima
+end Yatima.IR.Univ

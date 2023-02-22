@@ -37,24 +37,6 @@ initialize STOREDIR : FilePath ← do
     | some path => return path / ".cache" / "yatima_store"
     | none => return ⟨"."⟩
 
-def UNIVANONDIR : FilePath :=
-  STOREDIR / "univ_anon"
-
-def UNIVMETADIR : FilePath :=
-  STOREDIR / "univ_meta"
-
-def EXPRANONDIR : FilePath :=
-  STOREDIR / "expr_anon"
-
-def EXPRMETADIR : FilePath :=
-  STOREDIR / "expr_meta"
-
-def CONSTANONDIR : FilePath :=
-  STOREDIR / "const_anon"
-
-def CONSTMETADIR : FilePath :=
-  STOREDIR / "const_meta"
-
 def UNIVDIR : FilePath :=
   STOREDIR / "univ"
 
@@ -77,19 +59,11 @@ def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
 def CADIRS : List FilePath := [
-  UNIVANONDIR, EXPRANONDIR, CONSTANONDIR,
-  UNIVMETADIR, EXPRMETADIR, CONSTMETADIR
-]
-
-def CMDIRS : List FilePath := [
   UNIVDIR, EXPRDIR, CONSTDIR, COMMITSDIR
 ]
 
 @[inline] def mkCADirs : IO Unit :=
   CADIRS.forM IO.FS.createDirAll
-
-@[inline] def mkCMDirs : IO Unit :=
-  CMDIRS.forM IO.FS.createDirAll
 
 variable [h : Encodable α LightData String]
 

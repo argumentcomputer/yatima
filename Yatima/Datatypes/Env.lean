@@ -1,17 +1,15 @@
-import Yatima.Datatypes.Univ
 import Std.Data.RBMap
+import Yatima.Datatypes.Lean
+import Lurk.Field
 
 namespace Yatima
 
 structure IR.Env where
   -- meta : add information about the content-addressing session
-  consts : Std.RBMap Name (Hash × Hash) compare
+  consts : Std.RBMap Name Lurk.F compare
   deriving Inhabited
 
-def IR.Env.anonHashes (env : IR.Env) : Array Hash :=
-  env.consts.foldl (init := #[]) fun acc _ (h, _) => acc.push h
-
-def IR.Env.metaHashes (env : IR.Env) : Array Hash :=
-  env.consts.foldl (init := #[]) fun acc _ (_, h) => acc.push h
+def IR.Env.hashes (env : IR.Env) : Array Lurk.F :=
+  env.consts.valuesArray
 
 end Yatima

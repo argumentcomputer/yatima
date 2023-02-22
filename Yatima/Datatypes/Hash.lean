@@ -1,6 +1,6 @@
 import YatimaStdLib.ByteVector
 
-def ByteVector.repr (bv : ByteVector n) (prec : Nat) : Std.Format :=
+def ByteVector.repr (bv : ByteVector n) (_prec : Nat) : Std.Format :=
   toString bv.data
 where
   toString (bs : ByteArray) : String :=
