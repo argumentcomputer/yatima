@@ -1716,8 +1716,8 @@ set_option pp.all true in
 
 namespace Lean
 
--- /-- Macro scope used internally. It is not available for our frontend. -/
--- def reservedMacroScope := 0
+/-- Macro scope used internally. It is not available for our frontend. -/
+def reservedMacroScope := 0
 
 -- TODO For some reason `reservedMacroscope` is not typechecking. What's going on here??
 #exit

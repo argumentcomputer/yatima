@@ -25,6 +25,11 @@ end IR
 
 namespace TC
 
+instance (priority := high) : Hashable Nat where
+  hash x :=
+    if x < UInt64.size then hash x
+    else hash x.toByteArrayLE
+
 inductive Univ
   | zero
   | succ : Univ → Univ

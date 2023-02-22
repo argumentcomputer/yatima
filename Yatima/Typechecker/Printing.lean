@@ -14,8 +14,8 @@ open Yatima.Typechecker in
 def Yatima.Typechecker.ConstNames.getF 
     (constNames : ConstNames) (f : Lurk.F) : Std.Format := 
   match constNames.find? f with
-    | some name => f!"{name}"
-    | none => f!"{f}"
+    | some name => toString name
+    | none => toString f
 
 namespace Yatima.TC
 open Yatima.Typechecker

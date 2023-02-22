@@ -42,6 +42,10 @@ namespace TC
 
 open Lurk (F)
 
+instance (priority := high) : Hashable Literal where hash
+  | .natVal x => hash (0, x)
+  | .strVal x => hash (1, x)
+
 inductive Expr
   | var   : Nat → List Univ → Expr
   | sort  : Univ → Expr
