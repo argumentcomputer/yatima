@@ -40,27 +40,17 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
     | _,       none    => throw $ .levelNotFound y lvls
 
 /-- Content-addresses a Lean universe level and adds it to the store -/
-def contAddrUniv (l : Lean.Level) : ContAddrM (Hash × Hash) := do
-  let (anon, meta) ← match l with
-    | .zero => pure (.zero, .zero)
-    | .succ n =>
-      let (anon, meta) ← contAddrUniv n
-      pure (.succ anon, .succ meta)
-    | .max a b  =>
-      let (aAnon, aMeta) ← contAddrUniv a
-      let (bAnon, bMeta) ← contAddrUniv b
-      pure (.max aAnon bAnon, .max aMeta bMeta)
-    | .imax a b  =>
-      let (aAnon, aMeta) ← contAddrUniv a
-      let (bAnon, bMeta) ← contAddrUniv b
-      pure (.imax aAnon bAnon, .max aMeta bMeta)
-    | .param name =>
-      let lvls := (← read).univCtx
-      match lvls.indexOf? name with
-      | some n => pure (.var n, .var name)
-      | none   => throw $ .levelNotFound name lvls
-    | .mvar .. => throw $ .unfilledLevelMetavariable l
-  addToStore $ .univ anon meta
+def contAddrUniv : Lean.Level → ContAddrM Univ
+  | .zero => pure .zero
+  | .succ u => return .succ (← contAddrUniv u)
+  | .max a b  => return .max  (← contAddrUniv a) (← contAddrUniv b)
+  | .imax a b => return .imax (← contAddrUniv a) (← contAddrUniv b)
+  | .param name => do
+    let lvls := (← read).univCtx
+    match lvls.indexOf? name with
+    | some n => pure $ .var n
+    | none   => throw $ .levelNotFound name lvls
+  | l@(.mvar ..) => throw $ .unfilledLevelMetavariable l
 
 /-- Retrieves a Lean constant from the environment by its name -/
 def getLeanConstant (name : Lean.Name) : ContAddrM Lean.ConstantInfo := do
@@ -72,19 +62,17 @@ def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
   match expr with
   | .forallE _ t e _  => match e with
     | .forallE ..  => isInternalRec e name
-    -- t is the major premise
-    | _ => isInternalRec t name
+    | _ => isInternalRec t name -- t is the major premise
   | .app e .. => isInternalRec e name
   | .const n .. => n == name
   | _ => false
 
 mutual
 
-partial def contAddrConst (const : Lean.ConstantInfo) :
-    ContAddrM $ Hash × Hash := do
+partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
   match (← get).env.consts.find? const.name with
-  | some c => pure c
-  | none   => match const with
+  | some hash => pure hash
+  | none => match const with
     | .defnInfo val => withLevelsAndReset val.levelParams $ contAddrDefinition val
     | .inductInfo val => withLevelsAndReset val.levelParams $ contAddrInductive val
     | .ctorInfo val => do
@@ -99,43 +87,30 @@ partial def contAddrConst (const : Lean.ConstantInfo) :
       contAddrConst const
     -- The rest adds the constants to the cache one by one
     | const => withLevelsAndReset const.levelParams do
-      let (anon, meta) ← match const with
+      let obj ← match const with
         | .defnInfo _ | .inductInfo _ | .ctorInfo _ | .recInfo _ => unreachable!
         | .axiomInfo val =>
-          let (typAnon, typMeta) ← contAddrExpr val.type
-          pure (.axiom ⟨val.levelParams.length, typAnon, !val.isUnsafe⟩,
-            .axiom ⟨val.name, val.levelParams, typMeta⟩)
+          pure $ .axiom ⟨val.levelParams.length, ← contAddrExpr val.type, !val.isUnsafe⟩
         | .thmInfo val =>
           -- Theorems are never truly recursive
-          let (typAnon, typMeta) ← contAddrExpr val.type
-          let (valAnon, valMeta) ← contAddrExpr val.value
-          pure (.theorem ⟨val.levelParams.length, typAnon, valAnon⟩,
-            .theorem ⟨val.name, val.levelParams, typMeta, valMeta⟩)
+          pure $ .theorem ⟨val.levelParams.length, ← contAddrExpr val.type,
+            ← contAddrExpr val.value⟩
         | .opaqueInfo val =>
-          let (typAnon, typMeta) ← contAddrExpr val.type
           let recrs := .single val.name (0, some 0)
-          let (valAnon, valMeta) ← withRecrs recrs $ contAddrExpr val.value
-          pure (.opaque ⟨val.levelParams.length, typAnon, valAnon, !val.isUnsafe⟩,
-            .opaque ⟨val.name, val.levelParams, typMeta, valMeta⟩)
+          pure $ .opaque ⟨val.levelParams.length, ← contAddrExpr val.type,
+            ← withRecrs recrs $ contAddrExpr val.value, !val.isUnsafe⟩
         | .quotInfo val =>
-          let (typAnon, typMeta) ← contAddrExpr val.type
-          pure (.quotient ⟨val.levelParams.length, typAnon, val.kind⟩,
-            .quotient ⟨val.name, val.levelParams, typMeta⟩)
-      let hashes ← addToStore $ .const anon meta
-      addToEnv const.name hashes
-      return hashes
+          pure $ .quotient ⟨val.levelParams.length, ← contAddrExpr val.type, val.kind⟩
+      let hash ← commit obj
+      addToEnv const.name hash
+      return hash
 
-partial def contAddrDefinition (struct : Lean.DefinitionVal) :
-    ContAddrM $ Hash × Hash := do
-
+partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F := do
   -- If the mutual size is one, simply content address the single definition
-  if struct.all matches [_] then 
-    let (defnAnon, defnMeta) ← definitionToIR struct
-    let valueAnon := .definition defnAnon
-    let valueMeta := .definition defnMeta
-    let hashes ← addToStore $ .const valueAnon valueMeta
-    addToEnv defnMeta.name hashes
-    return hashes
+  if struct.all matches [_] then
+    let hash ← commit $ .definition (← definitionToIR struct)
+    addToEnv struct.name hash
+    return hash
 
   -- Collecting and sorting all definitions in the mutual block
   let mutualDefs ← struct.all.mapM fun name => do
@@ -153,37 +128,29 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) :
   let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM definitionToIR)
 
   -- Building and storing the block
-  let definitionsAnon := (definitions.map (match ·.head? with
-    | some d => [d.1] | none => [])).join
-  let definitionsMeta := definitions.map fun ds => ds.map (·.2)
-  let blockHashes ← addToStore $
-    .const (.mutDefBlock definitionsAnon) (.mutDefBlock definitionsMeta)
+  let definitionsIr := (definitions.map (match ·.head? with
+    | some d => [d] | none => [])).join
+  let blockHash ← commit $ .mutDefBlock definitionsIr
 
   -- While iterating on the definitions from the mutual block, we need to track
   -- the correct objects to return
-  let mut ret? : Option (Hash × Hash) := none
+  let mut ret? : Option Lurk.F := none
 
-  for (i, (_defnAnon, defnMeta)) in definitions.join.enum do
+  for name in struct.all do
     -- Storing and caching the definition projection
     -- Also adds the constant to the array of constants
-    let some (idx, _) := recrCtx.find? defnMeta.name | throw $ .cantFindMutDefIndex defnMeta.name
-    let valueAnon := .definitionProj ⟨blockHashes.1, idx⟩
-    let valueMeta := .definitionProj ⟨blockHashes.2, i⟩
-    let hashes ← addToStore $ .const valueAnon valueMeta
-    addToEnv defnMeta.name hashes
-    if defnMeta.name == struct.name then ret? := some hashes
+    let some (idx, _) := recrCtx.find? name | throw $ .cantFindMutDefIndex name
+    let hash ← commit $ .definitionProj ⟨blockHash, idx⟩
+    addToEnv name hash
+    if struct.name == name then ret? := some hash
 
   match ret? with
   | some ret => return ret
   | none => throw $ .constantNotContentAddressed struct.name
 
-partial def definitionToIR (defn : Lean.DefinitionVal) :
-    ContAddrM (DefinitionAnon × DefinitionMeta) := do
-  let typeHashes ← contAddrExpr defn.type
-  let valueHashes ← contAddrExpr defn.value
-  return (
-    ⟨defn.levelParams.length, typeHashes.1, valueHashes.1, defn.safety⟩,
-    ⟨defn.name, defn.levelParams, typeHashes.2, valueHashes.2⟩)
+partial def definitionToIR (defn : Lean.DefinitionVal) : ContAddrM Definition :=
+  return ⟨defn.levelParams.length, ← contAddrExpr defn.type,
+    ← contAddrExpr defn.value, defn.safety⟩
 
 /--
 Content-addresses an inductive and all inductives in the mutual block as a
@@ -192,8 +159,7 @@ mutual block, even if the inductive itself is not in a mutual block.
 Content-addressing an inductive involves content-addressing its associated
 constructors and recursors, hence the lenght of this function.
 -/
-partial def contAddrInductive (initInd : Lean.InductiveVal) :
-    ContAddrM $ Hash × Hash := do
+partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F := do
   let mut inds := []
   let mut indCtors := []
   let mut indRecs := []
@@ -220,42 +186,34 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) :
   let irInds ← initInd.all.mapM fun name => do match ← getLeanConstant name with
     | .inductInfo ind => withRecrs recrCtx do pure $ (← inductiveToIR ind)
     | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
-  let (blockAnon, blockMeta) ← addToStore $
-    .const (.mutIndBlock $ irInds.map (·.1)) (.mutIndBlock $ irInds.map (·.2))
+  let blockHash ← commit $ .mutIndBlock irInds
 
   -- While iterating on the inductives from the mutual block, we need to track
   -- the correct objects to return
-  let mut ret? : Option (Hash × Hash) := none
+  let mut ret? : Option Lurk.F := none
 
-  for (indIdx, ⟨indAnon, indMeta⟩) in irInds.enum do
+  for (indIdx, irInd) in irInds.enum do
     -- Store and cache inductive projections
-    let name := indMeta.name
-    let hashes ← addToStore $ .const
-      (.inductiveProj ⟨blockAnon, indIdx⟩)
-      (.inductiveProj ⟨blockMeta, indIdx⟩)
-    addToEnv name hashes
-    if name == initInd.name then ret? := some hashes
+    let name := sorry
+    let hash ← commit $ .inductiveProj ⟨blockHash, indIdx⟩
+    addToEnv name hash
+    if name == initInd.name then ret? := some hash
 
-    for (ctorIdx, (_ctorAnon, ctorMeta)) in (indAnon.ctors.zip indMeta.ctors).enum do
+    for (ctorIdx, ctor) in irInd.ctors.enum do
       -- Store and cache constructor projections
-      let hashes ← addToStore $ .const
-        (.constructorProj ⟨blockAnon, indIdx, ctorIdx⟩)
-        (.constructorProj ⟨blockMeta, indIdx, ctorIdx⟩)
-      addToEnv ctorMeta.name hashes
+      let hashes ← commit $ .constructorProj ⟨blockHash, indIdx, ctorIdx⟩
+      addToEnv sorry hashes
 
-    for (recrIdx, (_recrAnon, recrMeta)) in (indAnon.recrs.zip indMeta.recrs).enum do
+    for (recrIdx, recr) in irInd.recrs.enum do
       -- Store and cache recursor projections
-      let hashes ← addToStore $ .const
-        (.recursorProj ⟨blockAnon, indIdx, recrIdx⟩)
-        (.recursorProj ⟨blockMeta, indIdx, recrIdx⟩)
-      addToEnv recrMeta.name hashes
+      let hashes ← commit $ .recursorProj ⟨blockHash, indIdx, recrIdx⟩
+      addToEnv sorry hashes
 
   match ret? with
   | some ret => return ret
   | none => throw $ .constantNotContentAddressed initInd.name
 
-partial def inductiveToIR (ind : Lean.InductiveVal) :
-    ContAddrM $ InductiveAnon × InductiveMeta := do
+partial def inductiveToIR (ind : Lean.InductiveVal) : ContAddrM Inductive := do
   let leanRecs := (← read).constMap.childrenOfWith ind.name
     fun c => match c with | .recInfo _ => true | _ => false
   let (recs, ctors) ← leanRecs.foldrM (init := ([], []))
@@ -268,58 +226,46 @@ partial def inductiveToIR (ind : Lean.InductiveVal) :
           let thisRec ← externalRecToIR r
           pure (thisRec :: recs, ctors)
       | _ => throw $ .nonRecursorExtractedFromChildren r.name
-  let (typAnon, typMeta) ← contAddrExpr ind.type
-  let indAnon := ⟨ind.levelParams.length, typAnon, ind.numParams, ind.numIndices,
+  return ⟨ind.levelParams.length, ← contAddrExpr ind.type, ind.numParams, ind.numIndices,
     -- NOTE: for the purpose of extraction, the order of `ctors` and `recs` MUST
     -- match the order used in `recrCtx`
-    ctors.map (·.1), recs.map (·.1), ind.isRec, !ind.isUnsafe, ind.isReflexive⟩
-  let indMeta := ⟨ind.name, ind.levelParams, typMeta, ctors.map (·.2), recs.map (·.2)⟩
-  return (indAnon, indMeta)
+    ctors, recs, ind.isRec, !ind.isUnsafe, ind.isReflexive, sorry, sorry⟩
 
 partial def internalRecToIR (ctors : List Lean.Name) :
-  Lean.ConstantInfo → ContAddrM
-    ((RecursorAnon × RecursorMeta) × (List $ ConstructorAnon × ConstructorMeta))
+    Lean.ConstantInfo → ContAddrM (Recursor × List Constructor)
   | .recInfo rec => withLevels rec.levelParams do
-    let (typAnon, typMeta) ← contAddrExpr rec.type
+    let typ ← contAddrExpr rec.type
     let (retCtors, retRules) ← rec.rules.foldrM (init := ([], []))
       fun r (retCtors, retRules) => do
         if ctors.contains r.ctor then
           let (ctor, rule) ← recRuleToIR r
           pure $ (ctor :: retCtors, rule :: retRules)
         else pure (retCtors, retRules) -- this is an external recursor rule
-    let recAnon := ⟨rec.levelParams.length, typAnon, rec.numParams,
-      rec.numIndices, rec.numMotives, rec.numMinors, retRules.map (·.1),
-      rec.k, true⟩
-    let recMeta := ⟨rec.name, rec.levelParams, typMeta, retRules.map (·.2)⟩
-    return ((recAnon, recMeta), retCtors)
+    let recr := ⟨rec.levelParams.length, typ, rec.numParams, rec.numIndices,
+      rec.numMotives, rec.numMinors, retRules, rec.k, true⟩
+    return (recr, retCtors)
   | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $
-    (ConstructorAnon × ConstructorMeta) × (RecursorRuleAnon × RecursorRuleMeta) := do
-  let (rhsAnon, rhsMeta) ← contAddrExpr rule.rhs
+partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $ Constructor × RecursorRule := do
+  let rhs ← contAddrExpr rule.rhs
   match ← getLeanConstant rule.ctor with
   | .ctorInfo ctor => withLevels ctor.levelParams do
-    let (typAnon, typMeta) ← contAddrExpr ctor.type
-    let ctors := (
-      ⟨ctor.levelParams.length, typAnon, ctor.cidx, ctor.numParams, ctor.numFields, !ctor.isUnsafe⟩,
-      ⟨ctor.name, ctor.levelParams, typMeta⟩)
-    pure (ctors, (⟨rule.nfields, rhsAnon⟩, ⟨rhsMeta⟩))
+    let typ ← contAddrExpr ctor.type
+    let ctor := ⟨ctor.levelParams.length, typ, ctor.cidx, ctor.numParams,
+      ctor.numFields, !ctor.isUnsafe⟩
+    pure (ctor, ⟨rule.nfields, rhs⟩)
   | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
-partial def externalRecToIR : Lean.ConstantInfo → ContAddrM (RecursorAnon × RecursorMeta)
+partial def externalRecToIR : Lean.ConstantInfo → ContAddrM Recursor
   | .recInfo rec => withLevels rec.levelParams do
-    let (typAnon, typMeta) ← contAddrExpr rec.type
+    let typ ← contAddrExpr rec.type
     let rules ← rec.rules.mapM externalRecRuleToIR
-    return (
-      ⟨rec.levelParams.length, typAnon, rec.numParams, rec.numIndices,
-        rec.numMotives, rec.numMinors, rules.map (·.1), rec.k, false⟩,
-      ⟨rec.name, rec.levelParams, typMeta, rules.map (·.2)⟩)
+    return ⟨rec.levelParams.length, typ, rec.numParams, rec.numIndices,
+      rec.numMotives, rec.numMinors, rules, rec.k, false⟩
   | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-partial def externalRecRuleToIR (rule : Lean.RecursorRule) :
-    ContAddrM (RecursorRuleAnon × RecursorRuleMeta) := do
-  let (rhsAnon, rhsMeta) ← contAddrExpr rule.rhs
-  return (⟨rule.nfields, rhsAnon⟩, ⟨rhsMeta⟩)
+partial def externalRecRuleToIR (rule : Lean.RecursorRule) : ContAddrM RecursorRule :=
+  return ⟨rule.nfields, ← contAddrExpr rule.rhs⟩
 
 /--
 Content-addresses a Lean expression and adds it to the store.
@@ -330,54 +276,34 @@ encoded as variables with indexes that go beyond the bind indexes
 * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
 and thus we can contAddr the actual constant right away
 -/
-partial def contAddrExpr : Lean.Expr → ContAddrM (Hash × Hash)
+partial def contAddrExpr : Lean.Expr → ContAddrM Expr
   | .mdata _ e => contAddrExpr e
-  | expr => do
-    let (anon, meta) ← match expr with
-      | .bvar idx => match (← read).bindCtx.get? idx with
-        -- Bound variables must be in the bind context
-        | some name => pure (.var idx [], .var name none [])
-        | none => throw $ .invalidBVarIndex idx
-      | .sort lvl =>
-        let (anon, meta) ← contAddrUniv lvl
-        pure (.sort anon, .sort meta)
-      | .const name lvls =>
-        let (univHashesAnon, univHashesMeta) ← lvls.foldrM (init := ([], []))
-          fun lvl (anons, metas) => do
-            let (anon, meta) ← contAddrUniv lvl
-            pure (anon :: anons, meta :: metas)
-        match (← read).recrCtx.find? name with
-        | some (i, i?) => -- recursing!
-          let idx := (← read).bindCtx.length + i
-          pure (.var idx univHashesAnon, .var name i? univHashesMeta)
-        | none =>
-          let (anon, meta) ← contAddrConst (← getLeanConstant name)
-          pure (.const anon univHashesAnon, .const meta univHashesMeta)
-      | .app fnc arg =>
-        let (fncAnon, fncMeta) ← contAddrExpr fnc
-        let (argAnon, argMeta) ← contAddrExpr arg
-        pure (.app fncAnon argAnon, .app fncMeta argMeta)
-      | .lam name typ bod bnd =>
-        let (typAnon, typMeta) ← contAddrExpr typ
-        let (bodAnon, bodMeta) ← withBinder name $ contAddrExpr bod
-        pure (.lam typAnon bodAnon, .lam name bnd typMeta bodMeta)
-      | .forallE name dom img bnd =>
-        let (domAnon, domMeta) ← contAddrExpr dom
-        let (imgAnon, imgMeta) ← withBinder name $ contAddrExpr img
-        pure (.pi domAnon imgAnon, .pi name bnd domMeta imgMeta)
-      | .letE name typ exp bod _ =>
-        let (typAnon, typMeta) ← contAddrExpr typ
-        let (expAnon, expMeta) ← contAddrExpr exp
-        let (bodAnon, bodMeta) ← withBinder name $ contAddrExpr bod
-        pure (.letE typAnon expAnon bodAnon, .letE name typMeta expMeta bodMeta)
-      | .lit lit => pure (.lit lit, .lit)
-      | .proj _ idx exp =>
-        let (expAnon, expMeta) ← contAddrExpr exp
-        pure (.proj idx expAnon, .proj expMeta)
-      | .fvar ..  => throw $ .freeVariableExpr expr
-      | .mvar ..  => throw $ .metaVariableExpr expr
-      | .mdata .. => throw $ .metaDataExpr expr
-    addToStore $ .expr anon meta
+  | expr => match expr with
+    | .bvar idx => do match (← read).bindCtx.get? idx with
+      -- Bound variables must be in the bind context
+      | some name => return .var idx []
+      | none => throw $ .invalidBVarIndex idx
+    | .sort lvl => return .sort $ ← contAddrUniv lvl
+    | .const name lvls => do
+      let univs ← lvls.mapM contAddrUniv
+      match (← read).recrCtx.find? name with
+      | some (i, i?) => -- recursing!
+        let idx := (← read).bindCtx.length + i
+        return .var idx univs
+      | none => return .const (← contAddrConst $ ← getLeanConstant name) univs
+    | .app fnc arg => return .app (← contAddrExpr fnc) (← contAddrExpr arg)
+    | .lam name typ bod bnd =>
+      return .lam (← contAddrExpr typ) (← withBinder name $ contAddrExpr bod)
+    | .forallE name dom img bnd =>
+      return .pi (← contAddrExpr dom) (← withBinder name $ contAddrExpr img)
+    | .letE name typ exp bod _ =>
+      return .letE (← contAddrExpr typ) (← contAddrExpr exp)
+        (← withBinder name $ contAddrExpr bod)
+    | .lit lit => return .lit lit
+    | .proj _ idx exp => return .proj idx (← contAddrExpr exp)
+    | .fvar ..  => throw $ .freeVariableExpr expr
+    | .mvar ..  => throw $ .metaVariableExpr expr
+    | .mdata .. => throw $ .metaDataExpr expr
 
 /--
 A name-irrelevant ordering of Lean expressions.
@@ -519,8 +445,12 @@ Important: constants with open references in their expressions are filtered out.
 Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
-def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
-    (yenv : Env := default) : Except ContAddrError ContAddrState :=
-  ContAddrM.run constMap yenv (contAddrM delta)
+def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo) (yenv : Env)
+    (quick persist : Bool) : IO $ Except ContAddrError ContAddrState := do
+  let persist := if quick then false else persist
+  match ← StateT.run (ReaderT.run (contAddrM delta)
+    (.init constMap quick persist)) (.init yenv) with
+  | (.ok _, stt) => return .ok stt
+  | (.error e, _) => return .error e
 
 end Yatima.ContAddr

@@ -37,13 +37,7 @@ initialize STOREDIR : FilePath ← do
     | some path => return path / ".cache" / "yatima_store"
     | none => return ⟨"."⟩
 
-def UNIVDIR : FilePath :=
-  STOREDIR / "univ"
-
-def EXPRDIR : FilePath :=
-  STOREDIR / "expr"
-
-def CONSTDIR : FilePath :=
+def CONSTSDIR : FilePath :=
   STOREDIR / "const"
 
 def COMMITSDIR : FilePath :=
@@ -59,7 +53,7 @@ def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
 def CADIRS : List FilePath := [
-  UNIVDIR, EXPRDIR, CONSTDIR, COMMITSDIR
+  CONSTSDIR, COMMITSDIR
 ]
 
 @[inline] def mkCADirs : IO Unit :=
