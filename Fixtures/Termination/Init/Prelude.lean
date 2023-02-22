@@ -2235,7 +2235,6 @@ structure Substring where
 instance : Inhabited Substring where
   default := ⟨"", {}, {}⟩
 -- TODO Failing here for some reason
-#exit
 
 /-- The byte length of the substring. -/
 @[inline] def Substring.bsize : Substring → Nat
