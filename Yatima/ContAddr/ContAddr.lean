@@ -331,10 +331,9 @@ partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
     | some nx, some ny => return compare nx ny
     | none, some _ => return .gt
     | some _, none => return .lt
-    | none, none => do
-      let xCid := (← contAddrConst (← getLeanConstant x)).1
-      let yCid := (← contAddrConst (← getLeanConstant y)).1
-      return compare xCid yCid
+    | none, none =>
+      return compare (← contAddrConst $ ← getLeanConstant x)
+        (← contAddrConst $ ← getLeanConstant y)
   | .const .., _ => return .lt
   | _, .const .. => return .gt
   | .app xf xa, .app yf ya =>
