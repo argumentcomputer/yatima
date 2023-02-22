@@ -14,8 +14,8 @@ namespace Yatima.Typechecker
 open TC
 open Lurk (F)
 
-abbrev RecrCtx := Std.RBMap Nat (F × (List Univ → SusValue)) compare
-abbrev FMap    := Std.RBMap F Lean.Name compare
+abbrev RecrCtx    := Std.RBMap Nat (F × (List Univ → SusValue)) compare
+abbrev ConstNames := Std.RBMap F Lean.Name compare
 
 /--
 The context available to the typechecker monad. The available fields are
@@ -25,16 +25,16 @@ The context available to the typechecker monad. The available fields are
 * `store : Store` : An store of known constants in the context.
 -/
 structure TypecheckCtx where
-  lvl      : Nat
-  env      : Env
-  types    : List SusValue
-  store    : Store
+  lvl        : Nat
+  env        : Env
+  types      : List SusValue
+  store      : Store
   /-- Maps a variable index (which represents a reference to a mutual const)
     to the hash of that constant (in `TypecheckState.typedConsts`) and
     a function returning a `SusValue` for that constant's type given a list of universes. -/
-  mutTypes : RecrCtx
-  fmap     : FMap
-  quick    : Bool
+  mutTypes   : RecrCtx
+  constNames : ConstNames
+  quick      : Bool
   deriving Inhabited
 
 /--
@@ -47,12 +47,12 @@ structure TypecheckState where
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
-def TypecheckCtx.init (store : Store) (fmap : FMap := .empty) (quick : Bool) : 
+def TypecheckCtx.init (store : Store) (constNames : ConstNames := .empty) (quick : Bool) : 
     TypecheckCtx :=
   { (default : TypecheckCtx) with 
-    store := store, 
-    fmap  := fmap, 
-    quick := quick }
+    store      := store, 
+    constNames := constNames, 
+    quick      := quick }
 
 /--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,

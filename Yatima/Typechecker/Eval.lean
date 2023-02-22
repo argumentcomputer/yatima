@@ -375,7 +375,7 @@ mutual
               | [ctor] => pure ctor
               | _ =>
                 let f := mkInductiveProjF f i (← read).quick
-                throw s!"{(← read).fmap.getF f} should be a struct with only one constructor"
+                throw s!"{(← read).constNames.getF f} should be a struct with only one constructor"
             let quick := (← read).quick
             let ctorF := mkConstructorProjF f i 0 quick
             let etaExpand (e : Value) : TypecheckM Value := do

@@ -11,10 +11,10 @@ namespace Yatima.Typechecker
 open TC
 
 /-- Typechecks all constants from a `Yatima.TC.Store` -/
-def typecheckAll (store : Store) (fmap : FMap := .empty) : 
+def typecheckAll (store : Store) (constNames : ConstNames := .empty) : 
     Except String Unit :=
   let aux := do (← read).store.forM fun f _ => checkConst f
-  match TypecheckM.run (.init store fmap true) default aux with
+  match TypecheckM.run (.init store constNames true) default aux with
   | .ok u => .ok u
   | .error err => throw err
 

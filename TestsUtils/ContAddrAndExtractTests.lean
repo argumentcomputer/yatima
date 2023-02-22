@@ -63,12 +63,12 @@ def extractGeneralTests : IOExtractor := fun stt => do
   let commitAndTypecheckTests ← withExceptOkM "Committing succeeds"
       (← commit anonHashes storeAnon true false)
     fun (cmStt, comms) => pure $
-      let fmap : Std.RBMap Lurk.F Lean.Name compare :=
+      let constNames : Std.RBMap Lurk.F Lean.Name compare :=
         (names.zip comms).foldl (init := .empty) fun acc (name, comm) =>
           acc.insert comm name
       test "Consts and commits have the same keys"
         (cmStt.consts.keysArray == cmStt.commits.keysArray) ++
-      withExceptOk "Typechecking succeeds" (typecheckAll cmStt.tcStore fmap)
+      withExceptOk "Typechecking succeeds" (typecheckAll cmStt.tcStore constNames)
         fun _ => .done
   return storeRoundtripTests ++ commitAndTypecheckTests
 

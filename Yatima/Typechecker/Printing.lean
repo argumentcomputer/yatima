@@ -11,8 +11,9 @@ the typechecker.
 open Lean
 
 open Yatima.Typechecker in
-def Yatima.Typechecker.FMap.getF (fmap : FMap) (f : Lurk.F) : Std.Format := 
-  match fmap.find? f with
+def Yatima.Typechecker.ConstNames.getF 
+    (constNames : ConstNames) (f : Lurk.F) : Std.Format := 
+  match constNames.find? f with
     | some name => f!"{name}"
     | none => f!"{f}"
 
@@ -95,12 +96,12 @@ mutual
     bracket "{" (joinSep (us.map ppUniv) ", ") "}"
 
   partial def ppExpr (e : Expr) : TypecheckM Format := do
-    let fmap := (← read).fmap
+    let constNames := (← read).constNames
     match e with
     | .var name us => return f!"v_{name}@{ppUnivs us}"
     | .sort u => return f!"Sort {ppUniv u}"
     | .const name us =>
-      return f!"{fmap.getF name}@{ppUnivs us}"
+      return f!"{constNames.getF name}@{ppUnivs us}"
     | .app func body => match func with
       | .app .. => return f!"{← ppExpr func} {← paren body}"
       | _ => return f!"{← paren func} {← paren body}"
@@ -201,7 +202,7 @@ mutual
     | .var _ idx => return f!"v_{idx}"
     | .sort _ u => return f!"Sort {ppUniv u}"
     | .const _ k univs =>
-      return f!"{(← read).fmap.getF k}@{ppUnivs univs}"
+      return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
     | .app _ fnc arg => match fnc with
       | .app .. => return f!"{← ppTypedExpr fnc} {← paren arg}"
       | _ => return f!"{← paren fnc} {← paren arg}"
@@ -230,7 +231,7 @@ mutual
      | some val => ppValue val.get
      | none => return f!"!_@{idx}!"
     | .sort _ u => return f!"Sort {ppUniv u}"
-    | .const _ k univs => return f!"{(← read).fmap.getF k}@{ppUnivs univs}" 
+    | .const _ k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}" 
     | .app _ fnc arg => match fnc with
       | .app .. => return f!"{← ppTypedExprWith fnc env} {← parenWith arg env}"
       | _ => return f!"{← parenWith fnc env} {← parenWith arg env}"
@@ -248,7 +249,7 @@ mutual
   private partial def ppSpine (neu : Neutral) (args : Args) : TypecheckM Format := do
     let neu := ← match neu with
       | .fvar idx .. => return f!"fv_{idx}"
-      | .const k univs => return f!"{(← read).fmap.getF k}@{ppUnivs univs}"
+      | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
       | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
     List.foldrM (fun arg str => return f!"{str} {← ppValue arg.1.get}") neu args
 

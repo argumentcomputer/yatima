@@ -308,7 +308,7 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (f : F) : TypecheckM Unit := withResetCtx do
-    dbg_trace s!">> checkConst {(← read).fmap.getF f}"
+    dbg_trace s!">> checkConst {(← read).constNames.getF f}"
     match (← get).typedConsts.find? f with
     | some _ => 
       dbg_trace s!"cache hit"
@@ -401,7 +401,7 @@ mutual
             pure $ .quotient type data.kind
           | _ => throw "Impossible case. Cannot typecheck a mutual block."
         -- TODO is it okay to use the original hash for the `TypedConst`, or should we compute a new one?
-        dbg_trace s!"finish {(← read).fmap.getF f}\n"
+        dbg_trace s!"finish {(← read).constNames.getF f}\n"
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f newConst }
 end
 
