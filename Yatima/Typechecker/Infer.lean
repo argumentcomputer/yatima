@@ -332,7 +332,7 @@ mutual
       withEnv ⟨ [], univs ⟩ do
         let quick := (← read).quick
         let newConst ← match c with
-          | .axiom ax    => 
+          | .axiom ax =>
             -- dbg_trace s!"axiom"
             let (type, _) ← isSort ax.type
             pure $ TypedConst.axiom type
