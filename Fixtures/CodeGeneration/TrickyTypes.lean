@@ -2,7 +2,7 @@ import Yatima.Datatypes.Expr
 import Lean.Data.RBMap
 import Std.Data.RBMap
 
-def Yatima.TC.Expr.ctorName : Yatima.TC.Expr → String
+def Yatima.IR.Expr.ctorName : Yatima.IR.Expr → String
   | var   .. => "var"
   | sort  .. => "sort"
   | const .. => "const"
@@ -13,8 +13,8 @@ def Yatima.TC.Expr.ctorName : Yatima.TC.Expr → String
   | lit   .. => "lit"
   | proj  .. => "proj"
 
-def expr : Yatima.TC.Expr :=
-  .lam (.sort Yatima.TC.Univ.zero) (.var 1 [])
+def expr : Yatima.IR.Expr :=
+  .lam (.sort Yatima.IR.Univ.zero) (.var 1 [])
 def exprCtor := expr.ctorName
 
 def map : Std.RBMap Nat Nat compare :=
