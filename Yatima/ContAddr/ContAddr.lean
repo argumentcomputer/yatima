@@ -160,18 +160,21 @@ Content-addressing an inductive involves content-addressing its associated
 constructors and recursors, hence the lenght of this function.
 -/
 partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F := do
+  -- `mutualConsts` is the list of the names of all constants associated with an inductive block
+  -- it has the form: ind₁ ++ ctors₁ ++ recrs₁ ++ ... ++ indₙ ++ ctorsₙ ++ recrsₙ
   let mut inds := []
   let mut indCtors := []
   let mut indRecs := []
-
+  let mut nameData : RBMap Name (List Name × List Name) compare := .empty
   for indName in initInd.all do
     match ← getLeanConstant indName with
     | .inductInfo ind =>
-      let leanRecs := ((← read).constMap.childrenOfWith ind.name
+      let indRecrs := ((← read).constMap.childrenOfWith ind.name
         fun c => match c with | .recInfo _ => true | _ => false).map (·.name)
       inds := inds ++ [indName]
       indCtors := indCtors ++ ind.ctors
-      indRecs := indRecs ++ leanRecs
+      indRecs := indRecs ++ indRecrs
+      nameData := nameData.insert indName (ind.ctors, indRecrs)
     | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
 
   -- `mutualConsts` is the list of the names of all constants associated with an
@@ -191,23 +194,25 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
   -- While iterating on the inductives from the mutual block, we need to track
   -- the correct objects to return
   let mut ret? : Option Lurk.F := none
-
-  for (indIdx, irInd) in irInds.enum do
+  for (indIdx, indName) in initInd.all.enum do
     -- Store and cache inductive projections
-    let name := sorry
+    let name := indName
     let hash ← commit $ .inductiveProj ⟨blockHash, indIdx⟩
     addToEnv name hash
     if name == initInd.name then ret? := some hash
 
-    for (ctorIdx, ctor) in irInd.ctors.enum do
+    let some (ctors, recrs) := nameData.find? indName 
+      | throw $ .cantFindMutDefIndex indName
+
+    for (ctorIdx, ctorName) in ctors.enum do
       -- Store and cache constructor projections
       let hashes ← commit $ .constructorProj ⟨blockHash, indIdx, ctorIdx⟩
-      addToEnv sorry hashes
+      addToEnv ctorName hashes
 
-    for (recrIdx, recr) in irInd.recrs.enum do
+    for (recrIdx, recrName) in recrs.enum do
       -- Store and cache recursor projections
       let hashes ← commit $ .recursorProj ⟨blockHash, indIdx, recrIdx⟩
-      addToEnv sorry hashes
+      addToEnv recrName hashes
 
   match ret? with
   | some ret => return ret
@@ -226,10 +231,15 @@ partial def inductiveToIR (ind : Lean.InductiveVal) : ContAddrM Inductive := do
           let thisRec ← externalRecToIR r
           pure (thisRec :: recs, ctors)
       | _ => throw $ .nonRecursorExtractedFromChildren r.name
+  let (struct, unit) ← if ind.isRec || ind.numIndices != 0 then pure (false, false) else
+    match ctors with
+    -- Structures can only have one constructor
+    | [ctor] => pure (true, ctor.fields == 0)
+    | _ => pure (false, false)
   return ⟨ind.levelParams.length, ← contAddrExpr ind.type, ind.numParams, ind.numIndices,
     -- NOTE: for the purpose of extraction, the order of `ctors` and `recs` MUST
     -- match the order used in `recrCtx`
-    ctors, recs, ind.isRec, !ind.isUnsafe, ind.isReflexive, sorry, sorry⟩
+    ctors, recs, ind.isRec, !ind.isUnsafe, ind.isReflexive, struct, unit⟩
 
 partial def internalRecToIR (ctors : List Lean.Name) :
     Lean.ConstantInfo → ContAddrM (Recursor × List Constructor)
