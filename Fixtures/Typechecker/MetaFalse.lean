@@ -10,8 +10,3 @@ import Lean.CoreM
 }]
 
 theorem False.intro : False := False_intro
-
--- partial def inf (u : Unit) : List Unit := u :: inf u
-
--- theorem aa : False :=
---   nomatch (⟨inf._unsafe_rec (), rfl⟩ : ∃ l, l = () :: l)

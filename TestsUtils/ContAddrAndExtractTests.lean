@@ -44,6 +44,11 @@ def extractTypecheckingTests : Extractor := fun stt =>
   withExceptOk "Typechecking succeeds" (typecheckAll stt.store stt.env.constNames)
     fun _ => .done
 
+/-- Asserts that some constant doesn't typecheck -/
+def extractNonTypecheckingTests : Extractor := fun stt =>
+  withExceptError "Typechecking fails" (typecheckAll stt.store stt.env.constNames)
+    fun _ => .done
+
 section AnonHashGroups
 
 /-
