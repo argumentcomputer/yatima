@@ -35,6 +35,7 @@ structure TypecheckCtx where
   mutTypes   : RecrCtx
   constNames : ConstNames
   quick      : Bool
+  dbg        : Bool := false
   deriving Inhabited
 
 /--
@@ -111,6 +112,16 @@ by a `thunk : SusValue` (whose type is not known)
 def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
+
+/--
+Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
+by a `thunk : SusValue` (whose type is not known)
+-/
+def withDbg : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with dbg := true }
+
+def tc_trace (msg : String) : TypecheckM Unit := do
+  if (← read).dbg then dbg_trace msg
 
 --PRIMBEGIN
 def primToF : PrimConst → Option F
