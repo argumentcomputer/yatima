@@ -14,10 +14,10 @@ open Yatima.Typechecker in
 def Yatima.Typechecker.ConstNames.getF 
     (constNames : ConstNames) (f : Lurk.F) : Std.Format := 
   match constNames.find? f with
-    | some name => toString name
-    | none => toString f
+  | some name => toString name
+  | none => toString f
 
-namespace Yatima.TC
+namespace Yatima.IR
 open Yatima.Typechecker
 
 private abbrev indentD := Std.Format.indentD
@@ -173,11 +173,11 @@ partial def ppConst (const : Const) : TypecheckM Format :=
   | .mutIndBlock block =>
     return f!"{← prefixJoin ("\n" ++ .line) (Array.mk block) ppInductive}"
 
-end Yatima.TC.PP
+end Yatima.IR.PP
 
 namespace Yatima.Typechecker
 
-open TC PP Lean Std.Format
+open IR PP Lean Std.Format
 
 private abbrev indentD := Std.Format.indentD
 

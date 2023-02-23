@@ -1,7 +1,7 @@
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Printing
-import Yatima.Commit.ToLDON
 import Yatima.Datatypes.Lurk
+import Yatima.Common.ToLDON
 
 /-!
 # Yatima typechecker: Eval
@@ -23,7 +23,7 @@ to evaluate further.
 
 namespace Yatima
 
-open TC
+open IR
 open Lurk (F)
 
 namespace Typechecker
@@ -77,7 +77,7 @@ def derefTypedConst (f : F) : TypecheckM TypedConst := do
 
 end Typechecker
 
-namespace TC
+namespace IR
 
 open Typechecker (TypecheckM derefConst)
 
@@ -142,7 +142,7 @@ def type : Const → TypecheckM Expr
 
 end Const
 
-end TC
+end IR
 
 namespace Typechecker
 

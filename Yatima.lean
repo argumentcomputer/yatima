@@ -1,5 +1,4 @@
 import Yatima.Cli.CodeGenCmd
-import Yatima.Cli.CommitCmd
 import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.GenTypecheckerCmd
 import Yatima.Cli.GetCmd
@@ -32,12 +31,9 @@ import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.PrettyPrint
 import Yatima.CodeGen.Simp
 import Yatima.CodeGen.Test
-import Yatima.Commit.Commit
-import Yatima.Commit.CommitM
-import Yatima.Commit.ToLDON
 import Yatima.Common.IO
 import Yatima.Common.LightData
-import Yatima.Common.Store
+import Yatima.Common.ToLDON
 import Yatima.ContAddr.ContAddr
 import Yatima.ContAddr.ContAddrError
 import Yatima.ContAddr.ContAddrM
@@ -47,7 +43,6 @@ import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Hash
 import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Lurk
-import Yatima.Datatypes.PrettyPrint
 import Yatima.Datatypes.Univ
 import Yatima.Lean.LCNF
 import Yatima.Lean.Utils

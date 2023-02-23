@@ -11,5 +11,5 @@ def main := do
       initFixturesPath / "Notation.lean",
       initFixturesPath / "Tactics.lean",
       initFixturesPath / "SizeOf.lean" ]
+    [extractTypecheckingTests]
     []
-    [extractGeneralTests]

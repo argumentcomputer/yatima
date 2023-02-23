@@ -4,6 +4,6 @@ open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
     ("Fixtures" / "Termination" / "NastyInductives.lean")
+    [extractTypecheckingTests]
     []
-    [extractGeneralTests]
     false

@@ -15,6 +15,6 @@ open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
     ("Fixtures" / "AnonGroups" / "Inductives.lean")
-    [inductivesExtractor]
-    [extractGeneralTests]
+    [inductivesExtractor, extractTypecheckingTests]
+    []
     false

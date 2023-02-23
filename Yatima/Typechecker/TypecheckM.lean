@@ -1,5 +1,4 @@
 import Yatima.Typechecker.Datatypes
-import Yatima.Common.Store
 import Std.Data.RBMap
 
 /-!
@@ -11,11 +10,12 @@ initialize its context.
 
 namespace Yatima.Typechecker
 
-open TC
+open IR
 open Lurk (F)
 
 abbrev RecrCtx    := Std.RBMap Nat (F × (List Univ → SusValue)) compare
 abbrev ConstNames := Std.RBMap F Lean.Name compare
+abbrev Store      := Std.RBMap F Const compare
 
 /--
 The context available to the typechecker monad. The available fields are
@@ -47,7 +47,7 @@ structure TypecheckState where
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
-def TypecheckCtx.init (store : Store) (constNames : ConstNames := .empty) (quick : Bool) : 
+def TypecheckCtx.init (store : Store) (constNames : ConstNames) (quick : Bool) : 
     TypecheckCtx :=
   { (default : TypecheckCtx) with 
     store      := store, 

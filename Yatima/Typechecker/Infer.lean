@@ -19,7 +19,7 @@ In this module the two major functions `check` and `infer` are defined.
 
 namespace Yatima.Typechecker
 
-open TC PP
+open IR PP
 open Lurk (F)
 
 /--

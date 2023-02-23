@@ -7,5 +7,5 @@ open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
     ("Fixtures" / "AnonGroups" / "ToImport.lean")
-    [defsExtractor]
-    [extractGeneralTests]
+    [defsExtractor, extractTypecheckingTests]
+    []

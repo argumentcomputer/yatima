@@ -32,14 +32,11 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Start content-addressing
   cronos ← cronos.clock "Content-address"
-  let stt ← match contAddr constMap delta env with
-    | .error err => IO.eprintln err; return 1
-    | .ok stt => pure stt
+  match ← contAddr constMap delta env false true with
+  | .error err => IO.eprintln err; return 1
+  | .ok _ => pure ()
   cronos ← cronos.clock! "Content-address"
 
-  -- Persist resulting state
-  let target := ⟨p.flag? "output" |>.map (·.value) |>.getD defaultEnv⟩
-  stt.dump target
   return 0
 
 def contAddrCmd : Cli.Cmd := `[Cli|

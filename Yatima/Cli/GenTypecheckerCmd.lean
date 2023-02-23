@@ -1,6 +1,7 @@
 import Cli.Basic
 import Yatima.Lean.Utils
 import Yatima.CodeGen.CodeGen
+import Yatima.Common.IO
 import Yatima.Typechecker.Typechecker -- forcing oleans generation
 
 def tcCode : String :=

@@ -1,9 +1,8 @@
 import LSpec
 import Yatima.ContAddr.ContAddr
-import Yatima.Commit.Commit
 import Yatima.Typechecker.Typechecker
 
-open LSpec Yatima IR ContAddr Commit Typechecker
+open LSpec Yatima IR ContAddr Typechecker
 open System (FilePath)
 
 -- Move to LSpec
@@ -24,53 +23,26 @@ def ensembleTestExtractors (source : FilePath)
   if setPaths then Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend (← IO.FS.readFile source) source
   let (constMap, delta) := leanEnv.getConstsAndDelta
-  withExceptOkM s!"Content-addresses {source}" (contAddr constMap delta)
-    fun stt => do
-      let pureTests := extractors.foldl (init := .done)
-        fun acc ext => acc ++ (ext stt)
-      ioExtractors.foldlM (init := pureTests) fun acc ext =>
-        do pure $ acc ++ (← ext stt)
+  withExceptOkM s!"Content-addresses {source}"
+      (← contAddr constMap delta default true false) fun stt => do
+    let pureTests := extractors.foldl (init := .done)
+      fun acc ext => acc ++ (ext stt)
+    ioExtractors.foldlM (init := pureTests) fun acc ext =>
+      do pure $ acc ++ (← ext stt)
 
 /-- Calls `ensembleTestExtractors` for multiple sources -/
 def ensembleTestExtractors' (sources : List FilePath)
   (extractors : List Extractor) (ioExtractors : List IOExtractor)
     (setPaths : Bool := true) : IO TestSeq :=
   sources.foldlM (init := .done) fun acc source => do
-    let g := group s!"Tests for {source}"
-      (← ensembleTestExtractors source extractors ioExtractors setPaths)
+    let g := group s!"Tests for {source}" $
+      ← ensembleTestExtractors source extractors ioExtractors setPaths
     pure $ acc ++ g
 
-/--
-This extractor creates general tests that we expect from any Lean source:
-1. Anon and meta stores can be loaded from FS after being persisted
-2. Loaded stores match the persisted stores
-3. The anon hashes can be committed successfully
-4. After committed, the commits and consts maps have the same keys
-5. Everything should typecheck successfully
--/
-def extractGeneralTests : IOExtractor := fun stt => do
-  let storeAnon := stt.storeAnon
-  let (names, anonHashes) := 
-    stt.env.consts.foldl (init := (#[], #[])) 
-      fun (names, anonHashes) n (h, _) => (names.push n, anonHashes.push h)
-  stt.dump "env.yenv"
-  let storeRoundtripTests ← withExceptOkM "Loads the anon store"
-      (← StoreAnon.load anonHashes) fun storeAnon' => do
-    pure $ withExceptOk "Loads the meta store"
-        (← StoreMeta.load stt.env.metaHashes) fun storeMeta' =>
-      test "Anon store roundtrips" (storeAnon == storeAnon') ++
-      test "Meta store roundtrips" (stt.storeMeta == storeMeta')
-  let commitAndTypecheckTests ← withExceptOkM "Committing succeeds"
-      (← commit anonHashes storeAnon true false)
-    fun (cmStt, comms) => pure $
-      let constNames : Std.RBMap Lurk.F Lean.Name compare :=
-        (names.zip comms).foldl (init := .empty) fun acc (name, comm) =>
-          acc.insert comm name
-      test "Consts and commits have the same keys"
-        (cmStt.consts.keysArray == cmStt.commits.keysArray) ++
-      withExceptOk "Typechecking succeeds" (typecheckAll cmStt.tcStore constNames)
-        fun _ => .done
-  return storeRoundtripTests ++ commitAndTypecheckTests
+/-- Asserts that all constants typechecks -/
+def extractTypecheckingTests : Extractor := fun stt =>
+  withExceptOk "Typechecking succeeds" (typecheckAll stt.store stt.env.constNames)
+    fun _ => .done
 
 section AnonHashGroups
 
@@ -82,15 +54,15 @@ creates tests that assert that:
 -/
 
 def extractAnonGroups (groups : List (List Name)) (stt : ContAddrState) :
-    Except String (Array (Array $ Name × Hash)) := Id.run do
+    Except String (Array (Array $ Name × Lurk.F)) := Id.run do
   let mut notFound : Array Name := #[]
-  let mut hashGroups : Array (Array $ Name × Hash) := #[]
+  let mut hashGroups : Array (Array $ Name × Lurk.F) := #[]
   for group in groups do
-    let mut hashGroup : Array (Name × Hash) := #[]
+    let mut hashGroup : Array (Name × Lurk.F) := #[]
     for name in group do
       match stt.env.consts.find? name with
-      | none        => notFound  := notFound.push name
-      | some (h, _) => hashGroup := hashGroup.push (name, h)
+      | none   => notFound  := notFound.push name
+      | some h => hashGroup := hashGroup.push (name, h)
     hashGroups := hashGroups.push hashGroup
   if notFound.isEmpty then
     return .ok hashGroups

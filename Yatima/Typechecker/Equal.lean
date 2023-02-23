@@ -25,8 +25,6 @@ Note: Generally the values are assumed to already have the same type in the func
 
 namespace Yatima.Typechecker
 
-open TC PP
-
 /-- Reduces the application of a `pi` type to its arguments -/
 def applyType : Value → List SusValue → TypecheckM Value
   | .pi _ img imgCtx, arg :: args => do
@@ -105,7 +103,7 @@ mutual
           equalThunks lvl args args'
         else pure false
       | .app (.const k us) args, .app (.const k' us') args' =>
-        if k == k' && Univ.equalUnivs us us' then
+        if k == k' && IR.Univ.equalUnivs us us' then
           equalThunks lvl args args'
         else pure false
       | _, .app (.const _ _) _ =>

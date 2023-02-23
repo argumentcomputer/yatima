@@ -1,9 +1,8 @@
 import Cli.Basic
 import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
-import Yatima.Commit.Commit
 
-open System Yatima.ContAddr Yatima.Commit
+open System Yatima.ContAddr
 
 def primConstNames : Std.RBSet Lean.Name compare := .ofList [
   ``Nat, ``Bool, ``Bool.true, ``Bool.false, ``Nat.zero, ``String,
@@ -45,33 +44,27 @@ def printPrimsRun (_p : Cli.Parsed) : IO UInt32 := do
   Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend primsInput default
   let (constMap, delta) := leanEnv.getConstsAndDelta
-  let caStt ← match contAddr constMap delta default with
-    | .error err => IO.eprintln err; return 1
-    | .ok stt => pure stt
-  let anonHashes := caStt.env.consts.foldl (init := #[]) fun acc name (h, _) =>
-    if primConstNames.contains name then acc.push h else acc
 
-  let store := caStt.storeAnon
+  let stt ← match ← contAddr constMap delta default false false with
+    | .error err => IO.eprintln err; return 1 | .ok stt => pure stt
 
-  let commits ← match ← commit anonHashes store false false with
-  | .error e => IO.eprintln e; return 1 | .ok (_, comms) => pure comms.toList
+  let sttQuick ← match ← contAddr constMap delta default true false with
+    | .error err => IO.eprintln err; return 1 | .ok stt => pure stt
 
-  let commitsQuick ← match ← commit anonHashes store true false with
-  | .error e => IO.eprintln e; return 1 | .ok (_, comms) => pure comms.toList
-
-  let decls := primConstNames.toList
+  let commits := stt.env.consts.toList
+  let commitsQuick := sttQuick.env.consts.toList
 
   let primFoF := "def primToF : PrimConst → Option F\n" ++
-    "\n".intercalate (formatMatchesP2F $ decls.zip commits) ++ "\n"
+    "\n".intercalate (formatMatchesP2F commits) ++ "\n"
 
   let fToPrim := "def fToPrim : F → Option PrimConst\n" ++
-    "\n".intercalate (formatMatchesF2P $ decls.zip commits) ++ "\n  | _ => none\n"
+    "\n".intercalate (formatMatchesF2P commits) ++ "\n  | _ => none\n"
 
   let primToFQuick := "def primToFQuick : PrimConst → Option F\n" ++
-    "\n".intercalate (formatMatchesP2F $ decls.zip commitsQuick) ++ "\n"
+    "\n".intercalate (formatMatchesP2F commitsQuick) ++ "\n"
 
   let fToPrimQuick := "def fToPrimQuick : F → Option PrimConst\n" ++
-    "\n".intercalate (formatMatchesF2P $ decls.zip commitsQuick) ++ "\n  | _ => none\n"
+    "\n".intercalate (formatMatchesF2P commitsQuick) ++ "\n  | _ => none\n"
 
   match (← IO.FS.readFile targetFile).splitOn "--PRIMBEGIN" with
   | [beg, en] => match en.splitOn "--PRIMEND" with

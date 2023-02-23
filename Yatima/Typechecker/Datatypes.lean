@@ -14,7 +14,7 @@ When we talk about "unevaluated expressions", you should think of these
 expression/environment pairs. They are also called *closures*
 -/
 
-open TC
+open IR
 
 open Lurk (F)
 
@@ -39,7 +39,7 @@ inductive TypeInfo
 -/
 inductive SusTypeInfo
   | unit | proof | prop | none
-  | sort  : Univ → SusTypeInfo
+  | sort : Univ → SusTypeInfo
   deriving BEq, Inhabited
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo

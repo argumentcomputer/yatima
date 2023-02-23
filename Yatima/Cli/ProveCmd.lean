@@ -18,11 +18,8 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
     | IO.eprintln "Environment file not provided"; return 1
 
   let some (env : Yatima.IR.Env) ← loadData envFileName false | return 1
-  let some (anonHash, _) := env.consts.find? decl
+  let some comm := env.consts.find? decl
     | IO.eprintln s!"{decl} not found in the environment"; return 1
-
-  let some (comm : Lurk.F) ← loadData (COMMITSDIR / anonHash.data.toHex) true
-    | IO.eprintln s!"Commitment for {decl} not found"; return 1
 
   -- Write Lurk file
   let output := match p.flag? "output" |>.map (·.value) with

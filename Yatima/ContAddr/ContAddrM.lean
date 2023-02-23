@@ -1,5 +1,5 @@
 import Yatima.ContAddr.ContAddrError
-import Yatima.ContAddr.ToLDON
+import Yatima.Common.ToLDON
 import Yatima.Common.LightData
 import Yatima.Common.IO
 
@@ -17,6 +17,8 @@ structure ContAddrState where
 def ContAddrState.init (env : Env) : ContAddrState :=
   ⟨env, default, default⟩
 
+def ContAddrState.store (stt : ContAddrState) : Std.RBMap Lurk.F Const compare :=
+  stt.commits.foldl (init := .empty) fun acc c f => acc.insert f c
 /--
 The type of entries for the `recrCtx`. It contains:
 1. The index of the constant in the mutual block
