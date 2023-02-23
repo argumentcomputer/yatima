@@ -7,6 +7,7 @@ open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors'
     [ initFixturesPath / "InfListFalse.lean",
-      initFixturesPath / "MetaFalse.lean" ]
+      initFixturesPath / "MetaFalse.lean",
+      initFixturesPath / "AxiomFalse.lean" ]
     [extractNonTypecheckingTests]
     []

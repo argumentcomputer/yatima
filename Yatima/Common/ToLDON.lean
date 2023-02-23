@@ -57,7 +57,7 @@ instance : Coe Expr LDON where
   coe := Expr.toLDON
 
 def Axiom.toLDON : Axiom → LDON
-  | ⟨lvls, type, safe⟩ => (["Yatima.IR.Axiom", 0, lvls.toLDON, type, safe] : List LDON)
+  | ⟨lvls, type⟩ => (["Yatima.IR.Axiom", 0, lvls.toLDON, type] : List LDON)
 
 instance : Coe Axiom LDON where
   coe := Axiom.toLDON

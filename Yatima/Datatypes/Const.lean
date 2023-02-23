@@ -5,7 +5,6 @@ namespace Yatima.IR
 structure Axiom where
   lvls : Nat
   type : Expr
-  safe : Bool
   deriving Ord, BEq, Hashable, Repr
 
 structure Theorem where

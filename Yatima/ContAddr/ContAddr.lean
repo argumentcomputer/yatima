@@ -90,7 +90,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
       let obj ← match const with
         | .defnInfo _ | .inductInfo _ | .ctorInfo _ | .recInfo _ => unreachable!
         | .axiomInfo val =>
-          pure $ .axiom ⟨val.levelParams.length, ← contAddrExpr val.type, !val.isUnsafe⟩
+          pure $ .axiom ⟨val.levelParams.length, ← contAddrExpr val.type⟩
         | .thmInfo val =>
           -- Theorems are never truly recursive
           pure $ .theorem ⟨val.levelParams.length, ← contAddrExpr val.type,

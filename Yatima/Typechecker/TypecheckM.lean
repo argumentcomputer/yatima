@@ -123,7 +123,7 @@ def withDbg : TypecheckM α → TypecheckM α :=
 def tc_trace (msg : String) : TypecheckM Unit := do
   if (← read).dbg then dbg_trace msg
 
---PRIMBEGIN
+--PIN
 def primToF : PrimConst → Option F
   | .op .natBlt => return .ofNat 9690859471905298127
   | .op .natBle => return .ofNat 17982695273700216992
@@ -182,7 +182,7 @@ def fToPrimQuick : F → Option PrimConst
   | .ofNat 9081535940059458215 => return .op .natSucc
   | .ofNat 12469965364888358360 => return .op .natAdd
   | _ => none
---PRIMEND
+--PIN
 
 def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
     (someHandle : F → TypecheckM α) : TypecheckM α := do

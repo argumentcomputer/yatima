@@ -1,12 +1,12 @@
 import Lean.CoreM
 
 #eval Lean.addDecl <| .mutualDefnDecl [{
-  name := `False_intro
+  name := `FalseIntro
   levelParams := []
   type := .const ``False []
-  value := .const `False_intro []
+  value := .const `FalseIntro []
   hints := .opaque
   safety := .partial
 }]
 
-theorem False.intro : False := False_intro
+theorem False.intro : False := FalseIntro

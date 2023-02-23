@@ -12,7 +12,7 @@ open Lean
 
 open Yatima.Typechecker in
 def Yatima.Typechecker.ConstNames.getF 
-    (constNames : ConstNames) (f : Lurk.F) : Std.Format := 
+    (constNames : ConstNames) (f : Lurk.F) : Format := 
   match constNames.find? f with
   | some name => toString name
   | none => toString f
@@ -152,9 +152,7 @@ partial def ppInductive (ind : Inductive) : TypecheckM Format := do
 
 partial def ppConst (const : Const) : TypecheckM Format :=
   match const with
-  | .axiom ax =>
-    let safe := if ax.safe then "" else "unsafe "
-    return f!"{safe}axiom _ {ax.lvls} : {← ppExpr ax.type}"
+  | .axiom ax => return f!"axiom _ {ax.lvls} : {← ppExpr ax.type}"
   | .theorem thm =>
     return f!"theorem _ {thm.lvls} : {← ppExpr thm.type} :={indentD (← ppExpr thm.value)}"
   | .opaque opaq =>

@@ -40,19 +40,20 @@ def formatMatchesF2P (pairs : List (Lean.Name × Lurk.F)) : List String :=
 def targetFile : FilePath :=
   "Yatima" / "Typechecker" / "TypecheckM.lean"
 
-def printPrimsRun (_p : Cli.Parsed) : IO UInt32 := do
+def pinRun (_p : Cli.Parsed) : IO UInt32 := do
   Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend primsInput default
   let (constMap, delta) := leanEnv.getConstsAndDelta
 
-  let stt ← match ← contAddr constMap delta default false false with
-    | .error err => IO.eprintln err; return 1 | .ok stt => pure stt
+  let commits ← match ← contAddr constMap delta default true false with
+    | .error err => IO.eprintln err; return 1
+    | .ok stt => pure $ stt.env.consts.toList.filter fun (n, _) =>
+      primConstNames.contains n
 
-  let sttQuick ← match ← contAddr constMap delta default true false with
-    | .error err => IO.eprintln err; return 1 | .ok stt => pure stt
-
-  let commits := stt.env.consts.toList
-  let commitsQuick := sttQuick.env.consts.toList
+  let commitsQuick ← match ← contAddr constMap delta default true false with
+    | .error err => IO.eprintln err; return 1
+    | .ok stt => pure $ stt.env.consts.toList.filter fun (n, _) =>
+      primConstNames.contains n
 
   let primFoF := "def primToF : PrimConst → Option F\n" ++
     "\n".intercalate (formatMatchesP2F commits) ++ "\n"
@@ -66,19 +67,16 @@ def printPrimsRun (_p : Cli.Parsed) : IO UInt32 := do
   let fToPrimQuick := "def fToPrimQuick : F → Option PrimConst\n" ++
     "\n".intercalate (formatMatchesF2P commitsQuick) ++ "\n  | _ => none\n"
 
-  match (← IO.FS.readFile targetFile).splitOn "--PRIMBEGIN" with
-  | [beg, en] => match en.splitOn "--PRIMEND" with
-    | [_, en] =>
-      let content :=
-        beg ++ "--PRIMBEGIN\n" ++
-        primFoF ++ fToPrim ++ primToFQuick ++ fToPrimQuick ++
-        "--PRIMEND" ++ en
-      IO.FS.writeFile targetFile content
-      return 0
-    | _ => IO.eprintln s!"Invalid format for {targetFile}"; return 1
+  match (← IO.FS.readFile targetFile).splitOn "--PIN" with
+  | [beg, _, en] =>
+    IO.FS.writeFile targetFile $
+      beg ++ "--PIN\n" ++
+      primFoF ++ fToPrim ++ primToFQuick ++ fToPrimQuick ++
+      "--PIN" ++ en
+    return 0
   | _ => IO.eprintln s!"Invalid format for {targetFile}"; return 1
 
-def printPrimsCmd : Cli.Cmd := `[Cli|
-  pp VIA printPrimsRun;
+def pinCmd : Cli.Cmd := `[Cli|
+  pin VIA pinRun;
   "Edits the source file TypecheckM.lean file with the commit hashes for primitives"
 ]

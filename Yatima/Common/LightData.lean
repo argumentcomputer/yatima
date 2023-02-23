@@ -151,7 +151,7 @@ instance : Encodable Inductive LightData String where
 
 instance : Encodable Const LightData String where
   encode
-    | .axiom ⟨a, b, c⟩           => .arr #[0, a, b, c]
+    | .axiom ⟨a, b⟩              => .arr #[0, a, b]
     | .theorem ⟨a, b, c⟩         => .arr #[1, a, b, c]
     | .opaque ⟨a, b, c, d⟩       => .arr #[2, a, b, c, d]
     | .definition ⟨a, b, c, d⟩   => .arr #[3, a, b, c, d]
@@ -163,7 +163,7 @@ instance : Encodable Const LightData String where
     | .mutIndBlock x => .eit $ .left x
     | .mutDefBlock x => .eit $ .right x
   decode
-    | .arr #[0, a, b, c] => return .axiom ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[0, a, b] => return .axiom ⟨← dec a, ← dec b⟩
     | .arr #[1, a, b, c] => return .theorem ⟨← dec a, ← dec b, ← dec c⟩
     | .arr #[2, a, b, c, d] => return .opaque ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | .arr #[3, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
