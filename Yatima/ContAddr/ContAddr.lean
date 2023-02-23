@@ -96,7 +96,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
           pure $ .theorem ⟨val.levelParams.length, ← contAddrExpr val.type,
             ← contAddrExpr val.value⟩
         | .opaqueInfo val =>
-          let recrs := .single val.name (0, some 0)
+          let recrs := .single val.name 0
           pure $ .opaque ⟨val.levelParams.length, ← contAddrExpr val.type,
             ← withRecrs recrs $ contAddrExpr val.value, !val.isUnsafe⟩
         | .quotInfo val =>
@@ -108,7 +108,8 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
 partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F := do
   -- If the mutual size is one, simply content address the single definition
   if struct.all matches [_] then
-    let hash ← commit $ .definition (← definitionToIR struct)
+    let hash ← commit $ .definition
+      (← withRecrs (.single struct.name 0) $ definitionToIR struct)
     addToEnv struct.name hash
     return hash
 
@@ -120,10 +121,10 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
   let mutualDefs ← sortDefs [mutualDefs]
 
   -- Building the `recrCtx`
-  let mut recrCtx := RBMap.empty
+  let mut recrCtx := default
   for (i, ds) in mutualDefs.enum do
-    for (j, d) in ds.enum do
-      recrCtx := recrCtx.insert d.name (i, some j)
+    for d in ds do
+      recrCtx := recrCtx.insert d.name i
 
   let definitions ← withRecrs recrCtx $ mutualDefs.mapM (·.mapM definitionToIR)
 
@@ -139,7 +140,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
   for name in struct.all do
     -- Storing and caching the definition projection
     -- Also adds the constant to the array of constants
-    let some (idx, _) := recrCtx.find? name | throw $ .cantFindMutDefIndex name
+    let some idx := recrCtx.find? name | throw $ .cantFindMutDefIndex name
     let hash ← commit $ .definitionProj ⟨blockHash, idx⟩
     addToEnv name hash
     if struct.name == name then ret? := some hash
@@ -182,7 +183,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
   let mutualConsts := inds ++ indCtors ++ indRecs
 
   let recrCtx := mutualConsts.enum.foldl (init := default)
-    fun acc (i, n) => acc.insert n (i, none)
+    fun acc (i, n) => acc.insert n i
 
   -- This part will build the inductive block and add all inductives,
   -- constructors and recursors to `consts`
@@ -291,20 +292,20 @@ partial def contAddrExpr : Lean.Expr → ContAddrM Expr
   | expr => match expr with
     | .bvar idx => do match (← read).bindCtx.get? idx with
       -- Bound variables must be in the bind context
-      | some name => return .var idx []
+      | some _ => return .var idx []
       | none => throw $ .invalidBVarIndex idx
     | .sort lvl => return .sort $ ← contAddrUniv lvl
     | .const name lvls => do
       let univs ← lvls.mapM contAddrUniv
       match (← read).recrCtx.find? name with
-      | some (i, i?) => -- recursing!
+      | some i => -- recursing!
         let idx := (← read).bindCtx.length + i
         return .var idx univs
       | none => return .const (← contAddrConst $ ← getLeanConstant name) univs
     | .app fnc arg => return .app (← contAddrExpr fnc) (← contAddrExpr arg)
-    | .lam name typ bod bnd =>
+    | .lam name typ bod _ =>
       return .lam (← contAddrExpr typ) (← withBinder name $ contAddrExpr bod)
-    | .forallE name dom img bnd =>
+    | .forallE name dom img _ =>
       return .pi (← contAddrExpr dom) (← withBinder name $ contAddrExpr img)
     | .letE name typ exp bod _ =>
       return .letE (← contAddrExpr typ) (← contAddrExpr exp)

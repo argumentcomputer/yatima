@@ -19,18 +19,13 @@ def ContAddrState.init (env : Env) : ContAddrState :=
 
 def ContAddrState.store (stt : ContAddrState) : Std.RBMap Lurk.F Const compare :=
   stt.commits.foldl (init := .empty) fun acc c f => acc.insert f c
-/--
-The type of entries for the `recrCtx`. It contains:
-1. The index of the constant in the mutual block
-2. The index in the list of weakly equal mutual definitions (N/A inductives)
--/
-abbrev RecrCtxEntry := Nat × Option Nat
 
 structure ContAddrCtx where
   constMap : Lean.ConstMap
   univCtx  : List Name
   bindCtx  : List Name
-  recrCtx  : Std.RBMap Name RecrCtxEntry compare
+  /-- The indices of the constants in their mutual block -/
+  recrCtx  : Std.RBMap Name Nat compare
   quick    : Bool
   persist  : Bool
   deriving Inhabited
@@ -56,7 +51,7 @@ def withLevelsAndReset (levels : List Name) : ContAddrM α → ContAddrM α :=
   withReader $ fun c =>
     { c with univCtx := levels, bindCtx := [], recrCtx := .empty }
 
-def withRecrs (recrCtx : RBMap Name RecrCtxEntry compare) :
+def withRecrs (recrCtx : RBMap Name Nat compare) :
     ContAddrM α → ContAddrM α :=
   withReader $ fun c => { c with recrCtx := recrCtx }
 
