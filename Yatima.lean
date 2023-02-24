@@ -3,7 +3,7 @@ import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.GenTypecheckerCmd
 import Yatima.Cli.GetCmd
 import Yatima.Cli.IpfsCmd
-import Yatima.Cli.PrintPrimsCmd
+import Yatima.Cli.PinCmd
 import Yatima.Cli.ProveCmd
 import Yatima.Cli.PutCmd
 import Yatima.Cli.TypecheckCmd
