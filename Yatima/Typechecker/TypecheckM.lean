@@ -25,29 +25,27 @@ The context available to the typechecker monad. The available fields are
 * `store : Store` : An store of known constants in the context.
 -/
 structure TypecheckCtx where
-  lvl        : Nat
-  env        : Env
-  types      : List SusValue
-  store      : Store
+  lvl         : Nat
+  env         : Env
+  types       : List SusValue
+  store       : Store
   /-- Maps a variable index (which represents a reference to a mutual const)
     to the hash of that constant (in `TypecheckState.typedConsts`) and
     a function returning a `SusValue` for that constant's type given a list of universes. -/
-  mutTypes   : RecrCtx
-  constNames : ConstNames
-  quick      : Bool
-  dbg        : Bool := false
+  mutTypes    : RecrCtx
+  constNames  : ConstNames
+  limitAxioms : Bool
+  quick       : Bool
+  dbg         : Bool := false
   deriving Inhabited
 
 /--
 The state available to the typechecker monad. The available fields are
 * `typedConsts` : cache of already-typechecked constants, with their types and
   values annotated
-* `cleanTerms` : cache of terms without references to forbidden axioms
 -/
 structure TypecheckState where
   typedConsts : Std.RBMap F TypedConst compare
-  cleanExprs  : Std.RBSet Expr compare
-  cleanConsts : Std.RBSet Const compare
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
@@ -63,18 +61,6 @@ The monad where the typechecking is done is a stack of a `ReaderT` that can acce
 and can throw exceptions of the form `TypecheckError`
 -/
 abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT String Id
-
-def cleanExpr (e : Expr) : TypecheckM Unit :=
-  modify fun stt => { stt with cleanExprs := stt.cleanExprs.insert e }
-
-def isCleanExpr (e : Expr) : TypecheckM Bool :=
-  return (← get).cleanExprs.contains e
-
-def cleanConst (c : Const) : TypecheckM Unit :=
-  modify fun stt => { stt with cleanConsts := stt.cleanConsts.insert c }
-
-def isCleanConst (c : Const) : TypecheckM Bool :=
-  return (← get).cleanConsts.contains c
 
 /-- Basic runner for the typechecker monad -/
 def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except String α :=
@@ -127,6 +113,9 @@ by a `thunk : SusValue` (whose type is not known)
 def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
+
+def withLimitedAxioms : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with limitAxioms := true }
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`

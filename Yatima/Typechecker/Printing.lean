@@ -264,7 +264,7 @@ end
 -- instance : ToString Value where toString := pretty ∘ ppValue
 
 def ppTypecheckCtx : TypecheckM Format := do
-  let ⟨lvl, env, types, _, _, _, _, _⟩ ← read
+  let ⟨lvl, env, types, _, _, _, _, _, _⟩ ← read
   let env := ← match env with
     | .mk vals us => do
       let vals : List Value := vals.map fun v => SusValue.get v

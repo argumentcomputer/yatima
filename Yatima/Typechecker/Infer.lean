@@ -65,35 +65,6 @@ def susInfoFromType (typ : SusValue) : TypecheckM SusTypeInfo :=
 
 mutual
 
-partial def validateAxiomsExpr (e : Expr) : TypecheckM Unit := do
-  if ← isCleanExpr e then pure ()
-  match e with
-  | .const f _ => match derefConst f (← read).store with
-    | .axiom _ =>
-      if (← read).quick then
-        if !(allowedAxiomQuick f) then
-          throw s!"Axiom {(← read).constNames.getF f} is not allowed"
-      else
-        if !(allowedAxiom f) then
-          throw s!"Axiom {(← read).constNames.getF f} is not allowed"
-    | c => validateAxiomsConst c
-  | .app a b | .pi a b | .lam a b => do validateAxiomsExpr a; validateAxiomsExpr b
-  | .letE a b c => do validateAxiomsExpr a; validateAxiomsExpr b; validateAxiomsExpr c
-  | .proj _ a => validateAxiomsExpr a
-  | _ => pure ()
-  cleanExpr e
-
-partial def validateAxiomsConst (c : Const) : TypecheckM Unit := do
-  if ← isCleanConst c then pure ()
-  match c with
-  | .opaque x | .theorem x | .definition x => validateAxiomsExpr x.value
-  | _ => pure ()
-  cleanConst c
-
-end
-
-mutual
-
   partial def getStructInfo (v : Value) : 
       TypecheckM (F × TypedExpr × List Univ × List SusValue) := do
     let err := s!"Expected a structure type, found {← ppValue v}"
@@ -104,7 +75,7 @@ mutual
       -- Sanity check
       unless ind.struct && ind.params == params.length do 
         throw s!"Expected a structure type, found {← ppValue v}"
-      checkConst indF
+      withLimitedAxioms $ checkConst indF
       let ctorF := mkConstructorProjF p.block p.idx 0 (← read).quick
       match (← get).typedConsts.find? ctorF with
       | .some (.constructor type _ _) =>
@@ -223,7 +194,7 @@ mutual
     | .const k constUnivs =>
       -- dbg_trace s!">> infer const {getF k}"
       let univs := (← read).env.univs
-      checkConst k
+      withLimitedAxioms $ checkConst k
       let tconst ← derefTypedConst k
       let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
       let typ := suspend tconst.type { ← read with env := env } (← get)
@@ -352,7 +323,6 @@ mutual
     | none =>
       let c := derefConst f (← read).store
       if c.isMutType then return ()
-      validateAxiomsConst c
       dbg_trace s!"{← ppConst c}"
       let univs := List.range (← c.levels) |>.map .var
       -- dbg_trace s!"checkConst with univs: {univs.map PP.ppUniv}"
@@ -361,6 +331,13 @@ mutual
         let newConst ← match c with
           | .axiom ax =>
             -- dbg_trace s!"axiom"
+            if (← read).limitAxioms then
+              if quick then
+                if !(allowedAxiomQuick f) then
+                  throw s!"Axiom {(← read).constNames.getF f} is not allowed"
+              else
+                if !(allowedAxiom f) then
+                  throw s!"Axiom {(← read).constNames.getF f} is not allowed"
             let (type, _) ← isSort ax.type
             pure $ TypedConst.axiom type
           | .opaque data =>
@@ -408,7 +385,6 @@ mutual
                 let mutTypes ← defBlock.enum.foldlM (init := default) fun acc (i, defn) => do
                   let defProjF := mkDefinitionProjF defBlockF i quick
                   -- TODO avoid repeated work here
-                  validateAxiomsExpr defn.value
                   let (type, _) ← isSort defn.type
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   pure $ acc.insert i (defProjF, typeSus)
