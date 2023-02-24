@@ -93,7 +93,7 @@ mutual
     let (term, inferType) ← infer term
     -- dbg_trace s!">> check just inferred: {term}"
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      dbg_trace s!"{← ppTypecheckCtx}"
+      -- dbg_trace s!"{← ppTypecheckCtx}"
       throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
     pure term
 
@@ -315,15 +315,15 @@ mutual
   only has to check the other `Const` constructors.
   -/
   partial def checkConst (f : F) : TypecheckM Unit := withResetCtx do
-    dbg_trace s!">> checkConst {(← read).constNames.getF f}"
+    -- dbg_trace s!">> checkConst {(← read).constNames.getF f}"
     match (← get).typedConsts.find? f with
     | some _ => 
-      dbg_trace s!"cache hit"
+      -- dbg_trace s!"cache hit"
       pure ()
     | none =>
       let c := derefConst f (← read).store
       if c.isMutType then return ()
-      dbg_trace s!"{← ppConst c}"
+      -- dbg_trace s!"{← ppConst c}"
       let univs := List.range (← c.levels) |>.map .var
       -- dbg_trace s!"checkConst with univs: {univs.map PP.ppUniv}"
       withEnv ⟨ [], univs ⟩ do
@@ -409,7 +409,7 @@ mutual
             pure $ .quotient type data.kind
           | _ => throw "Impossible case. Cannot typecheck a mutual block."
         -- TODO is it okay to use the original hash for the `TypedConst`, or should we compute a new one?
-        dbg_trace s!"finish {(← read).constNames.getF f}\n"
+        -- dbg_trace s!"finish {(← read).constNames.getF f}\n"
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f newConst }
 end
 
