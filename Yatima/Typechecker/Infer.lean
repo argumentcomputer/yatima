@@ -63,6 +63,25 @@ def susInfoFromType (typ : SusValue) : TypecheckM SusTypeInfo :=
     | .sort lvl => if lvl.isZero then pure .prop else pure (.sort lvl)
     | _ => pure .none
 
+def validateAxioms (e : Expr) : TypecheckM Unit := do
+  if ← isClean e then pure ()
+  match e with
+  | .const f _ => do
+    match derefConst f (← read).store with
+    | .axiom _ =>
+      if (← read).quick then
+        if !(allowedAxiomQuick f) then
+          throw s!"Axiom {(← read).constNames.getF f} is not allowed"
+      else
+        if !(allowedAxiom f) then
+          throw s!"Axiom {(← read).constNames.getF f} is not allowed"
+    | _ => pure ()
+  | .app a b | .pi a b | .lam a b => do validateAxioms a; validateAxioms b
+  | .letE a b c => do validateAxioms a; validateAxioms b; validateAxioms c
+  | .proj _ a => validateAxioms a
+  | _ => pure ()
+  clean e
+
 mutual
 
   partial def getStructInfo (v : Value) : 
@@ -95,8 +114,7 @@ mutual
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
       dbg_trace s!"{← ppTypecheckCtx}"
       throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
-    else
-      pure term
+    pure term
 
   /-- Infers the type of `term : Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : Expr) : TypecheckM (TypedExpr × SusValue) := do
@@ -334,17 +352,11 @@ mutual
         let newConst ← match c with
           | .axiom ax =>
             -- dbg_trace s!"axiom"
-            if (← read).lvl > 0 then
-              if quick then
-                if !(allowedAxiomQuick f) then
-                  throw s!"Axiom {(← read).constNames.getF f} is not allowed"
-              else
-                if !(allowedAxiom f) then
-                  throw s!"Axiom {(← read).constNames.getF f} is not allowed"
             let (type, _) ← isSort ax.type
             pure $ TypedConst.axiom type
           | .opaque data =>
             -- dbg_trace s!"opaque"
+            validateAxioms data.value
             let (type, _) ← isSort data.type
             let typeSus := suspend type (← read) (← get)
             -- dbg_trace s!"do a check 3"
@@ -352,6 +364,7 @@ mutual
             pure $ TypedConst.opaque type value
           | .theorem data =>
             -- dbg_trace s!"theorem"
+            validateAxioms data.value
             let (type, _) ← isSort data.type
             let typeSus := suspend type (← read) (← get)
             -- dbg_trace s!"do a check 4"
@@ -359,6 +372,7 @@ mutual
             pure $ TypedConst.theorem type value
           | .definition data =>
             -- dbg_trace s!"definition"
+            validateAxioms data.value
             let (type, _) ← isSort data.type
             let ctx ← read
             let typeSus := suspend type ctx (← get)
@@ -388,6 +402,7 @@ mutual
                 let mutTypes ← defBlock.enum.foldlM (init := default) fun acc (i, defn) => do
                   let defProjF := mkDefinitionProjF defBlockF i quick
                   -- TODO avoid repeated work here
+                  validateAxioms defn.value
                   let (type, _) ← isSort defn.type
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   pure $ acc.insert i (defProjF, typeSus)

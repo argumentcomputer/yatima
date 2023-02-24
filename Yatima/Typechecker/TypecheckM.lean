@@ -41,10 +41,12 @@ structure TypecheckCtx where
 /--
 The state available to the typechecker monad. The available fields are
 * `typedConsts` : cache of already-typechecked constants, with their types and
-values annotated
+  values annotated
+* `cleanTerms` : cache of terms without references to forbidden axioms
 -/
 structure TypecheckState where
   typedConsts : Std.RBMap F TypedConst compare
+  cleanTerms  : Std.RBSet Expr compare
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
@@ -60,6 +62,12 @@ The monad where the typechecking is done is a stack of a `ReaderT` that can acce
 and can throw exceptions of the form `TypecheckError`
 -/
 abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT String Id
+
+def clean (e : Expr) : TypecheckM Unit :=
+  modify fun stt => { stt with cleanTerms := stt.cleanTerms.insert e }
+
+def isClean (e : Expr) : TypecheckM Bool :=
+  return (← get).cleanTerms.contains e
 
 /-- Basic runner for the typechecker monad -/
 def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except String α :=

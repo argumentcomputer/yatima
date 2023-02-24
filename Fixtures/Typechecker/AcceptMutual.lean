@@ -4,19 +4,11 @@ mutual
 
   def A : Nat → Nat
   | 0 => 0
-  | n + 1 => B n + C n + C n + 1
+  | n + 1 => B n + C n + 1
 
   def C : Nat → Nat
   | 0 => 0
-  | n + 1 => B n + A n + A n + 1
-
-  -- def E : Nat → Nat
-  -- | 0 => 0
-  -- | n + 1 => B n + A n + F n + 1
-
-  -- def F : Nat → Nat
-  -- | 0 => 0
-  -- | n + 1 => B n + C n + C n + 1
+  | n + 1 => B n + A n + 1
 
   def B : Nat → Nat
   | 0 => 0
