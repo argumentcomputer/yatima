@@ -360,21 +360,17 @@ mutual
           | .definition data =>
             -- dbg_trace s!"definition"
             let (type, _) ← isSort data.type
-            let typeSus := suspend type (← read) (← get)
+            let ctx ← read
+            let typeSus := suspend type ctx (← get)
             -- dbg_trace s!"definition type:\n{typeSus.get}"
             let value ← match data.safety with
               | .partial =>
-                let mut mutTypes := default
-                mutTypes ← do
-                  -- TODO avoid repeated work here
-                  let (type, _) ← isSort data.type
-                  let ctx ← read
+                let mutTypes :=
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
-                  pure $ mutTypes.insert 0 (f, typeSus)
+                  (default : RecrCtx).insert 0 (f, typeSus)
                 -- dbg_trace s!"do a check 5"
                 withMutTypes mutTypes $ check data.value typeSus
-              | _ =>
-                check data.value typeSus
+              | _ => check data.value typeSus
             pure $ TypedConst.definition type value data.safety
           | .definitionProj p@⟨defBlockF, _⟩ =>
             -- dbg_trace s!"definition proj"
