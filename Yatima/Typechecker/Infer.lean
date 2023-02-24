@@ -102,14 +102,15 @@ mutual
     -- dbg_trace ">> infer {← ppExpr term}"
     match term with
     | .var idx lvls =>
+      let ctx ← read
       -- dbg_trace s!">> infer var@{idx}"
-      if idx < (← read).lvl then
+      if idx < ctx.lvl then
         -- dbg_trace s!"bound"
         -- this is a bound free variable
         if !lvls.isEmpty then
           -- bound free variables should never have universe levels (sanity check)
           throw s!"found var@{idx} with unexpected universe variables"
-        let types := (← read).types
+        let types := ctx.types
         let some type := types.get? idx
           | throw s!"var@{idx} out of environment range (size {types.length})"
         let term := .var (← susInfoFromType type) idx
@@ -118,14 +119,16 @@ mutual
         pure (term, type)
       else
         -- this free variable came from `recrCtx`, and thus represents a mutual reference
-        match (← read).mutTypes.find? (idx - (← read).lvl) with
+        match ctx.mutTypes.find? (idx - ctx.lvl) with
         | some (constF, typeValFn) =>
+          if some constF == ctx.recF? then
+            throw s!"Invalid recursion in {(← read).constNames.getF constF}"
           let type := typeValFn lvls
           let term := .const (← susInfoFromType type) constF lvls
           pure (term, type)
         | none =>
           -- dbg_trace s!">> infer term:\n  {reprStr term}"
-          throw $ s!"var@{idx} out of environment range (size {(← read).types.length})" 
+          throw $ s!"var@{idx} out of environment range (size {ctx.types.length})" 
             ++ " and does not represent a mutual constant"
     | .sort lvl =>
       -- dbg_trace s!">> infer sort"
@@ -146,7 +149,9 @@ mutual
       | .pi dom img env =>
         -- dbg_trace s!"do a check 1"
         let arg ← check arg dom
-        let typ := suspend img { ← read with env := env.extendWith $ suspend arg (← read) (← get)} (← get)
+        let ctx ← read
+        let stt ← get
+        let typ := suspend img { ctx with env := env.extendWith $ suspend arg ctx stt} stt
         let term := .app (← susInfoFromType typ) fnc arg
         pure (term, typ)
       | val => throw s!"Expected a pi type, found {← ppValue val}"
@@ -178,10 +183,11 @@ mutual
     | .letE expType exp bod =>
       -- dbg_trace s!">> infer let"
       let (expType, _) ← isSort expType
-      let expTypeVal := suspend expType (← read) (← get)
+      let ctx ← read
+      let expTypeVal := suspend expType ctx (← get)
       -- dbg_trace s!"do a check 2"
       let exp ← check exp expTypeVal
-      let expVal := suspend exp (← read) (← get)
+      let expVal := suspend exp ctx (← get)
       let (bod, typ) ← withExtendedCtx expVal expTypeVal $ infer bod
       let term := .letE bod.info expType exp bod
       return (term, typ)
@@ -193,11 +199,12 @@ mutual
       pure $ (.lit .none (.strVal s), typ)
     | .const k constUnivs =>
       -- dbg_trace s!">> infer const {getF k}"
-      let univs := (← read).env.univs
       withLimitedAxioms $ checkConst k
+      let ctx ← read
+      let univs := ctx.env.univs
       let tconst ← derefTypedConst k
       let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-      let typ := suspend tconst.type { ← read with env := env } (← get)
+      let typ := suspend tconst.type { ctx with env := env } (← get)
       pure (.const (← susInfoFromType typ) k constUnivs, typ)
     | .proj idx expr =>
       -- dbg_trace s!">> infer proj"
@@ -345,14 +352,14 @@ mutual
             let (type, _) ← isSort data.type
             let typeSus := suspend type (← read) (← get)
             -- dbg_trace s!"do a check 3"
-            let value ← check data.value typeSus
+            let value ← withRecF f $ check data.value typeSus
             pure $ TypedConst.opaque type value
           | .theorem data =>
             -- dbg_trace s!"theorem"
             let (type, _) ← isSort data.type
             let typeSus := suspend type (← read) (← get)
             -- dbg_trace s!"do a check 4"
-            let value ← check data.value typeSus
+            let value ← withRecF f $ check data.value typeSus
             pure $ TypedConst.theorem type value
           | .definition data =>
             -- dbg_trace s!"definition"
@@ -366,8 +373,8 @@ mutual
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   (default : RecrCtx).insert 0 (f, typeSus)
                 -- dbg_trace s!"do a check 5"
-                withMutTypes mutTypes $ check data.value typeSus
-              else check data.value typeSus
+                withMutTypes mutTypes $ withRecF f $ check data.value typeSus
+              else withRecF f $ check data.value typeSus
             pure $ TypedConst.definition type value data.part
           | .definitionProj p@⟨defBlockF, _⟩ =>
             -- dbg_trace s!"definition proj"
@@ -388,8 +395,8 @@ mutual
                   let (type, _) ← isSort defn.type
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   pure $ acc.insert i (defProjF, typeSus)
-                withMutTypes mutTypes $ check data.value typeSus
-              else check data.value typeSus
+                withMutTypes mutTypes $ withRecF f $ check data.value typeSus
+              else withRecF f $ check data.value typeSus
             pure $ TypedConst.definition type value data.part
           | .inductiveProj ⟨indBlockF, _⟩ =>
             -- dbg_trace s!"inductive proj"

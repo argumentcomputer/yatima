@@ -35,6 +35,7 @@ structure TypecheckCtx where
   mutTypes    : RecrCtx
   constNames  : ConstNames
   limitAxioms : Bool
+  recF?       : Option F
   quick       : Bool
   dbg         : Bool := false
   deriving Inhabited
@@ -77,7 +78,7 @@ Evaluates a `TypecheckM` computation with a reset `TypecheckCtx`.
 -/
 def withResetCtx : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with
-    lvl := 0, env := default, types := default, mutTypes := default }
+    lvl := 0, env := default, types := default, mutTypes := default, recF? := none }
 
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
@@ -116,6 +117,9 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
 
 def withLimitedAxioms : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with limitAxioms := true }
+
+def withRecF (f : F) : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with recF? := some f }
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
