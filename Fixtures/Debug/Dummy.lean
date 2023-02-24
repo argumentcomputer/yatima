@@ -1,17 +1,33 @@
-import Lean.CoreM
+set_option linter.all false -- prevent error messages from runFrontend
 
-#eval Lean.addDecl <| .mutualDefnDecl [{
-  name := `False_intro
-  levelParams := []
-  type := .const ``False []
-  value := .const `False_intro []
-  hints := .opaque
-  safety := .partial
-}]
+mutual
 
-theorem False.intro : False := False_intro
+  def A : Nat → Nat
+  | 0 => 0
+  | n + 1 => B n + C n + C n + 1
 
--- partial def inf (u : Unit) : List Unit := u :: inf u
+  def C : Nat → Nat
+  | 0 => 0
+  | n + 1 => B n + A n + A n + 1
 
--- theorem aa : False :=
---   nomatch (⟨inf._unsafe_rec (), rfl⟩ : ∃ l, l = () :: l)
+  -- def E : Nat → Nat
+  -- | 0 => 0
+  -- | n + 1 => B n + A n + F n + 1
+
+  -- def F : Nat → Nat
+  -- | 0 => 0
+  -- | n + 1 => B n + C n + C n + 1
+
+  def B : Nat → Nat
+  | 0 => 0
+  | n + 1 => C n + 2
+
+  def G : Nat → Nat
+  | 0 => 0
+  | n + 1 => B n + A n + H n + 2
+
+  def H : Nat → Nat
+  | 0 => 0
+  | n + 1 => B n + C n + G n + 2
+
+end
