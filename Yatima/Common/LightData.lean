@@ -102,7 +102,7 @@ partial def lightDataToExpr : LightData → Except String Expr
   | .arr #[6, x, y] => return .pi  (← lightDataToExpr x) (← lightDataToExpr y)
   | .arr #[7, x, y, z] => return .letE (← lightDataToExpr x) (← lightDataToExpr y) (← lightDataToExpr z)
   | .arr #[8, x, y] => return .proj (← dec x) (← lightDataToExpr y)
-  | x => throw s!"Invalid encoding for TC.Expr: {x}"
+  | x => throw s!"Invalid encoding for IR.Expr: {x}"
 
 instance : Encodable Expr LightData String where
   encode := exprToLightData
@@ -112,26 +112,26 @@ instance : Encodable Constructor LightData String where
   encode | ⟨a, b, c, d, e⟩ => .arr #[a, b, c, d, e]
   decode
     | .arr #[a, b, c, d, e] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
-    | x => throw s!"Invalid encoding for TC.Constructor: {x}"
+    | x => throw s!"Invalid encoding for IR.Constructor: {x}"
 
 instance : Encodable RecursorRule LightData String where
   encode | ⟨a, b⟩ => .prd (a, b)
   decode
     | .prd (a, b) => return ⟨← dec a, ← dec b⟩
-    | x => throw s!"Invalid encoding for TC.Constructor: {x}"
+    | x => throw s!"Invalid encoding for IR.RecursorRule: {x}"
 
 instance : Encodable Definition LightData String where
   encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
   decode
     | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
-    | x => throw s!"Invalid encoding for TC.Definition: {x}"
+    | x => throw s!"Invalid encoding for IR.Definition: {x}"
 
 instance : Encodable Recursor LightData String where
   encode | ⟨a, b, c, d, e, f, g, h, i⟩ => .arr #[a, b, c, d, e, f, g, h, i]
   decode
     | .arr #[a, b, c, d, e, f, g, h, i] =>
       return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g, ← dec h, ← dec i⟩
-    | x => throw s!"Invalid encoding for TC.Recursor: {x}"
+    | x => throw s!"Invalid encoding for IR.Recursor: {x}"
 
 instance : Encodable Inductive LightData String where
   encode | ⟨a, b, c, d, e, f, g, h, i, j⟩ => .arr #[a, b, c, d, e, f, g, h, i, j]
@@ -139,7 +139,7 @@ instance : Encodable Inductive LightData String where
     | .arr #[a, b, c, d, e, f, g, h, i, j] =>
       return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g,
         ← dec h, ← dec i, ← dec j⟩
-    | x => throw s!"Invalid encoding for TC.Inductive: {x}"
+    | x => throw s!"Invalid encoding for IR.Inductive: {x}"
 
 instance : Encodable Const LightData String where
   encode
@@ -166,7 +166,7 @@ instance : Encodable Const LightData String where
     | .arr #[8, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
     | .eit $ .left x => return .mutIndBlock (← dec x)
     | .eit $ .right x => return .mutDefBlock (← dec x)
-    | x => throw s!"Invalid encoding for TC.Const: {x}"
+    | x => throw s!"Invalid encoding for IR.Const: {x}"
 
 instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
     Encodable (Std.RBMap α β compare) LightData String where
