@@ -46,7 +46,8 @@ The state available to the typechecker monad. The available fields are
 -/
 structure TypecheckState where
   typedConsts : Std.RBMap F TypedConst compare
-  cleanTerms  : Std.RBSet Expr compare
+  cleanExprs  : Std.RBSet Expr compare
+  cleanConsts : Std.RBSet Const compare
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
@@ -63,11 +64,17 @@ and can throw exceptions of the form `TypecheckError`
 -/
 abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT String Id
 
-def clean (e : Expr) : TypecheckM Unit :=
-  modify fun stt => { stt with cleanTerms := stt.cleanTerms.insert e }
+def cleanExpr (e : Expr) : TypecheckM Unit :=
+  modify fun stt => { stt with cleanExprs := stt.cleanExprs.insert e }
 
-def isClean (e : Expr) : TypecheckM Bool :=
-  return (← get).cleanTerms.contains e
+def isCleanExpr (e : Expr) : TypecheckM Bool :=
+  return (← get).cleanExprs.contains e
+
+def cleanConst (c : Const) : TypecheckM Unit :=
+  modify fun stt => { stt with cleanConsts := stt.cleanConsts.insert c }
+
+def isCleanConst (c : Const) : TypecheckM Bool :=
+  return (← get).cleanConsts.contains c
 
 /-- Basic runner for the typechecker monad -/
 def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except String α :=
@@ -133,76 +140,76 @@ def tc_trace (msg : String) : TypecheckM Unit := do
 
 --PIN
 def primToF : PrimConst → Option F
-  | .op .natBlt => return .ofNat 9690859471905298127
-  | .op .natBle => return .ofNat 17982695273700216992
-  | .string => return .ofNat 4809914868493377204
-  | .op .natBeq => return .ofNat 8124137351521537953
-  | .boolTrue => return .ofNat 3531769586140967142
-  | .nat => return .ofNat 483903733633847125
-  | .op .natPow => return .ofNat 12702659815244408167
-  | .bool => return .ofNat 12141209139639517940
-  | .natZero => return .ofNat 2505172039281052005
-  | .op .natMul => return .ofNat 4668156226595274157
-  | .boolFalse => return .ofNat 7441924181250763784
-  | .op .natSucc => return .ofNat 9081535940059458215
-  | .op .natAdd => return .ofNat 12469965364888358360
+  | .op .natBlt => return .ofNat 4822643605371257236
+  | .op .natBle => return .ofNat 2951728617574817879
+  | .string => return .ofNat 16001121964852037297
+  | .op .natBeq => return .ofNat 12809246696557140246
+  | .boolTrue => return .ofNat 17049977161890552712
+  | .nat => return .ofNat 12846390003443303075
+  | .op .natPow => return .ofNat 14613595360914645637
+  | .bool => return .ofNat 7893555430612621797
+  | .natZero => return .ofNat 14735850464179338479
+  | .op .natMul => return .ofNat 5082277153363671981
+  | .boolFalse => return .ofNat 16195091492847522412
+  | .op .natSucc => return .ofNat 6836287016865057964
+  | .op .natAdd => return .ofNat 14029550093476971811
 def fToPrim : F → Option PrimConst
-  | .ofNat 9690859471905298127 => return .op .natBlt
-  | .ofNat 17982695273700216992 => return .op .natBle
-  | .ofNat 4809914868493377204 => return .string
-  | .ofNat 8124137351521537953 => return .op .natBeq
-  | .ofNat 3531769586140967142 => return .boolTrue
-  | .ofNat 483903733633847125 => return .nat
-  | .ofNat 12702659815244408167 => return .op .natPow
-  | .ofNat 12141209139639517940 => return .bool
-  | .ofNat 2505172039281052005 => return .natZero
-  | .ofNat 4668156226595274157 => return .op .natMul
-  | .ofNat 7441924181250763784 => return .boolFalse
-  | .ofNat 9081535940059458215 => return .op .natSucc
-  | .ofNat 12469965364888358360 => return .op .natAdd
+  | .ofNat 4822643605371257236 => return .op .natBlt
+  | .ofNat 2951728617574817879 => return .op .natBle
+  | .ofNat 16001121964852037297 => return .string
+  | .ofNat 12809246696557140246 => return .op .natBeq
+  | .ofNat 17049977161890552712 => return .boolTrue
+  | .ofNat 12846390003443303075 => return .nat
+  | .ofNat 14613595360914645637 => return .op .natPow
+  | .ofNat 7893555430612621797 => return .bool
+  | .ofNat 14735850464179338479 => return .natZero
+  | .ofNat 5082277153363671981 => return .op .natMul
+  | .ofNat 16195091492847522412 => return .boolFalse
+  | .ofNat 6836287016865057964 => return .op .natSucc
+  | .ofNat 14029550093476971811 => return .op .natAdd
   | _ => none
 def primToFQuick : PrimConst → Option F
-  | .op .natBlt => return .ofNat 9690859471905298127
-  | .op .natBle => return .ofNat 17982695273700216992
-  | .string => return .ofNat 4809914868493377204
-  | .op .natBeq => return .ofNat 8124137351521537953
-  | .boolTrue => return .ofNat 3531769586140967142
-  | .nat => return .ofNat 483903733633847125
-  | .op .natPow => return .ofNat 12702659815244408167
-  | .bool => return .ofNat 12141209139639517940
-  | .natZero => return .ofNat 2505172039281052005
-  | .op .natMul => return .ofNat 4668156226595274157
-  | .boolFalse => return .ofNat 7441924181250763784
-  | .op .natSucc => return .ofNat 9081535940059458215
-  | .op .natAdd => return .ofNat 12469965364888358360
+  | .op .natBlt => return .ofNat 4822643605371257236
+  | .op .natBle => return .ofNat 2951728617574817879
+  | .string => return .ofNat 16001121964852037297
+  | .op .natBeq => return .ofNat 12809246696557140246
+  | .boolTrue => return .ofNat 17049977161890552712
+  | .nat => return .ofNat 12846390003443303075
+  | .op .natPow => return .ofNat 14613595360914645637
+  | .bool => return .ofNat 7893555430612621797
+  | .natZero => return .ofNat 14735850464179338479
+  | .op .natMul => return .ofNat 5082277153363671981
+  | .boolFalse => return .ofNat 16195091492847522412
+  | .op .natSucc => return .ofNat 6836287016865057964
+  | .op .natAdd => return .ofNat 14029550093476971811
 def fToPrimQuick : F → Option PrimConst
-  | .ofNat 9690859471905298127 => return .op .natBlt
-  | .ofNat 17982695273700216992 => return .op .natBle
-  | .ofNat 4809914868493377204 => return .string
-  | .ofNat 8124137351521537953 => return .op .natBeq
-  | .ofNat 3531769586140967142 => return .boolTrue
-  | .ofNat 483903733633847125 => return .nat
-  | .ofNat 12702659815244408167 => return .op .natPow
-  | .ofNat 12141209139639517940 => return .bool
-  | .ofNat 2505172039281052005 => return .natZero
-  | .ofNat 4668156226595274157 => return .op .natMul
-  | .ofNat 7441924181250763784 => return .boolFalse
-  | .ofNat 9081535940059458215 => return .op .natSucc
-  | .ofNat 12469965364888358360 => return .op .natAdd
+  | .ofNat 4822643605371257236 => return .op .natBlt
+  | .ofNat 2951728617574817879 => return .op .natBle
+  | .ofNat 16001121964852037297 => return .string
+  | .ofNat 12809246696557140246 => return .op .natBeq
+  | .ofNat 17049977161890552712 => return .boolTrue
+  | .ofNat 12846390003443303075 => return .nat
+  | .ofNat 14613595360914645637 => return .op .natPow
+  | .ofNat 7893555430612621797 => return .bool
+  | .ofNat 14735850464179338479 => return .natZero
+  | .ofNat 5082277153363671981 => return .op .natMul
+  | .ofNat 16195091492847522412 => return .boolFalse
+  | .ofNat 6836287016865057964 => return .op .natSucc
+  | .ofNat 14029550093476971811 => return .op .natAdd
   | _ => none
 def allowedAxiom : F → Bool
-  | .ofNat 17701711749044051472 => true
-  | .ofNat 99678677959593159 => true
-  | .ofNat 727887949854373591 => true
-  | .ofNat 10830396806729841936 => true
-  | .ofNat 9686202907381696688 => true
+  | .ofNat 11763543932651680745 => true
+  | .ofNat 5663773883625405697 => true
+  | .ofNat 13106183114281513418 => true
+  | .ofNat 456940176556830579 => true
+  | .ofNat 10304962820087913574 => true
   | _ => false
 def allowedAxiomQuick : F → Bool
-  | .ofNat 17701711749044051472 => true
-  | .ofNat 99678677959593159 => true
-  | .ofNat 727887949854373591 => true
-  | .ofNat 10830396806729841936 => true
-  | .ofNat 9686202907381696688 => true
+  | .ofNat 11763543932651680745 => true
+  | .ofNat 5663773883625405697 => true
+  | .ofNat 13106183114281513418 => true
+  | .ofNat 456940176556830579 => true
+  | .ofNat 10304962820087913574 => true
   | _ => false
 --PIN
 

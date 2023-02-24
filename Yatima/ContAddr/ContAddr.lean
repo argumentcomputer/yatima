@@ -98,7 +98,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
         | .opaqueInfo val =>
           let recrs := .single val.name 0
           pure $ .opaque ⟨val.levelParams.length, ← contAddrExpr val.type,
-            ← withRecrs recrs $ contAddrExpr val.value, !val.isUnsafe⟩
+            ← withRecrs recrs $ contAddrExpr val.value⟩
         | .quotInfo val =>
           pure $ .quotient ⟨val.levelParams.length, ← contAddrExpr val.type, val.kind⟩
       let hash ← commit obj
@@ -151,7 +151,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
 
 partial def definitionToIR (defn : Lean.DefinitionVal) : ContAddrM Definition :=
   return ⟨defn.levelParams.length, ← contAddrExpr defn.type,
-    ← contAddrExpr defn.value, defn.safety⟩
+    ← contAddrExpr defn.value, defn.safety == .partial⟩
 
 /--
 Content-addresses an inductive and all inductives in the mutual block as a
@@ -240,7 +240,7 @@ partial def inductiveToIR (ind : Lean.InductiveVal) : ContAddrM Inductive := do
   return ⟨ind.levelParams.length, ← contAddrExpr ind.type, ind.numParams, ind.numIndices,
     -- NOTE: for the purpose of extraction, the order of `ctors` and `recs` MUST
     -- match the order used in `recrCtx`
-    ctors, recs, ind.isRec, !ind.isUnsafe, ind.isReflexive, struct, unit⟩
+    ctors, recs, ind.isRec, ind.isReflexive, struct, unit⟩
 
 partial def internalRecToIR (ctors : List Lean.Name) :
     Lean.ConstantInfo → ContAddrM (Recursor × List Constructor)
@@ -262,8 +262,7 @@ partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $ Constructor × 
   match ← getLeanConstant rule.ctor with
   | .ctorInfo ctor => withLevels ctor.levelParams do
     let typ ← contAddrExpr ctor.type
-    let ctor := ⟨ctor.levelParams.length, typ, ctor.cidx, ctor.numParams,
-      ctor.numFields, !ctor.isUnsafe⟩
+    let ctor := ⟨ctor.levelParams.length, typ, ctor.cidx, ctor.numParams, ctor.numFields⟩
     pure (ctor, ⟨rule.nfields, rhs⟩)
   | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
@@ -445,7 +444,9 @@ end
 
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit :=
-  delta.forM (discard $ contAddrConst ·)
+  delta.forM fun c =>
+    if !c.isUnsafe then discard $ contAddrConst c
+    else pure ()
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is

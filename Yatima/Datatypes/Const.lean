@@ -17,7 +17,6 @@ structure Opaque where
   lvls  : Nat
   type  : Expr
   value : Expr
-  safe  : Bool
   deriving Ord, BEq, Hashable, Repr
 
 deriving instance Repr for Lean.QuotKind
@@ -29,10 +28,10 @@ structure Quotient where
   deriving Ord, BEq, Hashable, Repr
 
 structure Definition where
-  lvls     : Nat
-  type     : Expr
-  value    : Expr
-  safety   : DefinitionSafety
+  lvls  : Nat
+  type  : Expr
+  value : Expr
+  part  : Bool
   deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure Constructor where
@@ -41,7 +40,6 @@ structure Constructor where
   idx    : Nat
   params : Nat
   fields : Nat
-  safe   : Bool
   deriving Ord, BEq, Hashable, Repr
 
 structure RecursorRule where
@@ -69,7 +67,6 @@ structure Inductive where
   ctors   : List Constructor
   recrs   : List Recursor
   recr    : Bool
-  safe    : Bool
   refl    : Bool
   struct  : Bool
   /-- whether or not this inductive is unit-like;

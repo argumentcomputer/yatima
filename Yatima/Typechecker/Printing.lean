@@ -62,11 +62,6 @@ instance : ToFormat BinderInfo where format
   | .strictImplicit => "strict"
   | .instImplicit   => "inst"
 
-instance : ToFormat DefinitionSafety where format
-  | .unsafe  => "unsafe "
-  | .safe    => ""
-  | .partial => "partial "
-
 instance : ToFormat QuotKind where format
   | .type => "Quot"
   | .ctor => "Quot.mk"
@@ -119,7 +114,8 @@ mutual
 end
 
 partial def ppDefinition (defn : Definition) : TypecheckM Format :=
-  return f!"{format defn.safety}def _ {defn.lvls} : {← ppExpr defn.type} :={indentD (← ppExpr defn.value)}"
+  let part := if defn.part then "partial " else ""
+  return f!"{part}def _ {defn.lvls} : {← ppExpr defn.type} :={indentD (← ppExpr defn.value)}"
 
 partial def ppRecursorRule (rule : RecursorRule) : TypecheckM Format :=
   return f!"fields := {rule.fields}" ++ .line ++ f!"{← ppExpr rule.rhs}"
@@ -130,18 +126,16 @@ partial def ppRecursor (recr : Recursor) : TypecheckM Format :=
   return f!"{internal} recursor _ (lvls := {recr.lvls}) : {← ppExpr recr.type}{indentD (← prefixJoin .line rules ppRecursorRule)}"
 
 partial def ppConstructor (ctor : Constructor) : TypecheckM Format :=
-  let safe := if ctor.safe then "" else "unsafe "
   let fields := f!"idx := {ctor.idx}" ++ .line ++ 
                 f!"params := {ctor.params}" ++ .line ++ 
                 f!"fields := {ctor.fields}"
-  return f!"| {safe}_ {ctor.lvls} : {← ppExpr ctor.type}{indentD fields}"
+  return f!"| _ {ctor.lvls} : {← ppExpr ctor.type}{indentD fields}"
 
 partial def ppConstructors (ctors : List Constructor) : TypecheckM Format :=
   return f!"{← prefixJoin .line (Array.mk ctors) ppConstructor}"
 
 partial def ppInductive (ind : Inductive) : TypecheckM Format := do
-  let safe := if ind.safe then "" else "unsafe "
-  let indHeader := f!"{safe}inductive _ {ind.lvls} : {← ppExpr ind.type}" 
+  let indHeader := f!"inductive _ {ind.lvls} : {← ppExpr ind.type}" 
   let fields := f!"recr := {ind.recr}" ++ .line ++
                 f!"refl := {ind.refl}" ++ .line ++
                 f!"unit := {ind.unit}" ++ .line ++
@@ -156,8 +150,7 @@ partial def ppConst (const : Const) : TypecheckM Format :=
   | .theorem thm =>
     return f!"theorem _ {thm.lvls} : {← ppExpr thm.type} :={indentD (← ppExpr thm.value)}"
   | .opaque opaq =>
-    let safe := if opaq.safe then "" else "unsafe "
-    return f!"{safe}opaque _ {opaq.lvls} {← ppExpr opaq.type} :={indentD (← ppExpr opaq.value)}"
+    return f!"opaque _ {opaq.lvls} {← ppExpr opaq.type} :={indentD (← ppExpr opaq.value)}"
   | .quotient quot =>
     return f!"quot _ {quot.lvls} : {← ppExpr quot.type} :={indentD (format quot.kind)}"
   | .definition defn =>

@@ -76,7 +76,7 @@ inductive TypedConst
   | «theorem»   : (type deref : TypedExpr) → TypedConst
   | «inductive» : (type : TypedExpr) → (struct : Bool) → TypedConst
   | «opaque»    : (type value : TypedExpr) → TypedConst
-  | definition  : (type deref : TypedExpr) → (safety : DefinitionSafety) → TypedConst
+  | definition  : (type deref : TypedExpr) → (part : Bool) → TypedConst
   | constructor : (type : TypedExpr) → (idx fields : Nat) → TypedConst
   | recursor    : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → (indProj : InductiveProj) → (rules : List (Nat × TypedExpr)) → TypedConst
   | quotient    : (type : TypedExpr) → (kind : QuotKind) → TypedConst

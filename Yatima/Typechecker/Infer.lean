@@ -63,11 +63,12 @@ def susInfoFromType (typ : SusValue) : TypecheckM SusTypeInfo :=
     | .sort lvl => if lvl.isZero then pure .prop else pure (.sort lvl)
     | _ => pure .none
 
-def validateAxioms (e : Expr) : TypecheckM Unit := do
-  if ← isClean e then pure ()
+mutual
+
+partial def validateAxiomsExpr (e : Expr) : TypecheckM Unit := do
+  if ← isCleanExpr e then pure ()
   match e with
-  | .const f _ => do
-    match derefConst f (← read).store with
+  | .const f _ => match derefConst f (← read).store with
     | .axiom _ =>
       if (← read).quick then
         if !(allowedAxiomQuick f) then
@@ -75,12 +76,21 @@ def validateAxioms (e : Expr) : TypecheckM Unit := do
       else
         if !(allowedAxiom f) then
           throw s!"Axiom {(← read).constNames.getF f} is not allowed"
-    | _ => pure ()
-  | .app a b | .pi a b | .lam a b => do validateAxioms a; validateAxioms b
-  | .letE a b c => do validateAxioms a; validateAxioms b; validateAxioms c
-  | .proj _ a => validateAxioms a
+    | c => validateAxiomsConst c
+  | .app a b | .pi a b | .lam a b => do validateAxiomsExpr a; validateAxiomsExpr b
+  | .letE a b c => do validateAxiomsExpr a; validateAxiomsExpr b; validateAxiomsExpr c
+  | .proj _ a => validateAxiomsExpr a
   | _ => pure ()
-  clean e
+  cleanExpr e
+
+partial def validateAxiomsConst (c : Const) : TypecheckM Unit := do
+  if ← isCleanConst c then pure ()
+  match c with
+  | .opaque x | .theorem x | .definition x => validateAxiomsExpr x.value
+  | _ => pure ()
+  cleanConst c
+
+end
 
 mutual
 
@@ -341,9 +351,8 @@ mutual
       pure ()
     | none =>
       let c := derefConst f (← read).store
-      if c.isMutType then
-        -- dbg_trace s!"mutType: {f}"
-        return ()
+      if c.isMutType then return ()
+      validateAxiomsConst c
       dbg_trace s!"{← ppConst c}"
       let univs := List.range (← c.levels) |>.map .var
       -- dbg_trace s!"checkConst with univs: {univs.map PP.ppUniv}"
@@ -356,7 +365,6 @@ mutual
             pure $ TypedConst.axiom type
           | .opaque data =>
             -- dbg_trace s!"opaque"
-            validateAxioms data.value
             let (type, _) ← isSort data.type
             let typeSus := suspend type (← read) (← get)
             -- dbg_trace s!"do a check 3"
@@ -364,7 +372,6 @@ mutual
             pure $ TypedConst.opaque type value
           | .theorem data =>
             -- dbg_trace s!"theorem"
-            validateAxioms data.value
             let (type, _) ← isSort data.type
             let typeSus := suspend type (← read) (← get)
             -- dbg_trace s!"do a check 4"
@@ -372,20 +379,19 @@ mutual
             pure $ TypedConst.theorem type value
           | .definition data =>
             -- dbg_trace s!"definition"
-            validateAxioms data.value
             let (type, _) ← isSort data.type
             let ctx ← read
             let typeSus := suspend type ctx (← get)
             -- dbg_trace s!"definition type:\n{typeSus.get}"
-            let value ← match data.safety with
-              | .partial =>
+            let value ←
+              if data.part then
                 let mutTypes :=
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   (default : RecrCtx).insert 0 (f, typeSus)
                 -- dbg_trace s!"do a check 5"
                 withMutTypes mutTypes $ check data.value typeSus
-              | _ => check data.value typeSus
-            pure $ TypedConst.definition type value data.safety
+              else check data.value typeSus
+            pure $ TypedConst.definition type value data.part
           | .definitionProj p@⟨defBlockF, _⟩ =>
             -- dbg_trace s!"definition proj"
             let data ← getDefFromProj p
@@ -396,19 +402,19 @@ mutual
               | .mutDefBlock blk => pure blk
               | _ => throw "Invalid Const kind. Expected mutDefBlock"
             let typeSus := suspend type ctx (← get)
-            let value ← match data.safety with
-              | .partial =>
+            let value ←
+              if data.part then
                 -- check order should be the same as `recrCtx` in CA
                 let mutTypes ← defBlock.enum.foldlM (init := default) fun acc (i, defn) => do
                   let defProjF := mkDefinitionProjF defBlockF i quick
                   -- TODO avoid repeated work here
-                  validateAxioms defn.value
+                  validateAxiomsExpr defn.value
                   let (type, _) ← isSort defn.type
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   pure $ acc.insert i (defProjF, typeSus)
                 withMutTypes mutTypes $ check data.value typeSus
-              | _ => check data.value typeSus
-            pure $ TypedConst.definition type value data.safety
+              else check data.value typeSus
+            pure $ TypedConst.definition type value data.part
           | .inductiveProj ⟨indBlockF, _⟩ =>
             -- dbg_trace s!"inductive proj"
             checkIndBlock indBlockF

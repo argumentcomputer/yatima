@@ -8,8 +8,6 @@ scoped notation "BinderInfo" => Lean.BinderInfo
 
 scoped notation "Literal" => Lean.Literal
 
-scoped notation "DefinitionSafety" => Lean.DefinitionSafety
-
 scoped notation "QuotKind" => Lean.QuotKind
 
 instance : Ord Name where
@@ -55,18 +53,6 @@ instance : Ord Literal where compare
   | .strVal _, .natVal _ => .gt
   | .natVal a, .natVal b
   | .strVal a, .strVal b => compare a b
-
-instance : Ord DefinitionSafety where compare
-  | .safe   , .safe
-  | .unsafe , .unsafe
-  | .partial, .partial => .eq
-  | .safe   , _        => .lt
-  | _       , .safe    => .gt
-  | .unsafe , .partial => .lt
-  | .partial, _        => .gt
-
-instance : Hashable DefinitionSafety where hash
-  | .unsafe => 0 | .safe => 1 | .partial => 2
 
 instance : BEq Lean.ReducibilityHints where beq
   | .opaque,    .opaque    => true

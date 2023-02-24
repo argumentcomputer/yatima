@@ -69,8 +69,8 @@ instance : Coe Theorem LDON where
   coe := Theorem.toLDON
 
 def Opaque.toLDON : Opaque → LDON
-  | ⟨lvls, type, value, safe⟩ =>
-    (["Yatima.IR.Opaque", 0, lvls.toLDON, type, value, safe] : List LDON)
+  | ⟨lvls, type, value⟩ =>
+    (["Yatima.IR.Opaque", 0, lvls.toLDON, type, value] : List LDON)
 
 instance : Coe Opaque LDON where
   coe := Opaque.toLDON
@@ -93,15 +93,15 @@ instance : Coe Lean.DefinitionSafety LDON where coe
   | .partial => (["Lean.DefinitionSafety", 2] : List LDON)
 
 def Definition.toLDON : Definition → LDON
-  | ⟨lvls, type, value, safety⟩ =>
-    (["Yatima.IR.Definition", 0, lvls.toLDON, type, value, safety] : List LDON)
+  | ⟨lvls, type, value, part⟩ =>
+    (["Yatima.IR.Definition", 0, lvls.toLDON, type, value, part] : List LDON)
 
 instance : Coe Definition LDON where
   coe := Definition.toLDON
 
 def Constructor.toLDON : Constructor → LDON
-  | ⟨lvls, type, idx, params, fields, safe⟩ =>
-    (["Yatima.IR.Constructor", 0, lvls.toLDON, type, idx.toLDON, params.toLDON, fields.toLDON, safe] : List LDON)
+  | ⟨lvls, type, idx, params, fields⟩ =>
+    (["Yatima.IR.Constructor", 0, lvls.toLDON, type, idx.toLDON, params.toLDON, fields.toLDON] : List LDON)
 
 instance : Coe Constructor LDON where
   coe := Constructor.toLDON
@@ -120,8 +120,8 @@ instance : Coe Recursor LDON where
   coe := Recursor.toLDON
 
 def Inductive.toLDON : Inductive → LDON
-  | ⟨lvls, type, params, indices, ctors, recrs, recr, safe, refl, struct, unit⟩ =>
-    (["Yatima.IR.Inductive", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, ctors.map Constructor.toLDON, recrs.map Recursor.toLDON, recr, safe, safe, refl, struct, unit] : List LDON)
+  | ⟨lvls, type, params, indices, ctors, recrs, recr, refl, struct, unit⟩ =>
+    (["Yatima.IR.Inductive", 0, lvls.toLDON, type, params.toLDON, indices.toLDON, ctors.map Constructor.toLDON, recrs.map Recursor.toLDON, recr, refl, struct, unit] : List LDON)
 
 instance : Coe Inductive LDON where
   coe := Inductive.toLDON

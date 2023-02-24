@@ -55,14 +55,6 @@ instance : Encodable QuotKind LightData String where
     | 3 => pure .ind
     | x => throw s!"Invalid encoding for QuotKind: {x}"
 
-instance : Encodable DefinitionSafety LightData String where
-  encode | .unsafe => 0 | .safe => 1 | .partial => 2
-  decode
-    | 0 => pure .unsafe
-    | 1 => pure .safe
-    | 2 => pure .partial
-    | x => throw s!"Invalid encoding for DefinitionSafety: {x}"
-
 open Lurk (F LDONHashState)
 
 def univToLightData : Univ → LightData
@@ -117,9 +109,9 @@ instance : Encodable Expr LightData String where
   decode := lightDataToExpr
 
 instance : Encodable Constructor LightData String where
-  encode | ⟨a, b, c, d, e, f⟩ => .arr #[a, b, c, d, e, f]
+  encode | ⟨a, b, c, d, e⟩ => .arr #[a, b, c, d, e]
   decode
-    | .arr #[a, b, c, d, e, f] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f⟩
+    | .arr #[a, b, c, d, e] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
     | x => throw s!"Invalid encoding for TC.Constructor: {x}"
 
 instance : Encodable RecursorRule LightData String where
@@ -142,18 +134,18 @@ instance : Encodable Recursor LightData String where
     | x => throw s!"Invalid encoding for TC.Recursor: {x}"
 
 instance : Encodable Inductive LightData String where
-  encode | ⟨a, b, c, d, e, f, g, h, i, j, k⟩ => .arr #[a, b, c, d, e, f, g, h, i, j, k]
+  encode | ⟨a, b, c, d, e, f, g, h, i, j⟩ => .arr #[a, b, c, d, e, f, g, h, i, j]
   decode
-    | .arr #[a, b, c, d, e, f, g, h, i, j, k] =>
+    | .arr #[a, b, c, d, e, f, g, h, i, j] =>
       return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g,
-        ← dec h, ← dec i, ← dec j, ← dec k⟩
+        ← dec h, ← dec i, ← dec j⟩
     | x => throw s!"Invalid encoding for TC.Inductive: {x}"
 
 instance : Encodable Const LightData String where
   encode
     | .axiom ⟨a, b⟩              => .arr #[0, a, b]
     | .theorem ⟨a, b, c⟩         => .arr #[1, a, b, c]
-    | .opaque ⟨a, b, c, d⟩       => .arr #[2, a, b, c, d]
+    | .opaque ⟨a, b, c⟩          => .arr #[2, a, b, c]
     | .definition ⟨a, b, c, d⟩   => .arr #[3, a, b, c, d]
     | .quotient ⟨a, b, c⟩        => .arr #[4, a, b, c]
     | .inductiveProj ⟨a, b⟩      => .arr #[5, a, b]
@@ -165,7 +157,7 @@ instance : Encodable Const LightData String where
   decode
     | .arr #[0, a, b] => return .axiom ⟨← dec a, ← dec b⟩
     | .arr #[1, a, b, c] => return .theorem ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[2, a, b, c, d] => return .opaque ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[2, a, b, c] => return .opaque ⟨← dec a, ← dec b, ← dec c⟩
     | .arr #[3, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | .arr #[4, a, b, c] => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
     | .arr #[5, a, b] => return .inductiveProj ⟨← dec a, ← dec b⟩

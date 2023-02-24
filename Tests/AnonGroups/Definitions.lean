@@ -15,14 +15,9 @@ def partialExtractor := extractAnonGroupsTests [
   [`Partial.B], [`Partial.G, `Partial.H],
   [`Partial.I]]
 
-def unsafeExtractor := extractAnonGroupsTests [
-  [`Unsafe.A, `Unsafe.C, `Unsafe.E, `Unsafe.F],
-  [`Unsafe.B],
-  [`Unsafe.G, `Unsafe.H], [`Unsafe.I]]
-
 open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
     ("Fixtures" / "AnonGroups" / "Definitions.lean")
-    [wellFoundedExtractor, partialExtractor, unsafeExtractor, extractTypecheckingTests]
+    [wellFoundedExtractor, partialExtractor, extractTypecheckingTests]
     []

@@ -213,11 +213,9 @@ mutual
     | .definition _ =>
       match ← derefTypedConst f with
       | .theorem _ deref => withEnv ⟨[], univs⟩ $ eval deref
-      | .definition _ deref safety =>
-        match safety with
-        | .safe    => withEnv ⟨[], univs⟩ $ eval deref
-        | .partial => pure $ mkConst f univs
-        | .unsafe  => throw s!"Can't evaluate unsafe definition {f}"
+      | .definition _ deref part =>
+        if part then pure $ mkConst f univs
+        else withEnv ⟨[], univs⟩ $ eval deref
       | _ => throw "Invalid const kind for evaluation"
     | _ => pure $ mkConst f univs
 
