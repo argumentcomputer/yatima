@@ -56,6 +56,9 @@ def ConstMap.patchUnsafeRec (cs : ConstMap) : ConstMap :=
       else .opaqueInfo o
     | _ => c
 
+def Environment.patchUnsafeRec (env : Environment) : Environment :=
+  { env with constants := env.constants.patchUnsafeRec }
+
 def PersistentHashMap.filter [BEq α] [Hashable α]
     (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
   map.foldl (init := .empty) fun acc x y =>
@@ -64,7 +67,7 @@ def PersistentHashMap.filter [BEq α] [Hashable α]
     | false => acc
 
 def Environment.getConstsAndDelta (env : Environment) : ConstMap × List ConstantInfo :=
-  let constants := env.constants.patchUnsafeRec
+  let constants := env.constants
   let delta := constants.map₂.filter fun n _ => !n.isInternal
   (constants, delta.toList.map (·.2))
 

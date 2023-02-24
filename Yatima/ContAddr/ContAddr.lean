@@ -444,9 +444,7 @@ end
 
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit :=
-  delta.forM fun c =>
-    if !c.isUnsafe then discard $ contAddrConst c
-    else pure ()
+  delta.forM fun c => if !c.isUnsafe then discard $ contAddrConst c else pure ()
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
