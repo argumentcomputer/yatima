@@ -182,6 +182,20 @@ def fToPrimQuick : F → Option PrimConst
   | .ofNat 9081535940059458215 => return .op .natSucc
   | .ofNat 12469965364888358360 => return .op .natAdd
   | _ => none
+def allowedAxiom : F → Bool
+  | .ofNat 17701711749044051472 => true
+  | .ofNat 99678677959593159 => true
+  | .ofNat 727887949854373591 => true
+  | .ofNat 10830396806729841936 => true
+  | .ofNat 9686202907381696688 => true
+  | _ => false
+def allowedAxiomQuick : F → Bool
+  | .ofNat 17701711749044051472 => true
+  | .ofNat 99678677959593159 => true
+  | .ofNat 727887949854373591 => true
+  | .ofNat 10830396806729841936 => true
+  | .ofNat 9686202907381696688 => true
+  | _ => false
 --PIN
 
 def primFWith (p : PrimConst) (noneHandle : TypecheckM α)

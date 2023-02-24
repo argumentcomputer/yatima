@@ -334,6 +334,12 @@ mutual
         let newConst ← match c with
           | .axiom ax =>
             -- dbg_trace s!"axiom"
+            if (← read).quick then
+              if !(allowedAxiomQuick f) then
+                throw s!"Axiom {(← read).constNames.getF f} is not allowed"
+            else
+              if !(allowedAxiom f) then
+                throw s!"Axiom {(← read).constNames.getF f} is not allowed"
             let (type, _) ← isSort ax.type
             pure $ TypedConst.axiom type
           | .opaque data =>
