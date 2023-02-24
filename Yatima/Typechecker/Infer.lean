@@ -377,18 +377,18 @@ mutual
             let data ← getDefFromProj p
             -- dbg_trace s!"{ppDefinition data}"
             let (type, _) ← isSort data.type
-            let defBlock ← match derefConst defBlockF (← read).store with
+            let ctx ← read
+            let defBlock ← match derefConst defBlockF ctx.store with
               | .mutDefBlock blk => pure blk
               | _ => throw "Invalid Const kind. Expected mutDefBlock"
-            let typeSus := suspend type (← read) (← get)
+            let typeSus := suspend type ctx (← get)
             let value ← match data.safety with
               | .partial =>
-                -- TODO check order (should be same as `recrCtx` in CA)
+                -- check order should be the same as `recrCtx` in CA
                 let mutTypes ← defBlock.enum.foldlM (init := default) fun acc (i, defn) => do
                   let defProjF := mkDefinitionProjF defBlockF i quick
                   -- TODO avoid repeated work here
                   let (type, _) ← isSort defn.type
-                  let ctx ← read
                   let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
                   pure $ acc.insert i (defProjF, typeSus)
                 withMutTypes mutTypes $ check data.value typeSus
