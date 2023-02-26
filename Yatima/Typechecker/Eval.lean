@@ -414,7 +414,12 @@ mutual
   partial def quote (lvl : Nat) (info : SusTypeInfo) (env : Env) : Value → TypecheckM TypedExpr
     | .sort univ => pure $ .sort info (univ.instBulkReduce env.univs)
     | .app neu args => do
-      args.foldrM (init := ← quoteNeutral lvl env neu) fun arg acc => do
+      -- FIXME a proper fix here would be to recast
+      -- | app : Neutral → List (SusValue × TypeInfo) → Value
+      -- as
+      -- | app : (Neutral × TypeInfo) → List (SusValue × TypeInfo) → Value
+      let info := if args.length == 0 then info else default
+      args.foldrM (init := ← quoteNeutral lvl info env neu) fun arg acc => do
         pure $ .app arg.2.toSus acc $ ← quote lvl arg.1.info.toSus env arg.1.get
     | .lam dom bod env' => do
       let dom ← quote lvl dom.info.toSus env dom.get
@@ -466,12 +471,11 @@ mutual
     | .sort info univ => pure $ .sort info (univ.instBulkReduce env.univs)
     | .lit .. => pure expr
 
-  partial def quoteNeutral (lvl : Nat) (env : Env) : Neutral → TypecheckM TypedExpr
-    -- FIXME: replace `default` with proper info. I think we might have to add `TypeInfo` to `Neutral`
-    | .fvar  idx => pure $ .var default (lvl - idx - 1)
-    | .const cidx univs => pure $ .const default cidx (univs.map (Univ.instBulkReduce env.univs))
+  partial def quoteNeutral (lvl : Nat) (info : SusTypeInfo) (env : Env) : Neutral → TypecheckM TypedExpr
+    | .fvar  idx => pure $ .var info (lvl - idx - 1)
+    | .const cidx univs => pure $ .const info cidx (univs.map (Univ.instBulkReduce env.univs))
     | .proj  f ind val => do
-      pure $ .proj default f ind (← quote lvl val.info.toSus env val.value)
+      pure $ .proj info f ind (← quote lvl val.info.toSus env val.value)
 end
 
 end Yatima.Typechecker

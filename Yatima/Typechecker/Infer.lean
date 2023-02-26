@@ -93,7 +93,7 @@ mutual
     let (term, inferType) ← infer term
     -- dbg_trace s!">> check just inferred: {term}"
     if !(inferType.info == type.info) || !(← equal (← read).lvl type inferType) then
-      -- dbg_trace s!"{← ppTypecheckCtx}"
+      -- dbg_trace s!"info mismatch: {repr inferType.info}, {repr type.info}"
       throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
     pure term
 
@@ -139,15 +139,14 @@ mutual
       -- NOTE: we populate `SusTypeInfo.sort` here for consistency but technically it isn't necessary
       -- because `lvl'` can never become `Univ.zero`.
       return (.sort (.sort lvl') lvl, typ)
-    | .app fnc arg =>
-      -- dbg_trace s!">> infer app"
-      -- dbg_trace s!"fnc: {PP.ppExpr fnc}"
-      -- dbg_trace s!"app: {PP.ppExpr arg}"
-      let (fnc, fncType) ← infer fnc
-      -- dbg_trace s!"fncType: {fncType.get}"
+    | .app fnc' arg =>
+      --dbg_trace s!">> infer app"
+      --dbg_trace s!"inferring fnc: {← PP.ppExpr fnc'}"
+      --dbg_trace s!"applied to : {← PP.ppExpr arg}"
+      let (fnc, fncType) ← infer fnc'
+      --dbg_trace s!"inferred type of: {← PP.ppExpr fnc'}"
       match fncType.get with
       | .pi dom img env =>
-        -- dbg_trace s!"do a check 1"
         let arg ← check arg dom
         let ctx ← read
         let stt ← get

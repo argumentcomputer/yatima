@@ -40,7 +40,7 @@ inductive TypeInfo
 inductive SusTypeInfo
   | unit | proof | prop | none
   | sort : Univ → SusTypeInfo
-  deriving BEq, Inhabited
+  deriving BEq, Inhabited, Repr
 
 def TypeInfo.toSus : TypeInfo → SusTypeInfo
   | .unit  => .unit
