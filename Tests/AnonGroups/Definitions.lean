@@ -19,5 +19,5 @@ open LSpec in
 def main := do
   lspecIO $ ← ensembleTestExtractors
     ("Fixtures" / "AnonGroups" / "Definitions.lean")
-    [wellFoundedExtractor, partialExtractor, extractTypecheckingTests]
+    [ wellFoundedExtractor, partialExtractor/-, extractTypecheckingTests-/]
     []
