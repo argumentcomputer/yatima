@@ -11,9 +11,8 @@ def wellFoundedExtractor := extractAnonGroupsTests [
   [`WellFounded.I, `WellFounded.I']]
 
 def partialExtractor := extractAnonGroupsTests [
-  [`Partial.A, `Partial.C, `Partial.E, `Partial.F],
-  [`Partial.B], [`Partial.G, `Partial.H],
-  [`Partial.I]]
+  [`Partial.A, `Partial.C, `Partial.E, `Partial.F,
+   `Partial.B, `Partial.G, `Partial.H], [`Partial.I]]
 
 open LSpec in
 def main := do
