@@ -5,8 +5,12 @@ namespace Lurk.Overrides
 open Lurk.Backend DSL
 open Yatima.CodeGen
 
+def sorryAx : Override := Override.decl ⟨``sorryAx, ⟦
+  (throw "sorry")
+⟧⟩
+
 def panicCore : Override := Override.decl ⟨``panicCore, ⟦
-  (lambda (α inst msg) ((str_append "panic! with: " msg)))
+  (lambda (α inst msg) (throw (str_append "panic! with: " msg)))
 ⟧⟩
 
 def dbgTrace : Override := Override.decl ⟨``dbgTrace, ⟦
@@ -49,6 +53,7 @@ def outOfBounds : Override := Override.decl ⟨
 ⟧⟩
 
 def Miscellaneous.module := [
+  sorryAx,
   panicCore,
   dbgTrace,
   mixHash,

@@ -1,4 +1,0 @@
-prelude
-
-inductive AAA
-  | aaa

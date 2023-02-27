@@ -1,57 +1,26 @@
-import Yatima.Datatypes.Cid
+import Yatima.Datatypes.Hash
 import Yatima.Datatypes.Lean
-import Yatima.Datatypes.Split
 
-namespace Yatima
+namespace Yatima.IR
 
-namespace IR
+instance (priority := high) : Hashable Nat where
+  hash x :=
+    if x < UInt64.size then hash x
+    else hash x.toByteArrayLE
 
--- Holds a `Nat` for anon and a `Yatima.Name` for meta
-scoped notation "NatₐNameₘ" => Split Nat Name
-
-/-- Parametric representation of universe levels for IPLD -/
-inductive Univ (k : Kind) where
+inductive Univ
   | zero
-  | succ  : UnivCid k → Univ k
-  | max   : UnivCid k → UnivCid k → Univ k
-  | imax  : UnivCid k → UnivCid k → Univ k
-  | var   : NatₐNameₘ k → Univ k
-  deriving Inhabited, Ord, BEq
-
-def Univ.ctorName : Univ k → String
-  | .zero .. => "zero"
-  | .succ .. => "succ"
-  | .max  .. => "max"
-  | .imax .. => "imax"
-  | .var  .. => "var"
-
-end IR
-
-namespace TC
-
-/-- Representation of universe levels for typechecking -/
-inductive Univ where
-  | zero
-  | succ  : Univ → Univ
-  | max   : Univ → Univ → Univ
-  | imax  : Univ → Univ → Univ
-  | var   : Name → Nat → Univ
-  deriving BEq, Inhabited, Repr, Ord
+  | succ : Univ → Univ
+  | max  : Univ → Univ → Univ
+  | imax : Univ → Univ → Univ
+  | var  : Nat → Univ
+  deriving Inhabited, Ord, BEq, Hashable, Repr
 
 namespace Univ
-
-/-- Gets the constructor name as a `String` -/
-def ctorName : Univ → String
-  | .zero    => "zero"
-  | .succ  _ => "succ"
-  | .max  .. => "max"
-  | .imax .. => "imax"
-  | .var  .. => "var"
 
 /--
 Reduces as a `max` applied to two values: `max a 0 = max 0 a = a` and
 `max (succ a) (succ b) = succ (max a b)`.
-
 It is assumed that `a` and `b` are already reduced
 -/
 def reduceMax (a b : Univ) : Univ :=
@@ -59,7 +28,7 @@ def reduceMax (a b : Univ) : Univ :=
   | .zero, _ => b
   | _, .zero => a
   | .succ a, .succ b => .succ (reduceMax a b)
-  | .var _ idx, .var _ idx' => if idx == idx' then a else .max a b
+  | .var idx, .var idx' => if idx == idx' then a else .max a b
   | _, _ => .max a b
 
 def isNotZero : Univ → Bool
@@ -70,7 +39,6 @@ def isNotZero : Univ → Bool
 
 /--
 Reduces as an `imax` applied to two values.
-
 It is assumed that `a` and `b` are already reduced
 -/
 def reduceIMax (a b : Univ) : Univ :=
@@ -81,8 +49,8 @@ def reduceIMax (a b : Univ) : Univ :=
     | .zero => .zero
     -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..) (impossible case)
     | .succ _ => reduceMax a b
-    | .var _ idx => match a with
-      | .var _ idx' => if idx == idx' then a else .imax a b
+    | .var idx => match a with
+      | .var idx' => if idx == idx' then a else .imax a b
       | _ => .imax a b
     -- Otherwise, IMax(a, b) is stuck, with a and b reduced
     | _ => .imax a b
@@ -121,7 +89,7 @@ def instReduce (u : Univ) (idx : Nat) (subst : Univ) : Univ :=
     | .zero => .zero
     | .succ _ => reduceMax a' b'
     | _ => .imax a' b'
-  | .var _ idx' => if idx' == idx then subst else u
+  | .var idx' => if idx' == idx then subst else u
   | .zero => u
 
 /--
@@ -129,6 +97,7 @@ Instantiate multiple variables at the same time and reduce. Assumes already
 reduced `substs`
 -/
 def instBulkReduce (substs : List Univ) : Univ → Univ
+  | z@(.zero ..) => z
   | .succ u => .succ (instBulkReduce substs u)
   | .max a b => reduceMax (instBulkReduce substs a) (instBulkReduce substs b)
   | .imax a b =>
@@ -137,68 +106,67 @@ def instBulkReduce (substs : List Univ) : Univ → Univ
     | .zero => .zero
     | .succ _ => reduceMax (instBulkReduce substs a) b'
     | _ => .imax (instBulkReduce substs a) b'
-  | .var nam idx => match substs.get? idx with
+  | .var idx => match substs.get? idx with
     | some u => u
-    -- This case should never happen if we're correctly enclosing every expression with a big enough universe environment
-    | none => .var nam (idx - substs.length)
-  | u => u -- zero
-
+    -- This case should never happen if we're correctly enclosing every
+    -- expression with a big enough universe environment
+    | none => .var (idx - substs.length)
 
 /--
 We say that two universe levels `a` and `b` are (semantically) equal, if they
 are equal as numbers for all possible substitution of free variables to numbers.
 Although writing an algorithm that follows this exact scheme is impossible, it
 is possible to write one that is equivalent to such semantical equality.
-
 Comparison algorithm `a <= b + diff`. Assumes `a` and `b` are already reduced
 -/
 partial def leq (a b : Univ) (diff : Int) : Bool :=
-  if diff >= 0 && a == Univ.zero then true
+  if diff >= 0 && a == .zero then true
   else match a, b with
-  | Univ.zero, Univ.zero => diff >= 0
+  | .zero, .zero => diff >= 0
   --! Succ cases
-  | Univ.succ a, _ => leq a b (diff - 1)
-  | _, Univ.succ b => leq a b (diff + 1)
-  | Univ.var .., Univ.zero => false
-  | Univ.zero, Univ.var .. => diff >= 0
-  | Univ.var _ x, Univ.var _ y => x == y && diff >= 0
+  | .succ a, _ => leq a b (diff - 1)
+  | _, .succ b => leq a b (diff + 1)
+  | .var .., .zero => false
+  | .zero, .var .. => diff >= 0
+  | .var x, .var y => x == y && diff >= 0
   --! Max cases
-  | Univ.max c d, _ => leq c b diff && leq d b diff
-  | _, Univ.max c d => leq a c diff || leq a d diff
+  | .max c d, _ => leq c b diff && leq d b diff
+  | _, .max c d => leq a c diff || leq a d diff
   --! IMax cases
   -- The case `a = imax c d` has only three possibilities:
   -- 1) d = var ..
   -- 2) d = max ..
   -- 3) d = imax ..
   -- It can't be any otherway since we are assuming `a` is reduced, and thus `d` is reduced as well
-  | Univ.imax _ (Univ.var nam idx), _ =>
+  | .imax _ (.var idx), _ =>
     -- In the case for `var idx`, we need to compare two substitutions:
     -- 1) idx <- zero
     -- 2) idx <- succ (var idx)
     -- In the first substitution, we know `a` becomes `zero`
-    leq Univ.zero (instReduce b idx Univ.zero) diff &&
-    let succ := Univ.succ (Univ.var nam idx)
+    leq .zero (instReduce b idx .zero) diff &&
+    let succ := .succ (.var idx)
     leq (instReduce a idx succ) (instReduce b idx succ) diff
-  | Univ.imax c (Univ.max e f), _ =>
+
+  | .imax c (.max e f), _ =>
     -- Here we use the relationship
     -- imax c (max e f) = max (imax c e) (imax c f)
-    let new_max := Univ.max (reduceIMax c e) (reduceIMax c f)
+    let new_max := .max (reduceIMax c e) (reduceIMax c f)
     leq new_max b diff
-  | Univ.imax c (Univ.imax e f), _ =>
+  | .imax c (.imax e f), _ =>
     -- Here we use the relationship
     -- imax c (imax e f) = imax (max c e) f
-    let new_max := Univ.imax (Univ.max c e) f
+    let new_max := .imax (.max c e) f
     leq new_max b diff
   -- Analogous to previous case
-  | _, Univ.imax _ (Univ.var nam idx) =>
-    leq (instReduce a idx Univ.zero) Univ.zero diff &&
-    let succ := Univ.succ (Univ.var nam idx)
+  | _, .imax _ (.var idx) =>
+    leq (instReduce a idx .zero) .zero diff &&
+    let succ := .succ (.var idx)
     leq (instReduce a idx succ) (instReduce b idx succ) diff
-  | _, Univ.imax c (Univ.max e f) =>
-    let new_max := Univ.max (reduceIMax c e) (reduceIMax c f)
+  | _, .imax c (.max e f) =>
+    let new_max := .max (reduceIMax c e) (reduceIMax c f)
     leq a new_max diff
-  | _, Univ.imax c (Univ.imax e f) =>
-    let new_max := Univ.imax (Univ.max c e) f
+  | _, .imax c (.imax e f) =>
+    let new_max := .imax (.max c e) f
     leq a new_max diff
   | _, _ => false -- Impossible cases
 
@@ -222,8 +190,4 @@ def isZero : Univ → Bool
   -- expression with free variables, which are never semantically equal to zero
   | _ => false
 
-end Univ
-
-end TC
-
-end Yatima
+end Yatima.IR.Univ

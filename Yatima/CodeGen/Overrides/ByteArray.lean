@@ -90,6 +90,10 @@ def ByteArray.append : Override := Override.decl ⟨``ByteArray.append, ⟦
   (lambda (a b) (Array.append "lcErased" a b))
 ⟧⟩
 
+def ByteArray.hash : Override := Override.decl ⟨``ByteArray.hash, ⟦
+  (lambda (α a) (commit a))
+⟧⟩
+
 def ByteArray.module : List Override := [
   Lurk.Overrides.ByteArray,
   ByteArray.data,
@@ -103,7 +107,8 @@ def ByteArray.module : List Override := [
   ByteArray.uget,
   ByteArray.copySlice,
   ByteArray.extract,
-  ByteArray.append
+  ByteArray.append,
+  ByteArray.hash
 ]
 
 end Lurk.Overrides

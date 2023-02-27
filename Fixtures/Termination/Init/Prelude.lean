@@ -8,12 +8,10 @@ set_option linter.all false -- prevent error messages from runFrontend
 
 /-!
 # Init.Prelude
-
 This is the first file in the lean import hierarchy. It is responsible for setting
 up basic definitions, most of which lean already has "built in knowledge" about,
 so it is important that they be set up in exactly this way. (For example, lean will
 use `PUnit` in the desugaring of `do` notation, or in the pattern match compiler.)
-
 -/
 
 universe u v w
@@ -21,7 +19,6 @@ universe u v w
 /--
 The identity function. `id` takes an implicit argument `α : Sort u`
 (a type in any universe), and an argument `a : α`, and returns `a`.
-
 Although this may look like a useless function, one application of the identity
 function is to explicitly put a type on an expression. If `e` has type `T`,
 and `T'` is definitionally equal to `T`, then `@id T' e` typechecks, and lean
@@ -58,7 +55,6 @@ The constant function. If `a : α`, then `Function.const β a : β → α` is th
 ```
 example (b : Bool) : Function.const Bool 10 b = 10 :=
   rfl
-
 #check Function.const Bool 10
 -- Bool → Nat
 ```
@@ -75,10 +71,8 @@ attempt to construct this argument by typeclass inference. (This will fail if
 `α` is not a `class`.) Example:
 ```
 #check (inferInstance : Inhabited Nat) -- Inhabited Nat
-
 def foo : Inhabited (Nat × Nat) :=
   inferInstance
-
 example : foo.default = (default, default) :=
   rfl
 ```
@@ -115,11 +109,9 @@ The unit type, the canonical type with one element, named `unit` or `()`.
 In other words, it describes only a single value, which consists of said constructor applied
 to no arguments whatsoever.
 The `Unit` type is similar to `void` in languages derived from C.
-
 `Unit` is actually defined as `PUnit.{0}` where `PUnit` is the universe
 polymorphic version. The `Unit` should be preferred over `PUnit` where possible to avoid
 unnecessary universe parameters.
-
 In functional programming, `Unit` is the return type of things that "return
 nothing", since a type with one element conveys no additional information.
 When programming with monads, the type `m Unit` represents an action that has
@@ -139,7 +131,6 @@ unsafe axiom lcErased : Type
 
 /--
 Auxiliary unsafe constant used by the Compiler when erasing proofs from code.
-
 It may look strange to have an axiom that says "every proposition is true",
 since this is obviously unsound, but the `unsafe` marker ensures that the
 kernel will not let this through into regular proofs. The lower levels of the
@@ -156,10 +147,8 @@ unsafe axiom lcCast {α : Sort u} {β : Sort v} (a : α) : β
 
 /--
 Auxiliary unsafe constant used by the Compiler to mark unreachable code.
-
 Like `lcProof`, this is an `unsafe axiom`, which means that even though it is
 not sound, the kernel will not let us use it for regular proofs.
-
 Executing this expression to actually synthesize a value of type `α` causes
 **immediate undefined behavior**, and the compiler does take advantage of this
 to optimize the code assuming that it is not called. If it is not optimized out,
@@ -213,7 +202,6 @@ def Not (a : Prop) : Prop := a → False
 /--
 `False.elim : False → C` says that from `False`, any desired proposition
 `C` holds. Also known as ex falso quodlibet (EFQ) or the principle of explosion.
-
 The target type is actually `C : Sort u` which means it works for both
 propositions and types. When executed, this acts like an "unreachable"
 instruction: it is **undefined behavior** to run, but it will probably print
@@ -240,7 +228,6 @@ A fundamental property of equality is that it is an equivalence relation.
 ```
 variable (α : Type) (a b c d : α)
 variable (hab : a = b) (hcb : c = b) (hcd : c = d)
-
 example : a = d :=
   Eq.trans (Eq.trans hab (Eq.symm hcb)) hcd
 ```
@@ -252,7 +239,6 @@ Example:
 example (α : Type) (a b : α) (p : α → Prop)
         (h1 : a = b) (h2 : p a) : p b :=
   Eq.subst h1 h2
-
 example (α : Type) (a b : α) (p : α → Prop)
     (h1 : a = b) (h2 : p a) : p b :=
   h1 ▸ h2
@@ -272,7 +258,6 @@ inductive Eq : α → α → Prop where
 /--
 `rfl : a = a` is the unique constructor of the equality type. This is the
 same as `Eq.refl` except that it takes `a` implicitly instead of explicitly.
-
 This is a more powerful theorem than it may appear at first, because although
 the statement of the theorem is `a = a`, lean will allow anything that is
 definitionally equal to that type. So, for instance, `2 + 2 = 4` is proven in
@@ -288,12 +273,10 @@ The substitution principle for equality. If `a = b ` and `P a` holds,
 then `P b` also holds. We conventionally use the name `motive` for `P` here,
 so that you can specify it explicitly using e.g.
 `Eq.subst (motive := fun x => x < 5)` if it is not otherwise inferred correctly.
-
 This theorem is the underlying mechanism behind the `rw` tactic, which is
 essentially a fancy algorithm for finding good `motive` arguments to usefully
 apply this theorem to replace occurrences of `a` with `b` in the goal or
 hypotheses.
-
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem Eq.subst {α : Sort u} {motive : α → Prop} {a b : α} (h₁ : Eq a b) (h₂ : motive a) : motive b :=
@@ -301,10 +284,8 @@ theorem Eq.subst {α : Sort u} {motive : α → Prop} {a b : α} (h₁ : Eq a b)
 
 /--
 Equality is symmetric: if `a = b` then `b = a`.
-
 Because this is in the `Eq` namespace, if you have a variable `h : a = b`,
 `h.symm` can be used as shorthand for `Eq.symm h` as a proof of `b = a`.
-
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem Eq.symm {α : Sort u} {a b : α} (h : Eq a b) : Eq b a :=
@@ -312,11 +293,9 @@ theorem Eq.symm {α : Sort u} {a b : α} (h : Eq a b) : Eq b a :=
 
 /--
 Equality is transitive: if `a = b` and `b = c` then `a = c`.
-
 Because this is in the `Eq` namespace, if you variables or expressions
 `h₁ : a = b` and `h₂ : b = c`, you can use `h₁.trans h₂ : a = c` as shorthand
 for `Eq.trans h₁ h₂`.
-
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem Eq.trans {α : Sort u} {a b c : α} (h₁ : Eq a b) (h₂ : Eq b c) : Eq a c :=
@@ -326,11 +305,9 @@ theorem Eq.trans {α : Sort u} {a b c : α} (h₁ : Eq a b) (h₂ : Eq b c) : Eq
 Cast across a type equality. If `h : α = β` is an equality of types, and
 `a : α`, then `a : β` will usually not typecheck directly, but this function
 will allow you to work around this and embed `a` in type `β` as `cast h a : β`.
-
 It is best to avoid this function if you can, because it is more complicated
 to reason about terms containing casts, but if the types don't match up
 definitionally sometimes there isn't anything better you can do.
-
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 @[macro_inline] def cast {α β : Sort u} (h : Eq α β) (a : α) : β :=
@@ -343,7 +320,6 @@ you can also use a lambda expression for `f` to prove that
 `<something containing a₁> = <something containing a₂>`. This function is used
 internally by tactics like `congr` and `simp` to apply equalities inside
 subterms.
-
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem congrArg {α : Sort u} {β : Sort v} {a₁ a₂ : α} (f : α → β) (h : Eq a₁ a₂) : Eq (f a₁) (f a₂) :=
@@ -353,7 +329,6 @@ theorem congrArg {α : Sort u} {β : Sort v} {a₁ a₂ : α} (f : α → β) (h
 Congruence in both function and argument. If `f₁ = f₂` and `a₁ = a₂` then
 `f₁ a₁ = f₂ a₂`. This only works for nondependent functions; the theorem
 statement is more complex in the dependent case.
-
 For more information: [Equality](https://leanprover.github.io/theorem_proving_in_lean4/quantifiers_and_equality.html#equality)
 -/
 theorem congr {α : Sort u} {β : Sort v} {f₁ f₂ : α → β} {a₁ a₂ : α} (h₁ : Eq f₁ f₂) (h₂ : Eq a₁ a₂) : Eq (f₁ a₁) (f₂ a₂) :=
@@ -367,12 +342,9 @@ theorem congrFun {α : Sort u} {β : α → Sort v} {f g : (x : α) → β x} (h
 Initialize the Quotient Module, which effectively adds the following definitions:
 ```
 opaque Quot {α : Sort u} (r : α → α → Prop) : Sort u
-
 opaque Quot.mk {α : Sort u} (r : α → α → Prop) (a : α) : Quot r
-
 opaque Quot.lift {α : Sort u} {r : α → α → Prop} {β : Sort v} (f : α → β) :
   (∀ a b : α, r a b → Eq (f a) (f b)) → Quot r → β
-
 opaque Quot.ind {α : Sort u} {r : α → α → Prop} {β : Quot r → Prop} :
   (∀ a : α, β (Quot.mk r a)) → ∀ q : Quot r, β q
 ```
@@ -390,7 +362,6 @@ defined on each equivalence class `⟦x⟧` by `f' ⟦x⟧ = f x`.
 Lean extends the Calculus of Constructions with additional constants that
 perform exactly these constructions, and installs this last equation as a
 definitional reduction rule.
-
 Given a type `α` and any binary relation `r` on `α`, `Quot r` is a type. Note
 that `r` is not required to be an equivalance relation. `Quot` is the basic
 building block used to construct later the type `Quotient`.
@@ -400,7 +371,6 @@ add_decl_doc Quot
 /--
 Given a type `α` and any binary relation `r` on `α`, `Quot.mk` maps `α` to `Quot r`.
 So that if `r : α → α → Prop` and `a : α`, then `Quot.mk r a` is an element of `Quot r`.
-
 See `Quot`.
 -/
 add_decl_doc Quot.mk
@@ -408,7 +378,6 @@ add_decl_doc Quot.mk
 /--
 Given a type `α` and any binary relation `r` on `α`,
 `Quot.ind` says that every element of `Quot r` is of the form `Quot.mk r a`.
-
 See `Quot` and `Quot.lift`.
 -/
 add_decl_doc Quot.ind
@@ -416,7 +385,6 @@ add_decl_doc Quot.ind
 /--
 Given a type `α`, any binary relation `r` on `α`, a function `f : α → β`, and a proof `h`
 that `f` respects the relation `r`, then `Quot.lift f h` is the corresponding function on `Quot r`.
-
 The idea is that for each element `a` in `α`, the function `Quot.lift f h` maps `Quot.mk r a`
 (the `r`-class containing `a`) to `f a`, wherein `h` shows that this function is well defined.
 In fact, the computation principle is declared as a reduction rule.
@@ -431,7 +399,6 @@ unsafe axiom Quot.lcInv {α : Sort u} {r : α → α → Prop} (q : Quot r) : α
 /--
 Heterogeneous equality. `HEq a b` asserts that `a` and `b` have the same
 type, and casting `a` across the equality yields `b`, and vice versa.
-
 You should avoid using this type if you can. Heterogeneous equality does not
 have all the same properties as `Eq`, because the assumption that the types of
 `a` and `b` are equal is often too weak to prove theorems of interest. One
@@ -569,7 +536,6 @@ structure Subtype {α : Sort u} (p : α → Prop) where
 set_option linter.unusedVariables.funArgs false in
 /--
 Gadget for optional parameter support.
-
 A binder like `(x : α := default)` in a declaration is syntax sugar for
 `x : optParam α default`, and triggers the elaborator to attempt to use
 `default` to supply the argument if it is not supplied.
@@ -578,7 +544,6 @@ A binder like `(x : α := default)` in a declaration is syntax sugar for
 
 /--
 Gadget for marking output parameters in type classes.
-
 For example, the `Membership` class is defined as:
 ```
 class Membership (α : outParam (Type u)) (γ : Type v)
@@ -587,7 +552,6 @@ This means that whenever a typeclass goal of the form `Membership ?α ?γ` comes
 up, lean will wait to solve it until `?γ` is known, but then it will run
 typeclass inference, and take the first solution it finds, for any value of `?α`,
 which thereby determines what `?α` should be.
-
 This expresses that in a term like `a ∈ s`, `s` might be a `Set α` or
 `List α` or some other type with a membership operation, and in each case
 the "member" type `α` is determined by looking at the container type.
@@ -600,14 +564,12 @@ set_option linter.unusedVariables.funArgs false in
 
 /--
 Auxiliary axiom used to implement `sorry`.
-
 The `sorry` term/tactic expands to `sorryAx _ (synthetic := false)`. This is a
 proof of anything, which is intended for stubbing out incomplete parts of a
 proof while still having a syntactically correct proof skeleton. Lean will give
 a warning whenever a proof uses `sorry`, so you aren't likely to miss it, but
 you can double check if a theorem depends on `sorry` by using
 `#print axioms my_thm` and looking for `sorryAx` in the axiom list.
-
 The `synthetic` flag is false when written explicitly by the user, but it is
 set to `true` when a tactic fails to prove a goal, or if there is a type error
 in the expression. A synthetic `sorry` acts like a regular one, except that it
@@ -636,7 +598,6 @@ theorem ne_true_of_eq_false : {b : Bool} → Eq b false → Not (Eq b true)
 /--
 `Inhabited α` is a typeclass that says that `α` has a designated element,
 called `(default : α)`. This is sometimes referred to as a "pointed type".
-
 This class is used by functions that need to return a value of the type
 when called "out of domain". For example, `Array.get! arr i : α` returns
 a value of type `α` when `arr : Array α`, but if `i` is not in range of
@@ -668,19 +629,16 @@ class inductive Nonempty (α : Sort u) : Prop where
 **The axiom of choice**. `Nonempty α` is a proof that `α` has an element,
 but the element itself is erased. The axiom `choice` supplies a particular
 element of `α` given only this proof.
-
 The textbook axiom of choice normally makes a family of choices all at once,
 but that is implied from this formulation, because if `α : ι → Type` is a
 family of types and `h : ∀ i, Nonempty (α i)` is a proof that they are all
 nonempty, then `fun i => Classical.choice (h i) : ∀ i, α i` is a family of
 chosen elements. This is actually a bit stronger than the ZFC choice axiom;
 this is sometimes called "[global choice](https://en.wikipedia.org/wiki/Axiom_of_global_choice)".
-
 In lean, we use the axiom of choice to derive the law of excluded middle
 (see `Classical.em`), so it will often show up in axiom listings where you
 may not expect. You can use `#print axioms my_thm` to find out if a given
 theorem depends on this or other axioms.
-
 This axiom can be used to construct "data", but obviously there is no algorithm
 to compute it, so lean will require you to mark any definition that would
 involve executing `Classical.choice` or other axioms as `noncomputable`, and
@@ -756,7 +714,6 @@ instance : Inhabited NonemptyType.{u} where
 Universe lifting operation from a lower `Type` universe to a higher one.
 To express this using level variables, the input is `Type s` and the output is
 `Type (max s r)`, so if `s ≤ r` then the latter is (definitionally) `Type r`.
-
 The universe variable `r` is written first so that `ULift.{r} α` can be used
 when `s` can be inferred from the type of `α`.
 -/
@@ -775,12 +732,10 @@ theorem ULift.down_up {α : Type u} (a : α) : Eq (down (up.{v} a)) a := rfl
 either `true` or `false`. It is equivalent to `Bool` (and in fact it has the
 same code generation as `Bool`) together with a proof that the `Bool` is
 true iff `p` is.
-
 `Decidable` instances are used to infer "computation strategies" for
 propositions, so that you can have the convenience of writing propositions
 inside `if` statements and executing them (which actually executes the inferred
 decidability instance instead of the proposition, which has no code).
-
 If a proposition `p` is `Decidable`, then `(by decide : p)` will prove it by
 evaluating the decidability instance to `isTrue h` and returning `h`.
 -/
@@ -792,7 +747,6 @@ class inductive Decidable (p : Prop) where
 
 /--
 Convert a decidable proposition into a boolean value.
-
 If `p : Prop` is decidable, then `decide p : Bool` is the boolean value
 which is `true` if `p` is true and `false` if `p` is false.
 -/
@@ -879,7 +833,6 @@ is sugar for `dite c (fun h => t(h)) (fun h => e(h))`, and it is the same as
 `if c then t else e` except that `t` is allowed to depend on a proof `h : c`,
 and `e` can depend on `h : ¬c`. (Both branches use the same name for the hypothesis,
 even though it has different types in the two cases.)
-
 We use this to be able to communicate the if-then-else condition to the branches.
 For example, `Array.get arr ⟨i, h⟩` expects a proof `h : i < arr.size` in order to
 avoid a bounds check, so you can write `if h : i < arr.size then arr.get ⟨i, h⟩ else ...`
@@ -898,7 +851,6 @@ return `t` or `e` depending on whether `c` is true or false. The explicit argume
 `c : Prop` does not have any actual computational content, but there is an additional
 `[Decidable c]` argument synthesized by typeclass inference which actually
 determines how to evaluate `c` to true or false.
-
 Because lean uses a strict (call-by-value) evaluation strategy, the signature of this
 function is problematic in that it would require `t` and `e` to be evaluated before
 calling the `ite` function, which would cause both sides of the `if` to be evaluated.
@@ -984,13 +936,11 @@ with `Not : Prop → Prop`, which is the propositional connective).
 The type of natural numbers, starting at zero. It is defined as an
 inductive type freely generated by "zero is a natural number" and
 "the successor of a natural number is a natural number".
-
 You can prove a theorem `P n` about `n : Nat` by `induction n`, which will
 expect a proof of the theorem for `P 0`, and a proof of `P (succ i)` assuming
 a proof of `P i`. The same method also works to define functions by recursion
 on natural numbers: induction and recursion are two expressions of the same
 operation from lean's point of view.
-
 ```
 open Nat
 example (n : Nat) : n < succ n := by
@@ -1002,7 +952,6 @@ example (n : Nat) : n < succ n := by
     show succ i < succ (succ i)
     exact Nat.succ_lt_succ ih
 ```
-
 This type is special-cased by both the kernel and the compiler:
 * The type of expressions contains "`Nat` literals" as a primitive constructor,
   and the kernel knows how to reduce zero/succ expressions to nat literals.
@@ -1027,7 +976,6 @@ instance : Inhabited Nat where
 The class `OfNat α n` powers the numeric literal parser. If you write
 `37 : α`, lean will attempt to synthesize `OfNat α 37`, and will generate
 the term `(OfNat.ofNat 37 : α)`.
-
 There is a bit of infinite regress here since the desugaring apparently
 still contains a literal `37` in it. The type of expressions contains a
 primitive constructor for "raw natural number literals", which you can directly
@@ -1089,7 +1037,6 @@ def minOfLe [LE α] [DecidableRel (@LE.le α _)] : Min α where
 
 /--
 Transitive chaining of proofs, used e.g. by `calc`.
-
 It takes two relations `r` and `s` as "input", and produces an "output"
 relation `t`, with the property that `r a b` and `s b c` implies `t a c`.
 The `calc` tactic uses this so that when it sees a chain with `a ≤ b` and `b < c`
@@ -1411,7 +1358,6 @@ class Membership (α : outParam (Type u)) (γ : Type v) where
 set_option bootstrap.genMatcherCode false in
 /--
 Addition of natural numbers.
-
 This definition is overridden in both the kernel and the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model (and it is soundness-critical that they coincide).
@@ -1431,7 +1377,6 @@ attribute [match_pattern] Nat.add Add.add HAdd.hAdd Neg.neg
 set_option bootstrap.genMatcherCode false in
 /--
 Multiplication of natural numbers.
-
 This definition is overridden in both the kernel and the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model (and it is soundness-critical that they coincide).
@@ -1447,7 +1392,6 @@ instance : Mul Nat where
 set_option bootstrap.genMatcherCode false in
 /--
 The power operation on natural numbers.
-
 This definition is overridden in the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model.
@@ -1463,7 +1407,6 @@ instance : Pow Nat Nat where
 set_option bootstrap.genMatcherCode false in
 /--
 (Boolean) equality of natural numbers.
-
 This definition is overridden in both the kernel and the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model (and it is soundness-critical that they coincide).
@@ -1497,7 +1440,6 @@ theorem Nat.ne_of_beq_eq_false : {n m : Nat} → Eq (beq n m) false → Not (Eq 
 
 /--
 A decision procedure for equality of natural numbers.
-
 This definition is overridden in the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model.
@@ -1513,7 +1455,6 @@ protected def Nat.decEq (n m : @& Nat) : Decidable (Eq n m) :=
 set_option bootstrap.genMatcherCode false in
 /--
 The (Boolean) less-equal relation on natural numbers.
-
 This definition is overridden in both the kernel and the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model (and it is soundness-critical that they coincide).
@@ -1588,7 +1529,6 @@ theorem Nat.succ_pos (n : Nat) : LT.lt 0 (succ n) :=
 set_option bootstrap.genMatcherCode false in
 /--
 The predecessor function on natural numbers.
-
 This definition is overridden in the compiler to use `n - 1` instead.
 The definition provided here is the logical model.
 -/
@@ -1682,7 +1622,6 @@ set_option bootstrap.genMatcherCode false in
 /--
 (Truncated) subtraction of natural numbers. Because natural numbers are not
 closed under subtraction, we define `m - n` to be `0` when `n < m`.
-
 This definition is overridden in both the kernel and the compiler to efficiently
 evaluate using the "bignum" representation (see `Nat`). The definition provided
 here is the logical model (and it is soundness-critical that they coincide).
@@ -1697,7 +1636,6 @@ instance : Sub Nat where
 
 /--
 Gets the word size of the platform. That is, whether the platform is 64 or 32 bits.
-
 This function is opaque because we cannot guarantee at compile time that the target
 will have the same size as the host, and also because we would like to avoid
 typechecking being architecture-dependent. Nevertheless, lean only works on
@@ -1956,7 +1894,6 @@ theorem usize_size_eq : Or (Eq USize.size 4294967296) (Eq USize.size 18446744073
 /--
 A `USize` is an unsigned integer with the size of a word
 for the platform's architecture.
-
 For example, if running on a 32-bit machine, USize is equivalent to UInt32.
 Or on a 64-bit machine, UInt64.
 -/
@@ -2089,13 +2026,11 @@ def Char.utf8Size (c : Char) : UInt32 :=
 `Option α` is the type of values which are either `some a` for some `a : α`,
 or `none`. In functional programming languages, this type is used to represent
 the possibility of failure, or sometimes nullability.
-
 For example, the function `HashMap.find? : HashMap α β → α → Option β` looks up
 a specified key `a : α` inside the map. Because we do not know in advance
 whether the key is actually in the map, the return type is `Option β`, where
 `none` means the value was not in the map, and `some b` means that the value
 was found and `b` is the value retrieved.
-
 To extract a value from an `Option α`, we use pattern matching:
 ```
 def map (f : α → β) (x : Option α) : Option β :=
@@ -2129,7 +2064,6 @@ instance {α} : Inhabited (Option α) where
 /--
 Get with default. If `opt : Option α` and `dflt : α`, then `opt.getD dflt`
 returns `a` if `opt = some a` and `dflt` otherwise.
-
 This function is `@[macro_inline]`, so `dflt` will not be evaluated unless
 `opt` turns out to be `none`.
 -/
@@ -2148,7 +2082,6 @@ value if present.
 /--
 `List α` is the type of ordered lists with elements of type `α`.
 It is implemented as a linked list.
-
 `List α` is isomorphic to `Array α`, but they are useful for different things:
 * `List α` is easier for reasoning, and
   `Array α` is modeled as a wrapper around `List α`
@@ -2201,7 +2134,6 @@ def List.set : List α → Nat → α → List α
 
 /--
 The length of a list: `[].length = 0` and `(a :: l).length = l.length + 1`.
-
 This function is overridden in the compiler to `lengthTR`, which uses constant
 stack space, while leaving this function to use the "naive" recursion which is
 easier for reasoning.
@@ -2241,7 +2173,6 @@ def List.get {α : Type u} : (as : List α) → Fin as.length → α
 
 /--
 `String` is the type of (UTF-8 encoded) strings.
-
 The compiler overrides the data representation of this type to a byte sequence,
 and both `String.utf8ByteSize` and `String.length` are cached and O(1).
 -/
@@ -2303,6 +2234,7 @@ structure Substring where
 
 instance : Inhabited Substring where
   default := ⟨"", {}, {}⟩
+-- TODO Failing here for some reason
 
 /-- The byte length of the substring. -/
 @[inline] def Substring.bsize : Substring → Nat
@@ -2368,15 +2300,12 @@ compiler. This function is **extremely dangerous** because there is no guarantee
 that types `α` and `β` have the same data representation, and this can lead to
 memory unsafety. It is also logically unsound, since you could just cast
 `True` to `False`. For all those reasons this function is marked as `unsafe`.
-
 It is implemented by lifting both `α` and `β` into a common universe, and then
 using `cast (lcProof : ULift (PLift α) = ULift (PLift β))` to actually perform
 the cast. All these operations are no-ops in the compiler.
-
 Using this function correctly requires some knowledge of the data representation
 of the source and target types. Some general classes of casts which are safe in
 the current runtime:
-
 * `Array α` to `Array β` where `α` and `β` have compatible representations,
   or more generally for other inductive types.
 * `Quot α r` and `α`.
@@ -2410,7 +2339,6 @@ the error buffer. It *does not* terminate execution, and because it is a safe
 function, it still has to return an element of `α`, so it takes `[Inhabited α]`
 and returns `default`. It is primarily intended for debugging in pure contexts,
 and assertion failures.
-
 Because this is a pure function with side effects, it is marked as
 `@[never_extract]` so that the compiler will not perform common sub-expression
 elimination and other optimizations that assume that the expression is pure.
@@ -2429,7 +2357,6 @@ of `GetElem cont idx elem dom`. Here `elem` is the type of `xs[i]`, while
 `dom` is whatever proof side conditions are required to make this applicable.
 For example, the instance for arrays looks like
 `GetElem (Array α) Nat α (fun xs i => i < xs.size)`.
-
 The proof side-condition `dom xs i` is automatically dispatched by the
 `get_elem_tactic` tactic, which can be extended by adding more clauses to
 `get_elem_tactic_trivial`.
@@ -2439,7 +2366,6 @@ class GetElem (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : o
   The syntax `arr[i]` gets the `i`'th element of the collection `arr`.
   If there are proof side conditions to the application, they will be automatically
   inferred by the `get_elem_tactic` tactic.
-
   The actual behavior of this class is type-dependent,
   but here are some important implementations:
   * `arr[i] : α` where `arr : Array α` and `i : Nat` or `i : USize`:
@@ -2448,7 +2374,6 @@ class GetElem (cont : Type u) (idx : Type v) (elem : outParam (Type w)) (dom : o
     with proof side goal `i < l.length`.
   * `stx[i] : Syntax` where `stx : Syntax` and `i : Nat`: get a syntax argument,
     no side goal (returns `.missing` out of range)
-
   There are other variations on this syntax:
   * `arr[i]`: proves the proof side goal by `get_elem_tactic`
   * `arr[i]!`: panics if the side goal is false
@@ -2462,7 +2387,6 @@ export GetElem (getElem)
 /--
 `Array α` is the type of [dynamic arrays](https://en.wikipedia.org/wiki/Dynamic_array)
 with elements from `α`. This type has special support in the runtime.
-
 An array has a size and a capacity; the size is `Array.size` but the capacity
 is not observable from lean code. Arrays perform best when unshared; as long
 as they are used "linearly" all updates will be performed destructively on the
@@ -2556,7 +2480,6 @@ def Array.mkArray8 {α : Type u} (a₁ a₂ a₃ a₄ a₅ a₆ a₇ a₈ : α) 
 
 /--
 Set an element in an array without bounds checks, using a `Fin` index.
-
 This will perform the update destructively provided that `a` has a reference
 count of 1 when called.
 -/
@@ -2566,7 +2489,6 @@ def Array.set (a : Array α) (i : @& Fin a.size) (v : α) : Array α where
 
 /--
 Set an element in an array, or do nothing if the index is out of bounds.
-
 This will perform the update destructively provided that `a` has a reference
 count of 1 when called.
 -/
@@ -2575,7 +2497,6 @@ count of 1 when called.
 
 /--
 Set an element in an array, or panic if the index is out of bounds.
-
 This will perform the update destructively provided that `a` has a reference
 count of 1 when called.
 -/
@@ -2608,7 +2529,6 @@ def List.redLength : List α → Nat
 
 /--
 Convert a `List α` into an `Array α`. This is O(n) in the length of the list.
-
 This function is exported to C, where it is called by `Array.mk`
 (the constructor) to implement this functionality.
 -/
@@ -2653,7 +2573,6 @@ class Seq (f : Type u → Type v) : Type (max (u+1) v) where
   /-- If `mf : F (α → β)` and `mx : F α`, then `mf <*> mx : F β`.
   In a monad this is the same as `do let f ← mf; x ← mx; pure (f x)`:
   it evaluates first the function, then the argument, and applies one to the other.
-
   To avoid surprising evaluation semantics, `mx` is taken "lazily", using a
   `Unit → f α` function. -/
   seq : {α β : Type u} → f (α → β) → (Unit → f α) → f β
@@ -2662,7 +2581,6 @@ class Seq (f : Type u → Type v) : Type (max (u+1) v) where
 class SeqLeft (f : Type u → Type v) : Type (max (u+1) v) where
   /-- If `x : F α` and `y : F β`, then `x <* y` evaluates `x`, then `y`,
   and returns the result of `x`.
-
   To avoid surprising evaluation semantics, `y` is taken "lazily", using a
   `Unit → f β` function. -/
   seqLeft : {α β : Type u} → f α → (Unit → f β) → f α
@@ -2671,7 +2589,6 @@ class SeqLeft (f : Type u → Type v) : Type (max (u+1) v) where
 class SeqRight (f : Type u → Type v) : Type (max (u+1) v) where
   /-- If `x : F α` and `y : F β`, then `x *> y` evaluates `x`, then `y`,
   and returns the result of `y`.
-
   To avoid surprising evaluation semantics, `y` is taken "lazily", using a
   `Unit → f β` function. -/
   seqRight : {α β : Type u} → f α → (Unit → f β) → f β
@@ -2680,10 +2597,8 @@ class SeqRight (f : Type u → Type v) : Type (max (u+1) v) where
 An [applicative functor](https://en.wikipedia.org/wiki/Applicative_functor) is
 an intermediate structure between `Functor` and `Monad`. It mainly consists of
 two operations:
-
 * `pure : α → F α`
 * `seq : F (α → β) → F α → F β` (written as `<*>`)
-
 The `seq` operator gives a notion of evaluation order to the effects, where
 the first argument is executed before the second, but unlike a monad the results
 of earlier computations cannot be used to define later actions.
@@ -2697,14 +2612,11 @@ class Applicative (f : Type u → Type v) extends Functor f, Pure f, Seq f, SeqL
 A [monad](https://en.wikipedia.org/wiki/Monad_(functional_programming)) is a
 structure which abstracts the concept of sequential control flow.
 It mainly consists of two operations:
-
 * `pure : α → F α`
 * `bind : F α → (α → F β) → F β` (written as `>>=`)
-
 Like many functional programming languages, Lean makes extensive use of monads
 for structuring programs. In particular, the `do` notation is a very powerful
 syntax over monad operations, and it depends on a `Monad` instance.
-
 See [the `do` notation](https://leanprover.github.io/lean4/doc/do.html)
 chapter of the manual for details.
 -/
@@ -2738,7 +2650,6 @@ def Array.sequenceMap {α : Type u} {β : Type v} {m : Type v → Type w} [Monad
 A function for lifting a computation from an inner `Monad` to an outer `Monad`.
 Like Haskell's [`MonadTrans`], but `n` does not have to be a monad transformer.
 Alternatively, an implementation of [`MonadLayer`] without `layerInvmap` (so far).
-
   [`MonadTrans`]: https://hackage.haskell.org/package/transformers-0.5.5.0/docs/Control-Monad-Trans-Class.html
   [`MonadLayer`]: https://hackage.haskell.org/package/layers-0.1/docs/Control-Monad-Layer.html#t:MonadLayer
 -/
@@ -2750,7 +2661,6 @@ class MonadLift (m : Type u → Type v) (n : Type u → Type w) where
 The reflexive-transitive closure of `MonadLift`. `monadLift` is used to
 transitively lift monadic computations such as `StateT.get` or `StateT.put s`.
 Corresponds to Haskell's [`MonadLift`].
-
   [`MonadLift`]: https://hackage.haskell.org/package/layers-0.1/docs/Control-Monad-Layer.html#t:MonadLift
 -/
 class MonadLiftT (m : Type u → Type v) (n : Type u → Type w) where
@@ -2773,7 +2683,6 @@ instance (m) : MonadLiftT m m where
 A functor in the category of monads. Can be used to lift monad-transforming functions.
 Based on [`MFunctor`] from the `pipes` Haskell package, but not restricted to
 monad transformers. Alternatively, an implementation of [`MonadTransFunctor`].
-
   [`MFunctor`]: https://hackage.haskell.org/package/pipes-2.4.0/docs/Control-MFunctor.html
   [`MonadTransFunctor`]: http://duairc.netsoc.ie/layers-docs/Control-Monad-Layer.html#t:MonadTransFunctor
 -/
@@ -2818,16 +2727,13 @@ instance {ε : Type u} {α : Type v} [Inhabited ε] : Inhabited (Except ε α) w
 /--
 An implementation of Haskell's [`MonadError`] class. A `MonadError ε m` is a
 monad `m` with two operations:
-
 * `throw : ε → m α` "throws an error" of type `ε` to the nearest enclosing
   catch block
 * `tryCatch (body : m α) (handler : ε → m α) : m α` will catch any errors in
   `body` and pass the resulting error to `handler`.
   Errors in `handler` will not be caught.
-
 The `try ... catch e => ...` syntax inside `do` blocks is sugar for the
 `tryCatch` operation.
-
   [`MonadError`]: https://hackage.haskell.org/package/mtl-2.2.2/docs/Control-Monad-Except.html#t:MonadError
 -/
 class MonadExceptOf (ε : Type u) (m : Type v → Type w) where
@@ -2889,7 +2795,6 @@ end MonadExcept
 /--
 An implementation of Haskell's [`ReaderT`]. This is a monad transformer which
 equips a monad with additional read-only state, of type `ρ`.
-
   [`ReaderT`]: https://hackage.haskell.org/package/transformers-0.5.5.0/docs/Control-Monad-Trans-Reader.html#t:ReaderT
 -/
 def ReaderT (ρ : Type u) (m : Type u → Type v) (α : Type u) : Type (max u v) :=
@@ -2973,13 +2878,11 @@ An implementation of Haskell's [`MonadReader`] (sans functional dependency; see 
 in this module). It does not contain `local` because this
 function cannot be lifted using `monadLift`. `local` is instead provided by
 the `MonadWithReader` class as `withReader`.
-
 Note: This class can be seen as a simplification of the more "principled" definition
 ```
 class MonadReaderOf (ρ : Type u) (n : Type u → Type u) where
   lift {α : Type u} : ({m : Type u → Type u} → [Monad m] → ReaderT ρ m α) → n α
 ```
-
   [`MonadReader`]: https://hackage.haskell.org/package/mtl-2.2.2/docs/Control-Monad-Reader-Class.html#t:MonadReader
 -/
 class MonadReaderOf (ρ : Type u) (m : Type u → Type v) where
@@ -3050,7 +2953,6 @@ instance {ρ : Type u} {m : Type u → Type v} [Monad m] : MonadWithReaderOf ρ 
 /--
 An implementation of [`MonadState`]. In contrast to the Haskell implementation,
 we use overlapping instances to derive instances automatically from `monadLift`.
-
   [`MonadState`]: https://hackage.haskell.org/package/mtl-2.2.2/docs/Control-Monad-State-Class.html
 -/
 class MonadStateOf (σ : Type u) (m : Type u → Type v) where
@@ -3060,7 +2962,6 @@ class MonadStateOf (σ : Type u) (m : Type u → Type v) where
   set : σ → m PUnit
   /-- `modifyGet (f : σ → α × σ)` applies `f` to the current state, replaces
   the state with the return value, and returns a computed value.
-
   It is equivalent to `do let (a, s) := f (← get); put s; pure a`, but
   `modifyGet f` may be preferable because the former does not use the state
   linearly (without sufficient inlining). -/
@@ -3099,7 +3000,6 @@ class MonadState (σ : outParam (Type u)) (m : Type u → Type v) where
   set : σ → m PUnit
   /-- `modifyGet (f : σ → α × σ)` applies `f` to the current state, replaces
   the state with the return value, and returns a computed value.
-
   It is equivalent to `do let (a, s) := f (← get); put s; pure a`, but
   `modifyGet f` may be preferable because the former does not use the state
   linearly (without sufficient inlining). -/
@@ -3114,7 +3014,6 @@ instance (σ : Type u) (m : Type u → Type v) [MonadStateOf σ m] : MonadState 
 
 /--
 `modify (f : σ → σ)` applies the function `f` to the state.
-
 It is equivalent to `do put (f (← get))`, but `modify f` may be preferable
 because the former does not use the state linearly (without sufficient inlining).
 -/
@@ -3351,7 +3250,6 @@ namespace Lean
 /--
 Hierarchical names. We use hierarchical names to name declarations and
 for creating unique identifiers for free variables and metavariables.
-
 You can create hierarchical names using the following quotation notation.
 ```
 `Lean.Meta.whnf
@@ -3486,16 +3384,13 @@ inductive SourceInfo where
   Synthesized syntax (e.g. from a quotation) annotated with a span from the original source.
   In the delaborator, we "misuse" this constructor to store synthetic positions identifying
   subterms.
-
   The `canonical` flag on synthetic syntax is enabled for syntax that is not literally part
   of the original input syntax but should be treated "as if" the user really wrote it
   for the purpose of hovers and error messages. This is usually used on identifiers,
   to connect the binding site to the user's original syntax even if the name of the identifier
   changes during expansion, as well as on tokens where we will attach targeted messages.
-
   The syntax `token%$stx` in a syntax quotation will annotate the token `token` with the span
   from `stx` and also mark it as canonical.
-
   As a rough guide, a macro expansion should only use a given piece of input syntax in
   a single canonical token, although this is sometimes violated when the same identifier
   is used to declare two binders, as in the macro expansion for dependent if:
@@ -3557,7 +3452,6 @@ inductive Syntax where
   returns `missing` for indexing out of bounds. -/
   | missing : Syntax
   /-- Node in the syntax tree.
-
   The `info` field is used by the delaborator to store the position of the
   subexpression corresponding to this node. The parser sets the `info` field
   to `none`.
@@ -3566,7 +3460,6 @@ inductive Syntax where
   as synthetic even when the leading/trailing token is not.
   The delaborator uses the `info` field to store the position of the subexpression
   corresponding to this node.
-
   (Remark: the `node` constructor did not have an `info` field in previous
   versions. This caused a bug in the interactive widgets, where the popup for
   `a + b` was the same as for `a`. The delaborator used to associate
@@ -3982,6 +3875,7 @@ produce different identifiers.
 abbrev MacroScope := Nat
 /-- Macro scope used internally. It is not available for our frontend. -/
 def reservedMacroScope := 0
+
 /-- First macro scope available for our frontend -/
 def firstFrontendMacroScope := hAdd reservedMacroScope 1
 
@@ -4073,7 +3967,6 @@ Example: suppose the module name is `Init.Data.List.Basic`, and name is `foo.bla
 ```
 foo.bla._@.Init.Data.List.Basic._hyg.2.5
 ```
-
 We may have to combine scopes from different files/modules.
 The main modules being processed is always the right most one.
 This situation may happen when we execute a macro generated in
@@ -4081,7 +3974,6 @@ an imported file in the current file.
 ```
 foo.bla._@.Init.Data.List.Basic.2.1.Init.Lean.Expr._hyg.4
 ```
-
 The delimiter `_hyg` is used just to improve the `hasMacroScopes` performance.
 -/
 
@@ -4319,7 +4211,6 @@ end Macro
 The `MacroM` monad is the main monad for macro expansion. It has the
 information needed to handle hygienic name generation, and is the monad that
 `macro` definitions live in.
-
 Notably, this is a (relatively) pure monad: there is no `IO` and no access to
 the `Environment`. That means that things like declaration lookup are
 impossible here, as well as `IO.Ref` or other side-effecting operations.

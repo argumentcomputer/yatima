@@ -1,7 +1,7 @@
 /build
 /lake-packages
 /result
-*.ir
+*.yenv
 *.lurk
 *.frames
 *.json

@@ -1,5 +1,5 @@
 prelude
-
+set_option linter.all false -- prevent error messages from runFrontend
 inductive BLA
   | nil
   | bla : BLA → BLA → BLA

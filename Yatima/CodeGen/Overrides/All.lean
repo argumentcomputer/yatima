@@ -11,6 +11,7 @@ import Yatima.CodeGen.Overrides.Name
 import Yatima.CodeGen.Overrides.Nat
 import Yatima.CodeGen.Overrides.String
 import Yatima.CodeGen.Overrides.Thunk
+import Yatima.CodeGen.Overrides.Typechecker
 import Yatima.CodeGen.Overrides.UInt
 
 namespace Lurk.Overrides
@@ -29,6 +30,7 @@ def All.module :=
   Nat.module ++
   String.module ++
   Thunk.module ++
+  Yatima.Typechecker.module ++
   UInt.module
 
 end Lurk.Overrides

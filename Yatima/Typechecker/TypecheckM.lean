@@ -1,5 +1,5 @@
 import Yatima.Typechecker.Datatypes
-import Yatima.Datatypes.Store
+import Std.Data.RBMap
 
 /-!
 # The Typechecker monad
@@ -10,52 +10,61 @@ initialize its context.
 
 namespace Yatima.Typechecker
 
-open TC
+open IR
+open Lurk (F)
+
+abbrev RecrCtx    := Std.RBMap Nat (F × (List Univ → SusValue)) compare
+abbrev ConstNames := Std.RBMap F Lean.Name compare
+abbrev Store      := Std.RBMap F Const compare
 
 /--
 The context available to the typechecker monad. The available fields are
 * `lvl : Nat` : Depth of the subterm. Coincides with the length of the list of types
 * `env : Env` : A environment of known values, and universe levels. See `Env`
-* `types : List (Tunk Value)` : The types of the values in `Env`.
-* `store : Array Const` : An array of known constants in the context that can be referred to by their index.
+* `types : List SusValue` : The types of the values in `Env`.
+* `store : Store` : An store of known constants in the context.
 -/
 structure TypecheckCtx where
-  lvl       : Nat
-  env       : Env
-  types     : List SusValue
-  store     : Store
-  const     : Name
-  mutTypes  : Std.RBMap ConstIdx (List Univ → SusValue) compare
+  lvl         : Nat
+  env         : Env
+  types       : List SusValue
+  store       : Store
+  /-- Maps a variable index (which represents a reference to a mutual const)
+    to the hash of that constant (in `TypecheckState.typedConsts`) and
+    a function returning a `SusValue` for that constant's type given a list of universes. -/
+  mutTypes    : RecrCtx
+  constNames  : ConstNames
+  limitAxioms : Bool
+  recF?       : Option F
+  quick       : Bool
+  dbg         : Bool := false
   deriving Inhabited
 
 /--
 The state available to the typechecker monad. The available fields are
-* `tcConsts : List (Option Const)` : cache of already-typechecked constants, with their types and values annotated
+* `typedConsts` : cache of already-typechecked constants, with their types and
+  values annotated
 -/
 structure TypecheckState where
-  tcConsts : Array (Option TypedConst)
+  typedConsts : Std.RBMap F TypedConst compare
   deriving Inhabited
 
-/-- An initialization of the typchecker context with a particular `store : Array Const` -/
-def TypecheckCtx.init (store : Store) : TypecheckCtx :=
-  { (default : TypecheckCtx) with store }
-
-/-- An initialization of the typechecker state with a particular `store : Array Const` -/
-def TypecheckState.init (store : Store) : TypecheckState := Id.run $ do
-  pure {tcConsts := mkArray store.consts.size none}
-
-/-- An initialization of the typechecker context with a particular `env : Env` and `store : Array Const` -/
-def TypecheckCtx.initEnv (env : Env) (store : Store) : TypecheckCtx :=
-  { (default : TypecheckCtx) with store, env }
+/-- An initialization of the typchecker context with a particular store -/
+def TypecheckCtx.init (store : Store) (constNames : ConstNames) (quick : Bool) : 
+    TypecheckCtx :=
+  { (default : TypecheckCtx) with 
+    store      := store, 
+    constNames := constNames, 
+    quick      := quick }
 
 /--
 The monad where the typechecking is done is a stack of a `ReaderT` that can access a `TypecheckCtx`,
 and can throw exceptions of the form `TypecheckError`
 -/
-abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT TypecheckError Id
+abbrev TypecheckM := ReaderT TypecheckCtx $ StateT TypecheckState $ ExceptT String Id
 
 /-- Basic runner for the typechecker monad -/
-def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except TypecheckError α :=
+def TypecheckM.run (ctx : TypecheckCtx) (stt : TypecheckState) (m : TypecheckM α) : Except String α :=
   match ExceptT.run $ (StateT.run (ReaderT.run m ctx) stt) with
   | .error e => .error e
   | .ok (a, _) => .ok a
@@ -67,14 +76,16 @@ def withEnv (env : Env) : TypecheckM α → TypecheckM α :=
 /--
 Evaluates a `TypecheckM` computation with a reset `TypecheckCtx`.
 -/
-def withResetCtx (const : Name) : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => {lvl := 0, env := default, types := [], store := ctx.store, const := const, mutTypes := default}
+def withResetCtx : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with
+    lvl := 0, env := default, types := default, mutTypes := default, recF? := none }
 
 /--
 Evaluates a `TypecheckM` computation with the given `mutTypes`.
 -/
-def withMutTypes (mutTypes : Std.RBMap ConstIdx (List Univ → SusValue) compare) : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => {ctx with mutTypes}
+def withMutTypes (mutTypes : RecrCtx) :
+    TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with mutTypes := mutTypes }
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` which has been extended with an additional
@@ -104,63 +115,167 @@ def withNewExtendedEnv (env : Env) (thunk : SusValue) :
     TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with env := env.extendWith thunk }
 
-def primIndexWith (p : PrimConst) (noneHandle : TypecheckM A) (someHandle : Nat → TypecheckM A) : TypecheckM A := do
-  match (← read).store.primIdxs.find? p with | none => noneHandle | some a => someHandle a
-def primIndex (p : PrimConst) : TypecheckM Nat := do
-  primIndexWith p (throw $ .custom s!"Cannot find constant `{p}` in store") pure
-def indexPrim (k : Nat) : TypecheckM (Option PrimConst) := do
-  pure $ (← read).store.idxsToPrims.find? k
+def withLimitedAxioms : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with limitAxioms := true }
+
+def withRecF (f : F) : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with recF? := some f }
+
+/--
+Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
+by a `thunk : SusValue` (whose type is not known)
+-/
+def withDbg : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with dbg := true }
+
+def tc_trace (msg : String) : TypecheckM Unit := do
+  if (← read).dbg then dbg_trace msg
+
+--PIN
+def primToF : PrimConst → Option F
+  | .op .natBlt => return .ofNat 4822643605371257236
+  | .op .natBle => return .ofNat 2951728617574817879
+  | .string => return .ofNat 16001121964852037297
+  | .op .natBeq => return .ofNat 12809246696557140246
+  | .boolTrue => return .ofNat 17049977161890552712
+  | .nat => return .ofNat 12846390003443303075
+  | .op .natPow => return .ofNat 14613595360914645637
+  | .bool => return .ofNat 7893555430612621797
+  | .natZero => return .ofNat 14735850464179338479
+  | .op .natMul => return .ofNat 5082277153363671981
+  | .boolFalse => return .ofNat 16195091492847522412
+  | .op .natSucc => return .ofNat 6836287016865057964
+  | .op .natAdd => return .ofNat 14029550093476971811
+def fToPrim : F → Option PrimConst
+  | .ofNat 4822643605371257236 => return .op .natBlt
+  | .ofNat 2951728617574817879 => return .op .natBle
+  | .ofNat 16001121964852037297 => return .string
+  | .ofNat 12809246696557140246 => return .op .natBeq
+  | .ofNat 17049977161890552712 => return .boolTrue
+  | .ofNat 12846390003443303075 => return .nat
+  | .ofNat 14613595360914645637 => return .op .natPow
+  | .ofNat 7893555430612621797 => return .bool
+  | .ofNat 14735850464179338479 => return .natZero
+  | .ofNat 5082277153363671981 => return .op .natMul
+  | .ofNat 16195091492847522412 => return .boolFalse
+  | .ofNat 6836287016865057964 => return .op .natSucc
+  | .ofNat 14029550093476971811 => return .op .natAdd
+  | _ => none
+def primToFQuick : PrimConst → Option F
+  | .op .natBlt => return .ofNat 4822643605371257236
+  | .op .natBle => return .ofNat 2951728617574817879
+  | .string => return .ofNat 16001121964852037297
+  | .op .natBeq => return .ofNat 12809246696557140246
+  | .boolTrue => return .ofNat 17049977161890552712
+  | .nat => return .ofNat 12846390003443303075
+  | .op .natPow => return .ofNat 14613595360914645637
+  | .bool => return .ofNat 7893555430612621797
+  | .natZero => return .ofNat 14735850464179338479
+  | .op .natMul => return .ofNat 5082277153363671981
+  | .boolFalse => return .ofNat 16195091492847522412
+  | .op .natSucc => return .ofNat 6836287016865057964
+  | .op .natAdd => return .ofNat 14029550093476971811
+def fToPrimQuick : F → Option PrimConst
+  | .ofNat 4822643605371257236 => return .op .natBlt
+  | .ofNat 2951728617574817879 => return .op .natBle
+  | .ofNat 16001121964852037297 => return .string
+  | .ofNat 12809246696557140246 => return .op .natBeq
+  | .ofNat 17049977161890552712 => return .boolTrue
+  | .ofNat 12846390003443303075 => return .nat
+  | .ofNat 14613595360914645637 => return .op .natPow
+  | .ofNat 7893555430612621797 => return .bool
+  | .ofNat 14735850464179338479 => return .natZero
+  | .ofNat 5082277153363671981 => return .op .natMul
+  | .ofNat 16195091492847522412 => return .boolFalse
+  | .ofNat 6836287016865057964 => return .op .natSucc
+  | .ofNat 14029550093476971811 => return .op .natAdd
+  | _ => none
+def allowedAxiom : F → Bool
+  | .ofNat 11763543932651680745 => true
+  | .ofNat 5663773883625405697 => true
+  | .ofNat 13106183114281513418 => true
+  | .ofNat 456940176556830579 => true
+  | .ofNat 10304962820087913574 => true
+  | _ => false
+def allowedAxiomQuick : F → Bool
+  | .ofNat 11763543932651680745 => true
+  | .ofNat 5663773883625405697 => true
+  | .ofNat 13106183114281513418 => true
+  | .ofNat 456940176556830579 => true
+  | .ofNat 10304962820087913574 => true
+  | _ => false
+--PIN
+
+def primFWith (p : PrimConst) (noneHandle : TypecheckM α)
+    (someHandle : F → TypecheckM α) : TypecheckM α := do
+  if !(← read).quick then
+    match primToF p with | none => noneHandle | some a => someHandle a
+  else match primToFQuick p with | none => noneHandle | some a => someHandle a
+
+def primF (p : PrimConst) : TypecheckM F :=
+  primFWith p (throw s!"Cannot find constant `{p}` in store") pure
+
+def fPrim (f : F) : TypecheckM $ Option PrimConst := do
+  if !(← read).quick then pure $ fToPrim f
+  else pure $ fToPrimQuick f
 
 structure PrimOp where
   op : Array SusValue → TypecheckM (Option Value)
 
 def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
   | .natSucc => .mk fun vs => do
-    let some v := vs.get? 0 | throw $ .impossible
+    let some v := vs.get? 0
+      | throw "At least one SusValue element needed for PrimConstOp.natSucc"
     match v.get with
-    | .lit (.natVal v) => pure $ .some $ .lit (.natVal (v+1))
+    | .lit (.natVal v) => pure $ .some $ .lit (.natVal v.succ)
     | _ => pure none
   | .natAdd => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natAdd"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v+v'))
     | _, _ => pure none
   | .natMul => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natMul"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v*v'))
     | _, _ => pure none
   | .natPow => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natPow"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
     | _, _ => pure none
   | .natBeq => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natBeq"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v = v' then do
-        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
+        pure $ some $ .app (.const (← primF .boolTrue) []) []
       else do
-        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
+        pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBle => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natBle"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v ≤ v' then do
-        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
+        pure $ some $ .app (.const (← primF .boolTrue) []) []
       else do
-        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
+        pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
   | .natBlt => .mk fun vs => do
-    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1) | throw $ .impossible
+    let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
+      | throw "At least two SusValue elements needed for PrimConstOp.natBlt"
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v < v' then do
-        pure $ some $ .app (.const `Bool.true (← primIndex .boolTrue) []) []
+        pure $ some $ .app (.const (← primF .boolTrue) []) []
       else do
-        pure $ some $ .app (.const `Bool.false (← primIndex .boolFalse) []) []
+        pure $ some $ .app (.const (← primF .boolFalse) []) []
     | _, _ => pure none
 
 end Yatima.Typechecker

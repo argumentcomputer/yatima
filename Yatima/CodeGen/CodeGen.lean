@@ -5,6 +5,7 @@ import Yatima.CodeGen.PrettyPrint
 import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.Overrides.All
 import Yatima.CodeGen.Simp
+import Yatima.Lean.Utils
 
 namespace Yatima.CodeGen
 
@@ -36,7 +37,8 @@ def preloads : List (Name × Expr) := [
   Lurk.Preloads.lor,
   Lurk.Preloads.land,
   Lurk.Preloads.lnot,
-  Lurk.Preloads.lneq
+  Lurk.Preloads.lneq,
+  Lurk.Preloads.throw
 ]
 
 def preloadNames : Lean.NameSet :=
@@ -340,7 +342,7 @@ context and whose bindings are the constants in the context (including `decl`)
 that are needed to define `decl`.
 -/
 def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
-  match CodeGenM.run ⟨leanEnv, .empty⟩ default (codeGenM decl) with
+  match CodeGenM.run ⟨leanEnv.patchUnsafeRec, .empty⟩ default (codeGenM decl) with
   | .error e _ => .error e
   | .ok _ s =>
     let bindings := Expr.mutualize $

@@ -12,19 +12,22 @@ lean_exe yatima where
 lean_lib Yatima { roots := #[`Yatima] }
 
 require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "1b2f9295d77553ca1525d0912e9a5340a4a21591"
+  "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
 
 require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "704823e421b333ea9960347e305c60f654618422"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "649368d593f292227ab39b9fd08f6a448770dca8"
 
 require Cli from git
-  "https://github.com/yatima-inc/Cli.lean" @ "b76218dbaa20ac51cf4e6789407e42b76dd3061f"
+  "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "b53eb34b45ab7e414906d928979f132606c0f6a2"
+  "https://github.com/yatima-inc/Lurk.lean" @ "1a170c62ed09d0d41be1ad116f284f3d47efd1f9"
+
+require LightData from git
+  "https://github.com/yatima-inc/LightData" @ "7385a013bc231d242fba1e9a4dd8d314ac96fdaa"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"
@@ -35,38 +38,33 @@ lean_lib TestsUtils
 
 lean_lib Fixtures {
   roots := #[
-  `Fixtures.AnonCidGroups.ToBeImported,
-  `Fixtures.AnonCidGroups.ToImport,
+    `Fixtures.AnonGroups.ToBeImported,
+    `Fixtures.AnonGroups.ToImport,
 
-  `Fixtures.Termination.Init.Prelude,
-  `Fixtures.Termination.Init.Coe,
-  `Fixtures.Termination.Init.Notation,
-  `Fixtures.Termination.Init.Tactics,
-  `Fixtures.Termination.Init.SizeOf,
-  `Fixtures.Termination.Init.Core
-  ]
+    `Fixtures.Termination.Init.Prelude,
+    `Fixtures.Termination.Init.Coe,
+    `Fixtures.Termination.Init.Notation,
+    `Fixtures.Termination.Init.Tactics,
+    `Fixtures.Termination.Init.SizeOf,
+    `Fixtures.Termination.Init.Core]
 }
 
-lean_exe Tests.AnonCidGroups.Definitions   { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.Inductives    { supportInterpreter := true }
-lean_exe Tests.AnonCidGroups.ToImport      { supportInterpreter := true }
+lean_exe Tests.AnonGroups.Definitions      { supportInterpreter := true }
+lean_exe Tests.AnonGroups.Inductives       { supportInterpreter := true }
+lean_exe Tests.AnonGroups.ToImport         { supportInterpreter := true }
 lean_exe Tests.Termination.NastyInductives { supportInterpreter := true }
+lean_exe Tests.Termination.TrickyDef       { supportInterpreter := true }
 lean_exe Tests.Termination.Init            { supportInterpreter := true }
-lean_exe Tests.Roundtrip.Tricky            { supportInterpreter := true }
-lean_exe Tests.Typechecker.Reduction       { supportInterpreter := true }
-lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
 lean_exe Tests.CodeGeneration.Primitives   { supportInterpreter := true }
-lean_exe Tests.CodeGeneration.TCFunctions  { supportInterpreter := true }
+lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
+lean_exe Tests.Typechecker.Accept          { supportInterpreter := true }
+lean_exe Tests.Typechecker.Reject          { supportInterpreter := true }
 
 end Testing
 
 section Setup
 
-inductive CmdResult
-  | ok  : String → CmdResult
-  | err : String → CmdResult
-
-def runCmd (cmd : String) : ScriptM CmdResult := do
+def runCmd (cmd : String) : ScriptM $ Except String String := do
   let cmd := cmd.splitOn " "
   if h : cmd ≠ [] then
     let (cmd, args) := match h' : cmd with
@@ -77,33 +75,33 @@ def runCmd (cmd : String) : ScriptM CmdResult := do
       args := args
     }
     return if out.exitCode != 0
-      then .err out.stderr
+      then .error out.stderr
       else .ok out.stdout
   else return .ok ""
 
 script setup do
   IO.println "building yatima"
-  match ← runCmd "lake build" with
-  | .ok  _   => match ← IO.getEnv "HOME" with
-    | some homePath =>
-      let binDir : String := s!"{homePath}/.local/bin"
-      IO.print s!"target directory for the yatima binary? (default={binDir}) "
-      let input := (← (← IO.getStdin).getLine).trim
-      let binDir := if input.isEmpty then binDir else input
-      cpBin binDir
-    | none =>
-      IO.print s!"target directory for the yatima binary? "
-      let binDir := (← (← IO.getStdin).getLine).trim
-      if binDir.isEmpty then
-        IO.eprintln "target directory can't be empty"
-        return 1
-      cpBin binDir
-  | .err res => IO.eprintln res; return 1
-where
-  cpBin (binDir : String) : ScriptM UInt32 := do
-    match ← runCmd s!"cp build/bin/yatima {binDir}/yatima" with
-    | .ok _    => IO.println s!"yatima binary placed at {binDir}/"; return 0
-    | .err res => IO.eprintln res; return 1
+  match ← runCmd "lake exe yatima pin" with
+  | .error res => IO.eprintln res; return 1
+  | .ok _ =>
+    let binDir ← match ← IO.getEnv "HOME" with
+      | some homeDir =>
+        let binDir : FilePath := homeDir / ".local" / "bin"
+        IO.print s!"target directory for the yatima binary? (default={binDir}) "
+        let input := (← (← IO.getStdin).getLine).trim
+        pure $ if input.isEmpty then binDir else ⟨input⟩
+      | none =>
+        IO.print s!"target directory for the yatima binary? "
+        let binDir := (← (← IO.getStdin).getLine).trim
+        if binDir.isEmpty then
+          IO.eprintln "target directory can't be empty"; return 1
+        pure ⟨binDir⟩
+    IO.FS.writeBinFile (binDir / "yatima")
+      (← IO.FS.readBinFile $ "build" / "bin" / "yatima")
+    IO.println s!"yatima binary placed at {binDir}"
+    match ← runCmd "lake exe yatima gentc" with
+    | .error err => IO.eprintln err; return 1
+    | .ok _ => IO.println "Lurk typechecker template stored"; return 0
 
 end Setup
 

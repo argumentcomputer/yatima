@@ -1,19 +1,44 @@
+import Cli.Basic
 import Yatima.Cli.Utils
+import Yatima.ContAddr.ContAddr
 import Yatima.Typechecker.Typechecker
 
-open System Yatima.Typechecker in
+open System Yatima.ContAddr Yatima.Typechecker in
 def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
-  let fileName := p.getArg! "input"
-  match ← readStoreFromFile fileName with
+  -- Get Lean source file name
+  let some source := p.positionalArg? "source" |>.map (·.value)
+    | IO.eprintln "No source was provided"; return 1
+
+  let mut cronos := Cronos.new
+
+  -- Check toolchain
+  if !(← validToolchain) then return 1
+
+  -- Run Lean frontend
+  cronos ← cronos.clock "Run Lean frontend"
+  Lean.setLibsPaths
+  let path := ⟨source⟩
+  let leanEnv ← Lean.runFrontend (← IO.FS.readFile path) path
+  let (constMap, delta) := leanEnv.getConstsAndDelta
+  cronos ← cronos.clock! "Run Lean frontend"
+
+  -- Start content-addressing
+  cronos ← cronos.clock "Content-address"
+  let stt ← match ← contAddr constMap delta default true false with
+    | .error err => IO.eprintln err; return 1
+    | .ok stt => pure stt
+  cronos ← cronos.clock! "Content-address"
+
+  -- Typecheck
+  cronos ← cronos.clock "Typecheck"
+  match typecheckAll stt.store stt.env.constNames with
   | .error err => IO.eprintln err; return 1
-  | .ok store => match typecheck store with
-    | .ok _ => IO.println "Typechecking succeeded"; return 0
-    | .error msg => IO.eprintln msg; return 1
+  | .ok _ => cronos ← cronos.clock! "Typecheck"; return 0
 
 def typecheckCmd : Cli.Cmd := `[Cli|
   tc VIA typecheckRun;
-  "Typechecks a Yatima IR store written in a binary file"
+  "Typechecks all constants in a Lean source file using cheap hashes"
 
   ARGS:
-    input : String; "Input DagCbor binary file"
+    source : String; "Lean source file"
 ]

@@ -1,13 +1,13 @@
 import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.CodeGenCmd
+import Yatima.Cli.PinCmd
+import Yatima.Cli.GenTypecheckerCmd
 import Yatima.Cli.ProveCmd
-import Yatima.Cli.VerifyCmd
-import Yatima.Cli.IpfsCmd
-import Yatima.Cli.PrintPrimsCmd
+-- import Yatima.Cli.IpfsCmd
 
-opaque VERSION : String :=
-  s!"{Lean.versionString}|0.0.1"
+def VERSION : String :=
+  s!"{Lean.versionString}|0.0.2"
 
 def yatimaCmd : Cli.Cmd := `[Cli|
   yatima NOOP; [VERSION]
@@ -17,10 +17,10 @@ def yatimaCmd : Cli.Cmd := `[Cli|
     contAddrCmd;
     typecheckCmd;
     codeGenCmd;
-    proveCmd;
-    verifyCmd;
-    ipfsCmd;
-    printPrimsCmd
+    pinCmd;
+    genTypecheckerCmd;
+    proveCmd
+    -- ipfsCmd
 ]
 
 def main (args : List String) : IO UInt32 := do

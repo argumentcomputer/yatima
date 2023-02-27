@@ -1,28 +1,34 @@
 # yatima
 
-Yatima is a Lean4 compiler backend targeting the [the Lurk language](https://lurk-lang.org/) for recursive zkSNARKs, enabling zero-knowledge proofs of Lean4 execution. Additionally, Yatima implements its own kernel for Lean4 (trusted typechecker for the Lean4 core language), which allows zero-knowledge proofs of Lean4 typechecking. By verifying a zero knowledge proof that a Lean4 declaration has passed the typechecker, one can verify that the declaration is type-safe without re-running the typechecker. 
+Yatima is a Lean 4 compiler backend targeting the [the Lurk language](https://lurk-lang.org/) for recursive zkSNARKs, enabling zero-knowledge proofs of Lean 4 execution.
+Additionally, Yatima has its own Lean 4 implementation of a kernel for the Lean 4 core language, which can be compiled to Lurk to allow zero-knowledge proofs of Lean 4 typechecking.
+By verifying a zero knowledge proof that a Lean 4 declaration has passed the typechecker, one can verify that the declaration is type-safe without re-running the typechecker.
 
-Yatima also implements nameless content-addressing for Lean4, allowing each expression, declaration and environment to receive unique hash identifiers, independent of computationally-irrelevant naming (such as the names of definitions and local variables). 
-
-## Build
-
-Build it with `lake build`.
+Yatima also implements nameless content-addressing for Lean 4, allowing each expression, declaration and environment to receive unique hash identifiers, independent of computationally-irrelevant naming (such as the names of definitions and local variables).
 
 ## Install
 
 Run `lake run setup`, which will build the `yatima` binary and ask you where to place it.
 You can choose a directory that's already in your path, for example.
 
+Running the setup script will also compile the Yatima typechecker and store it in the FS, under the `$HOME/.cache/yatima_store` directory.
+
 ## Usage
 
 The subcommands planned to be available for the `yatima` CLI are:
-* `ca`: content-addresses Lean 4 code to Yatima IR
-* `ipfs put`: sends Yatima IR to IPFS
-* `ipfs get`: retrieves Yatima IR from IPFS
-* `tc`: typechecks Yatima IR
-* `gen`: generates Lurk code from Lean 4 code
-* `prove` (TODO): generates a Lurk proof that a certain Lean 4 declaration typechecks
-* `verify` (TODO): verifies the correctness of a Lurk proof
+* Main commands
+    * `ca`: content-addresses Lean 4 code to Yatima IR
+    * `prove`: generates Lurk code for typechecking a content-addressed declaration
+* Auxiliary commands
+    * `tc`: typechecks Yatima IR
+    * `gen`: generates Lurk code from Lean 4 code
+    * `pin`: edits the `TypecheckM.lean` file with the hashes for primitive operations and allowed axioms
+    * `gentc`: compiles the Yatima typechecker to Lurk
+* Network
+    * `ipfs put`: sends Yatima IR to IPFS
+    * `ipfs get`: retrieves Yatima IR from IPFS
+
+Don't hesitate to call `yatima --help` for more information.
 
 Constraints:
 * The `ca` subcommand must be triggered from within a Lean project that uses Lake

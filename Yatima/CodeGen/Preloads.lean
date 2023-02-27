@@ -161,4 +161,8 @@ def lnot : Lean.Name × Expr := (`lnot, ⟦
     (if x nil t))
 ⟧)
 
+def throw : Lean.Name × Expr := (`throw, ⟦
+  (lambda (msg) (begin (emit msg) (nil))) -- invalid function call to simulate error
+⟧)
+
 end Lurk.Preloads
