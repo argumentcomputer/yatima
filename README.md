@@ -18,12 +18,11 @@ Running the setup script will also compile the Yatima typechecker and store it i
 The subcommands planned to be available for the `yatima` CLI are:
 * Main commands
     * `ca`: content-addresses Lean 4 code to Yatima IR
-    * `cm`: generates commitment hashes for Yatima IR
-    * `prove`: generates Lurk code for typechecking a committed declaration
+    * `prove`: generates Lurk code for typechecking a content-addressed declaration
 * Auxiliary commands
     * `tc`: typechecks Yatima IR
     * `gen`: generates Lurk code from Lean 4 code
-    * `pp`: edits the `TypecheckM.lean` file with the commit hashes for primitive operations
+    * `pin`: edits the `TypecheckM.lean` file with the hashes for primitive operations and allowed axioms
     * `gentc`: compiles the Yatima typechecker to Lurk
 * Network
     * `ipfs put`: sends Yatima IR to IPFS
