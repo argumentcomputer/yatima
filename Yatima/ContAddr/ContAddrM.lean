@@ -14,8 +14,8 @@ structure ContAddrState where
   ldonHashState : Lurk.LDONHashState -- to speed up committing
   deriving Inhabited
 
-def ContAddrState.init (env : Env) : ContAddrState :=
-  ⟨env, default, default⟩
+def ContAddrState.init (env : Env) (ldonHashState : Lurk.LDONHashState) : ContAddrState :=
+  ⟨env, default, ldonHashState⟩
 
 def ContAddrState.store (stt : ContAddrState) : Std.RBMap Lurk.F Const compare :=
   stt.commits.foldl (init := .empty) fun acc c f => acc.insert f c
@@ -36,13 +36,6 @@ def ContAddrCtx.init (map : Lean.ConstMap) (quick persist : Bool) : ContAddrCtx 
 
 abbrev ContAddrM := ReaderT ContAddrCtx $ ExceptT ContAddrError $
   StateT ContAddrState IO
-
-def ContAddrM.run (constMap : Lean.ConstMap) (yenv : Env) (quick persist : Bool)
-    (m : ContAddrM α) : IO $ Except ContAddrError ContAddrState := do
-  let persist := if quick then false else persist
-  match ← StateT.run (ReaderT.run m (.init constMap quick persist)) (.init yenv) with
-  | (.ok _, stt) => return .ok stt
-  | (.error e, _) => return .error e
 
 def withBinder (name : Name) : ContAddrM α → ContAddrM α :=
   withReader $ fun c => { c with bindCtx := name :: c.bindCtx }

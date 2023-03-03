@@ -1,5 +1,4 @@
 import LightData
-import Yatima.Datatypes.Hash
 import Std.Data.RBMap
 
 def ByteArray.toHex (bytes : ByteArray) : String :=
@@ -31,11 +30,14 @@ def ByteArray.ofHex (hex : String) : Option ByteArray :=
 open System (FilePath)
 
 initialize STOREDIR : FilePath ← do
-  match ← IO.getEnv "XDG_CACHE_HOME" with
-  | some path => return path / "yatima_store"
-  | none => match ← IO.getEnv "HOME" with
-    | some path => return path / ".cache" / "yatima_store"
-    | none => return ⟨"."⟩
+  match ← IO.getEnv "HOME" with
+  | some path => return path / ".yatima"
+  | none => throw $ IO.userError "can't find home folder"
+
+initialize LURKDIR : FilePath ← do
+  match ← IO.getEnv "HOME" with
+  | some path => return path / ".lurk"
+  | none => throw $ IO.userError "can't find home folder"
 
 def CONSTSDIR : FilePath :=
   STOREDIR / "const"
@@ -60,9 +62,6 @@ def CADIRS : List FilePath := [
   CADIRS.forM IO.FS.createDirAll
 
 variable [h : Encodable α LightData String]
-
-deriving instance Repr for Either
-deriving instance Repr for LightData
 
 def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
   -- TODO : do it in a thread

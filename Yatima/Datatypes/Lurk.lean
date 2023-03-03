@@ -18,13 +18,23 @@ inductive Tag
   deriving Ord
 
 def Tag.toF : Tag → F
-  | .nil   => .ofNat 0
-  | .cons  => .ofNat 1
-  | .sym   => .ofNat 2
-  | .num   => .ofNat 3
-  | .str   => .ofNat 4
-  | .char  => .ofNat 5
-  | .comm  => .ofNat 6
+  | .nil  => .ofNat 0
+  | .cons => .ofNat 1
+  | .sym  => .ofNat 2
+  | .num  => .ofNat 3
+  | .str  => .ofNat 4
+  | .char => .ofNat 5
+  | .comm => .ofNat 6
+
+def Tag.ofF : F → Option Tag
+  | .ofNat 0 => return .nil
+  | .ofNat 1 => return .cons
+  | .ofNat 2 => return .sym
+  | .ofNat 3 => return .num
+  | .ofNat 4 => return .str
+  | .ofNat 5 => return .char
+  | .ofNat 6 => return .comm
+  | _ => none
 
 structure ScalarPtr where
   tag : Tag
@@ -42,10 +52,10 @@ inductive ScalarExpr
 
 open Std (RBMap)
 structure LDONHashState where
-  exprs      : RBMap ScalarPtr   (Option ScalarExpr) compare
-  comms      : RBMap F           ScalarPtr           compare
-  charsCache : RBMap (List Char) ScalarPtr           compare
-  ldonCache  : RBMap LDON        ScalarPtr           compare
+  exprs      : RBMap ScalarPtr   ScalarExpr compare
+  comms      : RBMap F           ScalarPtr  compare
+  charsCache : RBMap (List Char) ScalarPtr  compare
+  ldonCache  : RBMap LDON        ScalarPtr  compare
   deriving Inhabited
 
 def hashPtrPair (x y : ScalarPtr) : F :=
@@ -54,7 +64,7 @@ def hashPtrPair (x y : ScalarPtr) : F :=
 abbrev HashM := StateM LDONHashState
 
 def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
-  modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr (some expr) })
+  modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr expr })
 
 def addCommitment (hash : F) (ptr : ScalarPtr) : HashM F :=
   modifyGet fun stt => (hash, { stt with comms := stt.comms.insert hash ptr })
@@ -79,8 +89,10 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
   | none =>
     let ptr ← match x with
       | .sym "NIL" =>
-        let ptr := ⟨.nil, .ofNat 0⟩
-        addExprHash ptr (.sym ptr)
+        -- `nil` has its own tag instead of `.sym`. Thus we need to manually
+        -- hash it as a string and make a `.nil` pointer with it
+        let ptr ← hashChars ['N', 'I', 'L']
+        addExprHash ⟨.nil, ptr.val⟩ (.sym ptr)
       | .num n => let n := .ofNat n; addExprHash ⟨.num, n⟩ (.num n)
       | .str s => hashChars s.data
       | .sym s =>
@@ -99,5 +111,17 @@ def hideLDON (secret : F) (x : LDON) : HashM F := do
 
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
+
+structure Store where
+  exprs : RBMap ScalarPtr ScalarExpr compare
+  comms : RBMap F         ScalarPtr  compare
+  deriving Inhabited
+
+def loadExprs (ptr : ScalarPtr)
+  (scr acc : RBMap ScalarPtr ScalarExpr compare) :
+    RBMap ScalarPtr ScalarExpr compare := sorry
+
+def LDONHashState.storeFromCommits
+    (stt : LDONHashState) (comms : Array Lurk.F) : Store := sorry
 
 end Lurk

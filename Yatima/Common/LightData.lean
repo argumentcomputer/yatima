@@ -7,10 +7,6 @@ namespace Yatima.ContAddr
 
 open IR
 
-instance : Encodable Hash LightData String where
-  encode x := .lnk x
-  decode | .lnk x => pure x | x => throw s!"Expected a link but got {x}"
-
 scoped notation "dec" x => Encodable.decode x
 
 def partitionName (name : Name) : List (Either String Nat) :=
@@ -55,8 +51,6 @@ instance : Encodable QuotKind LightData String where
     | 3 => pure .ind
     | x => throw s!"Invalid encoding for QuotKind: {x}"
 
-open Lurk (F LDONHashState)
-
 def univToLightData : Univ → LightData
   | .zero     => .opt none
   | .succ x   => .opt $ some (univToLightData x)
@@ -75,11 +69,9 @@ instance : Encodable Univ LightData String where
   encode := univToLightData
   decode := lightDataToUniv
 
-instance : Encodable F LightData String where
-  encode x := x.val.toByteArrayLE
-  decode
-    | .byt bytes => return .ofNat bytes.asLEtoNat
-    | x => throw s!"expected bytes but got {x}"
+instance : Encodable Lurk.F LightData String where
+  encode x := x.val
+  decode x := return (.ofNat $ ← dec x)
 
 def exprToLightData : Expr → LightData
   | .sort x     => .prd (0, x)
@@ -177,8 +169,73 @@ instance : Encodable IR.Env LightData String where
   encode x := x.consts
   decode | x => return ⟨← dec x⟩
 
+section LDON
+
+open Lurk
+
+instance : Encodable Tag LightData String where
+  encode x := x.toF
+  decode x := do match Tag.ofF (← dec x) with
+    | some t => return t
+    | none => throw s!"Invalid encoding for Tag: {x}"
+
+instance : Encodable ScalarPtr LightData String where
+  encode x := .prd (x.tag, x.val)
+  decode
+    | .prd (tag, val) => return ⟨← dec tag, ← dec val⟩
+    | x => throw s!"Invalid encoding for ScalarPtr: {x}"
+
+instance : Encodable ScalarExpr LightData String where
+  encode
+    | .cons    x y => .arr #[0, x, y]
+    | .comm    x y => .arr #[1, x, y]
+    | .strCons x y => .arr #[2, x, y]
+    | .sym  x => .eit (.left x)
+    | .num  x => .eit (.right x)
+    | .char x => .opt (some x)
+    | .strNil => .opt none
+  decode
+    | .arr #[0, x, y] => return .strCons (← dec x) (← dec y)
+    | .arr #[1, x, y] => return .strCons (← dec x) (← dec y)
+    | .arr #[2, x, y] => return .strCons (← dec x) (← dec y)
+    | .eit (.left x)  => return .sym  (← dec x)
+    | .eit (.right x) => return .num  (← dec x)
+    | .opt (some x)   => return .char (← dec x)
+    | .opt none       => return .strNil
+    | x => throw s!"Invalid encoding for ScalarExpr: {x}"
+
+def LDONToLightData : LDON → LightData
+  | .num x => x
+  | .str x => .eit (.left x)
+  | .sym x => .eit (.right x)
+  | .cons x y => .prd (LDONToLightData x, LDONToLightData y)
+
+def lightDataToLDON : LightData → Except String LDON
+  | .eit (.left x)  => return .str (← dec x)
+  | .eit (.right x) => return .sym (← dec x)
+  | .prd (x, y) => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
+  | x => return .num (← dec x)
+
+instance : Encodable LDON LightData String where
+  encode := LDONToLightData
+  decode := lightDataToLDON
+
+instance : Encodable Char LightData String where
+  encode x := x.toNat
+  decode x := return .ofNat (← dec x)
+
 instance : Encodable LDONHashState LightData String where
-  encode := default -- TODO
-  decode := default -- TODO
+  encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
+  decode
+    | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | x => throw s!"Invalid encoding for LDONHashState: {x}"
+
+instance : Encodable Store LightData String where
+  encode | ⟨a, b⟩ => .prd (a, b)
+  decode
+    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
+    | x => throw s!"Invalid encoding for Store: {x}"
+
+end LDON
 
 end Yatima.ContAddr
