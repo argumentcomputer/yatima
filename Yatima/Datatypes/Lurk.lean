@@ -18,22 +18,22 @@ inductive Tag
   deriving Ord, Repr
 
 def Tag.toF : Tag → F
-  | .nil  => .ofNat 0
-  | .cons => .ofNat 1
-  | .sym  => .ofNat 2
-  | .num  => .ofNat 3
-  | .str  => .ofNat 4
-  | .char => .ofNat 5
-  | .comm => .ofNat 6
+  | .nil   => .ofNat 0
+  | .cons  => .ofNat 1
+  | .sym   => .ofNat 2
+  | .num   => .ofNat 4
+  | .str   => .ofNat 6
+  | .char  => .ofNat 7
+  | .comm  => .ofNat 8
 
 def Tag.ofF : F → Option Tag
   | .ofNat 0 => return .nil
   | .ofNat 1 => return .cons
   | .ofNat 2 => return .sym
-  | .ofNat 3 => return .num
-  | .ofNat 4 => return .str
-  | .ofNat 5 => return .char
-  | .ofNat 6 => return .comm
+  | .ofNat 4 => return .num
+  | .ofNat 6 => return .str
+  | .ofNat 7 => return .char
+  | .ofNat 8 => return .comm
   | _ => none
 
 structure ScalarPtr where
@@ -111,6 +111,21 @@ def hideLDON (secret : F) (x : LDON) : HashM F := do
 
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
+
+#eval (LDON.sym "NIL").commit default |>.1.asHex
+-- expected: 0x3fddeb1275663f07154d612a0c2e8271644e9ed24a15bbf6864f51f63dbf5b88
+
+#eval (LDON.num (.ofNat 123)).commit default |>.1.asHex
+-- expected: 0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc
+
+#eval (LDON.str "hi").commit default |>.1.asHex
+-- expected: 0x0e8d1757f0667044887a7824bb20918921a45294146c3d5fddddff06fd595ac8
+
+#eval (LDON.sym "HI").commit default |>.1.asHex
+-- expected: 0x0eff8a974e0c469e77fc97684fea73cc7936fa0fe75c3430426746c22395f2f2
+
+#eval (LDON.cons (.str "hi") (.str "bye")).commit default |>.1.asHex
+-- expected: 0x1113dac6b0057dcf0c9d73cc4e38aab94565175592d67aecea09d60a3345d7e9
 
 structure Store where
   exprs : RBMap ScalarPtr ScalarExpr compare
