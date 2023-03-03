@@ -15,7 +15,7 @@ inductive LDON
 
 inductive Tag
   | nil | cons | sym | num | str | char | comm
-  deriving Ord
+  deriving Ord, Repr
 
 def Tag.toF : Tag → F
   | .nil  => .ofNat 0
@@ -39,7 +39,7 @@ def Tag.ofF : F → Option Tag
 structure ScalarPtr where
   tag : Tag
   val : F
-  deriving Ord
+  deriving Ord, Repr
 
 inductive ScalarExpr
   | cons (car : ScalarPtr) (cdr : ScalarPtr)
@@ -50,7 +50,7 @@ inductive ScalarExpr
   | strNil
   | char (x : F)
 
-open Std (RBMap)
+open Std (RBMap RBSet)
 structure LDONHashState where
   exprs      : RBMap ScalarPtr   ScalarExpr compare
   comms      : RBMap F           ScalarPtr  compare
@@ -117,11 +117,29 @@ structure Store where
   comms : RBMap F         ScalarPtr  compare
   deriving Inhabited
 
-def loadExprs (ptr : ScalarPtr)
-  (scr acc : RBMap ScalarPtr ScalarExpr compare) :
-    RBMap ScalarPtr ScalarExpr compare := sorry
+partial def loadExprs (ptr : ScalarPtr) (seen : RBSet ScalarPtr compare)
+  (src acc : RBMap ScalarPtr ScalarExpr compare) :
+    RBMap ScalarPtr ScalarExpr compare × RBSet ScalarPtr compare :=
+  if seen.contains ptr then (acc, seen) else
+    let seen := seen.insert ptr
+    match src.find? ptr with
+    | none => panic! s!"{repr ptr} not found in store"
+    | some expr => match expr with
+      | .cons x y | .strCons x y =>
+        let (acc, seen) := loadExprs x seen src (acc.insert ptr expr)
+        loadExprs y seen src acc
+      | .comm _ x | .sym x => loadExprs x seen src (acc.insert ptr expr)
+      | _ => (acc, seen)
 
 def LDONHashState.storeFromCommits
-    (stt : LDONHashState) (comms : Array Lurk.F) : Store := sorry
+    (stt : LDONHashState) (comms : Array Lurk.F) : Store :=
+  let (exprs, comms, _) := comms.foldl (init := default)
+    fun (exprsAcc, (commsAcc : RBMap F ScalarPtr compare), seen) f =>
+      match stt.comms.find? f with
+      | none => panic! s!"{f} not found in store"
+      | some ptr =>
+        let (exprsAcc, seen) := loadExprs ptr seen stt.exprs exprsAcc
+        (exprsAcc, commsAcc.insert f ptr, seen)
+  ⟨exprs, comms⟩
 
 end Lurk
