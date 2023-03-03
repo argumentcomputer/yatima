@@ -453,9 +453,9 @@ def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
     dumpData ldonHashState LDONHASHCACHE
     let store : LightData := Encodable.encode $
       ldonHashState.storeFromCommits stt.env.hashes
-    let path := (LURKDIR / store.hash.data.toHex).withExtension "store"
-    dumpData store path
-    IO.println s!"Lurk store persisted at {path}"
+    let hashName := System.FilePath.mk store.hash.data.toHex |>.withExtension "store"
+    modify fun stt => { stt with env := { stt.env with storeName := hashName } }
+    dumpData store (LURKDIR / hashName)
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is

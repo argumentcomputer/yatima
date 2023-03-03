@@ -1,12 +1,13 @@
 import Std.Data.RBMap
 import Yatima.Datatypes.Lean
+import YatimaStdLib.ByteVector
 import Lurk.Field
 
 namespace Yatima.IR
 
 structure Env where
-  -- meta : add information about the content-addressing session
   consts : Std.RBMap Name Lurk.F compare
+  storeName : System.FilePath
   deriving Inhabited
 
 @[inline] def Env.hashes (env : Env) : Array Lurk.F :=
