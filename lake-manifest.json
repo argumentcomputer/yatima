@@ -40,9 +40,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Poseidon.lean",
     "subDir?": null,
-    "rev": "d9262964c4148e6ab55fdcf5cb26a1e8f63da921",
+    "rev": "baf085281aef201db07f58657351d9775791bf2b",
     "name": "Poseidon",
-    "inputRev?": "d9262964c4148e6ab55fdcf5cb26a1e8f63da921"}},
+    "inputRev?": "baf085281aef201db07f58657351d9775791bf2b"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Cli.lean",
     "subDir?": null,

@@ -59,7 +59,10 @@ structure LDONHashState where
   deriving Inhabited
 
 def hashPtrPair (x y : ScalarPtr) : F :=
-  .ofNat $ (Poseidon.Lurk.hash x.tag.toF x.val y.tag.toF y.val).norm
+  .ofNat $ (Poseidon.Lurk.hash4 x.tag.toF x.val y.tag.toF y.val).norm
+
+def hashFPtr (f : F) (x : ScalarPtr) : F :=
+  .ofNat $ (Poseidon.Lurk.hash3 f x.tag.toF x.val).norm
 
 abbrev HashM := StateM LDONHashState
 
@@ -107,13 +110,16 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
 
 def hideLDON (secret : F) (x : LDON) : HashM F := do
   let ptr ← hashLDON x
-  addCommitment (hashPtrPair ⟨.comm, secret⟩ ptr ) ptr
+  addCommitment (hashFPtr secret ptr) ptr
 
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
 
 #eval (LDON.sym "NIL").commit default |>.1.asHex
 -- expected: 0x3fddeb1275663f07154d612a0c2e8271644e9ed24a15bbf6864f51f63dbf5b88
+
+#eval (LDON.num (.ofNat 0)).commit default |>.1.asHex
+-- expected: 0x0fa797fb1ca00c0148d4dd316cb38aad581e07bb70b058043ef6e4083fbea38c
 
 #eval (LDON.num (.ofNat 123)).commit default |>.1.asHex
 -- expected: 0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc

@@ -197,8 +197,8 @@ instance : Encodable ScalarExpr LightData String where
     | .char x => .opt (some x)
     | .strNil => .opt none
   decode
-    | .arr #[0, x, y] => return .strCons (← dec x) (← dec y)
-    | .arr #[1, x, y] => return .strCons (← dec x) (← dec y)
+    | .arr #[0, x, y] => return .cons    (← dec x) (← dec y)
+    | .arr #[1, x, y] => return .comm    (← dec x) (← dec y)
     | .arr #[2, x, y] => return .strCons (← dec x) (← dec y)
     | .eit (.left x)  => return .sym  (← dec x)
     | .eit (.right x) => return .num  (← dec x)

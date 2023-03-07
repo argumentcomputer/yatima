@@ -11,6 +11,9 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
+require Poseidon from git
+  "https://github.com/yatima-inc/Poseidon.lean" @ "baf085281aef201db07f58657351d9775791bf2b"
+
 require Ipld from git
   "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
 
