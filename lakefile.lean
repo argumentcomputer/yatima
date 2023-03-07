@@ -11,9 +11,6 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
-require Poseidon from git
-  "https://github.com/yatima-inc/Poseidon.lean" @ "baf085281aef201db07f58657351d9775791bf2b"
-
 require Ipld from git
   "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
 
@@ -27,7 +24,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "1a170c62ed09d0d41be1ad116f284f3d47efd1f9"
+  "https://github.com/yatima-inc/Lurk.lean" @ "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"
 
 require LightData from git
   "https://github.com/yatima-inc/LightData" @ "7385a013bc231d242fba1e9a4dd8d314ac96fdaa"

@@ -16,9 +16,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "1a170c62ed09d0d41be1ad116f284f3d47efd1f9",
+    "rev": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7",
     "name": "Lurk",
-    "inputRev?": "1a170c62ed09d0d41be1ad116f284f3d47efd1f9"}},
+    "inputRev?": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Ipld.lean",
     "subDir?": null,
@@ -40,9 +40,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Poseidon.lean",
     "subDir?": null,
-    "rev": "baf085281aef201db07f58657351d9775791bf2b",
+    "rev": "7205aff1f00536bb75659e1a58d7fada6f1c096d",
     "name": "Poseidon",
-    "inputRev?": "baf085281aef201db07f58657351d9775791bf2b"}},
+    "inputRev?": "7205aff1f00536bb75659e1a58d7fada6f1c096d"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Cli.lean",
     "subDir?": null,

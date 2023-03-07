@@ -115,6 +115,8 @@ def hideLDON (secret : F) (x : LDON) : HashM F := do
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
 
+#eval Poseidon.Lurk.hash3 0 4 0
+
 #eval (LDON.sym "NIL").commit default |>.1.asHex
 -- expected: 0x3fddeb1275663f07154d612a0c2e8271644e9ed24a15bbf6864f51f63dbf5b88
 
