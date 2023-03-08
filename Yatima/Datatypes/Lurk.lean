@@ -7,9 +7,9 @@ namespace Lurk
 /-! placeholder types -/
 
 inductive LDON
+  | nil
   | num : F → LDON
   | str : String → LDON
-  | sym : String → LDON
   | cons : LDON → LDON → LDON
   deriving Inhabited, Ord
 
@@ -42,18 +42,20 @@ structure ScalarPtr where
   deriving Ord, Repr
 
 inductive ScalarExpr
-  | cons (car : ScalarPtr) (cdr : ScalarPtr)
-  | comm (x : F) (ptr : ScalarPtr)
-  | sym (sym : ScalarPtr)
-  | num (val : F)
-  | strCons (head : ScalarPtr) (tail : ScalarPtr)
+  | cons : ScalarPtr → ScalarPtr → ScalarExpr
+  | strCons : ScalarPtr → ScalarPtr → ScalarExpr
+  | symCons : ScalarPtr → ScalarPtr → ScalarExpr
+  | comm : F → ScalarPtr → ScalarExpr
+  | num : F → ScalarExpr
+  | char : F → ScalarExpr
+  | nil
   | strNil
-  | char (x : F)
+  | symNil
+  deriving Repr
 
 open Std (RBMap RBSet)
 structure LDONHashState where
   exprs      : RBMap ScalarPtr   ScalarExpr compare
-  comms      : RBMap F           ScalarPtr  compare
   charsCache : RBMap (List Char) ScalarPtr  compare
   ldonCache  : RBMap LDON        ScalarPtr  compare
   deriving Inhabited
@@ -68,9 +70,6 @@ abbrev HashM := StateM LDONHashState
 
 def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
   modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr expr })
-
-def addCommitment (hash : F) (ptr : ScalarPtr) : HashM F :=
-  modifyGet fun stt => (hash, { stt with comms := stt.comms.insert hash ptr })
 
 def hashChars (s : List Char) : HashM ScalarPtr := do
   match (← get).charsCache.find? s with
@@ -91,16 +90,14 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
   | some ptr => pure ptr
   | none =>
     let ptr ← match x with
-      | .sym "NIL" =>
-        -- `nil` has its own tag instead of `.sym`. Thus we need to manually
-        -- hash it as a string and make a `.nil` pointer with it
-        let ptr ← hashChars ['N', 'I', 'L']
-        addExprHash ⟨.nil, ptr.val⟩ (.sym ptr)
+      | .nil =>
+        let rootPtr ← addExprHash ⟨.sym, F.zero⟩ .symNil
+        let nilPtr  ← hashChars ['N', 'I', 'L']
+        let lurkPtr ← hashChars ['L', 'U', 'R', 'K']
+        let symPtr1 ← addExprHash ⟨.sym, hashPtrPair lurkPtr rootPtr⟩ (.symCons lurkPtr rootPtr)
+        addExprHash ⟨.nil, hashPtrPair nilPtr symPtr1⟩ (.symCons nilPtr symPtr1)
       | .num n => let n := .ofNat n; addExprHash ⟨.num, n⟩ (.num n)
       | .str s => hashChars s.data
-      | .sym s =>
-        let ptr ← hashChars s.data
-        addExprHash ⟨.sym, ptr.val⟩ (.sym ptr)
       | .cons car cdr =>
         let car ← hashLDON car
         let cdr ← hashLDON cdr
@@ -110,59 +107,36 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
 
 def hideLDON (secret : F) (x : LDON) : HashM F := do
   let ptr ← hashLDON x
-  addCommitment (hashFPtr secret ptr) ptr
+  let hash := hashFPtr secret ptr
+  discard $ addExprHash ⟨.comm, hash⟩ (.comm hash ptr)
+  return hash
 
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
 
-#eval Poseidon.Lurk.hash3 0 4 0
-
-#eval (LDON.sym "NIL").commit default |>.1.asHex
--- expected: 0x3fddeb1275663f07154d612a0c2e8271644e9ed24a15bbf6864f51f63dbf5b88
-
-#eval (LDON.num (.ofNat 0)).commit default |>.1.asHex
--- expected: 0x0fa797fb1ca00c0148d4dd316cb38aad581e07bb70b058043ef6e4083fbea38c
-
-#eval (LDON.num (.ofNat 123)).commit default |>.1.asHex
--- expected: 0x2937881eff06c2bcc2c8c1fa0818ae3733c759376f76fc10b7439269e9aaa9bc
-
-#eval (LDON.str "hi").commit default |>.1.asHex
--- expected: 0x0e8d1757f0667044887a7824bb20918921a45294146c3d5fddddff06fd595ac8
-
-#eval (LDON.sym "HI").commit default |>.1.asHex
--- expected: 0x0eff8a974e0c469e77fc97684fea73cc7936fa0fe75c3430426746c22395f2f2
-
-#eval (LDON.cons (.str "hi") (.str "bye")).commit default |>.1.asHex
--- expected: 0x1113dac6b0057dcf0c9d73cc4e38aab94565175592d67aecea09d60a3345d7e9
-
-structure Store where
-  exprs : RBMap ScalarPtr ScalarExpr compare
-  comms : RBMap F         ScalarPtr  compare
-  deriving Inhabited
+abbrev Store := RBMap ScalarPtr ScalarExpr compare
 
 partial def loadExprs (ptr : ScalarPtr) (seen : RBSet ScalarPtr compare)
-  (src acc : RBMap ScalarPtr ScalarExpr compare) :
-    RBMap ScalarPtr ScalarExpr compare × RBSet ScalarPtr compare :=
+    (src acc : Store) : Store × RBSet ScalarPtr compare :=
   if seen.contains ptr then (acc, seen) else
     let seen := seen.insert ptr
     match src.find? ptr with
     | none => panic! s!"{repr ptr} not found in store"
     | some expr => match expr with
-      | .cons x y | .strCons x y =>
+      | .cons x y | .strCons x y | .symCons x y =>
         let (acc, seen) := loadExprs x seen src (acc.insert ptr expr)
         loadExprs y seen src acc
-      | .comm _ x | .sym x => loadExprs x seen src (acc.insert ptr expr)
+      | .comm _ x => loadExprs x seen src (acc.insert ptr expr)
       | _ => (acc, seen)
 
-def LDONHashState.storeFromCommits
-    (stt : LDONHashState) (comms : Array Lurk.F) : Store :=
-  let (exprs, comms, _) := comms.foldl (init := default)
-    fun (exprsAcc, (commsAcc : RBMap F ScalarPtr compare), seen) f =>
-      match stt.comms.find? f with
-      | none => panic! s!"{f} not found in store"
-      | some ptr =>
-        let (exprsAcc, seen) := loadExprs ptr seen stt.exprs exprsAcc
-        (exprsAcc, commsAcc.insert f ptr, seen)
-  ⟨exprs, comms⟩
+def LDONHashState.storeFromCommits (stt : LDONHashState) (comms : Array Lurk.F) : Store :=
+  let (exprs, _) := comms.foldl (init := default) fun (exprsAcc, seen) f =>
+    match stt.exprs.find? ⟨.comm, f⟩ with
+    | none => panic! s!"{f} not found in store"
+    | some (.comm f' ptr) =>
+      if f != f' then panic! s!"Mismatch for commitment {f}: {f'}"
+      else loadExprs ptr seen stt.exprs exprsAcc
+    | some x => panic! s!"Invalid scalar expression {repr x} for pointer {f}"
+  exprs
 
 end Lurk

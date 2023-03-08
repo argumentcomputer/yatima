@@ -20,12 +20,6 @@
     "name": "Lurk",
     "inputRev?": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/Ipld.lean",
-    "subDir?": null,
-    "rev": "716e787eba461dba1c5b9bb9977147564865309d",
-    "name": "Ipld",
-    "inputRev?": "716e787eba461dba1c5b9bb9977147564865309d"}},
-  {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
     "rev": "9597873f0b18a9e97b7315fb84968c55d09a6112",

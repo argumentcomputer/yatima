@@ -190,33 +190,38 @@ instance : Encodable ScalarPtr LightData String where
 instance : Encodable ScalarExpr LightData String where
   encode
     | .cons    x y => .arr #[0, x, y]
-    | .comm    x y => .arr #[1, x, y]
-    | .strCons x y => .arr #[2, x, y]
-    | .sym  x => .eit (.left x)
-    | .num  x => .eit (.right x)
-    | .char x => .opt (some x)
-    | .strNil => .opt none
+    | .strCons x y => .arr #[1, x, y]
+    | .symCons x y => .arr #[2, x, y]
+    | .comm    x y => .arr #[3, x, y]
+    | .num  x      => .eit (.left  x)
+    | .char x      => .eit (.right x)
+    | .nil         => .opt none
+    | .strNil      => 0
+    | .symNil      => 1
   decode
     | .arr #[0, x, y] => return .cons    (← dec x) (← dec y)
-    | .arr #[1, x, y] => return .comm    (← dec x) (← dec y)
-    | .arr #[2, x, y] => return .strCons (← dec x) (← dec y)
-    | .eit (.left x)  => return .sym  (← dec x)
-    | .eit (.right x) => return .num  (← dec x)
-    | .opt (some x)   => return .char (← dec x)
-    | .opt none       => return .strNil
+    | .arr #[1, x, y] => return .strCons (← dec x) (← dec y)
+    | .arr #[2, x, y] => return .symCons (← dec x) (← dec y)
+    | .arr #[3, x, y] => return .comm    (← dec x) (← dec y)
+    | .eit (.left x)  => return .num  (← dec x)
+    | .eit (.right x) => return .char (← dec x)
+    | .opt none       => return .nil
+    | 0               => return .strNil
+    | 1               => return .symNil
     | x => throw s!"Invalid encoding for ScalarExpr: {x}"
 
 def LDONToLightData : LDON → LightData
-  | .num x => x
-  | .str x => .eit (.left x)
-  | .sym x => .eit (.right x)
+  | .nil      => .opt none
+  | .num x    => .eit (.left x)
+  | .str x    => .eit (.right x)
   | .cons x y => .prd (LDONToLightData x, LDONToLightData y)
 
 def lightDataToLDON : LightData → Except String LDON
-  | .eit (.left x)  => return .str (← dec x)
-  | .eit (.right x) => return .sym (← dec x)
-  | .prd (x, y) => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
-  | x => return .num (← dec x)
+  | .opt none       => return .nil
+  | .eit (.left  x) => return .num (← dec x)
+  | .eit (.right x) => return .str (← dec x)
+  | .prd (x, y)     => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
+  | x               => return .num (← dec x)
 
 instance : Encodable LDON LightData String where
   encode := LDONToLightData
@@ -227,16 +232,10 @@ instance : Encodable Char LightData String where
   decode x := return .ofNat (← dec x)
 
 instance : Encodable LDONHashState LightData String where
-  encode | ⟨a, b, c, d⟩ => .arr #[a, b, c, d]
+  encode | ⟨a, b, c⟩ => .arr #[a, b, c]
   decode
-    | .arr #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .arr #[a, b, c] => return ⟨← dec a, ← dec b, ← dec c⟩
     | x => throw s!"Invalid encoding for LDONHashState: {x}"
-
-instance : Encodable Store LightData String where
-  encode | ⟨a, b⟩ => .prd (a, b)
-  decode
-    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
-    | x => throw s!"Invalid encoding for Store: {x}"
 
 end LDON
 

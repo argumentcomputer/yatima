@@ -11,9 +11,6 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
-require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
-
 require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
