@@ -3,6 +3,12 @@ import Yatima.Datatypes.Const
 import Yatima.Datatypes.Env
 import Yatima.Datatypes.Lurk
 
+@[extern "lean_byte_array_blake3"]
+opaque ByteArray.blake3 : @& ByteArray → ByteVector 32
+
+def LightData.hash (ld : LightData) : ByteVector 32 :=
+  ld.toByteArray.blake3
+
 namespace Yatima.ContAddr
 
 open IR
@@ -26,11 +32,11 @@ instance : Encodable Name LightData String where
 
 instance : Encodable Literal LightData String where
   encode
-    | .strVal s => .eit (.left s)
-    | .natVal n => .eit (.right n)
+    | .strVal s => .arr #[false, s]
+    | .natVal n => .arr #[true,  n]
   decode
-    | .eit (.left s)  => return .strVal (← dec s)
-    | .eit (.right n) => return .natVal (← dec n)
+    | .arr #[false, s] => return .strVal (← dec s)
+    | .arr #[true,  n] => return .natVal (← dec n)
     | x => throw s!"expected either but got {x}"
 
 instance : Encodable BinderInfo LightData String where
@@ -52,18 +58,19 @@ instance : Encodable QuotKind LightData String where
     | x => throw s!"Invalid encoding for QuotKind: {x}"
 
 def univToLightData : Univ → LightData
-  | .zero     => .opt none
-  | .succ x   => .opt $ some (univToLightData x)
-  | .max x y  => .arr #[0, univToLightData x, univToLightData y]
-  | .imax x y => .arr #[1, univToLightData x, univToLightData y]
-  | .var x    => x
+  | .zero     => .arr #[]
+  | .succ x   => .arr #[false, univToLightData x]
+  | .var  x   => .arr #[true,  x]
+  | .max  x y => .arr #[false, univToLightData x, univToLightData y]
+  | .imax x y => .arr #[true,  univToLightData x, univToLightData y]
 
 partial def lightDataToUniv : LightData → Except String Univ
-  | .opt none       => pure .zero
-  | .opt $ some x   => return .succ (← lightDataToUniv x)
-  | .arr #[0, x, y] => return .max  (← lightDataToUniv x) (← lightDataToUniv y)
-  | .arr #[1, x, y] => return .imax (← lightDataToUniv x) (← lightDataToUniv y)
-  | x               => return .var  (← dec x)
+  | .arr #[] => pure .zero
+  | .arr #[false, x] => return .succ (← lightDataToUniv x)
+  | .arr #[true,  x] => return .var (← dec x)
+  | .arr #[false, x, y] => return .max  (← lightDataToUniv x) (← lightDataToUniv y)
+  | .arr #[true,  x, y] => return .imax (← lightDataToUniv x) (← lightDataToUniv y)
+  | x => throw s!"Invalid encoding for Univ: {x}"
 
 instance : Encodable Univ LightData String where
   encode := univToLightData
@@ -74,26 +81,27 @@ instance : Encodable Lurk.F LightData String where
   decode x := return (.ofNat $ ← dec x)
 
 def exprToLightData : Expr → LightData
-  | .sort x     => .prd (0, x)
-  | .lit x      => .prd (1, x)
-  | .var x y    => .arr #[2, x, y]
-  | .const x y  => .arr #[3, x, y]
-  | .app x y    => .arr #[4, exprToLightData x, exprToLightData y]
-  | .lam x y    => .arr #[5, exprToLightData x, exprToLightData y]
-  | .pi  x y    => .arr #[6, exprToLightData x, exprToLightData y]
-  | .letE x y z => .arr #[7, exprToLightData x, exprToLightData y, exprToLightData z]
-  | .proj x y   => .arr #[8, x, exprToLightData y]
+  | .sort x => .arr #[false, x]
+  | .lit  x => .arr #[true,  x]
+  | .var   x y => .arr #[0, x, y]
+  | .const x y => .arr #[1, x, y]
+  | .app   x y => .arr #[2, exprToLightData x, exprToLightData y]
+  | .lam   x y => .arr #[3, exprToLightData x, exprToLightData y]
+  | .pi    x y => .arr #[4, exprToLightData x, exprToLightData y]
+  | .proj  x y => .arr #[5, x, exprToLightData y]
+  | .letE x y z => .arr #[false, exprToLightData x, exprToLightData y, exprToLightData z]
 
 partial def lightDataToExpr : LightData → Except String Expr
-  | .prd (0, x) => return .sort (← lightDataToUniv x)
-  | .prd (1, x) => return .lit (← dec x)
-  | .arr #[2, x, y] => return .var (← dec x) (← dec y)
-  | .arr #[3, x, y] => return .const (← dec x) (← dec y)
-  | .arr #[4, x, y] => return .app (← lightDataToExpr x) (← lightDataToExpr y)
-  | .arr #[5, x, y] => return .lam (← lightDataToExpr x) (← lightDataToExpr y)
-  | .arr #[6, x, y] => return .pi  (← lightDataToExpr x) (← lightDataToExpr y)
-  | .arr #[7, x, y, z] => return .letE (← lightDataToExpr x) (← lightDataToExpr y) (← lightDataToExpr z)
-  | .arr #[8, x, y] => return .proj (← dec x) (← lightDataToExpr y)
+  | .arr #[false, x] => return .sort (← lightDataToUniv x)
+  | .arr #[true,  x] => return .lit (← dec x)
+  | .arr #[0, x, y] => return .var (← dec x) (← dec y)
+  | .arr #[1, x, y] => return .const (← dec x) (← dec y)
+  | .arr #[2, x, y] => return .app (← lightDataToExpr x) (← lightDataToExpr y)
+  | .arr #[3, x, y] => return .lam (← lightDataToExpr x) (← lightDataToExpr y)
+  | .arr #[4, x, y] => return .pi  (← lightDataToExpr x) (← lightDataToExpr y)
+  | .arr #[5, x, y] => return .proj (← dec x) (← lightDataToExpr y)
+  | .arr #[false, x, y, z] =>
+    return .letE (← lightDataToExpr x) (← lightDataToExpr y) (← lightDataToExpr z)
   | x => throw s!"Invalid encoding for IR.Expr: {x}"
 
 instance : Encodable Expr LightData String where
@@ -107,9 +115,9 @@ instance : Encodable Constructor LightData String where
     | x => throw s!"Invalid encoding for IR.Constructor: {x}"
 
 instance : Encodable RecursorRule LightData String where
-  encode | ⟨a, b⟩ => .prd (a, b)
+  encode | ⟨a, b⟩ => .arr #[a, b]
   decode
-    | .prd (a, b) => return ⟨← dec a, ← dec b⟩
+    | .arr #[a, b] => return ⟨← dec a, ← dec b⟩
     | x => throw s!"Invalid encoding for IR.RecursorRule: {x}"
 
 instance : Encodable Definition LightData String where
@@ -135,29 +143,29 @@ instance : Encodable Inductive LightData String where
 
 instance : Encodable Const LightData String where
   encode
-    | .axiom ⟨a, b⟩              => .arr #[0, a, b]
-    | .theorem ⟨a, b, c⟩         => .arr #[1, a, b, c]
-    | .opaque ⟨a, b, c⟩          => .arr #[2, a, b, c]
-    | .definition ⟨a, b, c, d⟩   => .arr #[3, a, b, c, d]
-    | .quotient ⟨a, b, c⟩        => .arr #[4, a, b, c]
-    | .inductiveProj ⟨a, b⟩      => .arr #[5, a, b]
-    | .constructorProj ⟨a, b, c⟩ => .arr #[6, a, b, c]
-    | .recursorProj ⟨a, b, c⟩    => .arr #[7, a, b, c]
-    | .definitionProj ⟨a, b⟩     => .arr #[8, a, b]
-    | .mutIndBlock x => .eit $ .left x
-    | .mutDefBlock x => .eit $ .right x
+    | .mutIndBlock x => .arr #[false, x]
+    | .mutDefBlock x => .arr #[true,  x]
+    | .axiom          ⟨a, b⟩ => .arr #[0, a, b]
+    | .inductiveProj  ⟨a, b⟩ => .arr #[1, a, b]
+    | .definitionProj ⟨a, b⟩ => .arr #[2, a, b]
+    | .theorem         ⟨a, b, c⟩ => .arr #[0, a, b, c]
+    | .opaque          ⟨a, b, c⟩ => .arr #[1, a, b, c]
+    | .quotient        ⟨a, b, c⟩ => .arr #[2, a, b, c]
+    | .constructorProj ⟨a, b, c⟩ => .arr #[3, a, b, c]
+    | .recursorProj    ⟨a, b, c⟩ => .arr #[4, a, b, c]
+    | .definition ⟨a, b, c, d⟩ => .arr #[false, a, b, c, d]
   decode
-    | .arr #[0, a, b] => return .axiom ⟨← dec a, ← dec b⟩
-    | .arr #[1, a, b, c] => return .theorem ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[2, a, b, c] => return .opaque ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[3, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
-    | .arr #[4, a, b, c] => return .quotient ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[5, a, b] => return .inductiveProj ⟨← dec a, ← dec b⟩
-    | .arr #[6, a, b, c] => return .constructorProj ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[7, a, b, c] => return .recursorProj ⟨← dec a, ← dec b, ← dec c⟩
-    | .arr #[8, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
-    | .eit $ .left x => return .mutIndBlock (← dec x)
-    | .eit $ .right x => return .mutDefBlock (← dec x)
+    | .arr #[false, x] => return .mutIndBlock (← dec x)
+    | .arr #[true,  x] => return .mutDefBlock (← dec x)
+    | .arr #[0, a, b] => return .axiom          ⟨← dec a, ← dec b⟩
+    | .arr #[1, a, b] => return .inductiveProj  ⟨← dec a, ← dec b⟩
+    | .arr #[2, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
+    | .arr #[0, a, b, c] => return .theorem         ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[1, a, b, c] => return .opaque          ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[2, a, b, c] => return .quotient        ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[3, a, b, c] => return .constructorProj ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[4, a, b, c] => return .recursorProj    ⟨← dec a, ← dec b, ← dec c⟩
+    | .arr #[false, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for IR.Const: {x}"
 
 instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
@@ -166,9 +174,9 @@ instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
   decode x := return .ofArray (← dec x) _
 
 instance : Encodable IR.Env LightData String where
-  encode | ⟨a, b⟩ => .prd (a, b.toString)
+  encode | ⟨a, b⟩ => .arr #[a, b.toString]
   decode
-    | .prd (a, b) => return ⟨← dec a, ⟨← dec b⟩⟩
+    | .arr #[a, b] => return ⟨← dec a, ⟨← dec b⟩⟩
     | x => throw s!"Invalid encoding for IR.Env: {x}"
 
 section LDON
@@ -182,46 +190,46 @@ instance : Encodable Tag LightData String where
     | none => throw s!"Invalid encoding for Tag: {x}"
 
 instance : Encodable ScalarPtr LightData String where
-  encode x := .prd (x.tag, x.val)
+  encode | ⟨x, y⟩ => .arr #[x, y]
   decode
-    | .prd (tag, val) => return ⟨← dec tag, ← dec val⟩
+    | .arr #[x, y] => return ⟨← dec x, ← dec y⟩
     | x => throw s!"Invalid encoding for ScalarPtr: {x}"
 
 instance : Encodable ScalarExpr LightData String where
   encode
+    | .nil    => 0
+    | .strNil => 1
+    | .symNil => 2
+    | .num  x => .arr #[false, x]
+    | .char x => .arr #[true,  x]
     | .cons    x y => .arr #[0, x, y]
     | .strCons x y => .arr #[1, x, y]
     | .symCons x y => .arr #[2, x, y]
     | .comm    x y => .arr #[3, x, y]
-    | .num  x      => .eit (.left  x)
-    | .char x      => .eit (.right x)
-    | .nil         => .opt none
-    | .strNil      => 0
-    | .symNil      => 1
   decode
+    | 0 => return .nil
+    | 1 => return .strNil
+    | 2 => return .symNil
+    | .arr #[false, x] => return .num  (← dec x)
+    | .arr #[true,  x] => return .char (← dec x)
     | .arr #[0, x, y] => return .cons    (← dec x) (← dec y)
     | .arr #[1, x, y] => return .strCons (← dec x) (← dec y)
     | .arr #[2, x, y] => return .symCons (← dec x) (← dec y)
     | .arr #[3, x, y] => return .comm    (← dec x) (← dec y)
-    | .eit (.left x)  => return .num  (← dec x)
-    | .eit (.right x) => return .char (← dec x)
-    | .opt none       => return .nil
-    | 0               => return .strNil
-    | 1               => return .symNil
     | x => throw s!"Invalid encoding for ScalarExpr: {x}"
 
 def LDONToLightData : LDON → LightData
-  | .nil      => .opt none
-  | .num x    => .eit (.left x)
-  | .str x    => .eit (.right x)
-  | .cons x y => .prd (LDONToLightData x, LDONToLightData y)
+  | .nil => false
+  | .num x => .arr #[false, x]
+  | .str x => .arr #[true,  x]
+  | .cons x y => .arr #[false, LDONToLightData x, LDONToLightData y]
 
-def lightDataToLDON : LightData → Except String LDON
-  | .opt none       => return .nil
-  | .eit (.left  x) => return .num (← dec x)
-  | .eit (.right x) => return .str (← dec x)
-  | .prd (x, y)     => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
-  | x               => return .num (← dec x)
+partial def lightDataToLDON : LightData → Except String LDON
+  | false => return .nil
+  | .arr #[false, x] => return .num (← dec x)
+  | .arr #[true,  x] => return .str (← dec x)
+  | .arr #[false, x, y] => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
+  | x => throw s!"Invalid encoding for LDON: {x}"
 
 instance : Encodable LDON LightData String where
   encode := LDONToLightData

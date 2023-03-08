@@ -6,3 +6,5 @@
 *.frames
 *.json
 !lake-manifest.json
+Cargo.lock
+/target
