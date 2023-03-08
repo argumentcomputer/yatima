@@ -162,7 +162,7 @@ instance : Encodable Const LightData String where
 
 instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
     Encodable (Std.RBMap α β compare) LightData String where
-  encode x := h.encode ⟨x.toList⟩
+  encode x := h.encode $ x.foldl (·.push (·, ·)) #[]
   decode x := return .ofArray (← dec x) _
 
 instance : Encodable IR.Env LightData String where
