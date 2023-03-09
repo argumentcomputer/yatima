@@ -2,6 +2,7 @@
 /lake-packages
 /result
 *.yenv
+*.store
 *.lurk
 *.frames
 *.json

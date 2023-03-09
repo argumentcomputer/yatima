@@ -30,7 +30,6 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   | none => pure ()
   IO.FS.writeFile output s!"(\n{tc}\n  {comm.val})"
   IO.println s!"Lurk source written at {output}"
-  IO.println s!"Lurk store: {env.storeName}"
 
   return 0
 

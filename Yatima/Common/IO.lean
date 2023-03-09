@@ -39,9 +39,6 @@ initialize LURKDIR : FilePath ← do
   | some path => return path / ".lurk"
   | none => throw $ IO.userError "can't find home folder"
 
-def CONSTSDIR : FilePath :=
-  STOREDIR / "const"
-
 def COMMITSDIR : FilePath :=
   STOREDIR / "commits"
 
@@ -54,12 +51,8 @@ def LURKTCANONPATH : FilePath :=
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
-def CADIRS : List FilePath := [
-  CONSTSDIR, COMMITSDIR
-]
-
 @[inline] def mkCADirs : IO Unit :=
-  CADIRS.forM IO.FS.createDirAll
+  IO.FS.createDirAll COMMITSDIR
 
 variable [h : Encodable α LightData String]
 

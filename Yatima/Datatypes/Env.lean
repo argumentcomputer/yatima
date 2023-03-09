@@ -7,7 +7,6 @@ namespace Yatima.IR
 
 structure Env where
   consts : Std.RBMap Name Lurk.F compare
-  storeName : System.FilePath
   deriving Inhabited
 
 @[inline] def Env.hashes (env : Env) : Array Lurk.F :=

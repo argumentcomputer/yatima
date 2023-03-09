@@ -447,15 +447,7 @@ instance : Encodable LightData LightData String := ⟨id, pure⟩
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   delta.forM fun c => if !c.isUnsafe then discard $ contAddrConst c else pure ()
-  if (← read).persist then
-    let stt ← get
-    let ldonHashState := stt.ldonHashState
-    dumpData ldonHashState LDONHASHCACHE
-    let store : LightData := Encodable.encode $
-      ldonHashState.storeFromCommits stt.env.hashes
-    let hashName := System.FilePath.mk store.hash.data.toHex |>.withExtension "store"
-    modify fun stt => { stt with env := { stt.env with storeName := hashName } }
-    dumpData store (LURKDIR / hashName)
+  if (← read).persist then dumpData (← get).ldonHashState LDONHASHCACHE
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
@@ -471,6 +463,7 @@ def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo) (yenv :
   let ldonHashState ←
     if quick then pure default
     else pure $ (← loadData LDONHASHCACHE).getD default
+  if persist then mkCADirs
   match ← StateT.run (ReaderT.run (contAddrM delta)
     (.init constMap quick persist)) (.init yenv ldonHashState) with
   | (.ok _, stt) => return .ok stt

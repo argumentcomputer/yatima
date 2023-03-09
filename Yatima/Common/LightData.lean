@@ -174,10 +174,8 @@ instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
   decode x := return .ofArray (← dec x) _
 
 instance : Encodable IR.Env LightData String where
-  encode | ⟨a, b⟩ => .cell #[a, b.toString]
-  decode
-    | .cell #[a, b] => return ⟨← dec a, ⟨← dec b⟩⟩
-    | x => throw s!"Invalid encoding for IR.Env: {x}"
+  encode x := x.consts
+  decode x := return ⟨← dec x⟩
 
 section LDON
 
