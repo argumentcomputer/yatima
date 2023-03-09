@@ -442,9 +442,12 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
 
 end
 
+instance : Encodable LightData LightData String := ⟨id, pure⟩
+
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
-def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit :=
+def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   delta.forM fun c => if !c.isUnsafe then discard $ contAddrConst c else pure ()
+  if (← read).persist then dumpData (← get).ldonHashState LDONHASHCACHE
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
@@ -457,8 +460,12 @@ Open references are variables that point to names which aren't present in the
 def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo) (yenv : Env)
     (quick persist : Bool) : IO $ Except ContAddrError ContAddrState := do
   let persist := if quick then false else persist
+  let ldonHashState ←
+    if quick then pure default
+    else pure $ (← loadData LDONHASHCACHE).getD default
+  if persist then mkCADirs
   match ← StateT.run (ReaderT.run (contAddrM delta)
-    (.init constMap quick persist)) (.init yenv) with
+    (.init constMap quick persist)) (.init yenv ldonHashState) with
   | (.ok _, stt) => return .ok stt
   | (.error e, _) => return .error e
 

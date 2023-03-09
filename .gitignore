@@ -2,7 +2,10 @@
 /lake-packages
 /result
 *.yenv
+*.store
 *.lurk
 *.frames
 *.json
 !lake-manifest.json
+Cargo.lock
+/target

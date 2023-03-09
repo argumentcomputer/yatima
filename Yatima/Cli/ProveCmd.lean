@@ -28,8 +28,8 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   match output.parent with
   | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
   | none => pure ()
-  IO.println s!"Writing output to {output}"
   IO.FS.writeFile output s!"(\n{tc}\n  {comm.val})"
+  IO.println s!"Lurk source written at {output}"
 
   return 0
 

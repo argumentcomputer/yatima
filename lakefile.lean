@@ -11,9 +11,6 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
-require Ipld from git
-  "https://github.com/yatima-inc/Ipld.lean" @ "716e787eba461dba1c5b9bb9977147564865309d"
-
 require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
@@ -24,13 +21,37 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "1a170c62ed09d0d41be1ad116f284f3d47efd1f9"
+  "https://github.com/yatima-inc/Lurk.lean" @ "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"
 
 require LightData from git
-  "https://github.com/yatima-inc/LightData" @ "7385a013bc231d242fba1e9a4dd8d314ac96fdaa"
+  "https://github.com/yatima-inc/LightData" @ "dbb9a0ea122472a0c89ad114511ef855b673c968"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"
+
+def ffiC := "ffi.c"
+def ffiO := "ffi.o"
+
+target importTarget (pkg : Package) : FilePath := do
+  let oFile := pkg.oleanDir / ffiO
+  let srcJob ← inputFile $ pkg.dir / ffiC
+  buildFileAfterDep oFile srcJob fun srcFile => do
+    let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
+    compileO ffiC oFile srcFile flags
+
+extern_lib ffi (pkg : Package) := do
+  let name := nameToStaticLib "ffi"
+  let job ← fetch <| pkg.target ``importTarget
+  buildStaticLib (pkg.buildDir / defaultLibDir / name) #[job]
+
+extern_lib rust_ffi (pkg : Package) := do
+  proc { cmd := "cargo", args := #["build", "--release"], cwd := pkg.dir }
+  let name := nameToStaticLib "rust_ffi"
+  let srcPath := pkg.dir / "target" / "release" / name
+  IO.FS.createDirAll pkg.libDir
+  let tgtPath := pkg.libDir / name
+  IO.FS.writeBinFile tgtPath (← IO.FS.readBinFile srcPath)
+  return (pure tgtPath)
 
 section Testing
 

@@ -40,7 +40,6 @@ import Yatima.ContAddr.ContAddrM
 import Yatima.Datatypes.Const
 import Yatima.Datatypes.Env
 import Yatima.Datatypes.Expr
-import Yatima.Datatypes.Hash
 import Yatima.Datatypes.Lean
 import Yatima.Datatypes.Lurk
 import Yatima.Datatypes.Univ

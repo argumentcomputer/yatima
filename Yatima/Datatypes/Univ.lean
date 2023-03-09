@@ -1,4 +1,4 @@
-import Yatima.Datatypes.Hash
+import YatimaStdLib.ByteVector
 import Yatima.Datatypes.Lean
 
 namespace Yatima.IR

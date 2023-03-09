@@ -16,15 +16,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "1a170c62ed09d0d41be1ad116f284f3d47efd1f9",
+    "rev": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7",
     "name": "Lurk",
-    "inputRev?": "1a170c62ed09d0d41be1ad116f284f3d47efd1f9"}},
-  {"git":
-   {"url": "https://github.com/yatima-inc/Ipld.lean",
-    "subDir?": null,
-    "rev": "716e787eba461dba1c5b9bb9977147564865309d",
-    "name": "Ipld",
-    "inputRev?": "716e787eba461dba1c5b9bb9977147564865309d"}},
+    "inputRev?": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
@@ -40,9 +34,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Poseidon.lean",
     "subDir?": null,
-    "rev": "d9262964c4148e6ab55fdcf5cb26a1e8f63da921",
+    "rev": "7205aff1f00536bb75659e1a58d7fada6f1c096d",
     "name": "Poseidon",
-    "inputRev?": "d9262964c4148e6ab55fdcf5cb26a1e8f63da921"}},
+    "inputRev?": "7205aff1f00536bb75659e1a58d7fada6f1c096d"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Cli.lean",
     "subDir?": null,
@@ -52,9 +46,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/LightData",
     "subDir?": null,
-    "rev": "7385a013bc231d242fba1e9a4dd8d314ac96fdaa",
+    "rev": "dbb9a0ea122472a0c89ad114511ef855b673c968",
     "name": "LightData",
-    "inputRev?": "7385a013bc231d242fba1e9a4dd8d314ac96fdaa"}},
+    "inputRev?": "dbb9a0ea122472a0c89ad114511ef855b673c968"}},
   {"git":
    {"url": "https://github.com/leanprover/std4/",
     "subDir?": null,

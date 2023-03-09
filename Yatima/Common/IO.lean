@@ -1,5 +1,4 @@
 import LightData
-import Yatima.Datatypes.Hash
 import Std.Data.RBMap
 
 def ByteArray.toHex (bytes : ByteArray) : String :=
@@ -31,14 +30,14 @@ def ByteArray.ofHex (hex : String) : Option ByteArray :=
 open System (FilePath)
 
 initialize STOREDIR : FilePath ← do
-  match ← IO.getEnv "XDG_CACHE_HOME" with
-  | some path => return path / "yatima_store"
-  | none => match ← IO.getEnv "HOME" with
-    | some path => return path / ".cache" / "yatima_store"
-    | none => return ⟨"."⟩
+  match ← IO.getEnv "HOME" with
+  | some path => return path / ".yatima"
+  | none => throw $ IO.userError "can't find home folder"
 
-def CONSTSDIR : FilePath :=
-  STOREDIR / "const"
+initialize LURKDIR : FilePath ← do
+  match ← IO.getEnv "HOME" with
+  | some path => return path / ".lurk"
+  | none => throw $ IO.userError "can't find home folder"
 
 def COMMITSDIR : FilePath :=
   STOREDIR / "commits"
@@ -52,17 +51,10 @@ def LURKTCANONPATH : FilePath :=
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
-def CADIRS : List FilePath := [
-  CONSTSDIR, COMMITSDIR
-]
-
 @[inline] def mkCADirs : IO Unit :=
-  CADIRS.forM IO.FS.createDirAll
+  IO.FS.createDirAll COMMITSDIR
 
 variable [h : Encodable α LightData String]
-
-deriving instance Repr for Either
-deriving instance Repr for LightData
 
 def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
   -- TODO : do it in a thread
