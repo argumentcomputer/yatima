@@ -236,19 +236,21 @@ mutual
     | .lit _ (.strVal x) => return f!"\"{x}\""
     | .proj _ _ idx val => return f!"{← ppTypedExprWith val env}.{idx}"
 
+  private partial def ppNeutral (neu : Neutral) : TypecheckM Format := match neu with
+    | .fvar idx .. => return f!"fv_{idx}"
+    | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
+    | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
+
   /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
   private partial def ppSpine (neu : Neutral) (args : Args) : TypecheckM Format := do
-    let neu := ← match neu with
-      | .fvar idx .. => return f!"fv_{idx}"
-      | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-      | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
-    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.1.get}") neu args
+    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.1.get}") (← ppNeutral neu) args.toList
 
   /-- Printer of typechecker values -/
   partial def ppValue (val : Value) : TypecheckM Format :=
     match val with
     | .sort u => return f!"Sort {ppUniv u}"
-    | .app neu args => ppSpine neu args
+    | .neu neu => ppNeutral neu
+    | .app neu _info args => ppSpine neu args
     | .lam dom bod ctx =>
       return f!"fun (_ : {← ppValue dom.get}) =>{indentD (← ppTypedExprWith bod ctx)}"
     | .pi dom cod ctx =>

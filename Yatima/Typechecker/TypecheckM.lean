@@ -253,9 +253,9 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v = v' then do
-        pure $ some $ .app (.const (← primF .boolTrue) []) []
+        pure $ some $ .neu (.const (← primF .boolTrue) [])
       else do
-        pure $ some $ .app (.const (← primF .boolFalse) []) []
+        pure $ some $ .neu (.const (← primF .boolFalse) [])
     | _, _ => pure none
   | .natBle => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
@@ -263,9 +263,9 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v ≤ v' then do
-        pure $ some $ .app (.const (← primF .boolTrue) []) []
+        pure $ some $ .neu (.const (← primF .boolTrue) [])
       else do
-        pure $ some $ .app (.const (← primF .boolFalse) []) []
+        pure $ some $ .neu (.const (← primF .boolFalse) [])
     | _, _ => pure none
   | .natBlt => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
@@ -273,9 +273,9 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     match v.get, v'.get with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v < v' then do
-        pure $ some $ .app (.const (← primF .boolTrue) []) []
+        pure $ some $ .neu (.const (← primF .boolTrue) [])
       else do
-        pure $ some $ .app (.const (← primF .boolFalse) []) []
+        pure $ some $ .neu (.const (← primF .boolFalse) [])
     | _, _ => pure none
 
 end Yatima.Typechecker

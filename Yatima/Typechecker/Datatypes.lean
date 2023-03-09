@@ -1,4 +1,5 @@
 import Yatima.Datatypes.Const
+import YatimaStdLib.NonEmpty
 
 namespace Yatima.Typechecker
 
@@ -101,13 +102,16 @@ mutual
   inductive Value
     /-- Type universes. It is assumed `Univ` is reduced/simplified -/
     | sort : Univ → Value
+    /-- Neutrals are free variables, constants that cannot be reduced by itself,
+        or stuck projections --/
+    | neu : Neutral → Value
     /-- Values can only be an application if its a stuck application. That is, if
     the head of the application is neutral.
     For `Value.app neu [(a_1, ti_1), (a_2, ti_2), ... (a_n, ti_n)]`,
     `ti_i` representst the `TypeInfo` of the partial application thus far (`neu a_1 a_2 ... a_i`);
     this preserves information necessary to implement the quoting (i.e. read-back)
     functionality that is used in lambda inference -/
-    | app : Neutral → List (SusValue × TypeInfo) → Value
+    | app : Neutral → TypeInfo → NEList (SusValue × TypeInfo) → Value
     /-- Lambdas are unevaluated expressions with environments for their free
     variables apart from their argument variables -/
     | lam : SusValue → TypedExpr → Env → Value
@@ -161,9 +165,9 @@ mutual
 end
 
 /-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
-abbrev Args := List (SusValue × TypeInfo)
+abbrev Args := NEList (SusValue × TypeInfo)
 
-instance : Coe Args (List SusValue) where
+instance : Coe Args (NEList SusValue) where
   coe := fun args => args.map (·.1)
 
 instance : Inhabited SusValue where
@@ -201,6 +205,7 @@ def TypedValue.sus : TypedValue → SusValue
 def Value.ctorName : Value → String
   | .sort      .. => "sort"
   | .app       .. => "app"
+  | .neu       .. => "neu"
   | .lam       .. => "lam"
   | .pi        .. => "pi"
   | .lit       .. => "lit"
@@ -232,11 +237,11 @@ end Env
 
 /-- Creates a new constant with a name, a constant index and an universe list -/
 def mkConst (f : F) (univs : List Univ) : Value :=
-  .app (.const f univs) []
+  .neu (.const f univs)
 
 /-- Creates a new variable as a thunk -/
 def mkSusVar (info : TypeInfo) (idx : Nat) : SusValue :=
-  .mk info (.mk fun _ => .app (.fvar idx) [])
+  .mk info (.mk fun _ => .neu (.fvar idx))
 
 inductive PrimConstOp
   | natAdd | natMul | natPow | natBeq | natBle | natBlt  | natSucc

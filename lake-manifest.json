@@ -4,21 +4,21 @@
  [{"git":
    {"url": "https://github.com/yatima-inc/Megaparsec.lean",
     "subDir?": null,
-    "rev": "24cf1754477fa3fed53c418d4bf9dffe2a7d2517",
+    "rev": "3a0fc855661b9179362aac65cbeb08560be32f29",
     "name": "Megaparsec",
-    "inputRev?": "24cf1754477fa3fed53c418d4bf9dffe2a7d2517"}},
+    "inputRev?": "3a0fc855661b9179362aac65cbeb08560be32f29"}},
   {"git":
    {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
     "subDir?": null,
-    "rev": "649368d593f292227ab39b9fd08f6a448770dca8",
+    "rev": "92e5f1d578e307668a00036845ddebc7685134a2",
     "name": "YatimaStdLib",
-    "inputRev?": "649368d593f292227ab39b9fd08f6a448770dca8"}},
+    "inputRev?": "92e5f1d578e307668a00036845ddebc7685134a2"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7",
+    "rev": "ac1239d799ef15dae6475e1304e4f8ae3a8a3d15",
     "name": "Lurk",
-    "inputRev?": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"}},
+    "inputRev?": "ac1239d799ef15dae6475e1304e4f8ae3a8a3d15"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
@@ -34,9 +34,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Poseidon.lean",
     "subDir?": null,
-    "rev": "7205aff1f00536bb75659e1a58d7fada6f1c096d",
+    "rev": "f4d25b445cbd1468f8e1a921182b7ccbc3004c9d",
     "name": "Poseidon",
-    "inputRev?": "7205aff1f00536bb75659e1a58d7fada6f1c096d"}},
+    "inputRev?": "f4d25b445cbd1468f8e1a921182b7ccbc3004c9d"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Cli.lean",
     "subDir?": null,
