@@ -167,10 +167,11 @@ instance : Inhabited SusValue where
   default := .mk default {fn := default}
 
 -- Auxiliary functions
-def SusValue.thunk (sus : SusValue) : Thunk Value := sus.body
-def SusValue.get (sus : SusValue) : Value := sus.body.get
-def TypedValue.value (val : TypedValue) : Value := val.body
-def TypedValue.sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
+def AddInfo.expr (t : TypedExpr) : Expr := t.body
+def AddInfo.thunk (sus : SusValue) : Thunk Value := sus.body
+def AddInfo.get (sus : SusValue) : Value := sus.body.get
+def AddInfo.value (val : TypedValue) : Value := val.body
+def AddInfo.sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
 
 def Value.ctorName : Value → String
   | .sort      .. => "sort"

@@ -50,11 +50,11 @@ structure TypecheckState where
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/
-def TypecheckCtx.init (store : Store) (constNames : ConstNames) (quick : Bool) : 
+def TypecheckCtx.init (store : Store) (constNames : ConstNames) (quick : Bool) :
     TypecheckCtx :=
-  { (default : TypecheckCtx) with 
-    store      := store, 
-    constNames := constNames, 
+  { (default : TypecheckCtx) with
+    store      := store,
+    constNames := constNames,
     quick      := quick }
 
 /--
