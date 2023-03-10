@@ -39,9 +39,6 @@ initialize LURKDIR : FilePath ← do
   | some path => return path / ".lurk"
   | none => throw $ IO.userError "can't find home folder"
 
-def COMMITSDIR : FilePath :=
-  STOREDIR / "commits"
-
 def LURKTCPATH : FilePath :=
   STOREDIR / "tc.lurk"
 
@@ -51,16 +48,12 @@ def LURKTCANONPATH : FilePath :=
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
 
-@[inline] def mkCADirs : IO Unit :=
-  IO.FS.createDirAll COMMITSDIR
-
 variable [h : Encodable α LightData]
 
 def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
   -- TODO : do it in a thread
   if overwite || !(← path.pathExists) then
     let ldata := h.encode data
-    -- dbg_trace s!"DUMP LIGHTDATA:\n{reprStr ldata}\n\n"
     IO.FS.writeBinFile path ldata.toByteArray
 
 def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := do
@@ -70,9 +63,7 @@ def loadData (path : FilePath) (deleteIfCorrupted := true) : IO $ Option α := d
     IO.println s!"Error when deserializing {path}: {e}"
     if deleteIfCorrupted then IO.FS.removeFile path
     return none
-  | .ok data => 
-    -- dbg_trace s!"LOAD LIGHTDATA:\n{reprStr data}\n\n"
-    match h.decode data with
+  | .ok data => match h.decode data with
     | .error e =>
       IO.println s!"Error when decoding {path}: {e}"
       if deleteIfCorrupted then IO.FS.removeFile path

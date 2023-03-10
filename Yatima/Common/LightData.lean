@@ -3,12 +3,6 @@ import Yatima.Datatypes.Const
 import Yatima.Datatypes.Env
 import Yatima.Datatypes.Lurk
 
-@[extern "lean_byte_array_blake3"]
-opaque ByteArray.blake3 : @& ByteArray → ByteVector 32
-
-def LightData.hash (ld : LightData) : ByteVector 32 :=
-  ld.toByteArray.blake3
-
 namespace Yatima.ContAddr
 
 open IR
