@@ -46,9 +46,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/LightData",
     "subDir?": null,
-    "rev": "83f9e90349a3020c76816aa5cb012e1ad54d409a",
+    "rev": "273e5b64bdb2398592cc2aaa21bf20e576be8f0a",
     "name": "LightData",
-    "inputRev?": "83f9e90349a3020c76816aa5cb012e1ad54d409a"}},
+    "inputRev?": "273e5b64bdb2398592cc2aaa21bf20e576be8f0a"}},
   {"git":
    {"url": "https://github.com/leanprover/std4/",
     "subDir?": null,
