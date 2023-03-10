@@ -195,7 +195,7 @@ mutual
     | .proj ind idx expr => do
       let val ← eval expr
       match val with
-      | .app (.const f _) args infos =>
+      | .app (.const f _) args _ =>
         match derefConst f (← read).store with
         | .constructorProj p =>
           let ctor ← getCtorFromProj p
@@ -262,14 +262,13 @@ mutual
     match val with
     | .lam _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
-    | .app (.const f kUnivs) args infos => applyConst f kUnivs (arg :: args.toList)
-
-    | .app (var@(.fvar ..)) args infos => pure $ .app var (arg :: args.toList) (valInfo :: infos.toList)
-    | .app (proj@(.proj ..)) args infos => pure $ .app proj (arg :: args.toList) (valInfo :: infos.toList)
-    | .neu (.const f kUnivs) => applyConst f kUnivs [arg]
-
-    | .neu var@(.fvar ..) => pure $ .app var [arg] [valInfo]
-    | .neu proj@(.proj ..) => pure $ .app proj [arg] [valInfo]
+    | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args.toList valInfo infos.toList
+    -- Note that `valInfo` is being added to the `infos` field of the `app` nodes because it is the info
+    -- of the former partial application. That's because a stuck application like `h a1 .. an a(n+1)` must
+    -- hold the info of the sub stuck application `h a1 .. an` for quoting to be done correctly
+    | .app neu args infos => pure $ .app neu (arg :: args.toList) (valInfo :: infos.toList)
+    | .neu (.const f kUnivs) => applyConst f kUnivs arg [] valInfo []
+    | .neu neu => pure $ .app neu [arg] [valInfo]
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw "Invalid case for apply"
 
@@ -280,25 +279,22 @@ mutual
   The application of the constant is split into cases on whether it is an inductive recursor,
   a quotient, or any other constant (which returns an unreduced application)
    -/
-  partial def applyConst (f : F) (univs : List Univ) (args : Args) : TypecheckM Value := do
-    let arg  := args.head
-    let args := args.tail
+  partial def applyConst (f : F) (univs : List Univ) (arg : SusValue) (args : List SusValue)
+      (info : TypeInfo) (infos : List TypeInfo) : TypecheckM Value := do
     if let some $ .op p ← fPrim f then
-      -- NOTE: We're safe assuming `none` for the type infos of primitives, since none of them
-      -- will ever become a proof or an element of a unit-like type, under any environment
-      let newArgs := args.cons arg
       if args.length < p.numArgs - 1 then
-        pure $ .app (.const f univs) newArgs sorry
+        pure $ .app (.const f univs) (arg :: args) (info :: infos)
       else
         let op := p.toPrimOp
-        let argsArr := (Array.mk newArgs).reverse
+        let argsArr := (Array.mk $ arg :: args).reverse
         match ← op.op $ argsArr with
         | .some v => pure v
         | .none =>
           if p.reducible then
-            argsArr.foldlM (init := ← evalConst' f univs)
-              fun acc arg => apply acc arg sorry
-          else pure $ .app (.const f univs) newArgs sorry
+            let argsInfos := (arg :: args).zip (info :: infos)
+            argsInfos.foldrM (init := ← evalConst' f univs)
+              fun (arg, info) acc => apply acc arg info
+          else pure $ .app (.const f univs) (arg :: args) (info :: infos)
 
     -- Assumes a partial application of f to args, which means in particular,
     -- that it is in normal form
@@ -307,7 +303,7 @@ mutual
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
         -- TODO
-        pure $ .app (.const f univs) (arg :: args) sorry
+        pure $ .app (.const f univs) (arg :: args) (info :: infos)
       else if isK then
         -- sanity check
         let nArgs := args.length
@@ -330,13 +326,13 @@ mutual
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw s!"Constructor {f} has no associated recursion rule"
-          | _ => pure $ .app (Neutral.const f univs) (arg :: args) sorry
-        | _ => pure $ .app (Neutral.const f univs) (arg :: args) sorry
+          | _ => pure $ .app (Neutral.const f univs) (arg :: args) (info :: infos)
+        | _ => pure $ .app (Neutral.const f univs) (arg :: args) (info :: infos)
     | .quotient _ kind => match kind with
-      | .lift => applyQuot arg args 6 1 (.app (.const f univs) (arg :: args) sorry)
-      | .ind  => applyQuot arg args 5 0 (.app (.const f univs) (arg :: args) sorry)
-      | _ => pure $ .app (.const f univs) (arg :: args) sorry
-    | _ => pure $ .app (.const f univs) (arg :: args) sorry
+      | .lift => applyQuot arg args 6 1 (.app (.const f univs) (arg :: args) (info :: infos))
+      | .ind  => applyQuot arg args 5 0 (.app (.const f univs) (arg :: args) (info :: infos))
+      | _ => pure $ .app (.const f univs) (arg :: args) (info :: infos)
+    | _ => pure $ .app (.const f univs) (arg :: args) (info :: infos)
 
   /--
   Applies a quotient to a value. It might reduce if enough arguments are applied to it
@@ -353,7 +349,7 @@ mutual
           if majorArgs.toList.length != 3 then throw "majorArgs should have size 3"
           let majorArg := majorArgs.head
           let some head := args.get? argPos | throw s!"{argPos} is an invalid index for args"
-          apply head.get majorArg sorry
+          apply head.get majorArg head.info
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
@@ -370,7 +366,7 @@ mutual
         if v == 0 then pure $ mkConst zeroIdx []
         else
           let thunk : SusValue := ⟨info, Value.lit $ .natVal (v-1)⟩
-          pure $ .app (.const succIdx []) [thunk] sorry
+          pure $ .app (.const succIdx []) ⟦thunk⟧ ⟦.none⟧
       | .lit (.strVal _) => throw "TODO Reduction of string"
       | e => do match indProj with
         | ⟨f, i⟩ =>
@@ -395,7 +391,7 @@ mutual
                 let lastIdx := len.pred
                 let lastArg := projArgs.get ⟨lastIdx, Nat.pred_lt' h⟩
                 let annotatedArgs := projArgs.take lastIdx ++ ⟦lastArg⟧
-                pure $ .app (.const ctorF univs) annotatedArgs sorry
+                pure $ .app (.const ctorF univs) annotatedArgs $ annotatedArgs.map (fun _ => .none)
               else
                 pure $ .neu (.const ctorF univs)
             match e with
