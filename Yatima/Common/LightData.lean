@@ -32,11 +32,11 @@ instance : Encodable Name LightData where
 
 instance : Encodable Literal LightData where
   encode
-    | .strVal s => .cell #[0, s]
-    | .natVal n => .cell #[1, n]
+    | .strVal s => .cell #[false, s]
+    | .natVal n => .cell #[true,  n]
   decode
-    | .cell #[0, s] => return .strVal (← dec s)
-    | .cell #[1, n] => return .natVal (← dec n)
+    | .cell #[false, s] => return .strVal (← dec s)
+    | .cell #[true,  n] => return .natVal (← dec n)
     | x => throw s!"expected either but got {x}"
 
 instance : Encodable BinderInfo LightData where
@@ -59,17 +59,17 @@ instance : Encodable QuotKind LightData where
 
 def univToLightData : Univ → LightData
   | .zero     => 0
-  | .succ x   => .cell #[0, univToLightData x]
-  | .var  x   => .cell #[1, x]
-  | .max  x y => .cell #[2, univToLightData x, univToLightData y]
-  | .imax x y => .cell #[3, univToLightData x, univToLightData y]
+  | .succ x   => .cell #[false, univToLightData x]
+  | .var  x   => .cell #[true,  x]
+  | .max  x y => .cell #[false, univToLightData x, univToLightData y]
+  | .imax x y => .cell #[true,  univToLightData x, univToLightData y]
 
 partial def lightDataToUniv : LightData → Except String Univ
   | 0 => pure .zero
-  | .cell #[0, x] => return .succ (← lightDataToUniv x)
-  | .cell #[1, x] => return .var (← dec x)
-  | .cell #[2, x, y] => return .max  (← lightDataToUniv x) (← lightDataToUniv y)
-  | .cell #[3, x, y] => return .imax (← lightDataToUniv x) (← lightDataToUniv y)
+  | .cell #[false, x] => return .succ (← lightDataToUniv x)
+  | .cell #[true,  x] => return .var (← dec x)
+  | .cell #[false, x, y] => return .max  (← lightDataToUniv x) (← lightDataToUniv y)
+  | .cell #[true,  x, y] => return .imax (← lightDataToUniv x) (← lightDataToUniv y)
   | x => throw s!"Invalid encoding for Univ: {x}"
 
 instance : Encodable Univ LightData where
@@ -81,26 +81,26 @@ instance : Encodable Lurk.F LightData where
   decode x := return (.ofNat $ ← dec x)
 
 def exprToLightData : Expr → LightData
-  | .sort x => .cell #[0, x]
-  | .lit  x => .cell #[1, x]
+  | .sort x => .cell #[false, x]
+  | .lit  x => .cell #[true,  x]
   | .var   x y => .cell #[0, x, y]
   | .const x y => .cell #[1, x, y]
   | .app   x y => .cell #[2, exprToLightData x, exprToLightData y]
   | .lam   x y => .cell #[3, exprToLightData x, exprToLightData y]
   | .pi    x y => .cell #[4, exprToLightData x, exprToLightData y]
   | .proj  x y => .cell #[5, x, exprToLightData y]
-  | .letE x y z => .cell #[0, exprToLightData x, exprToLightData y, exprToLightData z]
+  | .letE x y z => .cell #[false, exprToLightData x, exprToLightData y, exprToLightData z]
 
 partial def lightDataToExpr : LightData → Except String Expr
-  | .cell #[0, x] => return .sort (← lightDataToUniv x)
-  | .cell #[1, x] => return .lit (← dec x)
+  | .cell #[false, x] => return .sort (← lightDataToUniv x)
+  | .cell #[true,  x] => return .lit (← dec x)
   | .cell #[0, x, y] => return .var (← dec x) (← dec y)
   | .cell #[1, x, y] => return .const (← dec x) (← dec y)
   | .cell #[2, x, y] => return .app (← lightDataToExpr x) (← lightDataToExpr y)
   | .cell #[3, x, y] => return .lam (← lightDataToExpr x) (← lightDataToExpr y)
   | .cell #[4, x, y] => return .pi  (← lightDataToExpr x) (← lightDataToExpr y)
   | .cell #[5, x, y] => return .proj (← dec x) (← lightDataToExpr y)
-  | .cell #[0, x, y, z] =>
+  | .cell #[false, x, y, z] =>
     return .letE (← lightDataToExpr x) (← lightDataToExpr y) (← lightDataToExpr z)
   | x => throw s!"Invalid encoding for IR.Expr: {x}"
 
@@ -143,8 +143,8 @@ instance : Encodable Inductive LightData where
 
 instance : Encodable Const LightData where
   encode
-    | .mutIndBlock x => .cell #[0, x]
-    | .mutDefBlock x => .cell #[1, x]
+    | .mutIndBlock x => .cell #[false, x]
+    | .mutDefBlock x => .cell #[true,  x]
     | .axiom          ⟨a, b⟩ => .cell #[0, a, b]
     | .inductiveProj  ⟨a, b⟩ => .cell #[1, a, b]
     | .definitionProj ⟨a, b⟩ => .cell #[2, a, b]
@@ -153,10 +153,10 @@ instance : Encodable Const LightData where
     | .quotient        ⟨a, b, c⟩ => .cell #[2, a, b, c]
     | .constructorProj ⟨a, b, c⟩ => .cell #[3, a, b, c]
     | .recursorProj    ⟨a, b, c⟩ => .cell #[4, a, b, c]
-    | .definition ⟨a, b, c, d⟩ => .cell #[0, a, b, c, d]
+    | .definition ⟨a, b, c, d⟩ => .cell #[false, a, b, c, d]
   decode
-    | .cell #[0, x] => return .mutIndBlock (← dec x)
-    | .cell #[1, x] => return .mutDefBlock (← dec x)
+    | .cell #[false, x] => return .mutIndBlock (← dec x)
+    | .cell #[true, x] => return .mutDefBlock (← dec x)
     | .cell #[0, a, b] => return .axiom          ⟨← dec a, ← dec b⟩
     | .cell #[1, a, b] => return .inductiveProj  ⟨← dec a, ← dec b⟩
     | .cell #[2, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
@@ -165,7 +165,7 @@ instance : Encodable Const LightData where
     | .cell #[2, a, b, c] => return .quotient        ⟨← dec a, ← dec b, ← dec c⟩
     | .cell #[3, a, b, c] => return .constructorProj ⟨← dec a, ← dec b, ← dec c⟩
     | .cell #[4, a, b, c] => return .recursorProj    ⟨← dec a, ← dec b, ← dec c⟩
-    | .cell #[0, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .cell #[false, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for IR.Const: {x}"
 
 instance [h : Encodable (Array (α × β)) LightData] [Ord α] :
@@ -198,8 +198,8 @@ instance : Encodable ScalarExpr LightData where
     | .nil    => 0
     | .strNil => 1
     | .symNil => 2
-    | .num  x => .cell #[0, x]
-    | .char x => .cell #[1,  x]
+    | .num  x => .cell #[false, x]
+    | .char x => .cell #[true,  x]
     | .cons    x y => .cell #[0, x, y]
     | .strCons x y => .cell #[1, x, y]
     | .symCons x y => .cell #[2, x, y]
@@ -208,8 +208,8 @@ instance : Encodable ScalarExpr LightData where
     | 0 => return .nil
     | 1 => return .strNil
     | 2 => return .symNil
-    | .cell #[0, x] => return .num  (← dec x)
-    | .cell #[1, x] => return .char (← dec x)
+    | .cell #[false, x] => return .num  (← dec x)
+    | .cell #[true,  x] => return .char (← dec x)
     | .cell #[0, x, y] => return .cons    (← dec x) (← dec y)
     | .cell #[1, x, y] => return .strCons (← dec x) (← dec y)
     | .cell #[2, x, y] => return .symCons (← dec x) (← dec y)
@@ -217,16 +217,16 @@ instance : Encodable ScalarExpr LightData where
     | x => throw s!"Invalid encoding for ScalarExpr: {x}"
 
 def LDONToLightData : LDON → LightData
-  | .nil => 0
-  | .num x => .cell #[0, x]
-  | .str x => .cell #[1, x]
-  | .cons x y => .cell #[0, LDONToLightData x, LDONToLightData y]
+  | .nil => false
+  | .num x => .cell #[false, x]
+  | .str x => .cell #[true,  x]
+  | .cons x y => .cell #[false, LDONToLightData x, LDONToLightData y]
 
 partial def lightDataToLDON : LightData → Except String LDON
-  | 0 => return .nil
-  | .cell #[0, x] => return .num (← dec x)
-  | .cell #[1, x] => return .str (← dec x)
-  | .cell #[0, x, y] => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
+  | false => return .nil
+  | .cell #[false, x] => return .num (← dec x)
+  | .cell #[true,  x] => return .str (← dec x)
+  | .cell #[false, x, y] => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
   | x => throw s!"Invalid encoding for LDON: {x}"
 
 instance : Encodable LDON LightData where
