@@ -55,9 +55,9 @@ inductive ScalarExpr
 
 open Std (RBMap RBSet)
 structure LDONHashState where
-  exprs      : RBMap ScalarPtr   ScalarExpr compare
-  charsCache : RBMap (List Char) ScalarPtr  compare
-  ldonCache  : RBMap LDON        ScalarPtr  compare
+  exprs      : RBMap ScalarPtr   (Option ScalarExpr) compare
+  charsCache : RBMap (List Char) ScalarPtr           compare
+  ldonCache  : RBMap LDON        ScalarPtr           compare
   deriving Inhabited
 
 def hashPtrPair (x y : ScalarPtr) : F :=
@@ -69,7 +69,7 @@ def hashFPtr (f : F) (x : ScalarPtr) : F :=
 abbrev HashM := StateM LDONHashState
 
 def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
-  modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr expr })
+  modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr (some expr) })
 
 def hashChars (s : List Char) : HashM ScalarPtr := do
   match (← get).charsCache.find? s with
@@ -114,7 +114,7 @@ def hideLDON (secret : F) (x : LDON) : HashM F := do
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
 
-abbrev Store := RBMap ScalarPtr ScalarExpr compare
+abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
 
 partial def loadExprs (ptr : ScalarPtr) (seen : RBSet ScalarPtr compare)
     (src acc : Store) : Store × RBSet ScalarPtr compare :=
@@ -122,18 +122,19 @@ partial def loadExprs (ptr : ScalarPtr) (seen : RBSet ScalarPtr compare)
     let seen := seen.insert ptr
     match src.find? ptr with
     | none => panic! s!"{repr ptr} not found in store"
-    | some expr => match expr with
+    | some $ some expr => match expr with
       | .cons x y | .strCons x y | .symCons x y =>
         let (acc, seen) := loadExprs x seen src (acc.insert ptr expr)
         loadExprs y seen src acc
       | .comm _ x => loadExprs x seen src (acc.insert ptr expr)
       | _ => (acc, seen)
+    | some none => (acc, seen)
 
 def LDONHashState.storeFromCommits (stt : LDONHashState) (comms : Array Lurk.F) : Store :=
   let (exprs, _) := comms.foldl (init := default) fun (exprsAcc, seen) f =>
     match stt.exprs.find? ⟨.comm, f⟩ with
     | none => panic! s!"{f} not found in store"
-    | some (.comm f' ptr) =>
+    | some $ some (.comm f' ptr) =>
       if f != f' then panic! s!"Mismatch for commitment {f}: {f'}"
       else loadExprs ptr seen stt.exprs exprsAcc
     | some x => panic! s!"Invalid scalar expression {repr x} for pointer {f}"
