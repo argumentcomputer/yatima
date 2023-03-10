@@ -4,21 +4,21 @@
  [{"git":
    {"url": "https://github.com/yatima-inc/Megaparsec.lean",
     "subDir?": null,
-    "rev": "24cf1754477fa3fed53c418d4bf9dffe2a7d2517",
+    "rev": "3a0fc855661b9179362aac65cbeb08560be32f29",
     "name": "Megaparsec",
-    "inputRev?": "24cf1754477fa3fed53c418d4bf9dffe2a7d2517"}},
+    "inputRev?": "3a0fc855661b9179362aac65cbeb08560be32f29"}},
   {"git":
    {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
     "subDir?": null,
-    "rev": "649368d593f292227ab39b9fd08f6a448770dca8",
+    "rev": "10f2b444390a41ede90ca5c038c6ff972014d433",
     "name": "YatimaStdLib",
-    "inputRev?": "649368d593f292227ab39b9fd08f6a448770dca8"}},
+    "inputRev?": "10f2b444390a41ede90ca5c038c6ff972014d433"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7",
+    "rev": "08f710e8958261a1730ace37b973706788f5a857",
     "name": "Lurk",
-    "inputRev?": "4fa0007fe7ba8e3c7d40068cedfa6c1209042bf7"}},
+    "inputRev?": "08f710e8958261a1730ace37b973706788f5a857"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
@@ -34,9 +34,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Poseidon.lean",
     "subDir?": null,
-    "rev": "7205aff1f00536bb75659e1a58d7fada6f1c096d",
+    "rev": "f4d25b445cbd1468f8e1a921182b7ccbc3004c9d",
     "name": "Poseidon",
-    "inputRev?": "7205aff1f00536bb75659e1a58d7fada6f1c096d"}},
+    "inputRev?": "f4d25b445cbd1468f8e1a921182b7ccbc3004c9d"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Cli.lean",
     "subDir?": null,
@@ -46,9 +46,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/LightData",
     "subDir?": null,
-    "rev": "dbb9a0ea122472a0c89ad114511ef855b673c968",
+    "rev": "6c817c56502604960a374786b1f4a9a47892db7e",
     "name": "LightData",
-    "inputRev?": "dbb9a0ea122472a0c89ad114511ef855b673c968"}},
+    "inputRev?": "6c817c56502604960a374786b1f4a9a47892db7e"}},
   {"git":
    {"url": "https://github.com/leanprover/std4/",
     "subDir?": null,
