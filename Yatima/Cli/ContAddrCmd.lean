@@ -48,9 +48,8 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
     dumpData env ⟨envFileName⟩
 
     -- dump the store
-    let ldonHashState := stt.ldonHashState
-    let store : LightData := Encodable.encode $
-      ldonHashState.storeFromCommits stt.env.hashes
+    -- TODO: Extract the relevant subset of the store below
+    let store : LightData := Encodable.encode stt.ldonHashState.exprs
     dumpData store ⟨storeFileName⟩
 
   return 0

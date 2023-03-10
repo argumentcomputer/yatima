@@ -116,28 +116,4 @@ def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
 
 abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
 
-partial def loadExprs (ptr : ScalarPtr) (seen : RBSet ScalarPtr compare)
-    (src acc : Store) : Store × RBSet ScalarPtr compare :=
-  if seen.contains ptr then (acc, seen) else
-    let seen := seen.insert ptr
-    match src.find? ptr with
-    | none => panic! s!"{repr ptr} not found in store"
-    | some $ some expr => match expr with
-      | .cons x y | .strCons x y | .symCons x y =>
-        let (acc, seen) := loadExprs x seen src (acc.insert ptr expr)
-        loadExprs y seen src acc
-      | .comm _ x => loadExprs x seen src (acc.insert ptr expr)
-      | _ => (acc, seen)
-    | some none => (acc, seen)
-
-def LDONHashState.storeFromCommits (stt : LDONHashState) (comms : Array Lurk.F) : Store :=
-  let (exprs, _) := comms.foldl (init := default) fun (exprsAcc, seen) f =>
-    match stt.exprs.find? ⟨.comm, f⟩ with
-    | none => panic! s!"{f} not found in store"
-    | some $ some (.comm f' ptr) =>
-      if f != f' then panic! s!"Mismatch for commitment {f}: {f'}"
-      else loadExprs ptr seen stt.exprs exprsAcc
-    | some x => panic! s!"Invalid scalar expression {repr x} for pointer {f}"
-  exprs
-
 end Lurk
