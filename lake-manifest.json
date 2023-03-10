@@ -10,9 +10,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
     "subDir?": null,
-    "rev": "92e5f1d578e307668a00036845ddebc7685134a2",
+    "rev": "237390712b3248f3614ead47b1fae61fe0046edf",
     "name": "YatimaStdLib",
-    "inputRev?": "92e5f1d578e307668a00036845ddebc7685134a2"}},
+    "inputRev?": "237390712b3248f3614ead47b1fae61fe0046edf"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,

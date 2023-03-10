@@ -110,9 +110,10 @@ mutual
     | neu : Neutral → Value
     /-- Values can only be an application if its a stuck application. That is, if
     the head of the application is neutral.
-    For `Value.app neu [a_1, a_2, ... a_n]`,
-    We also keep the info of the head for quoting -/
-    | app : AddInfo Neutral → NEList (AddInfo (Thunk Value)) → Value
+    We also keep the `TypeInfo` of each subapplication (`neu a_1 a_2 ... a_i`), for
+    i = 0, .. , n-1; this preserves information necessary to implement the quoting
+    (i.e. read-back) functionality that is used in lambda inference -/
+    | app : Neutral → NEList (AddInfo (Thunk Value)) → NEList TypeInfo → Value
     /-- Lambdas are unevaluated expressions with environments for their free
     variables apart from their argument variables -/
     | lam : AddInfo (Thunk Value) → TypedExpr → Env' (AddInfo (Thunk Value)) → Value
@@ -167,11 +168,15 @@ instance : Inhabited SusValue where
   default := .mk default {fn := default}
 
 -- Auxiliary functions
-def AddInfo.expr (t : TypedExpr) : Expr := t.body
-def AddInfo.thunk (sus : SusValue) : Thunk Value := sus.body
-def AddInfo.get (sus : SusValue) : Value := sus.body.get
-def AddInfo.value (val : TypedValue) : Value := val.body
-def AddInfo.sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
+namespace AddInfo
+
+def expr (t : TypedExpr) : Expr := t.body
+def thunk (sus : SusValue) : Thunk Value := sus.body
+def get (sus : SusValue) : Value := sus.body.get
+def value (val : TypedValue) : Value := val.body
+def sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
+
+end AddInfo
 
 def Value.ctorName : Value → String
   | .sort      .. => "sort"
@@ -187,7 +192,7 @@ def Neutral.ctorName : Neutral → String
   | .const .. => "const"
   | .proj  .. => "proj"
 
-namespace Env
+namespace Env'
 /-- Stacks a new expression in the environment -/
 def extendWith (env : Env) (thunk : SusValue) : Env :=
   .mk (thunk :: env.exprs) env.univs
@@ -196,7 +201,7 @@ def extendWith (env : Env) (thunk : SusValue) : Env :=
 def withExprs (env : Env) (exprs : List SusValue) : Env :=
   .mk exprs env.univs
 
-end Env
+end Env'
 
 /-- Creates a new constant with a name, a constant index and an universe list -/
 def mkConst (f : F) (univs : List Univ) : Value :=

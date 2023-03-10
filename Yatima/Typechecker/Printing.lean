@@ -253,7 +253,7 @@ mutual
     match val with
     | .sort u => return f!"Sort {ppUniv u}"
     | .neu neu => ppNeutral neu
-    | .app neu args => ppSpine neu.body args
+    | .app neu args _ => ppSpine neu args
     | .lam dom bod ctx =>
       return f!"fun (_ : {← ppValue dom.get}) =>{indentD (← ppTypedExprWith bod ctx)}"
     | .pi dom cod ctx =>
