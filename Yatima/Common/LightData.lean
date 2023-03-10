@@ -22,7 +22,7 @@ def partitionName (name : Name) : List (Either String Nat) :=
     | .anonymous  => acc
   aux [] name
 
-instance : Encodable Name LightData String where
+instance : Encodable Name LightData where
   encode n := partitionName n
   decode x := do
     let parts : List (Either String Nat) ← dec x
@@ -30,7 +30,7 @@ instance : Encodable Name LightData String where
       | .left  s => pure $ acc.mkStr s
       | .right n => pure $ acc.mkNum n
 
-instance : Encodable Literal LightData String where
+instance : Encodable Literal LightData where
   encode
     | .strVal s => .cell #[false, s]
     | .natVal n => .cell #[true,  n]
@@ -39,7 +39,7 @@ instance : Encodable Literal LightData String where
     | .cell #[true,  n] => return .natVal (← dec n)
     | x => throw s!"expected either but got {x}"
 
-instance : Encodable BinderInfo LightData String where
+instance : Encodable BinderInfo LightData where
   encode | .default => 0 | .implicit => 1 | .strictImplicit => 2 | .instImplicit => 3
   decode
     | 0 => pure .default
@@ -48,7 +48,7 @@ instance : Encodable BinderInfo LightData String where
     | 3 => pure .instImplicit
     | x => throw s!"Invalid encoding for BinderInfo: {x}"
 
-instance : Encodable QuotKind LightData String where
+instance : Encodable QuotKind LightData where
   encode | .type => 0 | .ctor => 1 | .lift => 2 | .ind => 3
   decode
     | 0 => pure .type
@@ -58,25 +58,25 @@ instance : Encodable QuotKind LightData String where
     | x => throw s!"Invalid encoding for QuotKind: {x}"
 
 def univToLightData : Univ → LightData
-  | .zero     => false
+  | .zero     => 0
   | .succ x   => .cell #[false, univToLightData x]
   | .var  x   => .cell #[true,  x]
   | .max  x y => .cell #[false, univToLightData x, univToLightData y]
   | .imax x y => .cell #[true,  univToLightData x, univToLightData y]
 
 partial def lightDataToUniv : LightData → Except String Univ
-  | false => pure .zero
+  | 0 => pure .zero
   | .cell #[false, x] => return .succ (← lightDataToUniv x)
   | .cell #[true,  x] => return .var (← dec x)
   | .cell #[false, x, y] => return .max  (← lightDataToUniv x) (← lightDataToUniv y)
   | .cell #[true,  x, y] => return .imax (← lightDataToUniv x) (← lightDataToUniv y)
   | x => throw s!"Invalid encoding for Univ: {x}"
 
-instance : Encodable Univ LightData String where
+instance : Encodable Univ LightData where
   encode := univToLightData
   decode := lightDataToUniv
 
-instance : Encodable Lurk.F LightData String where
+instance : Encodable Lurk.F LightData where
   encode x := x.val
   decode x := return (.ofNat $ ← dec x)
 
@@ -104,36 +104,36 @@ partial def lightDataToExpr : LightData → Except String Expr
     return .letE (← lightDataToExpr x) (← lightDataToExpr y) (← lightDataToExpr z)
   | x => throw s!"Invalid encoding for IR.Expr: {x}"
 
-instance : Encodable Expr LightData String where
+instance : Encodable Expr LightData where
   encode := exprToLightData
   decode := lightDataToExpr
 
-instance : Encodable Constructor LightData String where
+instance : Encodable Constructor LightData where
   encode | ⟨a, b, c, d, e⟩ => .cell #[a, b, c, d, e]
   decode
     | .cell #[a, b, c, d, e] => return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e⟩
     | x => throw s!"Invalid encoding for IR.Constructor: {x}"
 
-instance : Encodable RecursorRule LightData String where
+instance : Encodable RecursorRule LightData where
   encode | ⟨a, b⟩ => .cell #[a, b]
   decode
     | .cell #[a, b] => return ⟨← dec a, ← dec b⟩
     | x => throw s!"Invalid encoding for IR.RecursorRule: {x}"
 
-instance : Encodable Definition LightData String where
+instance : Encodable Definition LightData where
   encode | ⟨a, b, c, d⟩ => .cell #[a, b, c, d]
   decode
     | .cell #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for IR.Definition: {x}"
 
-instance : Encodable Recursor LightData String where
+instance : Encodable Recursor LightData where
   encode | ⟨a, b, c, d, e, f, g, h, i⟩ => .cell #[a, b, c, d, e, f, g, h, i]
   decode
     | .cell #[a, b, c, d, e, f, g, h, i] =>
       return ⟨← dec a, ← dec b, ← dec c, ← dec d, ← dec e, ← dec f, ← dec g, ← dec h, ← dec i⟩
     | x => throw s!"Invalid encoding for IR.Recursor: {x}"
 
-instance : Encodable Inductive LightData String where
+instance : Encodable Inductive LightData where
   encode | ⟨a, b, c, d, e, f, g, h, i, j⟩ => .cell #[a, b, c, d, e, f, g, h, i, j]
   decode
     | .cell #[a, b, c, d, e, f, g, h, i, j] =>
@@ -141,7 +141,7 @@ instance : Encodable Inductive LightData String where
         ← dec h, ← dec i, ← dec j⟩
     | x => throw s!"Invalid encoding for IR.Inductive: {x}"
 
-instance : Encodable Const LightData String where
+instance : Encodable Const LightData where
   encode
     | .mutIndBlock x => .cell #[false, x]
     | .mutDefBlock x => .cell #[true,  x]
@@ -156,7 +156,7 @@ instance : Encodable Const LightData String where
     | .definition ⟨a, b, c, d⟩ => .cell #[false, a, b, c, d]
   decode
     | .cell #[false, x] => return .mutIndBlock (← dec x)
-    | .cell #[true,  x] => return .mutDefBlock (← dec x)
+    | .cell #[true, x] => return .mutDefBlock (← dec x)
     | .cell #[0, a, b] => return .axiom          ⟨← dec a, ← dec b⟩
     | .cell #[1, a, b] => return .inductiveProj  ⟨← dec a, ← dec b⟩
     | .cell #[2, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
@@ -168,12 +168,12 @@ instance : Encodable Const LightData String where
     | .cell #[false, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for IR.Const: {x}"
 
-instance [h : Encodable (Array (α × β)) LightData String] [Ord α] :
-    Encodable (Std.RBMap α β compare) LightData String where
+instance [h : Encodable (Array (α × β)) LightData] [Ord α] :
+    Encodable (Std.RBMap α β compare) LightData where
   encode x := h.encode $ x.foldl (·.push (·, ·)) #[]
   decode x := return .ofArray (← dec x) _
 
-instance : Encodable IR.Env LightData String where
+instance : Encodable IR.Env LightData where
   encode x := x.consts
   decode x := return ⟨← dec x⟩
 
@@ -181,19 +181,19 @@ section LDON
 
 open Lurk
 
-instance : Encodable Tag LightData String where
+instance : Encodable Tag LightData where
   encode x := x.toF
   decode x := do match Tag.ofF (← dec x) with
     | some t => return t
     | none => throw s!"Invalid encoding for Tag: {x}"
 
-instance : Encodable ScalarPtr LightData String where
+instance : Encodable ScalarPtr LightData where
   encode | ⟨x, y⟩ => .cell #[x, y]
   decode
     | .cell #[x, y] => return ⟨← dec x, ← dec y⟩
     | x => throw s!"Invalid encoding for ScalarPtr: {x}"
 
-instance : Encodable ScalarExpr LightData String where
+instance : Encodable ScalarExpr LightData where
   encode
     | .nil    => 0
     | .strNil => 1
@@ -229,15 +229,15 @@ partial def lightDataToLDON : LightData → Except String LDON
   | .cell #[false, x, y] => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
   | x => throw s!"Invalid encoding for LDON: {x}"
 
-instance : Encodable LDON LightData String where
+instance : Encodable LDON LightData where
   encode := LDONToLightData
   decode := lightDataToLDON
 
-instance : Encodable Char LightData String where
+instance : Encodable Char LightData where
   encode x := x.toNat
   decode x := return .ofNat (← dec x)
 
-instance : Encodable LDONHashState LightData String where
+instance : Encodable LDONHashState LightData where
   encode | ⟨a, b, c⟩ => .cell #[a, b, c]
   decode
     | .cell #[a, b, c] => return ⟨← dec a, ← dec b, ← dec c⟩
