@@ -173,6 +173,7 @@ namespace AddInfo
 def expr (t : TypedExpr) : Expr := t.body
 def thunk (sus : SusValue) : Thunk Value := sus.body
 def get (sus : SusValue) : Value := sus.body.get
+def getTyped (sus : SusValue) : TypedValue := ⟨sus.info, sus.body.get⟩
 def value (val : TypedValue) : Value := val.body
 def sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
 

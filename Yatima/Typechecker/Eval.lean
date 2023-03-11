@@ -167,7 +167,7 @@ mutual
       let ctx ← read
       let argThunk := suspend arg ctx (← get)
       let fnc ← evalTyped fnc
-      apply fnc.body argThunk fnc.info
+      apply fnc argThunk
     | .lam dom bod => do
       let ctx ← read
       let dom' := suspend dom ctx (← get)
@@ -258,17 +258,17 @@ mutual
   * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
   * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
   -/
-  partial def apply (val : Value) (arg : SusValue) (valInfo : TypeInfo) : TypecheckM Value :=
-    match val with
+  partial def apply (val : TypedValue) (arg : SusValue) : TypecheckM Value :=
+    match val.value with
     | .lam _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
-    | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args.toList valInfo infos.toList
-    -- Note that `valInfo` is being added to the `infos` field of the `app` nodes because it is the info
+    | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args.toList val.info infos.toList
+    -- Note that `val.info` is being added to the `infos` field of the `app` nodes because it is the info
     -- of the former partial application. That's because a stuck application like `h a1 .. an a(n+1)` must
     -- hold the info of the sub stuck application `h a1 .. an` for quoting to be done correctly
-    | .app neu args infos => pure $ .app neu (arg :: args.toList) (valInfo :: infos.toList)
-    | .neu (.const f kUnivs) => applyConst f kUnivs arg [] valInfo []
-    | .neu neu => pure $ .app neu [arg] [valInfo]
+    | .app neu args infos => pure $ .app neu (arg :: args.toList) (val.info :: infos.toList)
+    | .neu (.const f kUnivs) => applyConst f kUnivs arg [] val.info []
+    | .neu neu => pure $ .app neu [arg] [val.info]
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw "Invalid case for apply"
 
@@ -291,9 +291,9 @@ mutual
         | .some v => pure v
         | .none =>
           if p.reducible then
-            let argsInfos := (arg :: args).zip (info :: infos)
-            argsInfos.foldrM (init := ← evalConst' f univs)
-              fun (arg, info) acc => apply acc arg info
+            let typArgs := (info :: infos).zip (arg :: args)
+            typArgs.foldrM (init := ← evalConst' f univs)
+              fun (info, arg) acc => apply ⟨info, acc⟩ arg
           else pure $ .app (.const f univs) (arg :: args) (info :: infos)
 
     -- Assumes a partial application of f to args, which means in particular,
@@ -349,7 +349,7 @@ mutual
           if majorArgs.toList.length != 3 then throw "majorArgs should have size 3"
           let majorArg := majorArgs.head
           let some head := args.get? argPos | throw s!"{argPos} is an invalid index for args"
-          apply head.get majorArg head.info
+          apply head.getTyped majorArg
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
@@ -422,15 +422,15 @@ mutual
       if args.tail.length != infos.tail.length then throw "Partial application does not have enough info"
       let argsInfos := args.toList.zip infos.toList
       argsInfos.foldrM (init := ← quoteNeutral lvl env neu) fun (arg, info) acc => do
-        pure $ .app ⟨info, acc⟩ $ ← quoteTyped lvl env ⟨arg.info, arg.get⟩
+        pure $ .app ⟨info, acc⟩ $ ← quoteTyped lvl env arg.getTyped
     | .lam dom bod env' => do
-      let dom ← quoteTyped lvl env ⟨dom.info, dom.get⟩
+      let dom ← quoteTyped lvl env dom.getTyped
       -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value
       let var := mkSusVar default lvl
       let bod ← quoteTypedExpr (lvl+1) bod (env'.extendWith var)
       pure $ .lam dom bod
     | .pi dom img env' => do
-      let dom ← quoteTyped lvl env ⟨dom.info, dom.get⟩
+      let dom ← quoteTyped lvl env dom.getTyped
       let var := mkSusVar default lvl
       let img ← quoteTypedExpr (lvl+1) img (env'.extendWith var)
       pure $ .pi dom img
