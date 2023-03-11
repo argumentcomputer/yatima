@@ -35,23 +35,24 @@ def applyType : Value → List SusValue → TypecheckM Value
 
 mutual
   partial def tryEtaStruct (lvl : Nat) (term term' : SusValue) : TypecheckM Bool := do
-    match term'.get with
-    | .app (.const k _) args =>
-      match ← derefTypedConst k with
-      | .constructor type .. =>
-        match ← applyType (← eval type) args with
-        | .app (.const tk _) args =>
-          match ← derefTypedConst tk with
-          | .inductive _ struct .. =>
-            if struct then
-              args.enum.foldlM (init := true) fun acc (i, arg) => do
-                match arg.1.get with
-                | .app (.proj _ idx val) _ =>
-                  pure $ acc && i == idx && (← equal lvl term val.sus)
-                | _ => pure false
-            else
-              pure false
-          | _ => pure false
+    let (k, args) ← match term'.get with
+    | .neu (.const k _) => pure (k, [])
+    | .app (.const k _) args _ => pure (k, args.toList)
+    | _ => return false
+    match ← derefTypedConst k with
+    | .constructor type .. =>
+      match ← applyType (← eval type) args with
+      | .app (.const tk _) args _ =>
+        match ← derefTypedConst tk with
+        | .inductive _ struct .. =>
+          if struct then
+            args.toList.enum.foldlM (init := true) fun acc (i, arg) => do
+              match arg.get with
+              | .app (.proj _ idx val) _ _ =>
+                pure $ acc && i == idx && (← equal lvl term val.sus)
+              | _ => pure false
+          else
+            pure false
         | _ => pure false
       | _ => pure false
     | _ => pure false
@@ -69,7 +70,6 @@ mutual
     | _, _ => do
       let term! := term.get
       let term'! := term'.get
-      -- dbg_trace s!">> equal?\n{← ppValue term!}\n  and\n{← ppValue term'!}"
       match term!, term'! with
       | .lit lit, .lit lit' => pure $ lit == lit'
       | .sort u, .sort u' => pure $ u.equalUniv u'
@@ -85,35 +85,44 @@ mutual
         let bod' := suspend bod' { ← read with env := env'.extendWith (mkSusVar dom'.info lvl) } (← get)
         let res' ← equal (lvl + 1) bod bod'
         pure $ res && res'
-      | .lam dom bod env, .app neu' args' => do
+      | .lam dom bod env, .app neu' args' infos' => do
         let var := mkSusVar dom.info lvl
         let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
-        let app := Value.app neu' ((var, bod.info) :: args')
+        let app := Value.app neu' (var :: args'.toList) (term'.info :: infos'.toList)
         equal (lvl + 1) bod (.mk bod.info app)
-      | .app neu args, .lam dom bod env => do
+      | .app neu args infos, .lam dom bod env => do
         let var := mkSusVar dom.info lvl
         let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
-        let app := Value.app neu ((var, bod.info) :: args)
+        let app := Value.app neu (var :: args.toList) (term.info :: infos.toList)
         equal (lvl + 1) (.mk bod.info app) bod
-      | .app (.fvar idx) args, .app (.fvar idx') args' =>
+      | .neu (.fvar idx), .neu (.fvar idx') => pure $ idx == idx'
+      | .app (.fvar idx) args _, .app (.fvar idx') args' _ =>
         if idx == idx' then
           -- If our assumption is correct, i.e., that these values come from terms
           -- in the same environment then their types are equal when their indices
           -- are equal
-          equalThunks lvl args args'
+          equalThunks lvl args.toList args'.toList
         else pure false
-      | .app (.const k us) args, .app (.const k' us') args' =>
+      | .neu (.const k us), .neu (.const k' us') => pure $ k == k' && IR.Univ.equalUnivs us us'
+      | .app (.const k us) args _, .app (.const k' us') args' _ =>
         if k == k' && IR.Univ.equalUnivs us us' then
-          equalThunks lvl args args'
+          equalThunks lvl args.toList args'.toList
         else pure false
-      | _, .app (.const _ _) _ =>
+      | _, .neu (.const _ _)
+      | _, .app (.const _ _) _ _ =>
         tryEtaStruct lvl term term'
-      | .app (.const _ _) _, _ =>
+      | .neu (.const _ _), _
+      | .app (.const _ _) _ _, _ =>
         tryEtaStruct lvl term' term
-      | .app (.proj ind idx val) args, .app (.proj ind' idx' val') args' =>
+      | .neu (.proj ind idx val), .neu (.proj ind' idx' val') =>
           if ind == ind' && idx == idx' then do
             let eqVal ← equal lvl val.sus val'.sus
-            let eqThunks ← equalThunks lvl args args'
+            pure eqVal
+          else pure false
+      | .app (.proj ind idx val) args _, .app (.proj ind' idx' val') args' _ =>
+          if ind == ind' && idx == idx' then do
+            let eqVal ← equal lvl val.sus val'.sus
+            let eqThunks ← equalThunks lvl args.toList args'.toList
             pure (eqVal && eqThunks)
           else pure false
       | .exception e, _ | _, .exception e =>
