@@ -54,7 +54,7 @@ def LDONHASHCACHE : FilePath :=
 @[inline] def mkCADirs : IO Unit :=
   IO.FS.createDirAll COMMITSDIR
 
-variable [h : Encodable α LightData String]
+variable [h : Encodable α LightData]
 
 def dumpData (data : α) (path : FilePath) (overwite := true) : IO Unit := do
   -- TODO : do it in a thread

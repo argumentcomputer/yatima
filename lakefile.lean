@@ -15,16 +15,16 @@ require LSpec from git
   "https://github.com/yatima-inc/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "237390712b3248f3614ead47b1fae61fe0046edf"
+  "https://github.com/yatima-inc/YatimaStdLib.lean" @ "10f2b444390a41ede90ca5c038c6ff972014d433"
 
 require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "ac1239d799ef15dae6475e1304e4f8ae3a8a3d15"
+  "https://github.com/yatima-inc/Lurk.lean" @ "08f710e8958261a1730ace37b973706788f5a857"
 
 require LightData from git
-  "https://github.com/yatima-inc/LightData" @ "dbb9a0ea122472a0c89ad114511ef855b673c968"
+  "https://github.com/yatima-inc/LightData" @ "273e5b64bdb2398592cc2aaa21bf20e576be8f0a"
 
 require std from git
   "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"

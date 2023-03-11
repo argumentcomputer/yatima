@@ -442,8 +442,6 @@ partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
 
 end
 
-instance : Encodable LightData LightData String := ⟨id, pure⟩
-
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
   delta.forM fun c => if !c.isUnsafe then discard $ contAddrConst c else pure ()

@@ -10,15 +10,15 @@
   {"git":
    {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
     "subDir?": null,
-    "rev": "237390712b3248f3614ead47b1fae61fe0046edf",
+    "rev": "10f2b444390a41ede90ca5c038c6ff972014d433",
     "name": "YatimaStdLib",
-    "inputRev?": "237390712b3248f3614ead47b1fae61fe0046edf"}},
+    "inputRev?": "10f2b444390a41ede90ca5c038c6ff972014d433"}},
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "ac1239d799ef15dae6475e1304e4f8ae3a8a3d15",
+    "rev": "08f710e8958261a1730ace37b973706788f5a857",
     "name": "Lurk",
-    "inputRev?": "ac1239d799ef15dae6475e1304e4f8ae3a8a3d15"}},
+    "inputRev?": "08f710e8958261a1730ace37b973706788f5a857"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
@@ -46,9 +46,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/LightData",
     "subDir?": null,
-    "rev": "dbb9a0ea122472a0c89ad114511ef855b673c968",
+    "rev": "273e5b64bdb2398592cc2aaa21bf20e576be8f0a",
     "name": "LightData",
-    "inputRev?": "dbb9a0ea122472a0c89ad114511ef855b673c968"}},
+    "inputRev?": "273e5b64bdb2398592cc2aaa21bf20e576be8f0a"}},
   {"git":
    {"url": "https://github.com/leanprover/std4/",
     "subDir?": null,
