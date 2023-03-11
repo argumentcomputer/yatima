@@ -150,7 +150,7 @@ instance : Encodable Const LightData where
     | .definition ⟨a, b, c, d⟩ => .cell #[false, a, b, c, d]
   decode
     | .cell #[false, x] => return .mutIndBlock (← dec x)
-    | .cell #[true, x] => return .mutDefBlock (← dec x)
+    | .cell #[true,  x] => return .mutDefBlock (← dec x)
     | .cell #[0, a, b] => return .axiom          ⟨← dec a, ← dec b⟩
     | .cell #[1, a, b] => return .inductiveProj  ⟨← dec a, ← dec b⟩
     | .cell #[2, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
