@@ -1,5 +1,4 @@
 import Yatima.Datatypes.Const
-import YatimaStdLib.NonEmpty
 
 namespace Yatima.Typechecker
 
@@ -105,15 +104,12 @@ mutual
   inductive Value
     /-- Type universes. It is assumed `Univ` is reduced/simplified -/
     | sort : Univ → Value
-    /-- Neutrals are free variables, constants that cannot be reduced by itself,
-        or stuck projections --/
-    | neu : Neutral → Value
     /-- Values can only be an application if its a stuck application. That is, if
     the head of the application is neutral.
     We also keep the `TypeInfo` of each subapplication (`neu a_1 a_2 ... a_i`), for
     i = 0, .. , n-1; this preserves information necessary to implement the quoting
     (i.e. read-back) functionality that is used in lambda inference -/
-    | app : Neutral → NEList (AddInfo (Thunk Value)) → NEList TypeInfo → Value
+    | app : Neutral → List (AddInfo (Thunk Value)) → List TypeInfo → Value
     /-- Lambdas are unevaluated expressions with environments for their free
     variables apart from their argument variables -/
     | lam : AddInfo (Thunk Value) → TypedExpr → Env' (AddInfo (Thunk Value)) → Value
@@ -162,7 +158,7 @@ for universe variables as well
 abbrev Env := Env' SusValue
 
 /-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
-abbrev Args := NEList SusValue
+abbrev Args := List SusValue
 
 instance : Inhabited SusValue where
   default := .mk default {fn := default}
@@ -179,10 +175,11 @@ def sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
 
 end AddInfo
 
+def Value.neu (neu : Neutral) : Value := .app neu [] []
+
 def Value.ctorName : Value → String
   | .sort      .. => "sort"
   | .app       .. => "app"
-  | .neu       .. => "neu"
   | .lam       .. => "lam"
   | .pi        .. => "pi"
   | .lit       .. => "lit"

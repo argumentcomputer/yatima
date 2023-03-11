@@ -246,13 +246,12 @@ mutual
 
   /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
   private partial def ppSpine (neu : Neutral) (args : Args) : TypecheckM Format := do
-    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.get}") (← ppNeutral neu) args.toList
+    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.get}") (← ppNeutral neu) args
 
   /-- Printer of typechecker values -/
   partial def ppValue (val : Value) : TypecheckM Format :=
     match val with
     | .sort u => return f!"Sort {ppUniv u}"
-    | .neu neu => ppNeutral neu
     | .app neu args _ => ppSpine neu args
     | .lam dom bod ctx =>
       return f!"fun (_ : {← ppValue dom.get}) =>{indentD (← ppTypedExprWith bod ctx)}"

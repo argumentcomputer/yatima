@@ -55,21 +55,20 @@ mutual
   partial def getStructInfo (v : Value) :
       TypecheckM (F × TypedExpr × List Univ × List SusValue) := do
     let err := s!"Expected a structure type, found {← ppValue v}"
-    let (indF, univs, params) ← match v with
-    | .neu (.const indF univs) => pure (indF, univs, [])
-    | .app (.const indF univs) params _ => pure (indF, univs, params.toList)
+    match v with
+    | .app (.const indF univs) params _ =>
+      let .inductiveProj p := derefConst indF (← read).store | throw err
+      let ind ← getIndFromProj p
+      -- Sanity check
+      unless ind.struct && ind.params == params.length do
+        throw s!"Expected a structure type, found {← ppValue v}"
+      withLimitedAxioms $ checkConst indF
+      let ctorF := mkConstructorProjF p.block p.idx 0 (← read).quick
+      match (← get).typedConsts.find? ctorF with
+      | .some (.constructor type _ _) =>
+        return (indF, type, univs, params)
+      | _ => throw s!"Implementation broken: ctorF {ctorF} is not a constructor"
     | v => throw s!"Expected a structure type, found {← ppValue v}"
-    let .inductiveProj p := derefConst indF (← read).store | throw err
-    let ind ← getIndFromProj p
-    -- Sanity check
-    unless ind.struct && ind.params == params.length do
-      throw s!"Expected a structure type, found {← ppValue v}"
-    withLimitedAxioms $ checkConst indF
-    let ctorF := mkConstructorProjF p.block p.idx 0 (← read).quick
-    match (← get).typedConsts.find? ctorF with
-    | .some (.constructor type _ _) =>
-      return (indF, type, univs, params)
-    | _ => throw s!"Implementation broken: ctorF {ctorF} is not a constructor"
 
   /--
   Checks if `term : IR.Expr` has type `type : SusValue`. Returns the typed IR for `term`

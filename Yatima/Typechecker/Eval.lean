@@ -199,7 +199,6 @@ mutual
         match derefConst f (← read).store with
         | .constructorProj p =>
           let ctor ← getCtorFromProj p
-          let args := args.toList
           -- Since terms are well-typed, we can be sure that this constructor is of a structure-like inductive
           -- and, furthermore, that the index is in range of `args`
           let idx := ctor.params + idx
@@ -207,7 +206,6 @@ mutual
             | throw s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
         | _ => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
-      | .neu ..
       | .app .. => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
       | e => throw s!"Value {← ppValue e} is impossible to project"
 
@@ -263,13 +261,11 @@ mutual
     match val.value with
     | .lam _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
-    | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args.toList val.info infos.toList
+    | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args val.info infos
     -- Note that `val.info` is being added to the `infos` field of the `app` nodes because it is the info
     -- of the former partial application. That's because a stuck application like `h a1 .. an a(n+1)` must
     -- hold the info of the sub stuck application `h a1 .. an` for quoting to be done correctly
-    | .app neu args infos => pure $ .app neu (arg :: args.toList) (val.info :: infos.toList)
-    | .neu (.const f kUnivs) => applyConst f kUnivs arg [] val.info []
-    | .neu neu => pure $ .app neu [arg] [val.info]
+    | .app neu args infos => pure $ .app neu (arg :: args) (val.info :: infos)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw "Invalid case for apply"
 
@@ -322,7 +318,7 @@ mutual
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
             match rules.get? idx with
             | some (fields, rhs) =>
-              let exprs := (args'.toList.take fields) ++ (args.drop indices)
+              let exprs := (args'.take fields) ++ (args.drop indices)
               withEnv ⟨exprs, univs⟩ $ eval rhs.toImplicitLambda
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
@@ -347,8 +343,8 @@ mutual
         match ← derefTypedConst majorFn with
         | .quotient _ .ctor =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
-          if majorArgs.toList.length != 3 then throw "majorArgs should have size 3"
-          let majorArg := majorArgs.head
+          if majorArgs.length != 3 then throw "majorArgs should have size 3"
+          let some majorArg := majorArgs.head? | throw "majorArgs can't be empty"
           let some head := args.get? argPos | throw s!"{argPos} is an invalid index for args"
           apply head.getTyped majorArg
         | _ => pure default
@@ -367,7 +363,7 @@ mutual
         if v == 0 then pure $ mkConst zeroIdx []
         else
           let thunk : SusValue := ⟨info, Value.lit $ .natVal (v-1)⟩
-          pure $ .app (.const succIdx []) ⟦thunk⟧ ⟦.none⟧
+          pure $ .app (.const succIdx []) [thunk] [.none]
       | .lit (.strVal _) => throw "TODO Reduction of string"
       | e => do match indProj with
         | ⟨f, i⟩ =>
@@ -391,7 +387,7 @@ mutual
               if h : len > 0 then
                 let lastIdx := len.pred
                 let lastArg := projArgs.get ⟨lastIdx, Nat.pred_lt' h⟩
-                let annotatedArgs := projArgs.take lastIdx ++ ⟦lastArg⟧
+                let annotatedArgs := projArgs.take lastIdx ++ [lastArg]
                 pure $ .app (.const ctorF univs) annotatedArgs $ annotatedArgs.map (fun _ => .none)
               else
                 pure $ .neu (.const ctorF univs)
@@ -415,13 +411,10 @@ mutual
   -/
   partial def quote (lvl : Nat) (env : Env) : Value → TypecheckM Expr
     | .sort univ => pure $ .sort (univ.instBulkReduce env.univs)
-    | .neu neu => do
-      let neu ← quoteNeutral lvl env neu
-      pure neu
     | .app neu args infos => do
       -- Sanity check: `args` and `infos` should have the same size
       if args.tail.length != infos.tail.length then throw "Partial application does not have enough info"
-      let argsInfos := args.toList.zip infos.toList
+      let argsInfos := args.zip infos
       argsInfos.foldrM (init := ← quoteNeutral lvl env neu) fun (arg, info) acc => do
         pure $ .app ⟨info, acc⟩ $ ← quoteTyped lvl env arg.getTyped
     | .lam dom bod env' => do
