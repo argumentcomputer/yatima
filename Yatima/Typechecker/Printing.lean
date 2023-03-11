@@ -11,8 +11,8 @@ the typechecker.
 open Lean
 
 open Yatima.Typechecker in
-def Yatima.Typechecker.ConstNames.getF 
-    (constNames : ConstNames) (f : Lurk.F) : Format := 
+def Yatima.Typechecker.ConstNames.getF
+    (constNames : ConstNames) (f : Lurk.F) : Format :=
   match constNames.find? f with
   | some name => toString name
   | none => toString f
@@ -72,8 +72,8 @@ open Std.Format in
 mutual
   partial def paren (e : Expr) : TypecheckM Format :=
     if e.isAtom then ppExpr e
-    else return f!"({← ppExpr e})"  
-      
+    else return f!"({← ppExpr e})"
+
   partial def ppUniv (u : Univ) : Format :=
     match u with
     | .succ a   => s!"{ppSuccUniv 1 a}"
@@ -105,7 +105,7 @@ mutual
     | .pi dom img =>
       return f!"(_ : {← ppExpr dom}) → {← ppExpr img}"
     | .letE type value body =>
-      return f!"let _ : {← ppExpr type} := {← ppExpr value}" 
+      return f!"let _ : {← ppExpr type} := {← ppExpr value}"
         ++ ";" ++ .line ++ f!"{← ppExpr body}"
     | .lit lit => match lit with
       | .natVal num => return f!"{num}"
@@ -126,8 +126,8 @@ partial def ppRecursor (recr : Recursor) : TypecheckM Format :=
   return f!"{internal} recursor _ (lvls := {recr.lvls}) : {← ppExpr recr.type}{indentD (← prefixJoin .line rules ppRecursorRule)}"
 
 partial def ppConstructor (ctor : Constructor) : TypecheckM Format :=
-  let fields := f!"idx := {ctor.idx}" ++ .line ++ 
-                f!"params := {ctor.params}" ++ .line ++ 
+  let fields := f!"idx := {ctor.idx}" ++ .line ++
+                f!"params := {ctor.params}" ++ .line ++
                 f!"fields := {ctor.fields}"
   return f!"| _ {ctor.lvls} : {← ppExpr ctor.type}{indentD fields}"
 
@@ -135,7 +135,7 @@ partial def ppConstructors (ctors : List Constructor) : TypecheckM Format :=
   return f!"{← prefixJoin .line (Array.mk ctors) ppConstructor}"
 
 partial def ppInductive (ind : Inductive) : TypecheckM Format := do
-  let indHeader := f!"inductive _ {ind.lvls} : {← ppExpr ind.type}" 
+  let indHeader := f!"inductive _ {ind.lvls} : {← ppExpr ind.type}"
   let fields := f!"recr := {ind.recr}" ++ .line ++
                 f!"refl := {ind.refl}" ++ .line ++
                 f!"unit := {ind.unit}" ++ .line ++
@@ -159,7 +159,7 @@ partial def ppConst (const : Const) : TypecheckM Format :=
   | .constructorProj ctor => return f!"{reprStr ctor}"
   | .recursorProj recr => return f!"{reprStr recr}"
   | .definitionProj defn => return f!"{reprStr defn}"
-  | .mutDefBlock block => 
+  | .mutDefBlock block =>
     return f!"{← prefixJoin ("\n" ++ .line) (Array.mk block) ppDefinition}"
   | .mutIndBlock block =>
     return f!"{← prefixJoin ("\n" ++ .line) (Array.mk block) ppInductive}"
@@ -172,14 +172,17 @@ open IR PP Lean Std.Format
 
 private abbrev indentD := Std.Format.indentD
 
-def TypedExpr.isProp : TypedExpr → Bool
-  | .sort _ .zero => true
+def TypedExpr.isProp (t : TypedExpr) : Bool := match t.expr with
+  | .sort .zero => true
   | _ => false
 
-def TypedExpr.isAtom : TypedExpr → Bool
+def TypedExpr.isAtom (t : TypedExpr) : Bool :=
+  -- For some reason, Lean can't prove termination when you use projections
+  let .mk _ expr := t
+  match expr with
   | .const .. | .var .. | .lit .. => true
-  | .proj _ _ _ e => isAtom e
-  | e => isProp e
+  | .proj _ _ e => isAtom e
+  | _ => isProp t
 
 namespace PP
 
@@ -189,22 +192,22 @@ mutual
     else return f!"({← ppTypedExpr e})"
 
   /-- Printer of expressions -/
-  partial def ppTypedExpr : TypedExpr → TypecheckM Format
-    | .var _ idx => return f!"v_{idx}"
-    | .sort _ u => return f!"Sort {ppUniv u}"
-    | .const _ k univs =>
+  partial def ppTypedExpr (t : TypedExpr) : TypecheckM Format := match t.expr with
+    | .var idx => return f!"v_{idx}"
+    | .sort u => return f!"Sort {ppUniv u}"
+    | .const k univs =>
       return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .app _ fnc arg => match fnc with
+    | .app fnc arg => match fnc.expr with
       | .app .. => return f!"{← ppTypedExpr fnc} {← paren arg}"
       | _ => return f!"{← paren fnc} {← paren arg}"
-    | .lam _ dom bod =>
+    | .lam dom bod =>
       return f!"fun (_ : {← ppTypedExpr dom}) =>{indentD (← ppTypedExpr bod)}"
-    | .pi _ dom cod =>
+    | .pi dom cod =>
       return f!"(_: {← ppTypedExpr dom}) → {← ppTypedExpr cod}"
-    | .letE _ typ val bod => return f!"let _ : {← ppTypedExpr typ} := {← ppTypedExpr val} in {← ppTypedExpr bod}"
-    | .lit _ (.natVal x) => return f!"{x}"
-    | .lit _ (.strVal x) => return f!"\"{x}\""
-    | .proj _ _ idx val => return f!"{← ppTypedExpr val}.{idx}"
+    | .letE typ val bod => return f!"let _ : {← ppTypedExpr typ} := {← ppTypedExpr val} in {← ppTypedExpr bod}"
+    | .lit (.natVal x) => return f!"{x}"
+    | .lit (.strVal x) => return f!"\"{x}\""
+    | .proj _ idx val => return f!"{← ppTypedExpr val}.{idx}"
 
 end
 
@@ -214,41 +217,42 @@ mutual
     else return f!"({← ppTypedExprWith e env})"
 
   /-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
-  private partial def ppTypedExprWith (expr : TypedExpr) (env : Env) : TypecheckM Format :=
-    match expr with
-    | .var _ 0 => return f!"v_0"
-    | .var _ (idx + 1) =>
+  private partial def ppTypedExprWith (t : TypedExpr) (env : Env) : TypecheckM Format :=
+    match t.expr with
+    | .var 0 => return f!"v_0"
+    | .var (idx + 1) =>
       match env.exprs.get? idx with
      | some val => ppValue val.get
      | none => return f!"!_@{idx}!"
-    | .sort _ u => return f!"Sort {ppUniv u}"
-    | .const _ k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}" 
-    | .app _ fnc arg => match fnc with
+    | .sort u => return f!"Sort {ppUniv u}"
+    | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
+    | .app fnc arg => match fnc.expr with
       | .app .. => return f!"{← ppTypedExprWith fnc env} {← parenWith arg env}"
       | _ => return f!"{← parenWith fnc env} {← parenWith arg env}"
     -- | .app _ fnc arg => f!"({← ppTypedExprWith fnc env} {← ppTypedExprWith arg env})"
-    | .lam _ dom bod =>
+    | .lam dom bod =>
       return f!"fun (_ : {← ppTypedExprWith dom env}) =>{indentD (← ppTypedExprWith bod env)}"
-    | .pi _ dom cod =>
+    | .pi dom cod =>
       return f!"(_ : {← ppTypedExprWith dom env}) → {← ppTypedExprWith cod env}"
-    | .letE _ typ val bod => return f!"let _ : {← ppTypedExprWith typ env} := {← ppTypedExprWith val env} in {← ppTypedExprWith bod env}"
-    | .lit _ (.natVal x) => return f!"{x}"
-    | .lit _ (.strVal x) => return f!"\"{x}\""
-    | .proj _ _ idx val => return f!"{← ppTypedExprWith val env}.{idx}"
+    | .letE typ val bod => return f!"let _ : {← ppTypedExprWith typ env} := {← ppTypedExprWith val env} in {← ppTypedExprWith bod env}"
+    | .lit (.natVal x) => return f!"{x}"
+    | .lit (.strVal x) => return f!"\"{x}\""
+    | .proj _ idx val => return f!"{← ppTypedExprWith val env}.{idx}"
+
+  private partial def ppNeutral (neu : Neutral) : TypecheckM Format := match neu with
+    | .fvar idx .. => return f!"fv_{idx}"
+    | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
+    | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
 
   /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
   private partial def ppSpine (neu : Neutral) (args : Args) : TypecheckM Format := do
-    let neu := ← match neu with
-      | .fvar idx .. => return f!"fv_{idx}"
-      | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-      | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
-    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.1.get}") neu args
+    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.get}") (← ppNeutral neu) args
 
   /-- Printer of typechecker values -/
   partial def ppValue (val : Value) : TypecheckM Format :=
     match val with
     | .sort u => return f!"Sort {ppUniv u}"
-    | .app neu args => ppSpine neu args
+    | .app neu args _ => ppSpine neu args
     | .lam dom bod ctx =>
       return f!"fun (_ : {← ppValue dom.get}) =>{indentD (← ppTypedExprWith bod ctx)}"
     | .pi dom cod ctx =>
@@ -267,7 +271,7 @@ def ppTypecheckCtx : TypecheckM Format := do
   let ⟨lvl, env, types, _, _, _, _, _, _, _⟩ ← read
   let env := ← match env with
     | .mk vals us => do
-      let vals : List Value := vals.map fun v => SusValue.get v
+      let vals : List Value := vals.map (·.get)
       let fields := f!"vals := {← vals.mapM ppValue}" ++ line ++ f!"us := {us.map ppUniv}"
       return f!"env with{indentD fields}"
   let types ← types.mapM fun t => ppValue t.get

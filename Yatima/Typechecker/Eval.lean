@@ -106,12 +106,9 @@ def getCtorFromProj : ConstructorProj → TypecheckM Constructor
 
 def getRecrFromProj : RecursorProj → TypecheckM Recursor
   | ⟨indBlockF, idx, ridx⟩ => do
-    -- dbg_trace s!">> getRecrFromProj"
     let ind ← getIndFromProj ⟨indBlockF, idx⟩
-    -- dbg_trace s!"{PP.ppInductive ind}"
     let some recr := ind.recrs.get? ridx
       | throw s!"Inductive doesn't contain recursor with index {ridx}"
-    -- dbg_trace s!"{PP.ppRecursor recr}"
     pure recr
 
 namespace Const
@@ -146,6 +143,15 @@ end IR
 
 namespace Typechecker
 
+def TypeInfo.update (univs : List Univ) : TypeInfo → TypeInfo
+| .sort lvl => match lvl.instBulkReduce univs with
+  | .zero => .prop
+  | _ => .none
+| .unit  => .unit
+| .proof => .proof
+| .prop  => .prop
+| .none  => .none
+
 open PP
 
 mutual
@@ -156,44 +162,40 @@ mutual
   evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
   and evaluating a projection.
   -/
-  partial def eval : TypedExpr → TypecheckM Value
-    | .app i fnc arg => do
+  partial def eval (t : TypedExpr) : TypecheckM Value := match t.expr with
+    | .app fnc arg => do
       let ctx ← read
       let argThunk := suspend arg ctx (← get)
-      let fnc ← eval fnc
-      apply fnc argThunk (i.update ctx.env.univs)
-    | .lam _ dom bod => do
+      let fnc ← evalTyped fnc
+      apply fnc argThunk
+    | .lam dom bod => do
       let ctx ← read
       let dom' := suspend dom ctx (← get)
       pure $ .lam dom' bod ctx.env
-    | .var _ idx => do
+    | .var idx => do
       let some thunk := (← read).env.exprs.get? idx
         | throw s!"Index {idx} is out of range for expression environment"
       pure $ thunk.get
-    | .const _ f const_univs => do
-      -- dbg_trace s!">> eval"
-      -- dbg_trace s!"const_univs: {const_univs.map PP.ppUniv}"
+    | .const f const_univs => do
       let env := (← read).env
-      -- dbg_trace s!"env.univs: {env.univs.map PP.ppUniv}"
       let const_univs := const_univs.map (Univ.instBulkReduce env.univs)
-      -- dbg_trace s!"new const_univs: {const_univs.map PP.ppUniv}"
       evalConst f const_univs
-    | .letE _ _ val bod => do
+    | .letE _ val bod => do
       let thunk := suspend val (← read) (← get)
       withExtendedEnv thunk (eval bod)
-    | .pi _ dom img => do
+    | .pi dom img => do
       let ctx ← read
       let dom' := suspend dom ctx (← get)
       pure $ .pi dom' img ctx.env
-    | .sort _ univ => do
+    | .sort univ => do
       let env := (← read).env
       pure $ .sort (Univ.instBulkReduce env.univs univ)
-    | .lit _ lit =>
+    | .lit lit =>
       pure $ .lit lit
-    | .proj _ ind idx expr => do
+    | .proj ind idx expr => do
       let val ← eval expr
       match val with
-      | .app (.const f _) args =>
+      | .app (.const f _) args _ =>
         match derefConst f (← read).store with
         | .constructorProj p =>
           let ctor ← getCtorFromProj p
@@ -202,10 +204,16 @@ mutual
           let idx := ctor.params + idx
           let some arg := args.reverse.get? idx
             | throw s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
-          pure $ arg.1.get
-        | _ => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
-      | .app .. => pure $ .app (.proj ind idx (.mk (expr.info.update (← read).env.univs) val)) []
+          pure $ arg.get
+        | _ => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
+      | .app .. => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
       | e => throw s!"Value {← ppValue e} is impossible to project"
+
+  @[inline]
+  partial def evalTyped (t : TypedExpr) : TypecheckM TypedValue := do
+    let reducedInfo := t.info.update (← read).env.univs
+    let value ← eval t
+    pure ⟨reducedInfo, value⟩
 
   partial def evalConst' (f : F) (univs : List Univ) : TypecheckM Value := do
     match derefConst f (← read).store with
@@ -225,15 +233,6 @@ mutual
     else if (← fPrim const) matches .some (.op _) then pure $ mkConst const univs
     else evalConst' const univs
 
-  partial def SusTypeInfo.update (univs : List Univ) : SusTypeInfo → TypeInfo
-  | .sort lvl => match lvl.instBulkReduce univs with
-    | .zero => .prop
-    | _ => .none
-  | .unit  => .unit
-  | .proof => .proof
-  | .prop  => .prop
-  | .none  => .none
-
   /--
   Suspends the evaluation of a Yatima expression `expr : TypedExpr` in a particular `ctx : TypecheckCtx`
 
@@ -242,11 +241,11 @@ mutual
   partial def suspend (expr : TypedExpr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
     let thunk := { fn := fun _ =>
       match TypecheckM.run ctx stt (eval expr) with
-      | .ok a => 
-        -- dbg_trace s!">> suspend with:\n{ppTypecheckCtx ctx}\nres: {expr} ↦ {a}"
+      | .ok a =>
         a
       | .error e => .exception e }
-    .mk (expr.info.update ctx.env.univs) thunk
+    let reducedInfo := expr.info.update ctx.env.univs
+    ⟨reducedInfo, thunk⟩
 
   /--
   Applies `value : Value` to the argument `arg : SusValue`.
@@ -258,13 +257,15 @@ mutual
   * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
   * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
   -/
-  partial def apply (value : Value) (arg : SusValue) (i : TypeInfo) : TypecheckM Value :=
-    match value with
+  partial def apply (val : TypedValue) (arg : SusValue) : TypecheckM Value :=
+    match val.value with
     | .lam _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
-    | .app (.const f kUnivs) args => applyConst f kUnivs arg args i
-    | .app var@(.fvar ..) args => pure $ .app var ((arg, i) :: args)
-    | .app proj@(.proj ..) args => pure $ .app proj ((arg, i) :: args)
+    | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args val.info infos
+    -- Note that `val.info` is being added to the `infos` field of the `app` nodes because it is the info
+    -- of the former partial application. That's because a stuck application like `h a1 .. an a(n+1)` must
+    -- hold the info of the sub stuck application `h a1 .. an` for quoting to be done correctly
+    | .app neu args infos => pure $ .app neu (arg :: args) (val.info :: infos)
     -- Since terms are well-typed we know that any other case is impossible
     | _ => throw "Invalid case for apply"
 
@@ -275,30 +276,31 @@ mutual
   The application of the constant is split into cases on whether it is an inductive recursor,
   a quotient, or any other constant (which returns an unreduced application)
    -/
-  partial def applyConst (f : F) (univs : List Univ)
-      (arg : SusValue) (args : Args) (info : TypeInfo) : TypecheckM Value := do
-    -- dbg_trace s!">> applyConst {PP.getF f}"
+  partial def applyConst (f : F) (univs : List Univ) (arg : SusValue) (args : List SusValue)
+      (info : TypeInfo) (infos : List TypeInfo) : TypecheckM Value := do
     if let some $ .op p ← fPrim f then
-      let newArgs := args.cons (arg, info)
       if args.length < p.numArgs - 1 then
-        pure $ .app (.const f univs) $ newArgs
+        pure $ .app (.const f univs) (arg :: args) (info :: infos)
       else
         let op := p.toPrimOp
-        let argsArr := (Array.mk newArgs).reverse
-        match ← op.op $ argsArr.map (·.1) with
+        let argsArr := (Array.mk $ arg :: args).reverse
+        match ← op.op $ argsArr with
         | .some v => pure v
         | .none =>
           if p.reducible then
-            argsArr.foldlM (init := ← evalConst' f univs)
-              fun acc (arg, info) => apply acc arg info
-          else pure $ .app (.const f univs) newArgs
+            let typArgs := (info :: infos).zip (arg :: args)
+            typArgs.foldrM (init := ← evalConst' f univs)
+              fun (info, arg) acc => apply ⟨info, acc⟩ arg
+          else pure $ .app (.const f univs) (arg :: args) (info :: infos)
+
     -- Assumes a partial application of f to args, which means in particular,
     -- that it is in normal form
     else match ← derefTypedConst f with
     | .recursor _ params motives minors indices isK indProj rules =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
-        pure $ .app (.const f univs) ((arg, info) :: args)
+        -- TODO
+        pure $ .app (.const f univs) (arg :: args) (info :: infos)
       else if isK then
         -- sanity check
         let nArgs := args.length
@@ -307,11 +309,11 @@ mutual
           throw s!"Too few arguments ({nArgs}). At least {nDrop} needed"
         let minorIdx := nArgs - nDrop
         let some minor := args.get? minorIdx | throw s!"Index {minorIdx} is out of range"
-        pure minor.1.get
+        pure minor.get
       else
         let params := args.take params
-        match ← toCtorIfLitOrStruct indProj (params.map (·.1)) univs arg with
-        | .app (Neutral.const f _) args' => match ← derefTypedConst f with
+        match ← toCtorIfLitOrStruct indProj params univs arg with
+        | .app (Neutral.const f _) args' _ => match ← derefTypedConst f with
           | .constructor _ idx _ =>
             -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
             match rules.get? idx with
@@ -321,30 +323,30 @@ mutual
             -- Since we assume expressions are previously type checked, we know that this constructor
             -- must have an associated recursion rule
             | none => throw s!"Constructor {f} has no associated recursion rule"
-          | _ => pure $ .app (Neutral.const f univs) ((arg, info) :: args)
-        | _ => pure $ .app (Neutral.const f univs) ((arg, info) :: args)
+          | _ => pure $ .app (Neutral.const f univs) (arg :: args) (info :: infos)
+        | _ => pure $ .app (Neutral.const f univs) (arg :: args) (info :: infos)
     | .quotient _ kind => match kind with
-      | .lift => applyQuot arg args 6 1 (.app (Neutral.const f univs) ((arg, info) :: args)) info
-      | .ind  => applyQuot arg args 5 0 (.app (Neutral.const f univs) ((arg, info) :: args)) info
-      | _ => pure $ .app (Neutral.const f univs) ((arg, info) :: args)
-    | _ => pure $ .app (Neutral.const f univs) ((arg, info) :: args)
+      | .lift => applyQuot arg args 6 1 (.app (.const f univs) (arg :: args) (info :: infos))
+      | .ind  => applyQuot arg args 5 0 (.app (.const f univs) (arg :: args) (info :: infos))
+      | _ => pure $ .app (.const f univs) (arg :: args) (info :: infos)
+    | _ => pure $ .app (.const f univs) (arg :: args) (info :: infos)
 
   /--
   Applies a quotient to a value. It might reduce if enough arguments are applied to it
   -/
-  partial def applyQuot (major? : SusValue) (args : Args)
-      (reduceSize argPos : Nat) (default : Value) (info : TypeInfo) : TypecheckM Value :=
+  partial def applyQuot (major? : SusValue) (args : List SusValue)
+      (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
       match major?.get with
-      | .app (.const majorFn _) majorArgs => do
+      | .app (.const majorFn _) majorArgs _ => do
         match ← derefTypedConst majorFn with
         | .quotient _ .ctor =>
           -- Sanity check (`majorArgs` should have size 3 if the typechecking is correct)
           if majorArgs.length != 3 then throw "majorArgs should have size 3"
           let some majorArg := majorArgs.head? | throw "majorArgs can't be empty"
           let some head := args.get? argPos | throw s!"{argPos} is an invalid index for args"
-          apply head.1.get majorArg.1 info
+          apply head.getTyped majorArg
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
@@ -354,15 +356,14 @@ mutual
 
   partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
     | .mk info thunk =>
-
       match thunk.get with
       | .lit (.natVal v) => do
         let zeroIdx ← primF .natZero
         let succIdx ← primF (.op .natSucc)
         if v == 0 then pure $ mkConst zeroIdx []
         else
-          let thunk := SusValue.mk info (Value.lit (.natVal (v-1)))
-          pure $ .app (.const succIdx []) [(thunk, .none)]
+          let thunk : SusValue := ⟨info, Value.lit $ .natVal (v-1)⟩
+          pure $ .app (.const succIdx []) [thunk] [.none]
       | .lit (.strVal _) => throw "TODO Reduction of string"
       | e => do match indProj with
         | ⟨f, i⟩ =>
@@ -381,25 +382,22 @@ mutual
               for idx in [:ctor.fields] do
                 -- FIXME get the correct TypeInfo for the projection
                 projArgs := projArgs ++ [.mk .none $ .mk fun _ =>
-                  .app (.proj (mkInductiveProjF f i quick) idx $ .mk info e) []]
-              let mut annotatedArgs := []
+                  .neu (.proj (mkInductiveProjF f i quick) idx $ .mk info e)]
               let len := projArgs.length
-              if h : len > 0 then do
+              if h : len > 0 then
                 let lastIdx := len.pred
                 let lastArg := projArgs.get ⟨lastIdx, Nat.pred_lt' h⟩
-                annotatedArgs := projArgs.take lastIdx |>.map (·, .none)
-                annotatedArgs := annotatedArgs ++ [(lastArg, info)]
-              pure $ .app (.const ctorF univs) $ annotatedArgs
+                let annotatedArgs := projArgs.take lastIdx ++ [lastArg]
+                pure $ .app (.const ctorF univs) annotatedArgs $ annotatedArgs.map (fun _ => .none)
+              else
+                pure $ .neu (.const ctorF univs)
             match e with
-            | .app (.const f _) _ =>
-              --dbg_trace s!"constant head: {n}, {idx}, {ctorIdx}"
+            | .app (.const f _) _ _ =>
               -- FIXME do not `etaExpand` if the struct is in `Prop`
               if ctorF == f then
-                --dbg_trace s!"not eta-expanding..."
                 -- this is already a constructor application
                 pure e
-              else 
-                --dbg_trace s!"eta-expanding..."
+              else
                 etaExpand e
             | _ => etaExpand e
           else
@@ -411,71 +409,77 @@ mutual
   Quoting transforms a value into a (typed) expression. It is the right-inverse of evaluation:
   evaluating a quoted value results in the value itself.
   -/
-  partial def quote (lvl : Nat) (info : SusTypeInfo) (env : Env) : Value → TypecheckM TypedExpr
-    | .sort univ => pure $ .sort info (univ.instBulkReduce env.univs)
-    | .app neu args => do
-      -- FIXME a proper fix here would be to recast
-      -- | app : Neutral → List (SusValue × TypeInfo) → Value
-      -- as
-      -- | app : (Neutral × TypeInfo) → List (SusValue × TypeInfo) → Value
-      let info := if args.length == 0 then info else default
-      args.foldrM (init := ← quoteNeutral lvl info env neu) fun arg acc => do
-        pure $ .app arg.2.toSus acc $ ← quote lvl arg.1.info.toSus env arg.1.get
+  partial def quote (lvl : Nat) (env : Env) : Value → TypecheckM Expr
+    | .sort univ => pure $ .sort (univ.instBulkReduce env.univs)
+    | .app neu args infos => do
+      -- Sanity check: `args` and `infos` should have the same size
+      if args.tail.length != infos.tail.length then throw "Partial application does not have enough info"
+      let argsInfos := args.zip infos
+      argsInfos.foldrM (init := ← quoteNeutral lvl env neu) fun (arg, info) acc => do
+        pure $ .app ⟨info, acc⟩ $ ← quoteTyped lvl env arg.getTyped
     | .lam dom bod env' => do
-      let dom ← quote lvl dom.info.toSus env dom.get
+      let dom ← quoteTyped lvl env dom.getTyped
       -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value
       let var := mkSusVar default lvl
-      let bod ← quoteExpr (lvl+1) bod (env'.extendWith var)
-      pure $ .lam info dom bod
+      let bod ← quoteTypedExpr (lvl+1) bod (env'.extendWith var)
+      pure $ .lam dom bod
     | .pi dom img env' => do
-      let dom ← quote lvl dom.info.toSus env dom.get
+      let dom ← quoteTyped lvl env dom.getTyped
       let var := mkSusVar default lvl
-      let img ← quoteExpr (lvl+1) img (env'.extendWith var)
-      pure $ .pi info dom img
-    | .lit lit => pure $ .lit info lit
+      let img ← quoteTypedExpr (lvl+1) img (env'.extendWith var)
+      pure $ .pi dom img
+    | .lit lit => pure $ .lit lit
     | .exception e => throw e
 
-  partial def quoteExpr (lvl : Nat) (expr : TypedExpr) (env : Env) : TypecheckM TypedExpr :=
+  @[inline]
+  partial def quoteTyped (lvl : Nat) (env : Env) (val : TypedValue) : TypecheckM TypedExpr := do
+    pure ⟨val.info, ← quote lvl env val.value⟩
+
+  partial def quoteExpr (lvl : Nat) (expr : Expr) (env : Env) : TypecheckM Expr :=
     match expr with
-    | .var info idx => do
+    | .var idx => do
       match env.exprs.get? idx with
       -- NOTE: if everything is correct, then `info` should coincide with `val.info`. We will choose `info` since
       -- this allows us to add values to the environment without knowing which `TypeInfo` it should take. See their
       -- previous note
-     | some val => quote lvl info env val.get
+     | some val => quote lvl env val.get
      | none => throw s!"Unbound variable _@{idx}"
-    | .app info fnc arg => do
-      let fnc ← quoteExpr lvl fnc env
-      let arg ← quoteExpr lvl arg env
-      pure $ .app info fnc arg
-    | .lam info dom bod => do
-      let dom ← quoteExpr lvl dom env
+    | .app fnc arg => do
+      let fnc ← quoteTypedExpr lvl fnc env
+      let arg ← quoteTypedExpr lvl arg env
+      pure $ .app fnc arg
+    | .lam dom bod => do
+      let dom ← quoteTypedExpr lvl dom env
       let var := mkSusVar default lvl
-      let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
-      pure $ .lam info dom bod
-    | .letE info typ val bod => do
-      let typ ← quoteExpr lvl typ env
-      let val ← quoteExpr lvl val env
+      let bod ← quoteTypedExpr (lvl+1) bod (env.extendWith var)
+      pure $ .lam dom bod
+    | .letE typ val bod => do
+      let typ ← quoteTypedExpr lvl typ env
+      let val ← quoteTypedExpr lvl val env
       let var := mkSusVar default lvl
-      let bod ← quoteExpr (lvl+1) bod (env.extendWith var)
-      pure $ .letE info typ val bod
-    | .pi info dom img => do
-      let dom ← quoteExpr lvl dom env
+      let bod ← quoteTypedExpr (lvl+1) bod (env.extendWith var)
+      pure $ .letE typ val bod
+    | .pi dom img => do
+      let dom ← quoteTypedExpr lvl dom env
       let var := mkSusVar default lvl
-      let img ← quoteExpr (lvl+1) img (env.extendWith var)
-      pure $ .pi info dom img
-    | .proj info ind idx expr => do
-      let expr ← quoteExpr lvl expr env
-      pure $ .proj info ind idx expr
-    | .const info idx univs => pure $ .const info idx (univs.map (Univ.instBulkReduce env.univs))
-    | .sort info univ => pure $ .sort info (univ.instBulkReduce env.univs)
+      let img ← quoteTypedExpr (lvl+1) img (env.extendWith var)
+      pure $ .pi dom img
+    | .proj ind idx expr => do
+      let expr ← quoteTypedExpr lvl expr env
+      pure $ .proj ind idx expr
+    | .const idx univs => pure $ .const idx (univs.map (Univ.instBulkReduce env.univs))
+    | .sort univ => pure $ .sort (univ.instBulkReduce env.univs)
     | .lit .. => pure expr
 
-  partial def quoteNeutral (lvl : Nat) (info : SusTypeInfo) (env : Env) : Neutral → TypecheckM TypedExpr
-    | .fvar  idx => pure $ .var info (lvl - idx - 1)
-    | .const cidx univs => pure $ .const info cidx (univs.map (Univ.instBulkReduce env.univs))
+  @[inline]
+  partial def quoteTypedExpr (lvl : Nat) (t : TypedExpr) (env : Env) : TypecheckM TypedExpr := do
+    pure ⟨t.info, ← quoteExpr lvl t.expr env⟩
+
+  partial def quoteNeutral (lvl : Nat) (env : Env) : Neutral → TypecheckM Expr
+    | .fvar  idx => pure $ .var (lvl - idx - 1)
+    | .const cidx univs => pure $ .const cidx (univs.map (Univ.instBulkReduce env.univs))
     | .proj  f ind val => do
-      pure $ .proj info f ind (← quote lvl val.info.toSus env val.value)
+      pure $ .proj f ind (← quoteTyped lvl env val)
 end
 
 end Yatima.Typechecker

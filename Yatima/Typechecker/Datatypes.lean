@@ -19,48 +19,46 @@ open IR
 open Lurk (F)
 
 /--
-  The type info is a simplified form of the value's type, with only relevant
+  The type info is a simplified form of the expression's type, with only relevant
   information for conversion checking, in order to get proof irrelevance and equality
-  of unit-like values.
+  of unit-like values. Because of type preservation, a value will have the same info
+  as the unevaluated expression inside the environment.
 
   - `unit` tells us that the expression's type is unit-like
   - `proof` tells us that the expression's type is a proposition (belong to `Prop`)
-  - `prop` tells us that the expression's type is `Prop` itself
+  - `sort` tells us that the expression's type itself is a `Sort u`
+
+  When used in expressions, `sort`s can have uninstantiated and unreduced universes.
+  When used in values, `sort`s will have only reduced and instantiated universes.
 -/
 inductive TypeInfo
   | unit | proof | prop | none
+  | sort : Univ → TypeInfo
   deriving BEq, Inhabited, Repr
 
 /--
-  A "suspended" version of `TypeInfo` with a `sort` enum that accepts a universe
-  level pending instantiation. This is used in situations where we don't have enough
-  information yet to know whether an expression should be tagged with `TypeInfo.prop`
-  (i.e. Sort 0), for example in the types of universe-polymorphic constants.
+  Auxiliary structure to add type info to values
 -/
-inductive SusTypeInfo
-  | unit | proof | prop | none
-  | sort : Univ → SusTypeInfo
-  deriving BEq, Inhabited, Repr
-
-def TypeInfo.toSus : TypeInfo → SusTypeInfo
-  | .unit  => .unit
-  | .proof => .proof
-  | .prop  => .prop
-  | .none  => .none
-
-/-- Representation of expressions for evaluation -/
-inductive TypedExpr
-  | var   : SusTypeInfo → Nat → TypedExpr
-  | sort  : SusTypeInfo → Univ → TypedExpr
-  -- NOTE: F here represents a hash of a normal `IR.Const`, as that is how we index into `TypecheckState.typedConsts`
-  | const : SusTypeInfo → F → List Univ → TypedExpr
-  | app   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
-  | lam   : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
-  | pi    : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr
-  | letE  : SusTypeInfo → TypedExpr → TypedExpr → TypedExpr → TypedExpr
-  | lit   : SusTypeInfo → Literal → TypedExpr
-  | proj  : SusTypeInfo → F → Nat → TypedExpr → TypedExpr
+structure AddInfo (Body : Type) where
+  info : TypeInfo
+  body : Body
   deriving BEq, Inhabited
+
+inductive Expr
+  | var   : Nat → Expr
+  | sort  : Univ → Expr
+  -- NOTE: F here represents a hash of a normal `IR.Const`, as that is how we index into `TypecheckState.typedConsts`
+  | const : F → List Univ → Expr
+  | app   : AddInfo Expr → AddInfo Expr → Expr
+  | lam   : AddInfo Expr → AddInfo Expr → Expr
+  | pi    : AddInfo Expr → AddInfo Expr → Expr
+  | letE  : AddInfo Expr → AddInfo Expr → AddInfo Expr → Expr
+  | lit   : Literal → Expr
+  | proj  : F → Nat → AddInfo Expr → Expr
+  deriving BEq, Inhabited
+
+/-- Typed expressions are expressions that have been processed by the typechecker -/
+abbrev TypedExpr := AddInfo Expr
 
 /--
 Remove all binders from an expression, converting a lambda into
@@ -68,7 +66,7 @@ an "implicit lambda". This is useful for constructing the `rhs` of
 recursor rules.
 -/
 def TypedExpr.toImplicitLambda : TypedExpr → TypedExpr
-  | .lam _ _ body => toImplicitLambda body
+  | .mk _ (.lam _ body) => toImplicitLambda body
   | x => x
 
 inductive TypedConst
@@ -92,6 +90,11 @@ def TypedConst.type : TypedConst → TypedExpr
   | recursor    type ..
   | quotient    type .. => type
 
+structure Env' (SusValue : Type) where
+  exprs : List SusValue
+  univs : List Univ
+  deriving Inhabited
+
 mutual
   /--
   Values are the final result of the evaluation of well-typed expressions under a well-typed
@@ -103,51 +106,20 @@ mutual
     | sort : Univ → Value
     /-- Values can only be an application if its a stuck application. That is, if
     the head of the application is neutral.
-    For `Value.app neu [(a_1, ti_1), (a_2, ti_2), ... (a_n, ti_n)]`,
-    `ti_i` representst the `TypeInfo` of the partial application thus far (`neu a_1 a_2 ... a_i`);
-    this preserves information necessary to implement the quoting (i.e. read-back)
-    functionality that is used in lambda inference -/
-    | app : Neutral → List (SusValue × TypeInfo) → Value
+    We also keep the `TypeInfo` of each subapplication (`neu a_1 a_2 ... a_i`), for
+    i = 0, .. , n-1; this preserves information necessary to implement the quoting
+    (i.e. read-back) functionality that is used in lambda inference -/
+    | app : Neutral → List (AddInfo (Thunk Value)) → List TypeInfo → Value
     /-- Lambdas are unevaluated expressions with environments for their free
     variables apart from their argument variables -/
-    | lam : SusValue → TypedExpr → Env → Value
+    | lam : AddInfo (Thunk Value) → TypedExpr → Env' (AddInfo (Thunk Value)) → Value
     /-- Pi types will have thunks for their domains and unevaluated expressions
     analogous to lambda bodies for their codomains -/
-    | pi : SusValue → TypedExpr → Env → Value
+    | pi : AddInfo (Thunk Value) → TypedExpr → Env' (AddInfo (Thunk Value)) → Value
     | lit : Literal → Value
     -- An exception constructor is used to catch bugs in the evaluator/typechecker
     | exception : String → Value
     deriving Inhabited
-
-  inductive TypedValue
-    | mk : TypeInfo → Value → TypedValue
-
-  /--
-  Suspended values are thunks that return a value. For optimization purposes, the value's
-  `TypeInfo`, which by type preservation comes from the underlying expression that gave
-  rise to this value by means of evaluation, is saved outside the thunk, instead of in
-  the values themselves. This allows us to extract it without needing to force the thunk.
-  -/
-  inductive SusValue
-    | mk : TypeInfo → Thunk Value → SusValue
-
-  /--
-  The environment will bind free variables to different things, depending on
-  the evaluation strategy:
-
-  1) Strict evaluation: binds free variables to values
-  2) Non-strict evaluation: binds free variables to unevaluated expressions
-  3) Lazy evaluation (i.e. non-strict without duplication of work): binds free variables to thunks
-
-  Here we chose lazy evaluation since it is more efficient for typechecking.
-
-  Since we also have universes with free variables, we need to add a environment
-  for universe variables as well
-  -/
-  inductive Env
-    | mk : List SusValue → List Univ → Env
-    deriving Inhabited
-
   /--
   A neutral term is either a variable or a constant with not enough arguments to
   reduce. They appear as the head of a stuck application.
@@ -155,48 +127,55 @@ mutual
   inductive Neutral
     | fvar  : Nat → Neutral
     | const : F → List Univ → Neutral
-    | proj  : F → Nat → TypedValue → Neutral
+    | proj  : F → Nat → AddInfo Value → Neutral
     deriving Inhabited
 
 end
 
-/-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
-abbrev Args := List (SusValue × TypeInfo)
+abbrev TypedValue := AddInfo Value
 
-instance : Coe Args (List SusValue) where
-  coe := fun args => args.map (·.1)
+/--
+Suspended values are thunks that return a value. For optimization purposes, the value's
+`TypeInfo`, which by type preservation comes from the underlying expression that gave
+rise to this value by means of evaluation, is saved outside the thunk, instead of in
+the values themselves. This allows us to extract it without needing to force the thunk.
+-/
+abbrev SusValue := AddInfo (Thunk Value)
+
+/--
+The environment will bind free variables to different things, depending on
+the evaluation strategy:
+
+1) Strict evaluation: binds free variables to values
+2) Non-strict evaluation: binds free variables to unevaluated expressions
+3) Lazy evaluation (i.e. non-strict without duplication of work): binds free variables to thunks
+
+Here we chose lazy evaluation since it is more efficient for typechecking.
+
+Since we also have universes with free variables, we need to add a environment
+for universe variables as well
+-/
+abbrev Env := Env' SusValue
+
+/-- The arguments of a stuck sequence of applications `(h a1 ... an)` -/
+abbrev Args := List SusValue
 
 instance : Inhabited SusValue where
   default := .mk default {fn := default}
 
-def TypedExpr.info : TypedExpr → SusTypeInfo
-| var   info ..
-| sort  info ..
-| const info ..
-| app   info ..
-| lam   info ..
-| pi    info ..
-| letE  info ..
-| lit   info ..
-| proj  info .. => info
+-- Auxiliary functions
+namespace AddInfo
 
-def SusValue.info : SusValue → TypeInfo
-| .mk info _ => info
+def expr (t : TypedExpr) : Expr := t.body
+def thunk (sus : SusValue) : Thunk Value := sus.body
+def get (sus : SusValue) : Value := sus.body.get
+def getTyped (sus : SusValue) : TypedValue := ⟨sus.info, sus.body.get⟩
+def value (val : TypedValue) : Value := val.body
+def sus (val : TypedValue) : SusValue := ⟨val.info, val.body⟩
 
-def SusValue.thunk : SusValue → Thunk Value
-| .mk _ thunk => thunk
+end AddInfo
 
-def SusValue.get : SusValue → Value
-| .mk _ thunk => thunk.get
-
-def TypedValue.info : TypedValue → TypeInfo
-| .mk info _ => info
-
-def TypedValue.value : TypedValue → Value
-| .mk _ val => val
-
-def TypedValue.sus : TypedValue → SusValue
-| .mk info val => .mk info val
+def Value.neu (neu : Neutral) : Value := .app neu [] []
 
 def Value.ctorName : Value → String
   | .sort      .. => "sort"
@@ -211,15 +190,7 @@ def Neutral.ctorName : Neutral → String
   | .const .. => "const"
   | .proj  .. => "proj"
 
-namespace Env
-/-- Gets the list of expressions from a environment -/
-def exprs : Env → List SusValue
-  | .mk l _ => l
-
-/-- Gets the list of universes from a environment -/
-def univs : Env → List Univ
-  | .mk _ l => l
-
+namespace Env'
 /-- Stacks a new expression in the environment -/
 def extendWith (env : Env) (thunk : SusValue) : Env :=
   .mk (thunk :: env.exprs) env.univs
@@ -228,15 +199,15 @@ def extendWith (env : Env) (thunk : SusValue) : Env :=
 def withExprs (env : Env) (exprs : List SusValue) : Env :=
   .mk exprs env.univs
 
-end Env
+end Env'
 
 /-- Creates a new constant with a name, a constant index and an universe list -/
 def mkConst (f : F) (univs : List Univ) : Value :=
-  .app (.const f univs) []
+  .neu (.const f univs)
 
 /-- Creates a new variable as a thunk -/
 def mkSusVar (info : TypeInfo) (idx : Nat) : SusValue :=
-  .mk info (.mk fun _ => .app (.fvar idx) [])
+  .mk info (.mk fun _ => .neu (.fvar idx))
 
 inductive PrimConstOp
   | natAdd | natMul | natPow | natBeq | natBle | natBlt  | natSucc
