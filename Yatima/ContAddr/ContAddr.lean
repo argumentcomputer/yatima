@@ -102,7 +102,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
         | .quotInfo val =>
           pure $ .quotient ⟨val.levelParams.length, ← contAddrExpr val.type, val.kind⟩
       let hash ← commit obj
-      addToEnv const.name hash
+      addConstToEnv const.name hash
       return hash
 
 partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F := do
@@ -110,7 +110,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
   if struct.all matches [_] then
     let hash ← commit $ .definition
       (← withRecrs (.single struct.name 0) $ definitionToIR struct)
-    addToEnv struct.name hash
+    addConstToEnv struct.name hash
     return hash
 
   -- Collecting and sorting all definitions in the mutual block
@@ -132,6 +132,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
   let definitionsIr := (definitions.map (match ·.head? with
     | some d => [d] | none => [])).join
   let blockHash ← commit $ .mutDefBlock definitionsIr
+  addBlockToEnv blockHash
 
   -- While iterating on the definitions from the mutual block, we need to track
   -- the correct objects to return
@@ -142,7 +143,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
     -- Also adds the constant to the array of constants
     let some idx := recrCtx.find? name | throw $ .cantFindMutDefIndex name
     let hash ← commit $ .definitionProj ⟨blockHash, idx⟩
-    addToEnv name hash
+    addConstToEnv name hash
     if struct.name == name then ret? := some hash
 
   match ret? with
@@ -191,6 +192,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     | .inductInfo ind => withRecrs recrCtx do pure $ (← inductiveToIR ind)
     | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
   let blockHash ← commit $ .mutIndBlock irInds
+  addBlockToEnv blockHash
 
   -- While iterating on the inductives from the mutual block, we need to track
   -- the correct objects to return
@@ -199,7 +201,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     -- Store and cache inductive projections
     let name := indName
     let hash ← commit $ .inductiveProj ⟨blockHash, indIdx⟩
-    addToEnv name hash
+    addConstToEnv name hash
     if name == initInd.name then ret? := some hash
 
     let some (ctors, recrs) := nameData.find? indName 
@@ -208,12 +210,12 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     for (ctorIdx, ctorName) in ctors.enum do
       -- Store and cache constructor projections
       let hashes ← commit $ .constructorProj ⟨blockHash, indIdx, ctorIdx⟩
-      addToEnv ctorName hashes
+      addConstToEnv ctorName hashes
 
     for (recrIdx, recrName) in recrs.enum do
       -- Store and cache recursor projections
       let hashes ← commit $ .recursorProj ⟨blockHash, indIdx, recrIdx⟩
-      addToEnv recrName hashes
+      addConstToEnv recrName hashes
 
   match ret? with
   | some ret => return ret

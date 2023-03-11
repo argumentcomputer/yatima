@@ -162,14 +162,21 @@ instance : Encodable Const LightData where
     | .cell #[false, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for IR.Const: {x}"
 
-instance [h : Encodable (Array (α × β)) LightData] [Ord α] :
+instance [Encodable (Array (α × β)) LightData] [Ord α] :
     Encodable (Std.RBMap α β compare) LightData where
-  encode x := h.encode $ x.foldl (·.push (·, ·)) #[]
+  encode x := (x.foldl (·.push (·, ·)) #[] : Array (α × β))
+  decode x := return .ofArray (← dec x) _
+
+instance [Encodable (Array α) LightData] [Ord α] :
+    Encodable (Std.RBSet α compare) LightData where
+  encode x := (x.foldl (·.push ·) #[] : Array α)
   decode x := return .ofArray (← dec x) _
 
 instance : Encodable IR.Env LightData where
-  encode x := x.consts
-  decode x := return ⟨← dec x⟩
+  encode | ⟨x, y⟩ => .cell #[x, y]
+  decode
+    | .cell #[x, y] => return ⟨← dec x, ← dec y⟩
+    | x => throw s!"Invalid encoding for IR.Definition: {x}"
 
 section LDON
 

@@ -66,8 +66,12 @@ def commit (const : Const) : ContAddrM Lurk.F := do
         commits := stt.commits.insert const hash
         ldonHashState := encStt })
 
-@[inline] def addToEnv (name : Name) (hash : Lurk.F) : ContAddrM Unit :=
+@[inline] def addConstToEnv (name : Name) (hash : Lurk.F) : ContAddrM Unit :=
   modify fun stt => { stt with env := { stt.env with
     consts := stt.env.consts.insert name hash } }
+
+@[inline] def addBlockToEnv (hash : Lurk.F) : ContAddrM Unit :=
+  modify fun stt => { stt with env := { stt.env with
+    blocks := stt.env.blocks.insert hash } }
 
 end Yatima.ContAddr

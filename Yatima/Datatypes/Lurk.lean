@@ -116,4 +116,39 @@ def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
 
 abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
 
+structure ExtractCtx where
+  store   : Store
+  visited : RBSet ScalarPtr compare
+  deriving Inhabited
+
+abbrev ExtractM := ReaderT ExtractCtx $ ExceptT String $ StateM Store
+
+@[inline] def withVisited (ptr : ScalarPtr) : ExtractM α → ExtractM α :=
+  withReader fun ctx => { ctx with visited := ctx.visited.insert ptr }
+
+partial def loadExprs (ptr : ScalarPtr) : ExtractM Unit := do
+  if (← get).contains ptr then return
+  if (← read).visited.contains ptr then throw s!"Cycle detected at {repr ptr}"
+  else withVisited ptr do
+    match (← read).store.find? ptr with
+    | none => throw s!"{repr ptr} not found"
+    | some none => modify (·.insert ptr none)
+    | some $ some expr =>
+      modify (·.insert ptr (some expr))
+      match expr with
+      | .cons x y | .strCons x y | .symCons x y => loadExprs x; loadExprs y
+      | .comm f x =>
+        if f != ptr.val then throw s!"Inconsistent comm pointer: {repr ptr}"
+        else loadExprs x
+      | _ => pure ()
+
+def loadComms (comms : Array F) : ExtractM Unit :=
+  comms.forM (loadExprs ⟨.comm, ·⟩)
+
+def LDONHashState.extractComms (stt : LDONHashState) (comms : Array F) :
+    Except String Store :=
+  match StateT.run (ReaderT.run (loadComms comms) ⟨stt.exprs, default⟩) default with
+  | (.ok _, store) => return store
+  | (.error e, _) => throw e
+
 end Lurk
