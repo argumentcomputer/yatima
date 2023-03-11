@@ -207,7 +207,8 @@ mutual
             | throw s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
           pure $ arg.get
         | _ => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
-      | .app ..  => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
+      | .neu ..
+      | .app .. => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
       | e => throw s!"Value {← ppValue e} is impossible to project"
 
   @[inline]
