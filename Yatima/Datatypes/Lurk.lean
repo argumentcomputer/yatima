@@ -41,6 +41,9 @@ structure ScalarPtr where
   val : F
   deriving Ord, Repr
 
+@[inline] def ScalarPtr.isImmediate (ptr : ScalarPtr) : Bool :=
+  ptr matches ⟨.num, _⟩ | ⟨.char, _⟩ | ⟨.str, F.zero⟩ | ⟨.sym, F.zero⟩
+
 inductive ScalarExpr
   | cons : ScalarPtr → ScalarPtr → ScalarExpr
   | strCons : ScalarPtr → ScalarPtr → ScalarExpr
@@ -54,11 +57,25 @@ inductive ScalarExpr
   deriving Repr
 
 open Std (RBMap RBSet)
+
+abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
+
+def Store.get? (store : Store) : ScalarPtr → Option (Option ScalarExpr)
+  | ⟨.num,  x⟩ => return some $ .num  x
+  | ⟨.char, x⟩ => return some $ .char x
+  | ⟨.str, F.zero⟩ => return some .strNil
+  | ⟨.sym, F.zero⟩ => return some .symNil
+  | ptr => store.find? ptr
+
 structure LDONHashState where
-  exprs      : RBMap ScalarPtr   (Option ScalarExpr) compare
-  charsCache : RBMap (List Char) ScalarPtr           compare
-  ldonCache  : RBMap LDON        ScalarPtr           compare
+  store      : Store
+  charsCache : RBMap (List Char) ScalarPtr compare
+  ldonCache  : RBMap LDON        ScalarPtr compare
   deriving Inhabited
+
+@[inline] def LDONHashState.get? (stt : LDONHashState) (ptr : ScalarPtr) :
+    Option (Option ScalarExpr) :=
+  stt.store.get? ptr
 
 def hashPtrPair (x y : ScalarPtr) : F :=
   .ofNat $ (Poseidon.Lurk.hash4 x.tag.toF x.val y.tag.toF y.val).norm
@@ -69,7 +86,9 @@ def hashFPtr (f : F) (x : ScalarPtr) : F :=
 abbrev HashM := StateM LDONHashState
 
 def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
-  modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr (some expr) })
+  if ptr.isImmediate then pure ptr
+  else modifyGet fun stt =>
+    (ptr, { stt with store := stt.store.insert ptr (some expr) })
 
 def hashChars (s : List Char) : HashM ScalarPtr := do
   match (← get).charsCache.find? s with
@@ -114,8 +133,6 @@ def hideLDON (secret : F) (x : LDON) : HashM F := do
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
 
-abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
-
 structure ExtractCtx where
   store   : Store
   visited : RBSet ScalarPtr compare
@@ -127,6 +144,7 @@ abbrev ExtractM := ReaderT ExtractCtx $ ExceptT String $ StateM Store
   withReader fun ctx => { ctx with visited := ctx.visited.insert ptr }
 
 partial def loadExprs (ptr : ScalarPtr) : ExtractM Unit := do
+  if ptr.isImmediate then return
   if (← get).contains ptr then return
   if (← read).visited.contains ptr then throw s!"Cycle detected at {repr ptr}"
   else withVisited ptr do
@@ -147,7 +165,7 @@ def loadComms (comms : Array F) : ExtractM Unit :=
 
 def LDONHashState.extractComms (stt : LDONHashState) (comms : Array F) :
     Except String Store :=
-  match StateT.run (ReaderT.run (loadComms comms) ⟨stt.exprs, default⟩) default with
+  match StateT.run (ReaderT.run (loadComms comms) ⟨stt.store, default⟩) default with
   | (.ok _, store) => return store
   | (.error e, _) => throw e
 
