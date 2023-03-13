@@ -10,6 +10,7 @@ inductive LDON
   | nil
   | num : F → LDON
   | str : String → LDON
+  | sym : String → LDON
   | cons : LDON → LDON → LDON
   deriving Inhabited, Ord
 
@@ -68,9 +69,10 @@ def Store.get? (store : Store) : ScalarPtr → Option (Option ScalarExpr)
   | ptr => store.find? ptr
 
 structure LDONHashState where
-  store      : Store
-  charsCache : RBMap (List Char) ScalarPtr compare
-  ldonCache  : RBMap LDON        ScalarPtr compare
+  store        : Store
+  charsCache   : RBMap (List Char)   ScalarPtr compare
+  stringsCache : RBMap (List String) ScalarPtr compare
+  ldonCache    : RBMap LDON          ScalarPtr compare
   deriving Inhabited
 
 @[inline] def LDONHashState.get? (stt : LDONHashState) (ptr : ScalarPtr) :
@@ -90,11 +92,11 @@ def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
   else modifyGet fun stt =>
     (ptr, { stt with store := stt.store.insert ptr (some expr) })
 
-def hashChars (s : List Char) : HashM ScalarPtr := do
-  match (← get).charsCache.find? s with
+def hashChars (cs : List Char) : HashM ScalarPtr := do
+  match (← get).charsCache.find? cs with
   | some ptr => pure ptr
   | none =>
-    let ptr ← match s with
+    let ptr ← match cs with
       | [] => addExprHash ⟨.str, F.zero⟩ .strNil
       | c :: cs =>
         let n := .ofNat c.toNat
@@ -102,7 +104,17 @@ def hashChars (s : List Char) : HashM ScalarPtr := do
         let tailPtr ← hashChars cs
         addExprHash ⟨.str, hashPtrPair headPtr tailPtr⟩ (.strCons headPtr tailPtr)
     modifyGet fun stt =>
-      (ptr, { stt with charsCache := stt.charsCache.insert s ptr })
+      (ptr, { stt with charsCache := stt.charsCache.insert cs ptr })
+
+def hashStrings (ss : List String) : HashM ScalarPtr := do
+  match (← get).stringsCache.find? ss with
+  | some ptr => pure ptr
+  | none =>
+    let ptr ← ss.foldrM (init := ⟨.sym, F.zero⟩) fun s acc => do
+      let strPtr ← hashChars s.data
+      addExprHash ⟨.sym, hashPtrPair strPtr acc⟩ (.symCons strPtr acc)
+    modifyGet fun stt =>
+      (ptr, { stt with stringsCache := stt.stringsCache.insert ss ptr })
 
 def hashLDON (x : LDON) : HashM ScalarPtr := do
   match (← get).ldonCache.find? x with
@@ -117,6 +129,7 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
         addExprHash ⟨.nil, hashPtrPair nilPtr symPtr1⟩ (.symCons nilPtr symPtr1)
       | .num n => let n := .ofNat n; addExprHash ⟨.num, n⟩ (.num n)
       | .str s => hashChars s.data
+      | .sym s => hashStrings [s, "LURK"]
       | .cons car cdr =>
         let car ← hashLDON car
         let cdr ← hashLDON cdr
