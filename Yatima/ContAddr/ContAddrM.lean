@@ -61,21 +61,17 @@ def commit (const : Const) : ContAddrM Lurk.F := do
       modifyGet fun stt => (hash, { stt with
         commits := stt.commits.insert const hash })
     else
-      let data : LightData := Encodable.encode const
-      let path := COMMITSDIR / data.hash.data.toHex
-      match ← loadData path with
-      | some hash =>
-        modifyGet fun stt => (hash, { stt with
-          commits := stt.commits.insert const hash })
-      | none =>
-        let (hash, encStt) := const.toLDON.commit (← get).ldonHashState
-        if (← read).persist then dumpData hash path
-        modifyGet fun stt => (hash, { stt with
-          commits := stt.commits.insert const hash
-          ldonHashState := encStt })
+      let (hash, encStt) := const.toLDON.commit (← get).ldonHashState
+      modifyGet fun stt => (hash, { stt with
+        commits := stt.commits.insert const hash
+        ldonHashState := encStt })
 
-@[inline] def addToEnv (name : Name) (hash : Lurk.F) : ContAddrM Unit :=
+@[inline] def addConstToEnv (name : Name) (hash : Lurk.F) : ContAddrM Unit :=
   modify fun stt => { stt with env := { stt.env with
     consts := stt.env.consts.insert name hash } }
+
+@[inline] def addBlockToEnv (hash : Lurk.F) : ContAddrM Unit :=
+  modify fun stt => { stt with env := { stt.env with
+    blocks := stt.env.blocks.insert hash } }
 
 end Yatima.ContAddr

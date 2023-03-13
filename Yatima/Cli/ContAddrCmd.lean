@@ -38,20 +38,19 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Start content-addressing
   cronos ← cronos.clock "Content-address"
-  match ← contAddr constMap delta env false true with
+  let stt ← match ← contAddr constMap delta env false true with
   | .error err => IO.eprintln err; return 1
-  | .ok stt =>
-    cronos ← cronos.clock! "Content-address"
+  | .ok stt => pure stt
+  cronos ← cronos.clock! "Content-address"
 
-    -- dump the env
-    let env : LightData := Encodable.encode stt.env
-    dumpData env ⟨envFileName⟩
+  -- dump the env
+  dumpData stt.env ⟨envFileName⟩
 
-    -- dump the store
-    let ldonHashState := stt.ldonHashState
-    let store : LightData := Encodable.encode $
-      ldonHashState.storeFromCommits stt.env.hashes
-    dumpData store ⟨storeFileName⟩
+  -- dump the store
+  let store ← match stt.ldonHashState.extractComms stt.env.hashes with
+  | .error err => IO.eprintln err; return 1
+  | .ok store => pure store
+  dumpData store ⟨storeFileName⟩ 
 
   return 0
 

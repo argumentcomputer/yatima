@@ -41,6 +41,9 @@ structure ScalarPtr where
   val : F
   deriving Ord, Repr
 
+@[inline] def ScalarPtr.isImmediate (ptr : ScalarPtr) : Bool :=
+  ptr matches ⟨.num, _⟩ | ⟨.char, _⟩ | ⟨.str, F.zero⟩ | ⟨.sym, F.zero⟩
+
 inductive ScalarExpr
   | cons : ScalarPtr → ScalarPtr → ScalarExpr
   | strCons : ScalarPtr → ScalarPtr → ScalarExpr
@@ -54,11 +57,25 @@ inductive ScalarExpr
   deriving Repr
 
 open Std (RBMap RBSet)
+
+abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
+
+def Store.get? (store : Store) : ScalarPtr → Option (Option ScalarExpr)
+  | ⟨.num,  x⟩ => return some $ .num  x
+  | ⟨.char, x⟩ => return some $ .char x
+  | ⟨.str, F.zero⟩ => return some .strNil
+  | ⟨.sym, F.zero⟩ => return some .symNil
+  | ptr => store.find? ptr
+
 structure LDONHashState where
-  exprs      : RBMap ScalarPtr   (Option ScalarExpr) compare
-  charsCache : RBMap (List Char) ScalarPtr           compare
-  ldonCache  : RBMap LDON        ScalarPtr           compare
+  store      : Store
+  charsCache : RBMap (List Char) ScalarPtr compare
+  ldonCache  : RBMap LDON        ScalarPtr compare
   deriving Inhabited
+
+@[inline] def LDONHashState.get? (stt : LDONHashState) (ptr : ScalarPtr) :
+    Option (Option ScalarExpr) :=
+  stt.store.get? ptr
 
 def hashPtrPair (x y : ScalarPtr) : F :=
   .ofNat $ (Poseidon.Lurk.hash4 x.tag.toF x.val y.tag.toF y.val).norm
@@ -69,7 +86,9 @@ def hashFPtr (f : F) (x : ScalarPtr) : F :=
 abbrev HashM := StateM LDONHashState
 
 def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
-  modifyGet fun stt => (ptr, { stt with exprs := stt.exprs.insert ptr (some expr) })
+  if ptr.isImmediate then pure ptr
+  else modifyGet fun stt =>
+    (ptr, { stt with store := stt.store.insert ptr (some expr) })
 
 def hashChars (s : List Char) : HashM ScalarPtr := do
   match (← get).charsCache.find? s with
@@ -114,30 +133,40 @@ def hideLDON (secret : F) (x : LDON) : HashM F := do
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
   StateT.run (hideLDON (.ofNat 0) ldon) stt
 
-abbrev Store := RBMap ScalarPtr (Option ScalarExpr) compare
+structure ExtractCtx where
+  store   : Store
+  visited : RBSet ScalarPtr compare
+  deriving Inhabited
 
-partial def loadExprs (ptr : ScalarPtr) (seen : RBSet ScalarPtr compare)
-    (src acc : Store) : Store × RBSet ScalarPtr compare :=
-  if seen.contains ptr then (acc, seen) else
-    let seen := seen.insert ptr
-    match src.find? ptr with
-    | none => panic! s!"{repr ptr} not found in store"
-    | some $ some expr => match expr with
-      | .cons x y | .strCons x y | .symCons x y =>
-        let (acc, seen) := loadExprs x seen src (acc.insert ptr expr)
-        loadExprs y seen src acc
-      | .comm _ x => loadExprs x seen src (acc.insert ptr expr)
-      | _ => (acc, seen)
-    | some none => (acc, seen)
+abbrev ExtractM := ReaderT ExtractCtx $ ExceptT String $ StateM Store
 
-def LDONHashState.storeFromCommits (stt : LDONHashState) (comms : Array Lurk.F) : Store :=
-  let (exprs, _) := comms.foldl (init := default) fun (exprsAcc, seen) f =>
-    match stt.exprs.find? ⟨.comm, f⟩ with
-    | none => panic! s!"{f} not found in store"
-    | some $ some (.comm f' ptr) =>
-      if f != f' then panic! s!"Mismatch for commitment {f}: {f'}"
-      else loadExprs ptr seen stt.exprs exprsAcc
-    | some x => panic! s!"Invalid scalar expression {repr x} for pointer {f}"
-  exprs
+@[inline] def withVisited (ptr : ScalarPtr) : ExtractM α → ExtractM α :=
+  withReader fun ctx => { ctx with visited := ctx.visited.insert ptr }
+
+partial def loadExprs (ptr : ScalarPtr) : ExtractM Unit := do
+  if ptr.isImmediate then return
+  if (← get).contains ptr then return
+  if (← read).visited.contains ptr then throw s!"Cycle detected at {repr ptr}"
+  else withVisited ptr do
+    match (← read).store.find? ptr with
+    | none => throw s!"{repr ptr} not found"
+    | some none => modify (·.insert ptr none)
+    | some $ some expr =>
+      modify (·.insert ptr (some expr))
+      match expr with
+      | .cons x y | .strCons x y | .symCons x y => loadExprs x; loadExprs y
+      | .comm f x =>
+        if f != ptr.val then throw s!"Inconsistent comm pointer: {repr ptr}"
+        else loadExprs x
+      | _ => pure ()
+
+def loadComms (comms : Array F) : ExtractM Unit :=
+  comms.forM (loadExprs ⟨.comm, ·⟩)
+
+def LDONHashState.extractComms (stt : LDONHashState) (comms : Array F) :
+    Except String Store :=
+  match StateT.run (ReaderT.run (loadComms comms) ⟨stt.store, default⟩) default with
+  | (.ok _, store) => return store
+  | (.error e, _) => throw e
 
 end Lurk

@@ -3,12 +3,6 @@ import Yatima.Datatypes.Const
 import Yatima.Datatypes.Env
 import Yatima.Datatypes.Lurk
 
-@[extern "lean_byte_array_blake3"]
-opaque ByteArray.blake3 : @& ByteArray → ByteVector 32
-
-def LightData.hash (ld : LightData) : ByteVector 32 :=
-  ld.toByteArray.blake3
-
 namespace Yatima.ContAddr
 
 open IR
@@ -156,7 +150,7 @@ instance : Encodable Const LightData where
     | .definition ⟨a, b, c, d⟩ => .cell #[false, a, b, c, d]
   decode
     | .cell #[false, x] => return .mutIndBlock (← dec x)
-    | .cell #[true, x] => return .mutDefBlock (← dec x)
+    | .cell #[true,  x] => return .mutDefBlock (← dec x)
     | .cell #[0, a, b] => return .axiom          ⟨← dec a, ← dec b⟩
     | .cell #[1, a, b] => return .inductiveProj  ⟨← dec a, ← dec b⟩
     | .cell #[2, a, b] => return .definitionProj ⟨← dec a, ← dec b⟩
@@ -168,14 +162,21 @@ instance : Encodable Const LightData where
     | .cell #[false, a, b, c, d] => return .definition ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
     | x => throw s!"Invalid encoding for IR.Const: {x}"
 
-instance [h : Encodable (Array (α × β)) LightData] [Ord α] :
+instance [Encodable (Array (α × β)) LightData] [Ord α] :
     Encodable (Std.RBMap α β compare) LightData where
-  encode x := h.encode $ x.foldl (·.push (·, ·)) #[]
+  encode x := (x.foldl (·.push (·, ·)) #[] : Array (α × β))
+  decode x := return .ofArray (← dec x) _
+
+instance [Encodable (Array α) LightData] [Ord α] :
+    Encodable (Std.RBSet α compare) LightData where
+  encode x := (x.foldl (·.push ·) #[] : Array α)
   decode x := return .ofArray (← dec x) _
 
 instance : Encodable IR.Env LightData where
-  encode x := x.consts
-  decode x := return ⟨← dec x⟩
+  encode | ⟨x, y⟩ => .cell #[x, y]
+  decode
+    | .cell #[x, y] => return ⟨← dec x, ← dec y⟩
+    | x => throw s!"Invalid encoding for IR.Definition: {x}"
 
 section LDON
 
