@@ -1,4 +1,4 @@
-import Lurk.Field
+import Lurk.Backend.Expr
 import Poseidon.ForLurk
 import Std.Data.RBMap
 
@@ -181,5 +181,12 @@ def LDONHashState.extractComms (stt : LDONHashState) (comms : Array F) :
   match StateT.run (ReaderT.run (loadComms comms) ⟨stt.store, default⟩) default with
   | (.ok _, store) => return store
   | (.error e, _) => throw e
+
+namespace Backend.Expr
+
+def toLDON : Expr → LDON
+  | _ => sorry
+
+end Backend.Expr
 
 end Lurk

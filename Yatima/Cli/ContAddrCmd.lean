@@ -6,7 +6,7 @@ def defaultEnv : String :=
   "out.yenv"
 
 def defaultStore : String :=
-  "out.store"
+  "out.ldstore"
 
 open Yatima.ContAddr in
 def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
