@@ -241,9 +241,9 @@ instance : Encodable Char LightData where
   decode x := return .ofNat (← dec x)
 
 instance : Encodable LDONHashState LightData where
-  encode | ⟨a, b, c, d⟩ => .cell #[a, b, c, d]
+  encode | ⟨a, b, c⟩ => .cell #[a, b, c]
   decode
-    | .cell #[a, b, c, d] => return ⟨← dec a, ← dec b, ← dec c, ← dec d⟩
+    | .cell #[a, b, c] => return ⟨← dec a, ← dec b, ← dec c⟩
     | x => throw s!"Invalid encoding for LDONHashState: {x}"
 
 end LDON

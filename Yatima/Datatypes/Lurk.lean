@@ -69,10 +69,9 @@ def Store.get? (store : Store) : ScalarPtr → Option (Option ScalarExpr)
   | ptr => store.find? ptr
 
 structure LDONHashState where
-  store        : Store
-  charsCache   : RBMap (List Char)   ScalarPtr compare
-  stringsCache : RBMap (List String) ScalarPtr compare
-  ldonCache    : RBMap LDON          ScalarPtr compare
+  store      : Store
+  charsCache : RBMap (List Char) ScalarPtr compare
+  ldonCache  : RBMap LDON        ScalarPtr compare
   deriving Inhabited
 
 @[inline] def LDONHashState.get? (stt : LDONHashState) (ptr : ScalarPtr) :
@@ -106,15 +105,10 @@ def hashChars (cs : List Char) : HashM ScalarPtr := do
     modifyGet fun stt =>
       (ptr, { stt with charsCache := stt.charsCache.insert cs ptr })
 
-def hashStrings (ss : List String) : HashM ScalarPtr := do
-  match (← get).stringsCache.find? ss with
-  | some ptr => pure ptr
-  | none =>
-    let ptr ← ss.foldrM (init := ⟨.sym, F.zero⟩) fun s acc => do
-      let strPtr ← hashChars s.data
-      addExprHash ⟨.sym, hashPtrPair strPtr acc⟩ (.symCons strPtr acc)
-    modifyGet fun stt =>
-      (ptr, { stt with stringsCache := stt.stringsCache.insert ss ptr })
+def hashStrings (ss : List String) : HashM ScalarPtr :=
+  ss.foldrM (init := ⟨.sym, F.zero⟩) fun s acc => do
+    let strPtr ← hashChars s.data
+    addExprHash ⟨.sym, hashPtrPair strPtr acc⟩ (.symCons strPtr acc)
 
 def hashLDON (x : LDON) : HashM ScalarPtr := do
   match (← get).ldonCache.find? x with

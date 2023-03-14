@@ -5,9 +5,6 @@ import Yatima.ContAddr.ContAddr
 def defaultEnv : String :=
   "out.yenv"
 
-def defaultStore : String :=
-  "out.ldstore"
-
 open Yatima.ContAddr in
 def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
@@ -19,7 +16,7 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
     | IO.eprintln "No source was provided"; return 1
 
   -- Load input environment
-  let env ← match p.flag? "env" |>.map (·.value) with
+  let env ← match p.flag? "input" |>.map (·.value) with
     | none => pure default
     | some envFileName => match ← loadData envFileName false with
       | none => return 1
@@ -33,24 +30,17 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
   let (constMap, delta) := leanEnv.getConstsAndDelta
   cronos ← cronos.clock! "Run Lean frontend"
 
-  let envFileName   := p.flag? "output-env"   |>.map (·.value) |>.getD defaultEnv
-  let storeFileName := p.flag? "output-store" |>.map (·.value) |>.getD defaultStore
+  let envFileName   := p.flag? "output" |>.map (·.value) |>.getD defaultEnv
 
   -- Start content-addressing
   cronos ← cronos.clock "Content-address"
   let stt ← match ← contAddr constMap delta env false true with
-  | .error err => IO.eprintln err; return 1
-  | .ok stt => pure stt
+    | .error err => IO.eprintln err; return 1
+    | .ok stt => pure stt
   cronos ← cronos.clock! "Content-address"
 
   -- dump the env
-  dumpData stt.env ⟨envFileName⟩
-
-  -- dump the store
-  let store ← match stt.ldonHashState.extractComms stt.env.hashes with
-  | .error err => IO.eprintln err; return 1
-  | .ok store => pure store
-  dumpData store ⟨storeFileName⟩ 
+  dumpData stt.env ⟨envFileName⟩  
 
   return 0
 
@@ -59,9 +49,8 @@ def contAddrCmd : Cli.Cmd := `[Cli|
   "Content-addresses Lean 4 code to Yatima IR"
 
   FLAGS:
-    e,  "env"          : String;   "Optional input environment file used as cache"
-    oe, "output-env"   : String; s!"Output environment file. Defaults to '{defaultEnv}'"
-    os, "output-store" : String; s!"Output store file. Defaults to '{defaultStore}'"
+    i, "input"  : String;   "Optional input environment file used as cache"
+    o, "output" : String; s!"Output environment file. Defaults to '{defaultEnv}'"
 
   ARGS:
     source : String; "Lean source file"
