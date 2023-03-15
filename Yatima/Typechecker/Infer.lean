@@ -141,10 +141,10 @@ mutual
       let ctx ← read
       let domVal := suspend dom ctx (← get)
       let var := mkSusVar (← infoFromType domVal) ctx.lvl
-      let (bod, img) ← withExtendedCtx var domVal $ infer bod
+      let (bod, imgVal) ← withExtendedCtx var domVal $ infer bod
       let term := ⟨lamInfo bod.info, .lam dom bod⟩
-      let typ := .mk (← piInfo domVal.info img.info) $
-        Value.pi domVal (← quoteTyped (ctx.lvl+1) ctx.env img.getTyped) ctx.env
+      let typ := .mk (← piInfo domVal.info imgVal.info) $
+        Value.pi domVal (← quoteTyped (ctx.lvl+1) ctx.env imgVal.getTyped) ctx.env
       pure (term, typ)
     | .pi dom img =>
       let (dom, domLvl) ← isSort dom
