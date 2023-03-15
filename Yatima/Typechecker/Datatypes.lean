@@ -32,7 +32,7 @@ open Lurk (F)
   When used in values, `sort`s will have only reduced and instantiated universes.
 -/
 inductive TypeInfo
-  | unit | proof | prop | none
+  | unit | proof | none
   | sort : Univ → TypeInfo
   deriving BEq, Inhabited, Repr
 

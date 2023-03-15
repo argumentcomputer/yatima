@@ -144,12 +144,9 @@ end IR
 namespace Typechecker
 
 def TypeInfo.update (univs : List Univ) : TypeInfo → TypeInfo
-| .sort lvl => match lvl.instBulkReduce univs with
-  | .zero => .prop
-  | _ => .none
+| .sort lvl => .sort $ lvl.instBulkReduce univs
 | .unit  => .unit
 | .proof => .proof
-| .prop  => .prop
 | .none  => .none
 
 open PP
