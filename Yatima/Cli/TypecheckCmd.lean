@@ -24,7 +24,7 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Start content-addressing
   cronos ← cronos.clock "Content-address"
-  let stt ← match ← contAddr constMap delta default true false with
+  let stt ← match ← contAddr constMap delta true false with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure stt
   cronos ← cronos.clock! "Content-address"

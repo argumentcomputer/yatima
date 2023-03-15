@@ -14,8 +14,8 @@ structure ContAddrState where
   ldonHashState : Lurk.LDONHashState -- to speed up committing
   deriving Inhabited
 
-def ContAddrState.init (env : Env) (ldonHashState : Lurk.LDONHashState) : ContAddrState :=
-  ⟨env, default, ldonHashState⟩
+def ContAddrState.init (ldonHashState : Lurk.LDONHashState) : ContAddrState :=
+  ⟨default, default, ldonHashState⟩
 
 def ContAddrState.store (stt : ContAddrState) : Std.RBMap Lurk.F Const compare :=
   stt.commits.foldl (init := .empty) fun acc c f => acc.insert f c

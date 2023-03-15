@@ -1,4 +1,4 @@
-import Lurk.Field
+import Lurk.Backend.Expr
 import Poseidon.ForLurk
 import Std.Data.RBMap
 
@@ -9,22 +9,26 @@ namespace Lurk
 inductive LDON
   | nil
   | num : F → LDON
+  | u64 : UInt64 → LDON
+  | char : Char → LDON
   | str : String → LDON
+  | sym : String → LDON
   | cons : LDON → LDON → LDON
   deriving Inhabited, Ord
 
 inductive Tag
-  | nil | cons | sym | num | str | char | comm
+  | nil | cons | sym | num | str | char | comm | u64
   deriving Ord, Repr
 
 def Tag.toF : Tag → F
-  | .nil   => .ofNat 0
-  | .cons  => .ofNat 1
-  | .sym   => .ofNat 2
-  | .num   => .ofNat 4
-  | .str   => .ofNat 6
-  | .char  => .ofNat 7
-  | .comm  => .ofNat 8
+  | .nil  => .ofNat 0
+  | .cons => .ofNat 1
+  | .sym  => .ofNat 2
+  | .num  => .ofNat 4
+  | .str  => .ofNat 6
+  | .char => .ofNat 7
+  | .comm => .ofNat 8
+  | .u64  => .ofNat 9
 
 def Tag.ofF : F → Option Tag
   | .ofNat 0 => return .nil
@@ -34,6 +38,7 @@ def Tag.ofF : F → Option Tag
   | .ofNat 6 => return .str
   | .ofNat 7 => return .char
   | .ofNat 8 => return .comm
+  | .ofNat 9 => return .u64
   | _ => none
 
 structure ScalarPtr where
@@ -42,7 +47,7 @@ structure ScalarPtr where
   deriving Ord, Repr
 
 @[inline] def ScalarPtr.isImmediate (ptr : ScalarPtr) : Bool :=
-  ptr matches ⟨.num, _⟩ | ⟨.char, _⟩ | ⟨.str, F.zero⟩ | ⟨.sym, F.zero⟩
+  ptr matches ⟨.num, _⟩ | ⟨.u64, _⟩| ⟨.char, _⟩ | ⟨.str, F.zero⟩ | ⟨.sym, F.zero⟩
 
 inductive ScalarExpr
   | cons : ScalarPtr → ScalarPtr → ScalarExpr
@@ -90,19 +95,23 @@ def addExprHash (ptr : ScalarPtr) (expr : ScalarExpr) : HashM ScalarPtr :=
   else modifyGet fun stt =>
     (ptr, { stt with store := stt.store.insert ptr (some expr) })
 
-def hashChars (s : List Char) : HashM ScalarPtr := do
-  match (← get).charsCache.find? s with
+def hashChars (cs : List Char) : HashM ScalarPtr := do
+  match (← get).charsCache.find? cs with
   | some ptr => pure ptr
   | none =>
-    let ptr ← match s with
-      | [] => addExprHash ⟨.str, F.zero⟩ .strNil
+    let ptr ← match cs with
+      | [] => pure ⟨.str, F.zero⟩
       | c :: cs =>
-        let n := .ofNat c.toNat
-        let headPtr ← addExprHash ⟨.char, n⟩ (.char n)
+        let headPtr := ⟨.char, .ofNat c.toNat⟩
         let tailPtr ← hashChars cs
         addExprHash ⟨.str, hashPtrPair headPtr tailPtr⟩ (.strCons headPtr tailPtr)
     modifyGet fun stt =>
-      (ptr, { stt with charsCache := stt.charsCache.insert s ptr })
+      (ptr, { stt with charsCache := stt.charsCache.insert cs ptr })
+
+def hashStrings (ss : List String) : HashM ScalarPtr :=
+  ss.foldrM (init := ⟨.sym, F.zero⟩) fun s acc => do
+    let strPtr ← hashChars s.data
+    addExprHash ⟨.sym, hashPtrPair strPtr acc⟩ (.symCons strPtr acc)
 
 def hashLDON (x : LDON) : HashM ScalarPtr := do
   match (← get).ldonCache.find? x with
@@ -110,13 +119,16 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
   | none =>
     let ptr ← match x with
       | .nil =>
-        let rootPtr ← addExprHash ⟨.sym, F.zero⟩ .symNil
+        let rootPtr := ⟨.sym, F.zero⟩
         let nilPtr  ← hashChars ['N', 'I', 'L']
         let lurkPtr ← hashChars ['L', 'U', 'R', 'K']
         let symPtr1 ← addExprHash ⟨.sym, hashPtrPair lurkPtr rootPtr⟩ (.symCons lurkPtr rootPtr)
         addExprHash ⟨.nil, hashPtrPair nilPtr symPtr1⟩ (.symCons nilPtr symPtr1)
-      | .num n => let n := .ofNat n; addExprHash ⟨.num, n⟩ (.num n)
+      | .num n => pure ⟨.num, n⟩
+      | .u64 n => pure ⟨.u64, .ofNat n.val⟩
+      | .char n => pure ⟨.char, .ofNat n.toNat⟩
       | .str s => hashChars s.data
+      | .sym s => hashStrings [s, "LURK"]
       | .cons car cdr =>
         let car ← hashLDON car
         let cdr ← hashLDON cdr
@@ -168,5 +180,55 @@ def LDONHashState.extractComms (stt : LDONHashState) (comms : Array F) :
   match StateT.run (ReaderT.run (loadComms comms) ⟨stt.store, default⟩) default with
   | (.ok _, store) => return store
   | (.error e, _) => throw e
+
+namespace Backend.Expr
+
+def datumToLDON : Datum → LDON
+  | .num  x => .num x
+  | .u64  x => .u64 x
+  | .char x => .char x
+  | .str  x => .str x
+  | .sym "NIL" => .nil
+  | .sym  x => .sym x
+  | .cons x y => .cons (datumToLDON x) (datumToLDON y)
+
+def atomToLDON : Atom → LDON
+  | .nil => .nil
+  | .t => .sym "T"
+  | .num x => .num x
+  | .u64 x => .u64 x
+  | .str x => .str x
+  | .char x => .char x
+
+partial def toLDON : Expr → LDON
+  | .atom a => atomToLDON a
+  | .sym s => .sym s
+  | .env => .cons (.sym "CURRENT-ENV") .nil
+  | .op₁ o e => .cons (.sym o.toString) (.cons e.toLDON .nil)
+  | .op₂ o e₁ e₂ => .cons (.sym o.toString) $ .cons e₁.toLDON $ .cons e₂.toLDON .nil
+  | e@(.begin ..) =>
+    .cons (.sym "BEGIN") $ e.telescopeBegin.foldr (.cons ·.toLDON ·) .nil
+  | .if a b c => .cons (.sym "IF") $ .cons a.toLDON $ .cons b.toLDON $ .cons c.toLDON .nil
+  | .app₀ e => .cons e.toLDON .nil
+  | .app f a => .cons f.toLDON (.cons a.toLDON .nil)
+  | .lambda s e =>
+    let (ss, b) := e.telescopeLam #[s]
+    .cons (.sym "LAMBDA") $
+      .cons (ss.foldr (fun s acc => .cons (.sym s) acc) .nil) $ .cons b.toLDON .nil
+  | .let s v b =>
+    let (bs, b) := b.telescopeLet #[(s, v)]
+    .cons (.sym "LET") $
+      .cons (bs.foldr (fun (s, v) acc =>
+          .cons (.cons (.sym s) (.cons v.toLDON .nil)) acc) .nil) $
+        .cons b.toLDON .nil
+  | .letrec s v b =>
+    let (bs, b) := b.telescopeLet #[(s, v)]
+    .cons (.sym "LETREC") $
+      .cons (bs.foldr (fun (s, v) acc =>
+          .cons (.cons (.sym s) (.cons v.toLDON .nil)) acc) .nil) $
+        .cons b.toLDON .nil
+  | .quote d => .cons (.sym "QUOTE") $ .cons (datumToLDON d) .nil
+
+end Backend.Expr
 
 end Lurk

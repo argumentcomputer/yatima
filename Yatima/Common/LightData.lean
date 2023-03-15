@@ -219,24 +219,26 @@ instance : Encodable ScalarExpr LightData where
 
 def LDONToLightData : LDON → LightData
   | .nil => false
-  | .num x => .cell #[false, x]
-  | .str x => .cell #[true,  x]
+  | .sym  x => .cell #[.atom ⟨#[ ]⟩, x] -- the most frequent
+  | .num  x => .cell #[.cell  #[ ] , x]
+  | .str  x => .cell #[.atom ⟨#[0]⟩, x]
+  | .char x => .cell #[.atom ⟨#[1]⟩, x]
+  | .u64  x => .cell #[.atom ⟨#[2]⟩, x]
   | .cons x y => .cell #[false, LDONToLightData x, LDONToLightData y]
 
 partial def lightDataToLDON : LightData → Except String LDON
   | false => return .nil
-  | .cell #[false, x] => return .num (← dec x)
-  | .cell #[true,  x] => return .str (← dec x)
+  | .cell #[.atom ⟨#[ ]⟩, x] => return .sym  (← dec x)
+  | .cell #[.cell  #[ ] , x] => return .num  (← dec x)
+  | .cell #[.atom ⟨#[0]⟩, x] => return .str  (← dec x)
+  | .cell #[.atom ⟨#[1]⟩, x] => return .char (← dec x)
+  | .cell #[.atom ⟨#[2]⟩, x] => return .u64  (← dec x)
   | .cell #[false, x, y] => return .cons (← lightDataToLDON x) (← lightDataToLDON y)
   | x => throw s!"Invalid encoding for LDON: {x}"
 
 instance : Encodable LDON LightData where
   encode := LDONToLightData
   decode := lightDataToLDON
-
-instance : Encodable Char LightData where
-  encode x := x.toNat
-  decode x := return .ofNat (← dec x)
 
 instance : Encodable LDONHashState LightData where
   encode | ⟨a, b, c⟩ => .cell #[a, b, c]

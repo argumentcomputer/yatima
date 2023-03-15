@@ -24,7 +24,7 @@ def ensembleTestExtractors (source : FilePath)
   let leanEnv ← Lean.runFrontend (← IO.FS.readFile source) source
   let (constMap, delta) := leanEnv.getConstsAndDelta
   withExceptOkM s!"Content-addresses {source}"
-      (← contAddr constMap delta default true false) fun stt => do
+      (← contAddr constMap delta true false) fun stt => do
     let pureTests := extractors.foldl (init := .done)
       fun acc ext => acc ++ (ext stt)
     ioExtractors.foldlM (init := pureTests) fun acc ext =>

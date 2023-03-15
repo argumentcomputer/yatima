@@ -1,8 +1,6 @@
 /build
 /lake-packages
-*.yenv
-*.store
+*.env
+*.ldstore
 *.lurk
 *.frames
-*.json
-!lake-manifest.json

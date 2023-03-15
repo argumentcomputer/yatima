@@ -34,16 +34,8 @@ initialize STOREDIR : FilePath ← do
   | some path => return path / ".yatima"
   | none => throw $ IO.userError "can't find home folder"
 
-initialize LURKDIR : FilePath ← do
-  match ← IO.getEnv "HOME" with
-  | some path => return path / ".lurk"
-  | none => throw $ IO.userError "can't find home folder"
-
-def LURKTCPATH : FilePath :=
-  STOREDIR / "tc.lurk"
-
-def LURKTCANONPATH : FilePath :=
-  STOREDIR / "tc_anon.lurk"
+def TCHASH : FilePath :=
+  STOREDIR / "tc_hash"
 
 def LDONHASHCACHE : FilePath :=
   STOREDIR / "ldon_hash_cache"
