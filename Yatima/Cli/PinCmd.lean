@@ -52,11 +52,11 @@ def pinRun (_p : Cli.Parsed) : IO UInt32 := do
   let leanEnv ← Lean.runFrontend primsInput default
   let (constMap, delta) := leanEnv.getConstsAndDelta
 
-  let commits ← match ← contAddr constMap delta default false false with
+  let commits ← match ← contAddr constMap default false false with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure $ stt.env.consts.toList
 
-  let commitsQuick ← match ← contAddr constMap delta default true false with
+  let commitsQuick ← match ← contAddr constMap delta true false with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure $ stt.env.consts.toList
 
