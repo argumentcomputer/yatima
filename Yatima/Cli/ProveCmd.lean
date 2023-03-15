@@ -2,9 +2,6 @@ import Cli.Basic
 import Yatima.Common.IO
 import Yatima.Common.LightData
 
-def defaultStore : String :=
-  "out.ldstore"
-
 open Lurk in
 def proveRun (p : Cli.Parsed) : IO UInt32 := do
 
@@ -27,7 +24,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   let store ← match stt.extractComms #[declComm, tcComm] with
     | .error err => IO.eprintln err; return 1
     | .ok store => pure store
-  let storeFileName := p.flag? "store" |>.map (·.value) |>.getD defaultStore
+  let storeFileName := p.flag? "store" |>.map (·.value) |>.getD ⟨s!"{decl}.ldstore"⟩
 
   -- Write the store
   dumpData store storeFileName
@@ -47,7 +44,7 @@ def proveCmd : Cli.Cmd := `[Cli|
   FLAGS:
     e, "env"   : String; "Input environment file"
     l, "lurk"  : String; "Specifies the target file name for the Lurk code (defaults to '<decl>.lurk')"
-    s, "store" : String; s!"Output store file. Defaults to '{defaultStore}'"
+    s, "store" : String; s!"Output store file (defaults to '<decl>.ldstore')"
 
   ARGS:
     decl : String; "Declaration to be typechecked"
