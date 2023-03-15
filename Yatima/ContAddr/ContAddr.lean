@@ -457,7 +457,7 @@ Important: constants with open references in their expressions are filtered out.
 Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
-def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo) (yenv : Env)
+def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
     (quick persist : Bool) : IO $ Except ContAddrError ContAddrState := do
   let persist := if quick then false else persist
   let ldonHashState ←
@@ -465,7 +465,7 @@ def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo) (yenv :
     else pure $ (← loadData LDONHASHCACHE).getD default
   if persist then IO.FS.createDirAll STOREDIR
   match ← StateT.run (ReaderT.run (contAddrM delta)
-    (.init constMap quick persist)) (.init yenv ldonHashState) with
+    (.init constMap quick persist)) (.init default ldonHashState) with
   | (.ok _, stt) => return .ok stt
   | (.error e, _) => return .error e
 

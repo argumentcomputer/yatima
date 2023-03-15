@@ -19,6 +19,7 @@ def genTypecheckerRun (_p : Cli.Parsed) : IO UInt32 := do
   IO.FS.createDirAll STOREDIR
   dumpData stt LDONHASHCACHE
   dumpData hash TCHASH
+  IO.println s!"Typechecker hash: {hash.asHex}"
   return 0
 
 def genTypecheckerCmd : Cli.Cmd := `[Cli|
