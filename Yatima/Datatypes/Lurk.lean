@@ -222,7 +222,7 @@ partial def toLDON : Expr → LDON
           .cons (.cons (.sym s) (.cons v.toLDON .nil)) acc) .nil) $
         .cons b.toLDON .nil
   | .letrec s v b =>
-    let (bs, b) := b.telescopeLet #[(s, v)]
+    let (bs, b) := b.telescopeLetrec #[(s, v)]
     .cons (.sym "LETREC") $
       .cons (bs.foldr (fun (s, v) acc =>
           .cons (.cons (.sym s) (.cons v.toLDON .nil)) acc) .nil) $

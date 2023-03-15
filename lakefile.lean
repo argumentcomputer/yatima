@@ -21,7 +21,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "08f710e8958261a1730ace37b973706788f5a857"
+  "https://github.com/yatima-inc/Lurk.lean" @ "d986dd0e81f3fb30a5b5b08c910f4de8200a5832"
 
 require LightData from git
   "https://github.com/yatima-inc/LightData" @ "7492abeae41f3a469396c73e13f48cd2b8da4a02"
@@ -79,8 +79,11 @@ def runCmd (cmd : String) : ScriptM $ Except String String := do
 script setup do
   IO.println "building yatima"
   match ← runCmd "lake exe yatima pin" with
-  | .error res => IO.eprintln res; return 1
+  | .error e => IO.eprintln e; return 1
   | .ok _ =>
+    match ← runCmd "lake build" with
+    | .error e => IO.eprintln e; return 1
+    | .ok _ => pure ()
     let binDir ← match ← IO.getEnv "HOME" with
       | some homeDir =>
         let binDir : FilePath := homeDir / ".local" / "bin"
@@ -96,9 +99,10 @@ script setup do
     IO.FS.writeBinFile (binDir / "yatima")
       (← IO.FS.readBinFile $ "build" / "bin" / "yatima")
     IO.println s!"yatima binary placed at {binDir}"
+    IO.println "compiling and hashing the typechecker"
     match ← runCmd "lake exe yatima gentc" with
     | .error err => IO.eprintln err; return 1
-    | .ok _ => IO.println "Lurk typechecker template stored"; return 0
+    | .ok _ => return 0
 
 end Setup
 

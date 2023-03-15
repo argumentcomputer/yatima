@@ -36,7 +36,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   let output := match p.flag? "lurk" |>.map (·.value) with
     | some output => ⟨output⟩
     | none => s!"{decl}.lurk"
-  IO.FS.writeFile output s!"((eval (open {tcComm.asHex})) {declComm.asHex})"
+  IO.FS.writeFile output s!"((eval (open {tcComm.asHex}))\n  {declComm.asHex})"
 
   return 0
 

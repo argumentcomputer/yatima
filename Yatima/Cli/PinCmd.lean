@@ -36,13 +36,13 @@ def nameToPrimRepr : Lean.Name → String
   | x => panic! s!"Invalid name: {x}"
 
 def formatMatchesP2F (pairs : List (Lean.Name × Lurk.F)) : List String :=
-  pairs.map fun (n, f) => s!"  | {nameToPrimRepr n} => return .ofNat {f.val}"
+  pairs.map fun (n, f) => s!"  | {nameToPrimRepr n} => return .ofNat {f.asHex}"
 
 def formatMatchesF2P (pairs : List (Lean.Name × Lurk.F)) : List String :=
-  pairs.map fun (n, f) => s!"  | .ofNat {f.val} => return {nameToPrimRepr n}"
+  pairs.map fun (n, f) => s!"  | .ofNat {f.asHex} => return {nameToPrimRepr n}"
 
 def formatMatchesF2B (fs : List Lurk.F) : List String :=
-  fs.map fun f => s!"  | .ofNat {f.val} => true"
+  fs.map fun f => s!"  | .ofNat {f.asHex} => true"
 
 def targetFile : FilePath :=
   "Yatima" / "Typechecker" / "TypecheckM.lean"
@@ -52,7 +52,7 @@ def pinRun (_p : Cli.Parsed) : IO UInt32 := do
   let leanEnv ← Lean.runFrontend primsInput default
   let (constMap, delta) := leanEnv.getConstsAndDelta
 
-  let commits ← match ← contAddr constMap default false false with
+  let commits ← match ← contAddr constMap delta false false with
     | .error err => IO.eprintln err; return 1
     | .ok stt => pure $ stt.env.consts.toList
 
