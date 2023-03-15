@@ -241,7 +241,7 @@ instance : Encodable LDON LightData where
   decode := lightDataToLDON
 
 instance : Encodable LDONHashState LightData where
-  encode | ⟨a, b, c⟩ => .cell #[a, b, c]
+  encode | ⟨a, _, _⟩ => .cell #[a, default, default] -- the full cache blows up memory
   decode
     | .cell #[a, b, c] => return ⟨← dec a, ← dec b, ← dec c⟩
     | x => throw s!"Invalid encoding for LDONHashState: {x}"
