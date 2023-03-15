@@ -465,7 +465,7 @@ def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
     else pure $ (← loadData LDONHASHCACHE).getD default
   if persist then IO.FS.createDirAll STOREDIR
   match ← StateT.run (ReaderT.run (contAddrM delta)
-    (.init constMap quick persist)) (.init default ldonHashState) with
+    (.init constMap quick persist)) (.init ldonHashState) with
   | (.ok _, stt) => return .ok stt
   | (.error e, _) => return .error e
 

@@ -3,7 +3,7 @@ import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
 
 def defaultEnv : String :=
-  "out.yenv"
+  "out.env"
 
 open Yatima.ContAddr in
 def contAddrRun (p : Cli.Parsed) : IO UInt32 := do

@@ -1,6 +1,6 @@
 /build
 /lake-packages
-*.yenv
+*.env
 *.ldstore
 *.lurk
 *.frames
