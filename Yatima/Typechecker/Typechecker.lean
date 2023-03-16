@@ -19,9 +19,9 @@ def typecheckAll (store : Store) (constNames : ConstNames) : Except String Unit 
 This function is supposed to be transpiled to Lurk, which does `open f` instead
 of retrieving constants from a store
 -/
-def typecheckConstNoStore (f : Lurk.F) : Except String Unit :=
+def typecheckConstNoStore (f : Lurk.F) : Bool :=
   match TypecheckM.run default default (checkConst f) with
-  | .ok u => .ok u
-  | .error err => throw err
+  | .ok _ => true
+  | .error _ => false
 
 end Yatima.Typechecker

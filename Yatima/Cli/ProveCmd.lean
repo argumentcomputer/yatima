@@ -21,7 +21,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
     | IO.eprintln s!"{decl} not found in the environment"; return 1
 
   -- setting up the store
-  let store ← match stt.extractComms #[declComm, tcComm] with
+  let store ← match stt.extractComms (env.hashes.push tcComm) with
     | .error err => IO.eprintln err; return 1
     | .ok store => pure store
   let storeFileName := p.flag? "store" |>.map (·.value) |>.getD ⟨s!"{decl}.ldstore"⟩

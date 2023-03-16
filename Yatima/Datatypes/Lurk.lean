@@ -123,7 +123,8 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
         let nilPtr  ← hashChars ['N', 'I', 'L']
         let lurkPtr ← hashChars ['L', 'U', 'R', 'K']
         let symPtr1 ← addExprHash ⟨.sym, hashPtrPair lurkPtr rootPtr⟩ (.symCons lurkPtr rootPtr)
-        addExprHash ⟨.nil, hashPtrPair nilPtr symPtr1⟩ (.symCons nilPtr symPtr1)
+        let symPtr2 ← addExprHash ⟨.sym, hashPtrPair nilPtr symPtr1⟩ (.symCons nilPtr symPtr1)
+        addExprHash ⟨.nil, symPtr2.val⟩ .nil
       | .num n => pure ⟨.num, n⟩
       | .u64 n => pure ⟨.u64, .ofNat n.val⟩
       | .char n => pure ⟨.char, .ofNat n.toNat⟩
@@ -139,7 +140,7 @@ def hashLDON (x : LDON) : HashM ScalarPtr := do
 def hideLDON (secret : F) (x : LDON) : HashM F := do
   let ptr ← hashLDON x
   let hash := hashFPtr secret ptr
-  discard $ addExprHash ⟨.comm, hash⟩ (.comm hash ptr)
+  discard $ addExprHash ⟨.comm, hash⟩ (.comm (.ofNat 0) ptr)
   return hash
 
 def LDON.commit (ldon : LDON) (stt : LDONHashState) : F × LDONHashState :=
@@ -167,9 +168,7 @@ partial def loadExprs (ptr : ScalarPtr) : ExtractM Unit := do
       modify (·.insert ptr (some expr))
       match expr with
       | .cons x y | .strCons x y | .symCons x y => loadExprs x; loadExprs y
-      | .comm f x =>
-        if f != ptr.val then throw s!"Inconsistent comm pointer: {repr ptr}"
-        else loadExprs x
+      | .comm _ x => loadExprs x
       | _ => pure ()
 
 def loadComms (comms : Array F) : ExtractM Unit :=
