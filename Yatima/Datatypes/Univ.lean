@@ -31,29 +31,21 @@ def reduceMax (a b : Univ) : Univ :=
   | .var idx, .var idx' => if idx == idx' then a else .max a b
   | _, _ => .max a b
 
-def isNotZero : Univ → Bool
-  | .max a b => isNotZero a || isNotZero b
-  | .imax _ b => isNotZero b
-  | .succ _ => true
-  | _ => false
-
 /--
 Reduces as an `imax` applied to two values.
 It is assumed that `a` and `b` are already reduced
 -/
 def reduceIMax (a b : Univ) : Univ :=
-  if isNotZero b then reduceMax a b
-  else
-    match b with
-    -- IMax(a, b) will reduce to 0 if b == 0
-    | .zero => .zero
-    -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..) (impossible case)
-    | .succ _ => reduceMax a b
-    | .var idx => match a with
-      | .var idx' => if idx == idx' then a else .imax a b
-      | _ => .imax a b
-    -- Otherwise, IMax(a, b) is stuck, with a and b reduced
+  match b with
+  -- IMax(a, b) will reduce to 0 if b == 0
+  | .zero => .zero
+  -- IMax(a, b) will reduce as Max(a, b) if b == Succ(..) (impossible case)
+  | .succ _ => reduceMax a b
+  | .var idx => match a with
+    | .var idx' => if idx == idx' then a else .imax a b
     | _ => .imax a b
+  -- Otherwise, IMax(a, b) is stuck, with a and b reduced
+  | _ => .imax a b
 
 /--
 Reduce, or simplify, the universe levels to a normal form. Notice that universe
@@ -62,7 +54,7 @@ levels with no free variables always reduce to a number, i.e., a sequence of
 -/
 def reduce : Univ → Univ
   | .succ u' => .succ (reduce u')
-  | .max a b => reduceMax a b
+  | .max a b => reduceMax (reduce a) (reduce b)
   | .imax a b =>
     let b' := reduce b
     match b' with
@@ -129,9 +121,6 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
   | .var .., .zero => false
   | .zero, .var .. => diff >= 0
   | .var x, .var y => x == y && diff >= 0
-  --! Max cases
-  | .max c d, _ => leq c b diff && leq d b diff
-  | _, .max c d => leq a c diff || leq a d diff
   --! IMax cases
   -- The case `a = imax c d` has only three possibilities:
   -- 1) d = var ..
@@ -150,12 +139,12 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
   | .imax c (.max e f), _ =>
     -- Here we use the relationship
     -- imax c (max e f) = max (imax c e) (imax c f)
-    let new_max := .max (reduceIMax c e) (reduceIMax c f)
+    let new_max := reduceMax (reduceIMax c e) (reduceIMax c f)
     leq new_max b diff
   | .imax c (.imax e f), _ =>
     -- Here we use the relationship
-    -- imax c (imax e f) = imax (max c e) f
-    let new_max := .imax (.max c e) f
+    -- imax c (imax e f) = max (imax c e) (imax e f)
+    let new_max := reduceMax (reduceIMax c e) (.imax e f)
     leq new_max b diff
   -- Analogous to previous case
   | _, .imax _ (.var idx) =>
@@ -163,11 +152,14 @@ partial def leq (a b : Univ) (diff : Int) : Bool :=
     let succ := .succ (.var idx)
     leq (instReduce a idx succ) (instReduce b idx succ) diff
   | _, .imax c (.max e f) =>
-    let new_max := .max (reduceIMax c e) (reduceIMax c f)
+    let new_max := reduceMax (reduceIMax c e) (reduceIMax c f)
     leq a new_max diff
   | _, .imax c (.imax e f) =>
-    let new_max := .imax (.max c e) f
+    let new_max := reduceMax (reduceIMax c e) (.imax e f)
     leq a new_max diff
+  --! Max cases
+  | .max c d, _ => leq c b diff && leq d b diff
+  | _, .max c d => leq a c diff || leq a d diff
   | _, _ => false -- Impossible cases
 
 /-- The equality algorithm. Assumes `a` and `b` are already reduced -/

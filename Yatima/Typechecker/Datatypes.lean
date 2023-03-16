@@ -32,7 +32,7 @@ open Lurk (F)
   When used in values, `sort`s will have only reduced and instantiated universes.
 -/
 inductive TypeInfo
-  | unit | proof | prop | none
+  | unit | proof | none
   | sort : Univ → TypeInfo
   deriving BEq, Inhabited, Repr
 
@@ -76,7 +76,7 @@ inductive TypedConst
   | «opaque»    : (type value : TypedExpr) → TypedConst
   | definition  : (type deref : TypedExpr) → (part : Bool) → TypedConst
   | constructor : (type : TypedExpr) → (idx fields : Nat) → TypedConst
-  | recursor    : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → (indProj : InductiveProj) → (rules : List (Nat × TypedExpr)) → TypedConst
+  | recursor    : (type : TypedExpr) → (params motives minors indices : Nat) → (k : Bool) → (indProj : InductiveProj) → (rules : Array (Nat × TypedExpr)) → TypedConst
   | quotient    : (type : TypedExpr) → (kind : QuotKind) → TypedConst
   deriving Inhabited, BEq
 
