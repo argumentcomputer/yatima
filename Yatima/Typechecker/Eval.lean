@@ -296,7 +296,6 @@ mutual
     | .recursor _ params motives minors indices isK indProj rules =>
       let majorIdx := params + motives + minors + indices
       if args.length != majorIdx then
-        -- TODO
         pure $ .app (.const f univs) (arg :: args) (info :: infos)
       else if isK then
         -- sanity check
@@ -312,7 +311,6 @@ mutual
         match ← toCtorIfLitOrStruct indProj params univs arg with
         | .app (Neutral.const f _) args' _ => match ← derefTypedConst f with
           | .constructor _ idx _ =>
-            -- TODO: if rules are in order of indices, then we can use an array instead of a list for O(1) referencing
             match rules.get? idx with
             | some (fields, rhs) =>
               let exprs := (args'.take fields) ++ (args.drop indices)
@@ -362,18 +360,28 @@ mutual
           let thunk : SusValue := ⟨info, Value.lit $ .natVal (v-1)⟩
           pure $ .app (.const succIdx []) [thunk] [.none]
       | .lit (.strVal _) => throw "TODO Reduction of string"
-      | e => do match indProj with
+      | e => do
+        -- do not eta expand structs in `Prop`
+        if info == .proof then return e
+        else match indProj with
         | ⟨f, i⟩ =>
           let ind ← getIndFromProj indProj
-        -- | .inductive (.mk (struct := struct) (ctors := ctors) ..) =>
-          if ind.struct then
+          -- must be a struct to eta expand
+          if !ind.struct then
+            pure e
+          else
+            let quick := (← read).quick
+            let ctorF := mkConstructorProjF f i 0 quick
+            match e with
+            | .app (.const f _) _ _ => if ctorF == f then
+              -- already eta expanded
+              return e
+            | _ => pure ()
             let ctor ← match ind.ctors with
               | [ctor] => pure ctor
               | _ =>
                 let f := mkInductiveProjF f i (← read).quick
                 throw s!"{(← read).constNames.getF f} should be a struct with only one constructor"
-            let quick := (← read).quick
-            let ctorF := mkConstructorProjF f i 0 quick
             let etaExpand (e : Value) : TypecheckM Value := do
               let mut projArgs : List SusValue := params
               for idx in [:ctor.fields] do
@@ -388,17 +396,7 @@ mutual
                 pure $ .app (.const ctorF univs) annotatedArgs $ annotatedArgs.map (fun _ => .none)
               else
                 pure $ .neu (.const ctorF univs)
-            match e with
-            | .app (.const f _) _ _ =>
-              -- FIXME do not `etaExpand` if the struct is in `Prop`
-              if ctorF == f then
-                -- this is already a constructor application
-                pure e
-              else
-                etaExpand e
-            | _ => etaExpand e
-          else
-            pure e
+            etaExpand e
 end
 
 mutual

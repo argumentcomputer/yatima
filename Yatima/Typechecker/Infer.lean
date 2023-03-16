@@ -36,9 +36,9 @@ def piInfo (dom img : TypeInfo) : TypecheckM TypeInfo := match dom, img with
 | _, .sort _ => throw "Domain is not a type"
 | _, _ => throw "Neither image nor domain are types"
 
-def subSort (inferType expectType : SusValue) : TypecheckM Bool := do
+def eqSortInfo (inferType expectType : SusValue) : TypecheckM Bool := do
   match inferType.info, expectType.info with
-  | .sort lvl, .sort lvl' => pure $ lvl.leq lvl' 0
+  | .sort lvl, .sort lvl' => pure $ lvl.equalUniv lvl'
   | .sort _, e => throw s!"Expected type {← ppValue expectType.get} {repr e} is not actually a type"
   | e, .sort _ => throw s!"Inferred type {← ppValue inferType.get} {repr e} is not actually a type"
   | e, e' => throw s!"Neither expected {← ppValue expectType.get} {repr e} nor inferred types {← ppValue inferType.get} {repr e'} are actually types"
@@ -83,7 +83,7 @@ mutual
   -/
   partial def check (term : IR.Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
-    if !(← subSort inferType type) then
+    if !(← eqSortInfo inferType type) then
       throw s!"Term: {← ppTypedExpr term}\nInfo mismatch:\n{repr inferType.info}\n\nnot equal to\n{repr type.info}\n\nExpected type: {← ppValue type.get}\nInferred type: {← ppValue inferType.get}"
     if !(← equal (← read).lvl type inferType) then
       throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
@@ -272,7 +272,7 @@ mutual
         let rules ← recr.rules.mapM fun rule => do
           let (rhs, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ infer rule.rhs
           pure (rule.fields, rhs)
-        let recrConst := .recursor type recr.params recr.motives recr.minors recr.indices recr.isK indProj rules
+        let recrConst := .recursor type recr.params recr.motives recr.minors recr.indices recr.isK indProj ⟨rules⟩
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f recrConst }
 
     return ()
