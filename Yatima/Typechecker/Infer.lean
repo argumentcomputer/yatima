@@ -22,49 +22,13 @@ namespace Yatima.Typechecker
 open IR PP
 open Lurk (F)
 
-/--
-  Gives the correct type information for a lambda based on the information of the body.
-  No lambdas can be a proposition, a struct or be elements of the unit type.
--/
-def lamInfo : TypeInfo → TypeInfo
-| .proof => .proof
-| _ => .none
-
-def piInfo (dom img : TypeInfo) : TypecheckM TypeInfo := match dom, img with
-| .sort lvl, .sort lvl' => pure $ .sort $ .reduceIMax lvl lvl'
-| .sort _, _ => throw "Image is not a type"
-| _, .sort _ => throw "Domain is not a type"
-| _, _ => throw "Neither image nor domain are types"
-
-def eqSortInfo (inferType expectType : SusValue) : TypecheckM Bool := do
-  match inferType.info, expectType.info with
-  | .sort lvl, .sort lvl' => pure $ lvl.equalUniv lvl'
-  | .sort _, e => throw s!"Expected type {← ppValue expectType.get} {repr e} is not actually a type"
-  | e, .sort _ => throw s!"Inferred type {← ppValue inferType.get} {repr e} is not actually a type"
-  | e, e' => throw s!"Neither expected {← ppValue expectType.get} {repr e} nor inferred types {← ppValue inferType.get} {repr e'} are actually types"
-/--
-  Gives the correct type information for a term based on its type.
--/
-def infoFromType (typ : SusValue) : TypecheckM TypeInfo :=
-  match typ.info with
-  | .sort .zero => pure .proof
-  | _ =>
-    match typ.get with
-    | .app (.const f _) _ _ => do match derefConst f (← read).store with
-      | .inductiveProj p =>
-        let induct ← getIndFromProj p
-        if induct.unit then pure .unit else pure .none
-      | _ => pure .none
-    | .sort lvl => pure (.sort lvl)
-    | _ => pure .none
-
 mutual
 
   partial def getStructInfo (v : Value) :
       TypecheckM (F × TypedExpr × List Univ × List SusValue) := do
     let err := s!"Expected a structure type, found {← ppValue v}"
     match v with
-    | .app (.const indF univs) params _ =>
+    | .app (.const indF univs) params =>
       let .inductiveProj p := derefConst indF (← read).store | throw err
       let ind ← getIndFromProj p
       -- Sanity check
@@ -83,8 +47,6 @@ mutual
   -/
   partial def check (term : IR.Expr) (type : SusValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
-    if !(← eqSortInfo inferType type) then
-      throw s!"Term: {← ppTypedExpr term}\nInfo mismatch:\n{repr inferType.info}\n\nnot equal to\n{repr type.info}\n\nExpected type: {← ppValue type.get}\nInferred type: {← ppValue inferType.get}"
     if !(← equal (← read).lvl type inferType) then
       throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
     pure term
@@ -102,7 +64,7 @@ mutual
         let types := ctx.types
         let some type := types.get? idx
           | throw s!"var@{idx} out of environment range (size {types.length})"
-        let term := ⟨← infoFromType type, .var idx⟩
+        let term := .var idx
         pure (term, type)
       else
         -- this free variable came from `recrCtx`, and thus represents a mutual reference
@@ -111,7 +73,7 @@ mutual
           if some constF == ctx.recF? then
             throw s!"Invalid recursion in {(← read).constNames.getF constF}"
           let type := typeValFn lvls
-          let term := ⟨← infoFromType type, .const constF lvls⟩
+          let term := .const constF lvls
           pure (term, type)
         | none =>
           throw $ s!"var@{idx} out of environment range (size {ctx.types.length})"
@@ -120,10 +82,8 @@ mutual
       let univs := (← read).env.univs
       let lvl := Univ.instBulkReduce univs lvl
       let lvl' := lvl.succ
-      let typ := .mk (.sort lvl'.succ) ⟨ fun _ => .sort lvl' ⟩
-      -- NOTE: we populate `SusTypeInfo.sort` here for consistency but technically it isn't necessary
-      -- because `lvl'` can never become `Univ.zero`.
-      let term := ⟨.sort lvl', .sort lvl⟩
+      let typ := ⟨ fun _ => .sort lvl' ⟩
+      let term := .sort lvl
       return (term, typ)
     | .app fnc' arg =>
       let (fnc, fncType) ← infer fnc'
@@ -133,29 +93,27 @@ mutual
         let ctx ← read
         let stt ← get
         let typ := suspend img { ctx with env := env.extendWith $ suspend arg ctx stt} stt
-        let term := ⟨← infoFromType typ, .app fnc arg⟩
+        let term := .app fnc arg
         pure (term, typ)
       | val => throw s!"Expected a pi type, found {← ppValue val}"
     | .lam dom bod => do
       let (dom, _) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
-      let var := mkSusVar (← infoFromType domVal) ctx.lvl
+      let var := mkSusVar ctx.lvl
       let (bod, imgVal) ← withExtendedCtx var domVal $ infer bod
-      let term := ⟨lamInfo bod.info, .lam dom bod⟩
-      let typ := .mk (← piInfo domVal.info imgVal.info) $
-        Value.pi domVal (← quoteTyped (ctx.lvl+1) ctx.env imgVal.getTyped) ctx.env
+      let term := .lam dom bod
+      let typ := Value.pi domVal (← quote (ctx.lvl+1) ctx.env imgVal.get) ctx.env
       pure (term, typ)
     | .pi dom img =>
       let (dom, domLvl) ← isSort dom
       let ctx ← read
       let domVal := suspend dom ctx (← get)
-      let domSusVal := mkSusVar (← infoFromType domVal) ctx.lvl
+      let domSusVal := mkSusVar ctx.lvl
       withExtendedCtx domSusVal domVal $ do
         let (img, imgLvl) ← isSort img
-        let sortLvl := .reduceIMax domLvl imgLvl
-        let typ := .mk (.sort sortLvl.succ) ⟨ fun _ => .sort $ sortLvl ⟩
-        let term := ⟨← infoFromType typ, .pi dom img⟩
+        let typ := ⟨ fun _ => .sort $ .reduceIMax domLvl imgLvl ⟩
+        let term := .pi dom img
         return (term, typ)
     | .letE expType exp bod =>
       let (expType, _) ← isSort expType
@@ -164,15 +122,15 @@ mutual
       let exp ← check exp expTypeVal
       let expVal := suspend exp ctx (← get)
       let (bod, typ) ← withExtendedCtx expVal expTypeVal $ infer bod
-      let term := ⟨bod.info, .letE expType exp bod⟩
+      let term := .letE expType exp bod
       return (term, typ)
     | .lit (.natVal v) =>
-      let typ := .mk (.sort $ .succ .zero) (mkConst (← primF .nat) [])
-      let term := ⟨.none, .lit (.natVal v)⟩
+      let typ := mkConst (← primF .nat) []
+      let term := .lit (.natVal v)
       pure $ (term, typ)
     | .lit (.strVal s) =>
-      let typ := .mk (.sort $ .succ .zero) (mkConst (← primF .string) [])
-      let term := ⟨.none, .lit (.strVal s)⟩
+      let typ := mkConst (← primF .string) []
+      let term := .lit (.strVal s)
       pure $ (term, typ)
     | .const k constUnivs =>
       withLimitedAxioms $ checkConst k
@@ -181,7 +139,7 @@ mutual
       let tconst ← derefTypedConst k
       let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
       let typ := suspend tconst.type { ctx with env := env } (← get)
-      let term := ⟨← infoFromType typ, .const k constUnivs⟩
+      let term := .const k constUnivs
       pure (term, typ)
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
@@ -189,22 +147,15 @@ mutual
       let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
       for i in [:idx] do
         match ctorType with
-        | .pi dom img piEnv =>
-          let info ← infoFromType dom
-          let proj := suspend ⟨info, .proj indF i expr⟩ (← read) (← get)
+        | .pi _ img piEnv =>
+          let proj := suspend  (.proj indF i expr) (← read) (← get)
           ctorType ← withNewExtendedEnv piEnv proj $ eval img
         | _ => pure ()
       match ctorType with
       | .pi dom _ _  =>
-        match exprType.info, dom.info with
-        | .sort .zero, .sort .zero =>
-          let term := ⟨← infoFromType dom, .proj indF idx expr⟩
-          pure (term, dom)
-        | .sort .zero, _ =>
-          throw s!"Projection {← ppTypedExpr expr}.{idx} not allowed"
-        | _, _ =>
-          let term := ⟨← infoFromType dom, .proj indF idx expr⟩
-          pure (term, dom)
+        -- FIX: Check whether projection escapes Prop
+        let term := .proj indF idx expr
+        pure (term, dom)
       | _ => throw "Impossible case. Implementation broken."
 
   /--

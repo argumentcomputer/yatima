@@ -172,14 +172,13 @@ open IR PP Lean Std.Format
 
 private abbrev indentD := Std.Format.indentD
 
-def TypedExpr.isProp (t : TypedExpr) : Bool := match t.expr with
+def TypedExpr.isProp (t : TypedExpr) : Bool := match t with
   | .sort .zero => true
   | _ => false
 
 def TypedExpr.isAtom (t : TypedExpr) : Bool :=
   -- For some reason, Lean can't prove termination when you use projections
-  let .mk _ expr := t
-  match expr with
+  match t with
   | .const .. | .var .. | .lit .. => true
   | .proj _ _ e => isAtom e
   | _ => isProp t
@@ -192,12 +191,12 @@ mutual
     else return f!"({← ppTypedExpr e})"
 
   /-- Printer of expressions -/
-  partial def ppTypedExpr (t : TypedExpr) : TypecheckM Format := match t.expr with
+  partial def ppTypedExpr (t : TypedExpr) : TypecheckM Format := match t with
     | .var idx => return f!"v_{idx}"
     | .sort u => return f!"Sort {ppUniv u}"
     | .const k univs =>
       return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .app fnc arg => match fnc.expr with
+    | .app fnc arg => match fnc with
       | .app .. => return f!"{← ppTypedExpr fnc} {← paren arg}"
       | _ => return f!"{← paren fnc} {← paren arg}"
     | .lam dom bod =>
@@ -218,7 +217,7 @@ mutual
 
   /-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
   private partial def ppTypedExprWith (t : TypedExpr) (env : Env) : TypecheckM Format :=
-    match t.expr with
+    match t with
     | .var 0 => return f!"v_0"
     | .var (idx + 1) =>
       match env.exprs.get? idx with
@@ -226,7 +225,7 @@ mutual
      | none => return f!"!_@{idx}!"
     | .sort u => return f!"Sort {ppUniv u}"
     | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .app fnc arg => match fnc.expr with
+    | .app fnc arg => match fnc with
       | .app .. => return f!"{← ppTypedExprWith fnc env} {← parenWith arg env}"
       | _ => return f!"{← parenWith fnc env} {← parenWith arg env}"
     -- | .app _ fnc arg => f!"({← ppTypedExprWith fnc env} {← ppTypedExprWith arg env})"
@@ -242,7 +241,7 @@ mutual
   private partial def ppNeutral (neu : Neutral) : TypecheckM Format := match neu with
     | .fvar idx .. => return f!"fv_{idx}"
     | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
+    | .proj _ idx val => return f!"{← ppValue val}.{idx}"
 
   /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
   private partial def ppSpine (neu : Neutral) (args : Args) : TypecheckM Format := do
@@ -252,7 +251,7 @@ mutual
   partial def ppValue (val : Value) : TypecheckM Format :=
     match val with
     | .sort u => return f!"Sort {ppUniv u}"
-    | .app neu args _ => ppSpine neu args
+    | .app neu args => ppSpine neu args
     | .lam dom bod ctx =>
       return f!"fun (_ : {← ppValue dom.get}) =>{indentD (← ppTypedExprWith bod ctx)}"
     | .pi dom cod ctx =>

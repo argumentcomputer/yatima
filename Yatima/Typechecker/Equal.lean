@@ -36,18 +36,18 @@ def applyType : Value → List SusValue → TypecheckM Value
 mutual
   partial def tryEtaStruct (lvl : Nat) (term term' : SusValue) : TypecheckM Bool := do
     match term'.get with
-    | .app (.const k _) args _ =>
+    | .app (.const k _) args =>
       match ← derefTypedConst k with
       | .constructor type .. =>
         match ← applyType (← eval type) args with
-        | .app (.const tk _) args _ =>
+        | .app (.const tk _) args =>
           match ← derefTypedConst tk with
           | .inductive _ struct .. =>
             if struct then
               args.enum.foldlM (init := true) fun acc (i, arg) => do
                 match arg.get with
-                | .app (.proj _ idx val) _ _ =>
-                  pure $ acc && i == idx && (← equal lvl term val.sus)
+                | .app (.proj _ idx val) _ =>
+                  pure $ acc && i == idx && (← equal lvl term val)
                 | _ => pure false
             else
               pure false
@@ -62,63 +62,57 @@ mutual
   It is assumed here that the values are typechecked, have both the same type and their
   original unevaluated terms both lived in the same context.
   -/
-  partial def equal (lvl : Nat) (term term' : SusValue) : TypecheckM Bool :=
-    match term.info, term'.info with
-    | .unit, .unit => pure true
-    | .proof, .proof => pure true
-    | _, _ => do
-      let term! := term.get
-      let term'! := term'.get
-      match term!, term'! with
-      | .lit lit, .lit lit' => pure $ lit == lit'
-      | .sort u, .sort u' => pure $ u.equalUniv u'
-      | .pi dom img env, .pi dom' img' env' => do
-        let res  ← equal lvl dom dom'
-        let img  := suspend img  { ← read with env := env.extendWith  (mkSusVar dom.info  lvl) } (← get)
-        let img' := suspend img' { ← read with env := env'.extendWith (mkSusVar dom'.info lvl) } (← get)
-        let res' ← equal (lvl + 1) img img'
-        pure $ res && res'
-      | .lam dom bod env, .lam dom' bod' env' => do
-        let res  ← equal lvl dom dom'
-        let bod  := suspend bod  { ← read with env := env.extendWith  (mkSusVar dom.info  lvl) } (← get)
-        let bod' := suspend bod' { ← read with env := env'.extendWith (mkSusVar dom'.info lvl) } (← get)
-        let res' ← equal (lvl + 1) bod bod'
-        pure $ res && res'
-      | .lam dom bod env, .app neu' args' infos' => do
-        let var := mkSusVar dom.info lvl
-        let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
-        let app := Value.app neu' (var :: args') (term'.info :: infos')
-        equal (lvl + 1) bod (.mk bod.info app)
-      | .app neu args infos, .lam dom bod env => do
-        let var := mkSusVar dom.info lvl
-        let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
-        let app := Value.app neu (var :: args) (term.info :: infos)
-        equal (lvl + 1) (.mk bod.info app) bod
-      | .app (.fvar idx) args _, .app (.fvar idx') args' _ =>
-        if idx == idx' then
-          -- If our assumption is correct, i.e., that these values come from terms
-          -- in the same environment then their types are equal when their indices
-          -- are equal
-          equalThunks lvl args args'
+  partial def equal (lvl : Nat) (term term' : SusValue) : TypecheckM Bool := do
+    match term.get, term'.get with
+    | .lit lit, .lit lit' => pure $ lit == lit'
+    | .sort u, .sort u' => pure $ u.equalUniv u'
+    | .pi dom img env, .pi dom' img' env' => do
+      let res  ← equal lvl dom dom'
+      let img  := suspend img  { ← read with env := env.extendWith  (mkSusVar lvl) } (← get)
+      let img' := suspend img' { ← read with env := env'.extendWith (mkSusVar lvl) } (← get)
+      let res' ← equal (lvl + 1) img img'
+      pure $ res && res'
+    | .lam dom bod env, .lam dom' bod' env' => do
+      let res  ← equal lvl dom dom'
+      let bod  := suspend bod  { ← read with env := env.extendWith  (mkSusVar lvl) } (← get)
+      let bod' := suspend bod' { ← read with env := env'.extendWith (mkSusVar lvl) } (← get)
+      let res' ← equal (lvl + 1) bod bod'
+      pure $ res && res'
+    | .lam _ bod env, .app neu' args' => do
+      let var := mkSusVar lvl
+      let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
+      let app := Value.app neu' (var :: args')
+      equal (lvl + 1) bod app
+    | .app neu args, .lam _ bod env => do
+      let var := mkSusVar lvl
+      let bod  := suspend bod { ← read with env := env.extendWith var } (← get)
+      let app := Value.app neu (var :: args)
+      equal (lvl + 1) app bod
+    | .app (.fvar idx) args, .app (.fvar idx') args' =>
+      if idx == idx' then
+        -- If our assumption is correct, i.e., that these values come from terms
+        -- in the same environment then their types are equal when their indices
+        -- are equal
+        equalThunks lvl args args'
+      else pure false
+    | .app (.const k us) args, .app (.const k' us') args' =>
+      if k == k' && IR.Univ.equalUnivs us us' then
+        equalThunks lvl args args'
+      else pure false
+    | _, .app (.const _ _) _ =>
+      tryEtaStruct lvl term term'
+    | .app (.const _ _) _, _ =>
+      tryEtaStruct lvl term' term
+    | .app (.proj ind idx val) args, .app (.proj ind' idx' val') args' =>
+        if ind == ind' && idx == idx' then do
+          let eqVal ← equal lvl val val'
+          let eqThunks ← equalThunks lvl args args'
+          pure (eqVal && eqThunks)
         else pure false
-      | .app (.const k us) args _, .app (.const k' us') args' _ =>
-        if k == k' && IR.Univ.equalUnivs us us' then
-          equalThunks lvl args args'
-        else pure false
-      | _, .app (.const _ _) _ _ =>
-        tryEtaStruct lvl term term'
-      | .app (.const _ _) _ _, _ =>
-        tryEtaStruct lvl term' term
-      | .app (.proj ind idx val) args _, .app (.proj ind' idx' val') args' _ =>
-          if ind == ind' && idx == idx' then do
-            let eqVal ← equal lvl val.sus val'.sus
-            let eqThunks ← equalThunks lvl args args'
-            pure (eqVal && eqThunks)
-          else pure false
-      | .exception e, _ | _, .exception e =>
-        throw s!"exception in equal: {e}"
-      | _, _ =>
-        pure false
+    | .exception e, _ | _, .exception e =>
+      throw s!"exception in equal: {e}"
+    | _, _ =>
+      pure false
 
 /--
 Checks if two list of thunks `vals vals' : List SusValue` are equal by evaluating the thunks
