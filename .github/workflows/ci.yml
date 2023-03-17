@@ -23,7 +23,7 @@ jobs:
       - name: build Yatima lib
         run: lake build Yatima
       - name: compile typechecker to Lurk
-        run: lake exe yatima gen Yatima/Typechecker/Typechecker.lean -d typecheckConstNoStore
+        run: lake exe yatima gen Yatima/Typechecker/Typechecker.lean -d Yatima.Typechecker.typecheckConstNoStore
       - name: build imported fixtures
         run: lake build Fixtures
       - name: build and run LSpec
