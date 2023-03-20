@@ -102,7 +102,7 @@ script setup do
     IO.println "compiling and hashing the typechecker"
     match ← runCmd "lake exe yatima gentc" with
     | .error err => IO.eprintln err; return 1
-    | .ok _ => return 0
+    | .ok out => IO.print out; return 0
 
 end Setup
 

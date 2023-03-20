@@ -22,7 +22,7 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   -- Write Lurk file
   let output := match p.flag? "output" |>.map (·.value) with
     | some output => ⟨output⟩
-    | none => "lurk" / s!"{decl}.lurk"
+    | none => ⟨s!"{decl}.lurk"⟩
   match output.parent with
   | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
   | none => pure ()
@@ -56,7 +56,7 @@ def codeGenCmd : Cli.Cmd := `[Cli|
   FLAGS:
     d, "decl"   : String; "Sets the topmost call for the Lurk evaluation"
     a, "anon";            "Anonymizes variable names for a more compact code"
-    o, "output" : String; "Specifies the target file name for the Lurk code (defaults to 'lurk/<decl>.lurk')"
+    o, "output" : String; "Specifies the target file name for the Lurk code (defaults to '<decl>.lurk')"
     r, "run";             "Evaluates the resulting Lurk expression with the custom evaluator"
     f, "frames" : Nat;    "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
     rs, "lurkrs";         "Evaluates the resulting Lurk expression with `lurkrs`"
