@@ -26,7 +26,7 @@ def mixHash : Override := Override.decl ⟨``mixHash, ⟦
   sooner. This override is currently disabled. -/
 def Decidable.decide : Override := Override.decl ⟨``Decidable.decide, ⟦
   (lambda (p h)
-    (if (= (getelem h 1) 0)
+    (if (= (getelem! h 1) 0)
         Bool.false
         Bool.true))
 ⟧⟩

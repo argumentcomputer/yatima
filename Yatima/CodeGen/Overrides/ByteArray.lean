@@ -43,7 +43,7 @@ def ByteArray.size : Override := Override.decl ⟨``ByteArray.size, ⟦
 ⟧⟩
 
 def ByteArray.get : Override := Override.decl ⟨``ByteArray.get, ⟦
-  (lambda (α a i) (getelem a i))
+  (lambda (α a i) (getelem! a i))
 ⟧⟩
 
 def ByteArray.get! : Override := Override.decl ⟨``ByteArray.get!, ⟦
@@ -64,7 +64,7 @@ def ByteArray.set! : Override := Override.decl ⟨``ByteArray.set!, ⟦
 ⟧⟩
 
 def ByteArray.uget : Override := Override.decl ⟨``ByteArray.uget, ⟦
-  (lambda (α a i h) (getelem a i))
+  (lambda (α a i h) (getelem! a i))
 ⟧⟩
 
 def ByteArray.uset : Override := Override.decl ⟨``ByteArray.uset, ⟦

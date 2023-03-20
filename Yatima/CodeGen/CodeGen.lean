@@ -27,7 +27,6 @@ def preloads : List (Name × Expr) := [
   Lurk.Preloads.set!,
   Lurk.Preloads.push,
   Lurk.Preloads.append,
-  Lurk.Preloads.getelem,
   Lurk.Preloads.getelem!,
   Lurk.Preloads.drop,
   Lurk.Preloads.str_mk,
@@ -172,11 +171,11 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, k)
       else
         let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
-          (param.toString false, ⟦(getelem _lurk_args $i)⟧)
+          (param.toString false, ⟦(getelem! _lurk_args $i)⟧)
         let case := mkLet params k
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem $discr 1))
+  return ⟦(let ((_lurk_idx (getelem! $discr 1))
                 (_lurk_args (drop $(2 + indData.params) $discr)))
             $cases)⟧
 
@@ -193,7 +192,7 @@ mutual
       -- TODO FIXME: support overrides; this is somewhat non-trivial
       let some indData := (← get).inductives.find? typeName |
         throw s!"{typeName} is not an inductive"
-      return ⟦(getelem $struct.name $(2 + indData.params + idx))⟧
+      return ⟦(getelem! $struct.name $(2 + indData.params + idx))⟧
     | .const declName _ args => do
       -- dbg_trace s!">> mkLetValue go {declName}"
       appendName declName

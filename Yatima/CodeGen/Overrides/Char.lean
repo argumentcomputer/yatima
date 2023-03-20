@@ -34,7 +34,7 @@ def CharCore : Override.Decl := ⟨``Char, ⟦
 
 def Char.mk : Override.Decl := ⟨``Char.mk, ⟦
   (lambda (val valid)
-    (char (getelem (getelem val 2) 3)))
+    (char (getelem! (getelem! val 2) 3)))
 ⟧⟩
 
 def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do

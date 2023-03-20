@@ -43,7 +43,7 @@ def Array.size : Override := Override.decl ⟨``Array.size, ⟦
 ⟧⟩
 
 def Array.get : Override := Override.decl ⟨``Array.get, ⟦
-  (lambda (α a i) (getelem a i))
+  (lambda (α a i) (getelem! a i))
 ⟧⟩
 
 def Array.get! : Override := Override.decl ⟨``Array.get!, ⟦
@@ -68,7 +68,7 @@ def Array.mkArray : Override := Override.decl ⟨``Array.mkArray, ⟦
 ⟧⟩
 
 def Array.uget : Override := Override.decl ⟨``Array.uget, ⟦
-  (lambda (α a i h) (getelem a i))
+  (lambda (α a i h) (getelem! a i))
 ⟧⟩
 
 def Array.uset : Override := Override.decl ⟨``Array.uset, ⟦
@@ -77,16 +77,16 @@ def Array.uset : Override := Override.decl ⟨``Array.uset, ⟦
 
 def Array.swap : Override := Override.decl ⟨``Array.swap, ⟦
   (lambda (α a i j)
-    (let ((v₁ (getelem a i))
-          (v₂ (getelem a j))
+    (let ((v₁ (getelem! a i))
+          (v₂ (getelem! a j))
           (a' (set a i v₂)))
         (set a' j v₁)))
 ⟧⟩
 
 def Array.swap! : Override := Override.decl ⟨``Array.swap!, ⟦
   (lambda (α a i j)
-    (let ((v₁ (getelem a i))
-          (v₂ (getelem a j))
+    (let ((v₁ (getelem! a i))
+          (v₂ (getelem! a j))
           (a' (set a i v₂)))
         (set a' j v₁)))
 ⟧⟩

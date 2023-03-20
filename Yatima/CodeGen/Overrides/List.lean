@@ -65,10 +65,10 @@ def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, �
                   (as (cdr l₁))
                   (b (car l₂))
                   (bs (cdr l₂))
-                  (_lurk_idx (getelem (h a b) 1)))
+                  (_lurk_idx (getelem! (h a b) 1)))
                 (if (= _lurk_idx 1)
                     Bool.true
-                    (let ((_lurk_idx (getelem (h b a) 1)))
+                    (let ((_lurk_idx (getelem! (h b a) 1)))
                         (if (= _lurk_idx 1)
                             Bool.false
                             (List.hasDecidableLt α inst h as bs)))))

@@ -16,6 +16,7 @@ import Yatima.CodeGen.Overrides.Array
 import Yatima.CodeGen.Overrides.Bool
 import Yatima.CodeGen.Overrides.ByteArray
 import Yatima.CodeGen.Overrides.Char
+import Yatima.CodeGen.Overrides.Decidable
 import Yatima.CodeGen.Overrides.Fin
 import Yatima.CodeGen.Overrides.HashMap
 import Yatima.CodeGen.Overrides.Int

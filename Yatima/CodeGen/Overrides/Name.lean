@@ -31,11 +31,11 @@ def Lean.NameMkCases (discr : Expr) (alts : Array Override.Alt) : Except String 
     | .default k => defaultElse := k
     | .alt cidx params k =>
       let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
-        (param.toString false, ⟦(getelem _lurk_args $(i + 1))⟧)
+        (param.toString false, ⟦(getelem! _lurk_args $(i + 1))⟧)
       let case := .mkLet params k
       ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := Expr.mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem $discr 1))
+  return ⟦(let ((_lurk_idx (getelem! $discr 1))
                 (_lurk_args (drop 2 $discr)))
             $cases)⟧
 

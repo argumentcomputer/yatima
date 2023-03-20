@@ -85,21 +85,13 @@ def drop : Lean.Name × Expr := (`drop, ⟦
         xs)))
 ⟧)
 
-/-- Note: this will not fail and return `nil` if `n` is out of bounds -/
-def getelem : Lean.Name × Expr := (`getelem, ⟦
-  (lambda (xs n)
-    (if (= n 0)
-      (car xs)
-      (getelem (cdr xs) (- n 1))))
-⟧)
-
 def getelem! : Lean.Name × Expr := (`getelem!, ⟦
   (lambda (xs n)
     (if (= n 0)
       (if xs
           (car xs)
           (throw "panic! in getelem!"))
-      (getelem (cdr xs) (- n 1))))
+      (getelem! (cdr xs) (- n 1))))
 ⟧)
 
 def str_mk : Lean.Name × Expr := (`str_mk, ⟦

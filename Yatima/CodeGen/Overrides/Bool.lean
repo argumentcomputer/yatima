@@ -7,7 +7,7 @@ open Yatima.CodeGen
 
 def not : Override := Override.decl ⟨``not, ⟦
   (lambda (x)
-    (let ((_lurk_idx (getelem x 1)))
+    (let ((_lurk_idx (getelem! x 1)))
         (if (= _lurk_idx 0)
             Bool.true
             Bool.false)))
