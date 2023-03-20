@@ -1,7 +1,7 @@
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Printing
-import Yatima.Datatypes.Lurk
 import Yatima.Common.ToLDON
+import Lurk.Scalar
 
 /-!
 # Yatima typechecker: Eval

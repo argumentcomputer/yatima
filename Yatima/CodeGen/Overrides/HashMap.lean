@@ -2,7 +2,7 @@ import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 /-- TODO FIXME: This is very dangerous, assumes that `USize == UInt64`. -/

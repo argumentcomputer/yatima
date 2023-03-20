@@ -2,6 +2,7 @@ import Yatima.ContAddr.ContAddrError
 import Yatima.Common.ToLDON
 import Yatima.Common.LightData
 import Yatima.Common.IO
+import Lurk.Scalar
 
 namespace Yatima.ContAddr
 
@@ -11,10 +12,10 @@ open IR
 structure ContAddrState where
   env : Env
   commits : RBMap Const Lurk.F compare
-  ldonHashState : Lurk.LDONHashState -- to speed up committing
+  ldonHashState : Lurk.Scalar.LDONHashState -- to speed up committing
   deriving Inhabited
 
-def ContAddrState.init (ldonHashState : Lurk.LDONHashState) : ContAddrState :=
+def ContAddrState.init (ldonHashState : Lurk.Scalar.LDONHashState) : ContAddrState :=
   ⟨default, default, ldonHashState⟩
 
 def ContAddrState.store (stt : ContAddrState) : Std.RBMap Lurk.F Const compare :=

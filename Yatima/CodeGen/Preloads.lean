@@ -1,4 +1,4 @@
-import Lurk.Backend.DSL
+import Lurk.ExprDSL
 import Yatima.CodeGen.Override
 
 /-!
@@ -10,7 +10,7 @@ generally needed to write Lurk code.
 
 namespace Lurk.Preloads
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 
 def reverse_aux : Lean.Name × Expr := (`reverse_aux, ⟦
   (lambda (xs ys)

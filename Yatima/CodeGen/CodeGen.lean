@@ -9,7 +9,7 @@ import Yatima.Lean.Utils
 
 namespace Yatima.CodeGen
 
-open Lurk.Backend Expr DSL
+open Lurk Expr LDON DSL
 open Lean.Compiler.LCNF
 
 /--

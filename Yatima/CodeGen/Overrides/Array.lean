@@ -1,9 +1,9 @@
-import Lurk.Backend.DSL
+import Lurk.ExprDSL
 import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 def ArrayInductiveData : InductiveData :=

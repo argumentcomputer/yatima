@@ -1,6 +1,6 @@
-import Lurk.Backend.Expr
+import Lurk.Expr
 
-namespace Lurk.Backend.Expr
+namespace Lurk.Expr
 
 def simpStep : Expr → Expr
   | .app (.app (.sym "Nat.add") x) y => .op₂ .add x.simpStep y.simpStep
@@ -21,4 +21,4 @@ partial def simp (e : Expr) : Expr :=
   let e' := e.simpStep
   if e' == e then e else e'.simp
 
-end Lurk.Backend.Expr
+end Lurk.Expr

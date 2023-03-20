@@ -1,5 +1,5 @@
-import Lurk.Backend.DSL
-import Lurk.Backend.ExprUtils
+import Lurk.ExprDSL
+import Lurk.ExprUtils
 
 /-!
 # CodeGen Overrides
@@ -50,7 +50,7 @@ This file defines the datatypes that encode override information.
 
 namespace Yatima.CodeGen
 
-open Lurk Backend DSL
+open Lurk
 open Lean.Compiler.LCNF
 
 /--

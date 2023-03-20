@@ -1,8 +1,8 @@
 import Lean
-import Lurk.Backend.DSL
+import Lurk.ExprDSL
 
 open Lean Compiler
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 
 def prog := ⟦
   (LETREC ((getelem (LAMBDA (xs n) (IF (= n 0) (CAR xs) (getelem (CDR xs) (- n 1)))))

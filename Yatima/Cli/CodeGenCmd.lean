@@ -2,7 +2,7 @@ import Cli.Basic
 import Yatima.Cli.Utils
 import Yatima.CodeGen.CodeGen
 import Yatima.Lean.Utils
-import Lurk.Backend.Eval
+import Lurk.Eval
 
 open System Yatima.CodeGen in
 def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
@@ -31,8 +31,10 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Run if requested
   if p.hasFlag "run" then
-    match expr.eval with
-    | .ok val => IO.println val
+    match expr.evaluate with
+    | .ok (val, iterations) =>
+      IO.println s!"Iterations: {iterations}"
+      IO.println val
     | .error (err, frames) =>
       IO.eprintln err
       let nFrames := (p.flag? "frames").map (·.as! Nat) |>.getD 5
