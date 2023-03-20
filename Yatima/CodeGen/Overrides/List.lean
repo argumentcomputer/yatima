@@ -6,7 +6,7 @@ open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 def ListInductiveData : InductiveData :=
-  ⟨``List, 0, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
+  ⟨``List, 1, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
 
 def ListCore : Override.Decl := ⟨``List, ⟦
   (lambda (x) ,("List" 1 0))
