@@ -1,6 +1,6 @@
 import TestsUtils.CodeGenAndRunTests
 
-open Lurk.Backend.Value
+open Lurk.Value
 
 open LSpec in
 def main := do
