@@ -12,6 +12,10 @@ namespace Lurk.Preloads
 
 open Lurk Expr.DSL LDON.DSL DSL
 
+def throw : Lean.Name × Expr := (`throw, ⟦
+  (lambda (msg) (begin (emit msg) (nil))) -- invalid function call to simulate error
+⟧)
+
 def reverse_aux : Lean.Name × Expr := (`reverse_aux, ⟦
   (lambda (xs ys)
     (if xs
@@ -50,7 +54,7 @@ def set! : Lean.Name × Expr := (`set!, ⟦
     (if (= i 0)
         (if xs
             (cons x (cdr xs))
-            ("panic!"))
+            (throw "panic! in set!"))
         (cons (car xs) (set! (cdr xs) (- i 1) x))))
 ⟧)
 
@@ -94,7 +98,7 @@ def getelem! : Lean.Name × Expr := (`getelem!, ⟦
     (if (= n 0)
       (if xs
           (car xs)
-          ("panic!"))
+          (throw "panic! in getelem!"))
       (getelem (cdr xs) (- n 1))))
 ⟧)
 
@@ -117,10 +121,10 @@ def str_data : Lean.Name × Expr := (`str_data, ⟦
 ⟧)
 
 def str_push : Lean.Name × Expr := (`str_push, ⟦
-  (lambda (xs y) (
-    if xs
-      (strcons (car xs) (push (cdr xs) y))
-      (strcons (char y) nil)))
+  (lambda (xs y) 
+    (if (eq xs "")
+      (strcons (char y) "")
+      (strcons (car xs) (str_push (cdr xs) y))))
 ⟧)
 
 def str_append : Lean.Name × Expr := (`str_append, ⟦
@@ -159,10 +163,6 @@ def lneq : Lean.Name × Expr := (`lneq, ⟦
 def lnot : Lean.Name × Expr := (`lnot, ⟦
   (lambda (x)
     (if x nil t))
-⟧)
-
-def throw : Lean.Name × Expr := (`throw, ⟦
-  (lambda (msg) (begin (emit msg) (nil))) -- invalid function call to simulate error
 ⟧)
 
 end Lurk.Preloads

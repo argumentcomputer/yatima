@@ -62,10 +62,10 @@ mutual
 
   partial def getStructInfo (v : Value) :
       TypecheckM (F × TypedExpr × List Univ × List SusValue) := do
-    let err := s!"Expected a structure type, found {← ppValue v}"
     match v with
     | .app (.const indF univs) params _ =>
-      let .inductiveProj p := derefConst indF (← read).store | throw err
+      let .inductiveProj p := derefConst indF (← read).store 
+        | throw s!"Expected a structure type, found {← ppValue v}"
       let ind ← getIndFromProj p
       -- Sanity check
       unless ind.struct && ind.params == params.length do

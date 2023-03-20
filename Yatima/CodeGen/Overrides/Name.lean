@@ -13,15 +13,15 @@ def Lean.NameCore : Override.Decl := ⟨``Lean.Name, ⟦
 ⟧⟩
 
 def Lean.Name.anonymous : Override.Decl := ⟨``Lean.Name.anonymous, ⟦
-  ("panic!")
+  (lambda () (throw "`Lean.Name.anonymous` is not implemented"))
 ⟧⟩
 
 def Lean.Name.str : Override.Decl := ⟨``Lean.Name.str, ⟦
-  ("panic!")
+  (lambda (pre str) (throw "`Lean.Name.str` is not implemented"))
 ⟧⟩
 
 def Lean.Name.num : Override.Decl := ⟨``Lean.Name.num, ⟦
-  ("panic!")
+  (lambda (pre i) (throw "`Lean.Name.num` is not implemented"))
 ⟧⟩
 
 def Lean.NameMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do

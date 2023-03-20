@@ -57,7 +57,7 @@ def Miscellaneous.module := [
   panicCore,
   dbgTrace,
   mixHash,
-  -- Decidable.decide, -- See the note on `Decidable.decide` override
+  Decidable.decide, -- See the note on `Decidable.decide` override
   decEq,
   inferInstanceAs,
   instDecidableNot,

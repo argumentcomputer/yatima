@@ -20,6 +20,7 @@ scoped instance (priority := low) : ToExpr Lean.Name where
   toExpr name := .sym name.toString
 
 def preloads : List (Name × Expr) := [
+  Lurk.Preloads.throw,
   Lurk.Preloads.reverse_aux,
   Lurk.Preloads.reverse,
   Lurk.Preloads.set,
@@ -37,8 +38,7 @@ def preloads : List (Name × Expr) := [
   Lurk.Preloads.lor,
   Lurk.Preloads.land,
   Lurk.Preloads.lnot,
-  Lurk.Preloads.lneq,
-  Lurk.Preloads.throw
+  Lurk.Preloads.lneq
 ]
 
 def preloadNames : Lean.NameSet :=
