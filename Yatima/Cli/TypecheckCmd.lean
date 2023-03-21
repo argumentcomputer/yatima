@@ -1,7 +1,6 @@
 import Cli.Basic
 import Yatima.Cli.Utils
 import Yatima.ContAddr.ContAddr
-import Yatima.Typechecker.Typechecker
 
 open System Yatima.ContAddr Yatima.Typechecker in
 def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
