@@ -1,4 +1,4 @@
-import Lurk.ExprDSL
+import Lurk.DSL
 import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
@@ -35,7 +35,7 @@ def Array.data : Override := Override.decl ⟨``Array.data, ⟦
 ⟧⟩
 
 def Array.mkEmpty : Override := Override.decl ⟨``Array.mkEmpty, ⟦
-  (lambda (α c) (List.nil "lcErased"))
+  (lambda (α c) (List.nil nil))
 ⟧⟩
 
 def Array.size : Override := Override.decl ⟨``Array.size, ⟦

@@ -110,7 +110,7 @@ def String.utf8SetAux : Override := Override.decl ⟨`String.utf8GetAux!, ⟦
         (if (= i p)
             (cons c (car cs))
             (cons (car cs) (String.utf8SetAux c (cdr cs) (+ i (String.csize c)) p)))
-        (List.nil "lcErased")))
+        (List.nil nil)))
 ⟧⟩
 
 def String.set : Override := Override.decl ⟨``String.set, ⟦
@@ -158,18 +158,18 @@ def String.extract.go₁ : Override := Override.decl ⟨``String.extract.go₁, 
           (let ((c (car s))
                 (cs (cdr s)))
               (String.extract.go₁ cs (+ i (String.csize c)) b e)))
-      (List.nil "lcErased")))
+      (List.nil nil)))
 ⟧⟩
 
 def String.extract.go₂ : Override := Override.decl ⟨``String.extract.go₂, ⟦
   (lambda (s i e)
     (if s
         (if (= i e)
-            (List.nil "lcErased")
+            (List.nil nil)
             (let ((c (car s))
                   (cs (cdr s)))
                 (cons c (String.extract.go₂ cs (+ i (String.csize c)) e))))
-        (List.nil "lcErased")))
+        (List.nil nil)))
 ⟧⟩
 
 def String.extract : Override := Override.decl ⟨``String.extract, ⟦
@@ -189,7 +189,7 @@ def String.decEq : Override := Override.decl ⟨``String.decEq, ⟦
 
 def String.decLt : Override := Override.decl ⟨``String.decLt, ⟦
   (lambda (s₁ s₂)
-    (List.hasDecidableLt "lcErased" Nat.decLt Nat.decLt (String.data s₁) (String.data s₂)))
+    (List.hasDecidableLt nil Nat.decLt Nat.decLt (String.data s₁) (String.data s₂)))
 ⟧⟩
 
 def String.module := [

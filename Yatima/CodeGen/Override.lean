@@ -1,4 +1,4 @@
-import Lurk.ExprDSL
+import Lurk.DSL
 import Lurk.ExprUtils
 
 /-!
