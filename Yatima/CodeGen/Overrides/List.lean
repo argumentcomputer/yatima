@@ -2,11 +2,11 @@ import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 def ListInductiveData : InductiveData :=
-  ⟨``List, 0, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
+  ⟨``List, 1, 0, .ofList [(``List.nil, 0), (``List.cons, 1)]⟩
 
 def ListCore : Override.Decl := ⟨``List, ⟦
   (lambda (x) ,("List" 1 0))
@@ -65,10 +65,10 @@ def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, �
                   (as (cdr l₁))
                   (b (car l₂))
                   (bs (cdr l₂))
-                  (_lurk_idx (getelem (h a b) 1)))
+                  (_lurk_idx (getelem! (h a b) 1)))
                 (if (= _lurk_idx 1)
                     Bool.true
-                    (let ((_lurk_idx (getelem (h b a) 1)))
+                    (let ((_lurk_idx (getelem! (h b a) 1)))
                         (if (= _lurk_idx 1)
                             Bool.false
                             (List.hasDecidableLt α inst h as bs)))))

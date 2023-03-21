@@ -2,7 +2,7 @@ import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 def sorryAx : Override := Override.decl ⟨``sorryAx, ⟦
@@ -26,7 +26,7 @@ def mixHash : Override := Override.decl ⟨``mixHash, ⟦
   sooner. This override is currently disabled. -/
 def Decidable.decide : Override := Override.decl ⟨``Decidable.decide, ⟦
   (lambda (p h)
-    (if (= (getelem h 1) 0)
+    (if (= (getelem! h 1) 0)
         Bool.false
         Bool.true))
 ⟧⟩
@@ -57,7 +57,7 @@ def Miscellaneous.module := [
   panicCore,
   dbgTrace,
   mixHash,
-  -- Decidable.decide, -- See the note on `Decidable.decide` override
+  Decidable.decide, -- See the note on `Decidable.decide` override
   decEq,
   inferInstanceAs,
   instDecidableNot,

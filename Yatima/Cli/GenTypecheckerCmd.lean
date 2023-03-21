@@ -4,6 +4,8 @@ import Yatima.CodeGen.CodeGen
 import Yatima.Common.IO
 import Yatima.Common.LightData
 import Yatima.Typechecker.Typechecker -- forcing oleans generation
+import Lurk.LightData
+import Lurk.Eval
 
 def tcCode : String :=
 "import Yatima.Typechecker.Typechecker

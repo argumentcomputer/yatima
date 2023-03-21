@@ -2,7 +2,7 @@ import Yatima.CodeGen.Override
 
 namespace Yatima.CodeGen
 
-open Lurk.Backend
+open Lurk
 open Lean.Compiler.LCNF Lean.Core
 
 structure CodeGenEnv where

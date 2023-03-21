@@ -2,7 +2,7 @@ import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 /-! # Some notes on `Char`
@@ -34,7 +34,7 @@ def CharCore : Override.Decl := ⟨``Char, ⟦
 
 def Char.mk : Override.Decl := ⟨``Char.mk, ⟦
   (lambda (val valid)
-    (char (getelem (getelem val 2) 3)))
+    (char (getelem! (getelem! val 2) 3)))
 ⟧⟩
 
 def CharMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do

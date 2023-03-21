@@ -1,9 +1,9 @@
-import Lurk.Backend.DSL
+import Lurk.DSL
 import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 def ByteArrayInductiveData : InductiveData :=
@@ -35,7 +35,7 @@ def ByteArray.data : Override := Override.decl ⟨``ByteArray.data, ⟦
 ⟧⟩
 
 def ByteArray.mkEmpty : Override := Override.decl ⟨``ByteArray.mkEmpty, ⟦
-  (lambda (α c) (List.nil "lcErased"))
+  (lambda (α c) (List.nil nil))
 ⟧⟩
 
 def ByteArray.size : Override := Override.decl ⟨``ByteArray.size, ⟦
@@ -43,7 +43,7 @@ def ByteArray.size : Override := Override.decl ⟨``ByteArray.size, ⟦
 ⟧⟩
 
 def ByteArray.get : Override := Override.decl ⟨``ByteArray.get, ⟦
-  (lambda (α a i) (getelem a i))
+  (lambda (α a i) (getelem! a i))
 ⟧⟩
 
 def ByteArray.get! : Override := Override.decl ⟨``ByteArray.get!, ⟦
@@ -64,7 +64,7 @@ def ByteArray.set! : Override := Override.decl ⟨``ByteArray.set!, ⟦
 ⟧⟩
 
 def ByteArray.uget : Override := Override.decl ⟨``ByteArray.uget, ⟦
-  (lambda (α a i h) (getelem a i))
+  (lambda (α a i h) (getelem! a i))
 ⟧⟩
 
 def ByteArray.uset : Override := Override.decl ⟨``ByteArray.uset, ⟦
@@ -75,19 +75,19 @@ def ByteArray.uset : Override := Override.decl ⟨``ByteArray.uset, ⟦
   But it's good enough for now. -/
 def ByteArray.copySlice : Override := Override.decl ⟨``ByteArray.copySlice, ⟦
   (lambda (src srcOff dest destOff len exact)
-    (Array.append "lcErased"
-      (Array.extract "lcErased" dest 0 destOff)
-      (Array.append "lcErased"
-        (Array.extract "lcErased" src srcOff (+ srcOff len))
-        (Array.extract "lcErased" dest (+ destOff len) (Array.size dest)))))
+    (Array.append nil
+      (Array.extract nil dest 0 destOff)
+      (Array.append nil
+        (Array.extract nil src srcOff (+ srcOff len))
+        (Array.extract nil dest (+ destOff len) (Array.size dest)))))
 ⟧⟩
 
 def ByteArray.extract : Override := Override.decl ⟨``ByteArray.extract, ⟦
-  (lambda (a b e) (Array.extract "lcErased" a b e))
+  (lambda (a b e) (Array.extract nil a b e))
 ⟧⟩
 
 def ByteArray.append : Override := Override.decl ⟨``ByteArray.append, ⟦
-  (lambda (a b) (Array.append "lcErased" a b))
+  (lambda (a b) (Array.append nil a b))
 ⟧⟩
 
 def ByteArray.hash : Override := Override.decl ⟨``ByteArray.hash, ⟦

@@ -1,6 +1,7 @@
 import Yatima.Lean.Utils
 import Yatima.ContAddr.ContAddrM
 import YatimaStdLib.RBMap
+import Lurk.LightData
 
 namespace Yatima.ContAddr
 

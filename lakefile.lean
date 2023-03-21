@@ -21,7 +21,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "02222b99f0c0771c81db882de219d0b72ff484c3"
+  "https://github.com/yatima-inc/Lurk.lean" @ "455941257b447d1a91e2ee4e718e5177ae3c54ea"
 
 require LightData from git
   "https://github.com/yatima-inc/LightData" @ "6dfd01c9e056deaf5b76e20f995c39e840bbde86"
@@ -102,7 +102,7 @@ script setup do
     IO.println "compiling and hashing the typechecker"
     match ← runCmd "lake exe yatima gentc" with
     | .error err => IO.eprintln err; return 1
-    | .ok _ => return 0
+    | .ok out => IO.print out; return 0
 
 end Setup
 

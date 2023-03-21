@@ -16,9 +16,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "02222b99f0c0771c81db882de219d0b72ff484c3",
+    "rev": "455941257b447d1a91e2ee4e718e5177ae3c54ea",
     "name": "Lurk",
-    "inputRev?": "02222b99f0c0771c81db882de219d0b72ff484c3"}},
+    "inputRev?": "455941257b447d1a91e2ee4e718e5177ae3c54ea"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,

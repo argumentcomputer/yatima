@@ -16,6 +16,7 @@ import Yatima.CodeGen.Overrides.Array
 import Yatima.CodeGen.Overrides.Bool
 import Yatima.CodeGen.Overrides.ByteArray
 import Yatima.CodeGen.Overrides.Char
+import Yatima.CodeGen.Overrides.Decidable
 import Yatima.CodeGen.Overrides.Fin
 import Yatima.CodeGen.Overrides.HashMap
 import Yatima.CodeGen.Overrides.Int
@@ -30,7 +31,6 @@ import Yatima.CodeGen.Overrides.UInt
 import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.PrettyPrint
 import Yatima.CodeGen.Simp
-import Yatima.CodeGen.Test
 import Yatima.Common.IO
 import Yatima.Common.LightData
 import Yatima.Common.ToLDON
@@ -41,7 +41,6 @@ import Yatima.Datatypes.Const
 import Yatima.Datatypes.Env
 import Yatima.Datatypes.Expr
 import Yatima.Datatypes.Lean
-import Yatima.Datatypes.Lurk
 import Yatima.Datatypes.Univ
 import Yatima.Lean.LCNF
 import Yatima.Lean.Utils

@@ -9,7 +9,7 @@ import Yatima.Lean.Utils
 
 namespace Yatima.CodeGen
 
-open Lurk.Backend Expr DSL
+open Lurk Expr LDON DSL
 open Lean.Compiler.LCNF
 
 /--
@@ -20,13 +20,13 @@ scoped instance (priority := low) : ToExpr Lean.Name where
   toExpr name := .sym name.toString
 
 def preloads : List (Name × Expr) := [
+  Lurk.Preloads.throw,
   Lurk.Preloads.reverse_aux,
   Lurk.Preloads.reverse,
   Lurk.Preloads.set,
   Lurk.Preloads.set!,
   Lurk.Preloads.push,
   Lurk.Preloads.append,
-  Lurk.Preloads.getelem,
   Lurk.Preloads.getelem!,
   Lurk.Preloads.drop,
   Lurk.Preloads.str_mk,
@@ -37,26 +37,21 @@ def preloads : List (Name × Expr) := [
   Lurk.Preloads.lor,
   Lurk.Preloads.land,
   Lurk.Preloads.lnot,
-  Lurk.Preloads.lneq,
-  Lurk.Preloads.throw
+  Lurk.Preloads.lneq
 ]
 
 def preloadNames : Lean.NameSet :=
   .ofList (preloads.map Prod.fst)
 
 def safeName (name : Name) : CodeGenM Name :=
-  -- dbg_trace s!">> safeName {name}"
   let nameStr := name.toString false
   if preloadNames.contains name || nameStr.contains '|' then do
     match (← get).replaced.find? name with
     | some n => return n
     | none   => replace name
-  else
-    -- dbg_trace s!">> safeName end {name}"
-    return name
+  else return name
 
-def mkName (name : Name) : CodeGenM Expr := do
-  -- dbg_trace s!">> mkName {name}"
+def mkName (name : Name) : CodeGenM Expr :=
   toExpr <$> safeName name
 
 instance : ToExpr Lean.FVarId where
@@ -67,7 +62,6 @@ instance : ToExpr LitValue where toExpr
   | .strVal s => toExpr s
 
 def appendBinding (b : Name × Expr) (safe := true) : CodeGenM Unit := do
-  -- dbg_trace s!">> appendBinding {b.1}"
   let b := if safe then (← safeName b.1, b.2) else b
   modify fun s => { s with appendedBindings := s.appendedBindings.push b }
 
@@ -75,7 +69,6 @@ def appendInductiveData (data : InductiveData) : CodeGenM Unit := do
   modify fun s => { s with inductives := s.inductives.insert data.name data }
 
 def mkIndLiteral (ind : Lean.InductiveVal) : CodeGenM Expr := do
-  -- dbg_trace s!">> mkIndLiteral"
   let (name, params, indices, type) :=
     (ind.name.toString false, ind.numParams, ind.numIndices, ind.type)
   let args ← type.getForallBinderNames.mapM safeName
@@ -86,7 +79,6 @@ def mkIndLiteral (ind : Lean.InductiveVal) : CodeGenM Expr := do
     return .mkLambda args ⟦,($name $params $indices)⟧
 
 def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
-  -- dbg_trace s!">> appendConstructor"
   let (name, idx, type, ind) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
   visit ctor.name
   let ctorArgs ← type.getForallBinderNames.mapM safeName
@@ -100,7 +92,6 @@ def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
 
 /-- Amazingly, we don't actually have to codeGen recursors... -/
 def appendInductive (ind : Lean.InductiveVal) : CodeGenM Unit := do
-  -- dbg_trace s!">> appendInductive"
   let (name, params, indices) := (ind.name, ind.numParams, ind.numIndices)
   visit name
   let ctors : List Lean.ConstructorVal ← ind.ctors.mapM fun ctor => do
@@ -143,14 +134,13 @@ def appendCtorOrInd (name : Name) : CodeGenM Bool := do
   | _ => return false
 
 @[inline] def mkFVarId (fvarId : Lean.FVarId) : CodeGenM Expr :=
-  -- dbg_trace s!">> mkFVarId"
   mkName fvarId.name
 
 def mkArg : Arg → CodeGenM Expr
-  | .erased => return .atom .nil -- toExpr "lcErased"
+  | .erased => return .nil
   | .fvar fvarId => mkFVarId fvarId
     -- hopefully can erase types??
-  | .type _ => return .atom .nil -- toExpr "lcErased"
+  | .type _ => return .nil
 
 def mkParam : Param → CodeGenM String
   | ⟨fvarId, _, _, _⟩ =>
@@ -172,44 +162,37 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, k)
       else
         let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
-          (param.toString false, ⟦(getelem _lurk_args $i)⟧)
+          (param.toString false, ⟦(getelem! _lurk_args $i)⟧)
         let case := mkLet params k
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem $discr 1))
+  return ⟦(let ((_lurk_idx (getelem! $discr 1))
                 (_lurk_args (drop $(2 + indData.params) $discr)))
             $cases)⟧
 
 mutual
 
-  partial def mkLetValue (letv : LetValue) : CodeGenM Expr := do
-    -- dbg_trace s!">> mkLetValue"
+  partial def mkLetValue (letv : LetValue) : CodeGenM Expr :=
     match letv with
     | .value lit => return toExpr lit
-    | .erased => return .atom .nil -- toExpr "lcErased"
+    | .erased => return .nil
     | .proj typeName idx struct => do
       appendName typeName
       -- TODO FIXME: use `typeName` to get params and add to `idx`
       -- TODO FIXME: support overrides; this is somewhat non-trivial
       let some indData := (← get).inductives.find? typeName |
         throw s!"{typeName} is not an inductive"
-      return ⟦(getelem $struct.name $(2 + indData.params + idx))⟧
+      return ⟦(getelem! $struct.name $(2 + indData.params + idx))⟧
     | .const declName _ args => do
-      -- dbg_trace s!">> mkLetValue go {declName}"
       appendName declName
-      if args.isEmpty then
-        return toExpr declName
-      else
-        return mkApp (toExpr declName) $ (← args.mapM mkArg).data
+      if args.isEmpty then return toExpr declName
+      else return mkApp (toExpr declName) $ (← args.mapM mkArg).data
     | .fvar fvarId args =>
-      if args.isEmpty then
-        mkName fvarId.name
-      else
-        return mkApp (← mkFVarId fvarId) $ (← args.mapM mkArg).data
+      if args.isEmpty then mkName fvarId.name
+      else return mkApp (← mkFVarId fvarId) $ (← args.mapM mkArg).data
 
   partial def mkLetDecl : LetDecl → CodeGenM (String × Expr)
     | ⟨fvarId, _, _, value⟩ => do
-      -- dbg_trace s!">> mkLetDecl"
       let fvarId ← safeName fvarId.name
       let fvarId := fvarId.toString false
       let value ← mkLetValue value
@@ -217,18 +200,15 @@ mutual
 
   partial def mkFunDecl : FunDecl → CodeGenM (String × Expr)
     | ⟨fvarId, _, params, _, value⟩ => do
-      -- dbg_trace s!">> mkFunDecl"
       let fvarId ← safeName fvarId.name
       let fvarId := fvarId.toString false
       let value ← mkCode value
       let ⟨params⟩ ← mkParams params
       return (fvarId, mkLambda params value)
 
-  partial def mkOverrideAlt (indData : InductiveData) :
-      Alt → CodeGenM Override.Alt
+  partial def mkOverrideAlt (indData : InductiveData) : Alt → CodeGenM Override.Alt
     | .default k => .default <$> mkCode k
     | .alt ctor params k => do
-      -- dbg_trace s!">> mkOverrideAlt"
       let some cidx := indData.ctors.find? ctor |
         throw s!"{ctor} not a valid constructor for {indData.name}"
       let params ← params.mapM fun p => safeName p.fvarId.name
@@ -241,7 +221,6 @@ mutual
   partial def mkCases (cases : Cases) : CodeGenM Expr := do
     let ⟨typeName, _, discr, alts⟩ := cases
     appendName typeName
-    -- dbg_trace s!">> mkCases typeName: {typeName}"
     let indData := ← match (← get).inductives.find? typeName with
       | some data => return data
       | none => throw s!"{typeName} is not an inductive"
@@ -254,30 +233,22 @@ mutual
 
   partial def mkCode : Code → CodeGenM Expr
     | .let decl k => do
-      -- dbg_trace s!">> mkCode let"
       let (name, decl) ← mkLetDecl decl
       let k ← mkCode k
       return .let name decl k
     | .fun decl k | .jp decl k => do -- `.fun` and `.jp` are the same case to Lurk
-      -- dbg_trace s!">> mkCode fun"
       let (name, decl) ← mkFunDecl decl
       let k ← mkCode k
       return .let name decl k
     | .jmp fvarId args => do
-      -- dbg_trace s!">> mkCode jmp"
       let fvarId ← mkFVarId fvarId
       let args ← args.mapM mkArg
       return mkApp fvarId args.data
-    | .cases cases =>
-      -- dbg_trace s!">> mkCode cases"
-      mkCases cases
-    | .return fvarId =>
-      -- dbg_trace s!">> mkCode return {fvarId.name}"
-      mkFVarId fvarId
-    | .unreach _ => return .atom .nil -- toExpr "lcUnreachable"
+    | .cases cases => mkCases cases
+    | .return fvarId => mkFVarId fvarId
+    | .unreach _ => return .nil
 
   partial def appendDecl (decl : Decl) : CodeGenM Unit := do
-    -- dbg_trace s!">> appendDecl {decl.name}"
     let ⟨name, _, _, params, value, _, _, _⟩ := decl
     visit name
     let ⟨params⟩ := params.map fun p => p.fvarId.name.toString false
@@ -287,7 +258,6 @@ mutual
 
   partial def appendName (name : Name) : CodeGenM Unit := do
     if ← isVisited name then return
-    -- dbg_trace s!">> appendName new name {name}"
     match ← getCtorOrIndInfo? name with
     | some inds =>
       for ind in inds do
@@ -299,7 +269,6 @@ mutual
       appendDecl $ ← getDecl name
 
   partial def appendOverride (name : Name) : CodeGenM Bool := do
-    -- dbg_trace s!">> appendOverride {name}"
     match (← read).overrides.find? name with
     | some (.decl ⟨name, decl⟩) =>
       visit name
@@ -318,8 +287,7 @@ mutual
       return true
     | none => return false
   where
-    appendPrereqs (x : Expr) : CodeGenM Unit := do
-      -- dbg_trace s!">> appendPrereqs {x.getFreeVars default default |>.toList}"
+    appendPrereqs (x : Expr) : CodeGenM Unit :=
       (x.getFreeVars).toList.forM fun n => do
         let n := n.toNameSafe
         if !(← isVisited n) then appendName n
@@ -330,7 +298,6 @@ end
 def codeGenM (decl : Lean.Name) : CodeGenM Unit :=
   let overrides := .ofList $ Lurk.Overrides.All.module.map fun o => (o.name, o)
   withOverrides overrides do
-    -- dbg_trace s!">> codeGenM overrides: {(← read).overrides.toList.map Prod.fst}"
     preloads.forM fun (name, preload) => do
       visit name
       appendBinding (name, preload) false

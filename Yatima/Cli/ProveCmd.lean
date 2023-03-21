@@ -1,8 +1,9 @@
 import Cli.Basic
 import Yatima.Common.IO
 import Yatima.Common.LightData
+import Lurk.LightData
 
-open Lurk in
+open Lurk Scalar in
 def proveRun (p : Cli.Parsed) : IO UInt32 := do
 
   let some (tcComm : F) ← loadData TCHASH false | return 1
@@ -44,7 +45,7 @@ def proveCmd : Cli.Cmd := `[Cli|
   FLAGS:
     e, "env"   : String; "Input environment file"
     l, "lurk"  : String; "Specifies the target file name for the Lurk code (defaults to '<decl>.lurk')"
-    s, "store" : String; s!"Output store file (defaults to '<decl>.ldstore')"
+    s, "store" : String; "Output store file (defaults to '<decl>.ldstore')"
 
   ARGS:
     decl : String; "Declaration to be typechecked"

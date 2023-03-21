@@ -2,7 +2,7 @@ import Yatima.CodeGen.Override
 
 namespace Lurk.Overrides
 
-open Lurk.Backend DSL
+open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
 def Lean.NameInductiveData : InductiveData :=
@@ -13,15 +13,15 @@ def Lean.NameCore : Override.Decl := ⟨``Lean.Name, ⟦
 ⟧⟩
 
 def Lean.Name.anonymous : Override.Decl := ⟨``Lean.Name.anonymous, ⟦
-  ("panic!")
+  (lambda () (throw "`Lean.Name.anonymous` is not implemented"))
 ⟧⟩
 
 def Lean.Name.str : Override.Decl := ⟨``Lean.Name.str, ⟦
-  ("panic!")
+  (lambda (pre str) (throw "`Lean.Name.str` is not implemented"))
 ⟧⟩
 
 def Lean.Name.num : Override.Decl := ⟨``Lean.Name.num, ⟦
-  ("panic!")
+  (lambda (pre i) (throw "`Lean.Name.num` is not implemented"))
 ⟧⟩
 
 def Lean.NameMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
@@ -31,11 +31,11 @@ def Lean.NameMkCases (discr : Expr) (alts : Array Override.Alt) : Except String 
     | .default k => defaultElse := k
     | .alt cidx params k =>
       let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
-        (param.toString false, ⟦(getelem _lurk_args $(i + 1))⟧)
+        (param.toString false, ⟦(getelem! _lurk_args $(i + 1))⟧)
       let case := .mkLet params k
       ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := Expr.mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem $discr 1))
+  return ⟦(let ((_lurk_idx (getelem! $discr 1))
                 (_lurk_args (drop 2 $discr)))
             $cases)⟧
 

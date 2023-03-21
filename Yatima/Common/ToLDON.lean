@@ -1,5 +1,5 @@
-import Yatima.Datatypes.Lurk
 import Yatima.Datatypes.Const
+import Lurk.LDON
 
 open Lurk
 
