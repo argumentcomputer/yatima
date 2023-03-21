@@ -11,7 +11,7 @@ Yatima also implements nameless content-addressing for Lean 4, allowing each exp
 Run `lake run setup`, which will build the `yatima` binary and ask you where to place it.
 You can choose a directory that's already in your path, for example.
 
-Running the setup script will also compile the Yatima typechecker and store it in the FS, under the `$HOME/.cache/yatima_store` directory.
+Running the setup script will also compile the Yatima typechecker and store it in the FS, under the `$HOME/.yatima` directory.
 
 ## Usage
 
