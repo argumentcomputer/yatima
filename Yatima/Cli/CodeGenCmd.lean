@@ -1,7 +1,5 @@
 import Cli.Basic
 import Yatima.Cli.Utils
-import Yatima.CodeGen.CodeGen
-import Yatima.Lean.Utils
 import Lurk.Eval
 
 open System Yatima.CodeGen in
@@ -20,12 +18,10 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   | .ok expr => pure $ if p.hasFlag "anon" then expr.anon else expr
 
   -- Write Lurk file
-  let output := match p.flag? "output" |>.map (·.value) with
+  let output := match p.flag? "lurk" |>.map (·.value) with
     | some output => ⟨output⟩
     | none => ⟨s!"{decl}.lurk"⟩
-  match output.parent with
-  | some dir => if ! (← dir.pathExists) then IO.FS.createDirAll dir
-  | none => pure ()
+
   IO.println s!"Writing output to {output}"
   IO.FS.writeFile output (expr.toString true)
 
@@ -56,7 +52,7 @@ def codeGenCmd : Cli.Cmd := `[Cli|
   FLAGS:
     d, "decl"   : String; "Sets the topmost call for the Lurk evaluation"
     a, "anon";            "Anonymizes variable names for a more compact code"
-    o, "output" : String; "Specifies the target file name for the Lurk code (defaults to '<decl>.lurk')"
+    o, "lurk"   : String; "Specifies the target file name for the Lurk code (defaults to '<decl>.lurk')"
     r, "run";             "Evaluates the resulting Lurk expression with the custom evaluator"
     f, "frames" : Nat;    "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
     rs, "lurkrs";         "Evaluates the resulting Lurk expression with `lurkrs`"
