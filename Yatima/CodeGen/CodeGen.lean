@@ -82,12 +82,13 @@ def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
   let (name, idx, type, ind) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
   visit ctor.name
   let ctorArgs ← type.getForallBinderNames.mapM safeName
+  let ctorData := ctorArgs.drop ctor.numParams
   let ind := ind.toString false
   let ctorData := 
     if (← read).nameless then
-      ⟦(cons $idx $(mkConsListWith $ ctorArgs.map toExpr))⟧
+      ⟦(cons $idx $(mkConsListWith $ ctorData.map toExpr))⟧
     else
-      ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorArgs.map toExpr)))⟧
+      ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorData.map toExpr)))⟧
   let body := if ctorArgs.isEmpty then
     ctorData
   else
@@ -176,10 +177,10 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
   let lurk_idx : Expr := match (← read).nameless with
     | true => ⟦(car $discr)⟧
     | false => ⟦(getelem! $discr 1)⟧
-  let drop_head := match (← read).nameless with 
+  let drop_head : Nat := match (← read).nameless with 
     | true => 1 | false => 2
   return ⟦(let ((_lurk_idx $lurk_idx)
-                (_lurk_args (drop $(drop_head + indData.params) $discr)))
+                (_lurk_args (drop $drop_head $discr)))
             $cases)⟧
 
 mutual
@@ -192,9 +193,9 @@ mutual
       appendName typeName
       -- TODO FIXME: use `typeName` to get params and add to `idx`
       -- TODO FIXME: support overrides; this is somewhat non-trivial
-      let some indData := (← get).inductives.find? typeName |
-        throw s!"{typeName} is not an inductive"
-      return ⟦(getelem! $struct.name $(2 + indData.params + idx))⟧
+      let drop_head : Nat := match (← read).nameless with 
+        | true => 1 | false => 2
+      return ⟦(getelem! $struct.name $(drop_head + idx))⟧
     | .const declName _ args => do
       appendName declName
       if args.isEmpty then return toExpr declName
@@ -328,5 +329,7 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
       s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     return expr.simp.pruneBlocks
+
+#check Prod.mk
 
 end Yatima.CodeGen
