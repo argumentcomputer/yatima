@@ -165,8 +165,10 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
       if params.isEmpty then
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, k)
       else
-        let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
-          (param.toString false, ⟦(getelem! _lurk_args $i)⟧)
+        let params : List (String × Expr) := params.toList.foldr (init := []) 
+          fun param acc =>
+            (param.toString false, ⟦(car _lurk_args)⟧) ::
+            ("_lurk_args", ⟦(cdr _lurk_args)⟧) :: acc
         let case := mkLet params k
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := mkIfElses ifThens.toList defaultElse
