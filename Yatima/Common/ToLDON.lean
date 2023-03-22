@@ -20,9 +20,9 @@ instance : Coe F LDON where
 instance : Coe (List LDON) LDON where
   coe xs := xs.foldr (init := .nil) .cons
 
-instance : Coe Lean.Literal LDON where coe
-  | .strVal s => (["Lean.Literal", 0, s] : List LDON)
-  | .natVal n => (["Lean.Literal", 1, n.toLDON] : List LDON)
+instance : Coe Lean.Literal LDON where coe  
+  | .natVal n => (["Lean.Literal", 0, n.toLDON] : List LDON)
+  | .strVal s => (["Lean.Literal", 1, s] : List LDON)
 
 instance : Coe Bool LDON where coe
   | false => (["Bool", 0] : List LDON)
