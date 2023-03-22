@@ -7,6 +7,7 @@ open Lean.Compiler.LCNF Lean.Core
 
 structure CodeGenEnv where
   env : Lean.Environment
+  nameless : Bool := true
   overrides : Lean.NameMap Override
 
 structure CodeGenState where

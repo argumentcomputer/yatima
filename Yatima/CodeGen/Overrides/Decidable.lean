@@ -41,7 +41,7 @@ def DecidableMkCases (discr : Expr) (alts : Array Override.Alt) : Except String 
       else
         throw "{cidx} is not a valid `Decidable` constructor index"
   let cases := Expr.mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem! $discr 1)))
+  return ⟦(let ((_lurk_idx $discr))
             $cases)⟧
 
 protected def Decidable : Override := Override.ind

@@ -83,7 +83,11 @@ def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
   visit ctor.name
   let ctorArgs ← type.getForallBinderNames.mapM safeName
   let ind := ind.toString false
-  let ctorData := ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorArgs.map toExpr)))⟧
+  let ctorData := 
+    if (← read).nameless then
+      ⟦(cons $idx $(mkConsListWith $ ctorArgs.map toExpr))⟧
+    else
+      ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorArgs.map toExpr)))⟧
   let body := if ctorArgs.isEmpty then
     ctorData
   else
@@ -151,7 +155,7 @@ def mkParams (params : Array Param) : CodeGenM (Array String) := do
   params.mapM mkParam
 
 def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.Alt) :
-    Except String Expr := do
+    CodeGenM Expr := do
   -- dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
   let mut defaultElse : Expr := .atom .nil
   let mut ifThens : Array (Expr × Expr) := #[]
@@ -166,8 +170,14 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
         let case := mkLet params k
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem! $discr 1))
-                (_lurk_args (drop $(2 + indData.params) $discr)))
+  -- I have to write it like this because Lean is having a hard time elaborating stuff
+  let lurk_idx : Expr := match (← read).nameless with
+    | true => ⟦(car $discr)⟧
+    | false => ⟦(getelem! $discr 1)⟧
+  let drop_head := match (← read).nameless with 
+    | true => 1 | false => 2
+  return ⟦(let ((_lurk_idx $lurk_idx)
+                (_lurk_args (drop $(drop_head + indData.params) $discr)))
             $cases)⟧
 
 mutual
@@ -228,7 +238,7 @@ mutual
     let alts ← mkOverrideAlts indData alts
     match (← read).overrides.find? typeName with
     | some (.ind ind) => liftExcept <| ind.mkCases discr alts
-    | none            => liftExcept <| mkCasesCore indData discr alts
+    | none            => mkCasesCore indData discr alts
     | some (.decl _)  => throw s!"found a declaration override for {typeName}"
 
   partial def mkCode : Code → CodeGenM Expr
@@ -309,7 +319,7 @@ context and whose bindings are the constants in the context (including `decl`)
 that are needed to define `decl`.
 -/
 def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
-  match CodeGenM.run ⟨leanEnv.patchUnsafeRec, .empty⟩ default (codeGenM decl) with
+  match CodeGenM.run ⟨leanEnv.patchUnsafeRec, true, .empty⟩ default (codeGenM decl) with
   | .error e _ => .error e
   | .ok _ s =>
     let bindings := Expr.mutualize $

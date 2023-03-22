@@ -5,6 +5,44 @@ namespace Lurk.Overrides
 open Lurk Expr.DSL LDON.DSL DSL
 open Yatima.CodeGen
 
+def BoolInductiveData : InductiveData :=
+  ⟨``Bool, 0, 0, .ofList [(``Bool.false, 0), (``Bool.true, 1)]⟩
+
+def BoolCore : Override.Decl := ⟨``Bool, ⟦
+  (lambda (x) ,("Bool" 0 0))
+⟧⟩
+
+def Bool.false : Override.Decl := ⟨``Bool.false, ⟦
+  0
+⟧⟩
+
+def Bool.true : Override.Decl := ⟨``Bool.true, ⟦
+  1
+⟧⟩
+
+def BoolMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
+  let mut defaultElse : Expr := .atom .nil
+  let mut ifThens : Array (Expr × Expr) := #[]
+  for alt in alts do match alt with
+    | .default k => defaultElse := k
+    | .alt cidx params k =>
+      if cidx == 0 then
+        let #[] := params |
+          throw s!"`Bool.false` case expects exactly 0 params, got\n {params}"
+        ifThens := ifThens.push (⟦(= _lurk_idx 0)⟧, k)
+      else if cidx == 1 then
+        let #[] := params |
+          throw s!"`Bool.isTrue` case expects exactly 0 params, got\n {params}"
+        ifThens := ifThens.push (⟦(= _lurk_idx 1)⟧, k)
+      else
+        throw s!"{cidx} is not a valid `Bool` constructor index"
+  let cases := Expr.mkIfElses ifThens.toList defaultElse
+  return ⟦(let ((_lurk_idx $discr))
+            $cases)⟧
+
+protected def Bool : Override := Override.ind
+  ⟨BoolInductiveData, BoolCore, #[Bool.false, Bool.true], BoolMkCases⟩
+
 def not : Override := Override.decl ⟨``not, ⟦
   (lambda (x)
     (let ((_lurk_idx (getelem! x 1)))
@@ -41,6 +79,7 @@ def bne : Override := Override.decl ⟨``bne, ⟦
 ⟧⟩
 
 def Bool.module := [
+  Lurk.Overrides.Bool,
   not, and, or, bne
 ]
 
