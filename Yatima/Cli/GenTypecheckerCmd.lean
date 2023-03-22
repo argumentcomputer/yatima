@@ -1,6 +1,6 @@
 import Cli.Basic
-import Yatima.Cli.Utils
 import Yatima.Common.IO
+import Yatima.Common.GenTypechecker
 import Lurk.LightData
 
 def genTypecheckerRun (_p : Cli.Parsed) : IO UInt32 := do

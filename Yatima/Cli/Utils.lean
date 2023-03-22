@@ -1,6 +1,4 @@
 import YatimaStdLib.Cronos
-import Yatima.CodeGen.CodeGen
-import Yatima.Typechecker.Typechecker -- forcing oleans generation
 
 -- Move to YatimaStdLib
 def Cronos.clock! (c : Cronos) (tag : String) : IO Cronos := do
@@ -32,13 +30,3 @@ def validToolchain : IO Bool := do
       IO.eprintln s!"Expected toolchain '{expectedVersion}' but got '{version}'"
       return false
     return true
-
-def tcCode : String :=
-"import Yatima.Typechecker.Typechecker
-def tc := Yatima.Typechecker.typecheckConstNoStore"
-
-def genTypechecker : IO $ Except String Lurk.Expr := do
-  Lean.setLibsPaths
-  match Yatima.CodeGen.codeGen (← Lean.runFrontend tcCode default) "tc" with
-  | .error msg => return .error msg
-  | .ok   expr => return .ok expr
