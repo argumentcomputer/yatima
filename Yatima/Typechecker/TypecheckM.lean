@@ -191,7 +191,7 @@ def fToPrimQuick : F → Option PrimConst
   | .ofNat 14029550093476971811 => return .op .natAdd
   | _ => none
 def allowedAxiom : F → Bool
-  | .ofNat 0x013057b9c81619218e8f542eb47aaa259a2f89d3bffb3e009aef10212cb0d219 => true
+  | .ofNat 0x18831fc8d02adfac589f6943dd3ae1e1b75b313456b70ec510123cd79030dcfb => true
   | .ofNat 0x13d6e2f59015a84d4b63e9aed1b27df52578b65bca8acb079e80b7f1f3af3b0a => true
   | .ofNat 0x1fd43f4fb0e31d0923596b27713089d7777a57b5bb49194970154dd9e5eb9634 => true
   | .ofNat 0x37ddd82901fb45241cf6ec55dd3ee9fcb449d4698e838d5d53d1e4cf096a251f => true

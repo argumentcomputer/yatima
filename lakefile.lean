@@ -21,7 +21,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "f26e0445dabb56e4a45e6b2369684216ba711300"
+  "https://github.com/yatima-inc/Lurk.lean" @ "d5c051f6ba4b5db21f8f14494b6c327d1ac136b8"
 
 require LightData from git
   "https://github.com/yatima-inc/LightData" @ "6dfd01c9e056deaf5b76e20f995c39e840bbde86"
