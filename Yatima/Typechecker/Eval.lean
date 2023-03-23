@@ -405,7 +405,6 @@ mutual
       let img ← quoteTypedExpr (lvl+1) img (env'.extendWith var)
       pure $ .pi dom img
     | .lit lit => pure $ .lit lit
-    | .exception e => throw e
 
   @[inline]
   partial def quoteTyped (lvl : Nat) (env : Env) (val : TypedValue) : TypecheckM TypedExpr := do

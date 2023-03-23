@@ -259,7 +259,6 @@ mutual
       return f!"(_ : {← ppValue dom.body}) → {← ppTypedExprWith cod ctx}"
     | .lit (.natVal x) => return f!"{x}"
     | .lit (.strVal x) => return f!"\"{x}\""
-    | .exception e => return f!"exception {e}"
 end
 
 -- instance : ToFormat TypedExpr where format := ppTypedExpr

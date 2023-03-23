@@ -13,7 +13,7 @@ namespace Yatima.Typechecker
 open IR
 open Lurk (F)
 
-abbrev RecrCtx    := Std.RBMap Nat (F × (List Univ → TypedValue)) compare
+abbrev RecrCtx    := Std.RBMap Nat (F × List TypedValue × TypedExpr) compare
 abbrev ConstNames := Std.RBMap F Lean.Name compare
 abbrev Store      := Std.RBMap F Const compare
 

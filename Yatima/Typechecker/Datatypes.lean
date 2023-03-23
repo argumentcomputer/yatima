@@ -117,8 +117,6 @@ mutual
     analogous to lambda bodies for their codomains -/
     | pi  : AddInfo Value → TypedExpr → Env' (AddInfo Value) → Value
     | lit : Literal → Value
-    -- An exception constructor is used to catch bugs in the evaluator/typechecker
-    | exception : String → Value
     deriving Inhabited
   /--
   A neutral term is either a variable or a constant with not enough arguments to
@@ -160,7 +158,6 @@ def Value.ctorName : Value → String
   | .lam       .. => "lam"
   | .pi        .. => "pi"
   | .lit       .. => "lit"
-  | .exception .. => "exception"
 
 def Neutral.ctorName : Neutral → String
   | .fvar  .. => "fvar"
