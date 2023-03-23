@@ -15,10 +15,7 @@ TODO: Add a high level overview of Eval in the context of Eval-Equal-Infer.
 
 ## Evaluate
 
-In this module the evaluation (↔ reduction) of Yatima expressions is defined. Expressions that can
-be reduced take a few forms, for example `.app fnc args`, constants, and suspdended evaluations.
-Functions that can not be reduced further evaluate to unreduced Values or suspended thunks waiting
-to evaluate further.
+In this module the evaluation (↔ reduction) of Yatima expressions is defined.
 -/
 
 namespace Yatima
@@ -159,31 +156,30 @@ mutual
   evaluating a constant, instantiating a universe variable, evaluating the body of a let binding
   and evaluating a projection.
   -/
-  partial def eval (t : TypedExpr) : TypecheckM Value := match t.expr with
+  partial def eval (t : TypedExpr) : TypecheckM Value := match t.body with
     | .app fnc arg => do
-      let ctx ← read
-      let argThunk := suspend arg ctx (← get)
       let fnc ← evalTyped fnc
-      apply fnc argThunk
+      let arg ← evalTyped arg
+      apply fnc arg
     | .lam dom bod => do
       let ctx ← read
-      let dom' := suspend dom ctx (← get)
-      pure $ .lam dom' bod ctx.env
+      let dom ← evalTyped dom
+      pure $ .lam dom bod ctx.env
     | .var idx => do
-      let some thunk := (← read).env.exprs.get? idx
+      let some value := (← read).env.exprs.get? idx
         | throw s!"Index {idx} is out of range for expression environment"
-      pure $ thunk.get
+      pure $ value.body
     | .const f const_univs => do
       let env := (← read).env
       let const_univs := const_univs.map (Univ.instBulkReduce env.univs)
       evalConst f const_univs
     | .letE _ val bod => do
-      let thunk := suspend val (← read) (← get)
-      withExtendedEnv thunk (eval bod)
+      let val ← evalTyped val
+      withExtendedEnv val (eval bod)
     | .pi dom img => do
       let ctx ← read
-      let dom' := suspend dom ctx (← get)
-      pure $ .pi dom' img ctx.env
+      let dom ← evalTyped dom
+      pure $ .pi dom img ctx.env
     | .sort univ => do
       let env := (← read).env
       pure $ .sort (Univ.instBulkReduce env.univs univ)
@@ -201,7 +197,7 @@ mutual
           let idx := ctor.params + idx
           let some arg := args.reverse.get? idx
             | throw s!"Invalid projection of index {idx} but constructor has only {args.length} arguments"
-          pure $ arg.get
+          pure arg.body
         | _ => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
       | .app .. => pure $ .neu (.proj ind idx (.mk (expr.info.update (← read).env.univs) val))
       | e => throw s!"Value {← ppValue e} is impossible to project"
@@ -231,31 +227,17 @@ mutual
     else evalConst' const univs
 
   /--
-  Suspends the evaluation of a Yatima expression `expr : TypedExpr` in a particular `ctx : TypecheckCtx`
-
-  Suspended evaluations can be resumed by evaluating `Thunk.get` on the resulting Thunk.
-  -/
-  partial def suspend (expr : TypedExpr) (ctx : TypecheckCtx) (stt : TypecheckState) : SusValue :=
-    let thunk := { fn := fun _ =>
-      match TypecheckM.run ctx stt (eval expr) with
-      | .ok a =>
-        a
-      | .error e => .exception e }
-    let reducedInfo := expr.info.update ctx.env.univs
-    ⟨reducedInfo, thunk⟩
-
-  /--
-  Applies `value : Value` to the argument `arg : SusValue`.
+  Applies `value : TypedValue` to the argument `arg : TypedValue`.
 
   Applications are split into cases on whether `value` is a `Value.lam`, the application of a constant
   or the application of a free variable.
 
   * `Value.lam` : Descends into and evaluates the body of the lambda expression
   * `Value.app (.const ..)` : Applies the constant to the argument as expected using `applyConst`
-  * `Value.app (.fvar ..)` : Returns an unevaluated `Value.app`
+  * `Value.app (.fvar ..)` : Returns a `Value.app`
   -/
-  partial def apply (val : TypedValue) (arg : SusValue) : TypecheckM Value :=
-    match val.value with
+  partial def apply (val : TypedValue) (arg : TypedValue) : TypecheckM Value :=
+    match val.body with
     | .lam _ bod lamEnv =>
       withNewExtendedEnv lamEnv arg (eval bod)
     | .app (.const f kUnivs) args infos => applyConst f kUnivs arg args val.info infos
@@ -273,7 +255,7 @@ mutual
   The application of the constant is split into cases on whether it is an inductive recursor,
   a quotient, or any other constant (which returns an unreduced application)
    -/
-  partial def applyConst (f : F) (univs : List Univ) (arg : SusValue) (args : List SusValue)
+  partial def applyConst (f : F) (univs : List Univ) (arg : TypedValue) (args : List TypedValue)
       (info : TypeInfo) (infos : List TypeInfo) : TypecheckM Value := do
     if let some $ .op p ← fPrim f then
       if args.length < p.numArgs - 1 then
@@ -305,7 +287,7 @@ mutual
           throw s!"Too few arguments ({nArgs}). At least {nDrop} needed"
         let minorIdx := nArgs - nDrop
         let some minor := args.get? minorIdx | throw s!"Index {minorIdx} is out of range"
-        pure minor.get
+        pure minor.body
       else
         let params := args.take params
         match ← toCtorIfLitOrStruct indProj params univs arg with
@@ -329,11 +311,11 @@ mutual
   /--
   Applies a quotient to a value. It might reduce if enough arguments are applied to it
   -/
-  partial def applyQuot (major? : SusValue) (args : List SusValue)
+  partial def applyQuot (major? : TypedValue) (args : List TypedValue)
       (reduceSize argPos : Nat) (default : Value) : TypecheckM Value :=
     let argsLength := args.length + 1
     if argsLength == reduceSize then
-      match major?.get with
+      match major?.body with
       | .app (.const majorFn _) majorArgs _ => do
         match ← derefTypedConst majorFn with
         | .quotient _ .ctor =>
@@ -341,7 +323,7 @@ mutual
           if majorArgs.length != 3 then throw "majorArgs should have size 3"
           let some majorArg := majorArgs.head? | throw "majorArgs can't be empty"
           let some head := args.get? argPos | throw s!"{argPos} is an invalid index for args"
-          apply head.getTyped majorArg
+          apply head majorArg
         | _ => pure default
       | _ => pure default
     else if argsLength < reduceSize then
@@ -349,16 +331,16 @@ mutual
     else
       throw s!"argsLength {argsLength} can't be greater than reduceSize {reduceSize}"
 
-  partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List SusValue) (univs : List Univ) : SusValue → TypecheckM Value
-    | .mk info thunk =>
-      match thunk.get with
+  partial def toCtorIfLitOrStruct (indProj : InductiveProj) (params : List TypedValue) (univs : List Univ) : TypedValue → TypecheckM Value
+    | .mk info val =>
+      match val with
       | .lit (.natVal v) => do
         let zeroIdx ← primF .natZero
         let succIdx ← primF (.op .natSucc)
         if v == 0 then pure $ mkConst zeroIdx []
         else
-          let thunk : SusValue := ⟨info, Value.lit $ .natVal (v-1)⟩
-          pure $ .app (.const succIdx []) [thunk] [.none]
+          let val := ⟨info, Value.lit $ .natVal (v-1)⟩
+          pure $ .app (.const succIdx []) [val] [.none]
       | .lit (.strVal _) => throw "TODO Reduction of string"
       | e => do
         -- do not eta expand structs in `Prop`
@@ -383,11 +365,10 @@ mutual
                 let f := mkInductiveProjF f i (← read).quick
                 throw s!"{(← read).constNames.getF f} should be a struct with only one constructor"
             let etaExpand (e : Value) : TypecheckM Value := do
-              let mut projArgs : List SusValue := params
+              let mut projArgs : List TypedValue := params
               for idx in [:ctor.fields] do
                 -- FIXME get the correct TypeInfo for the projection
-                projArgs := projArgs ++ [.mk .none $ .mk fun _ =>
-                  .neu (.proj (mkInductiveProjF f i quick) idx $ .mk info e)]
+                projArgs := projArgs ++ [.mk .none $ .neu (.proj (mkInductiveProjF f i quick) idx $ .mk info e)]
               let len := projArgs.length
               if h : len > 0 then
                 let lastIdx := len.pred
@@ -411,16 +392,16 @@ mutual
       if args.tail.length != infos.tail.length then throw "Partial application does not have enough info"
       let argsInfos := args.zip infos
       argsInfos.foldrM (init := ← quoteNeutral lvl env neu) fun (arg, info) acc => do
-        pure $ .app ⟨info, acc⟩ $ ← quoteTyped lvl env arg.getTyped
+        pure $ .app ⟨info, acc⟩ $ ← quoteTyped lvl env arg
     | .lam dom bod env' => do
-      let dom ← quoteTyped lvl env dom.getTyped
+      let dom ← quoteTyped lvl env dom
       -- NOTE: although we add a value with `default` as `TypeInfo`, this is overwritten by the info of the expression's value
-      let var := mkSusVar default lvl
+      let var := mkVar default lvl
       let bod ← quoteTypedExpr (lvl+1) bod (env'.extendWith var)
       pure $ .lam dom bod
     | .pi dom img env' => do
-      let dom ← quoteTyped lvl env dom.getTyped
-      let var := mkSusVar default lvl
+      let dom ← quoteTyped lvl env dom
+      let var := mkVar default lvl
       let img ← quoteTypedExpr (lvl+1) img (env'.extendWith var)
       pure $ .pi dom img
     | .lit lit => pure $ .lit lit
@@ -428,7 +409,7 @@ mutual
 
   @[inline]
   partial def quoteTyped (lvl : Nat) (env : Env) (val : TypedValue) : TypecheckM TypedExpr := do
-    pure ⟨val.info, ← quote lvl env val.value⟩
+    pure ⟨val.info, ← quote lvl env val.body⟩
 
   partial def quoteExpr (lvl : Nat) (expr : Expr) (env : Env) : TypecheckM Expr :=
     match expr with
@@ -437,7 +418,7 @@ mutual
       -- NOTE: if everything is correct, then `info` should coincide with `val.info`. We will choose `info` since
       -- this allows us to add values to the environment without knowing which `TypeInfo` it should take. See their
       -- previous note
-     | some val => quote lvl env val.get
+     | some val => quote lvl env val.body
      | none => throw s!"Unbound variable _@{idx}"
     | .app fnc arg => do
       let fnc ← quoteTypedExpr lvl fnc env
@@ -445,18 +426,18 @@ mutual
       pure $ .app fnc arg
     | .lam dom bod => do
       let dom ← quoteTypedExpr lvl dom env
-      let var := mkSusVar default lvl
+      let var := mkVar default lvl
       let bod ← quoteTypedExpr (lvl+1) bod (env.extendWith var)
       pure $ .lam dom bod
     | .letE typ val bod => do
       let typ ← quoteTypedExpr lvl typ env
       let val ← quoteTypedExpr lvl val env
-      let var := mkSusVar default lvl
+      let var := mkVar default lvl
       let bod ← quoteTypedExpr (lvl+1) bod (env.extendWith var)
       pure $ .letE typ val bod
     | .pi dom img => do
       let dom ← quoteTypedExpr lvl dom env
-      let var := mkSusVar default lvl
+      let var := mkVar default lvl
       let img ← quoteTypedExpr (lvl+1) img (env.extendWith var)
       pure $ .pi dom img
     | .proj ind idx expr => do
@@ -468,7 +449,7 @@ mutual
 
   @[inline]
   partial def quoteTypedExpr (lvl : Nat) (t : TypedExpr) (env : Env) : TypecheckM TypedExpr := do
-    pure ⟨t.info, ← quoteExpr lvl t.expr env⟩
+    pure ⟨t.info, ← quoteExpr lvl t.body env⟩
 
   partial def quoteNeutral (lvl : Nat) (env : Env) : Neutral → TypecheckM Expr
     | .fvar  idx => pure $ .var (lvl - idx - 1)
