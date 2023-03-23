@@ -1,5 +1,6 @@
 import Cli.Basic
 import Yatima.Cli.Utils
+import Yatima.Common.GenTypechecker
 import Yatima.Common.IO
 import Yatima.Common.LightData
 import Lurk.LightData

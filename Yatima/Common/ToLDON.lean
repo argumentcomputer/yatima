@@ -101,7 +101,6 @@ instance : Coe Axiom LDON where
 def Theorem.toLDON : Theorem → LDON
   | ⟨lvls, type, value⟩ => ([0, lvls.toLDON, type, value] : List LDON)
 
-
 instance : Coe Theorem LDON where
   coe := Theorem.toLDON
 

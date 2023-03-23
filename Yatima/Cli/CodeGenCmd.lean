@@ -1,5 +1,6 @@
 import Cli.Basic
 import Yatima.Cli.Utils
+import Yatima.CodeGen.CodeGen
 import Lurk.Eval
 
 open System Yatima.CodeGen in

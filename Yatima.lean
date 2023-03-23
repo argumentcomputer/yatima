@@ -31,6 +31,7 @@ import Yatima.CodeGen.Overrides.UInt
 import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.PrettyPrint
 import Yatima.CodeGen.Simp
+import Yatima.Common.GenTypechecker
 import Yatima.Common.IO
 import Yatima.Common.LightData
 import Yatima.Common.ToLDON
