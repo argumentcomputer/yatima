@@ -90,7 +90,6 @@ end AnonHashGroups
 
 section LurkTypechecking
 
-open Lurk.Expr.DSL Lurk.Value in
 def extractLurkTypecheckTests (decls : List Name) : IOExtractor := fun stt => do
   withExceptOkM "Typechecker compiles" (← genTypechecker) fun tcExpr =>
     let env := stt.env
@@ -98,8 +97,8 @@ def extractLurkTypecheckTests (decls : List Name) : IOExtractor := fun stt => do
         (stt.ldonHashState.extractComms env.hashes) fun store =>
       decls.foldl (init := .done) fun tSeq decl => tSeq ++
         withOptionSome s!"{decl} hash is found" (env.consts.find? decl) fun hash =>
-          let expr := Lurk.Expr.app tcExpr ⟦$hash⟧
+          let expr := mkRawTypecheckingExpr tcExpr hash
           withExceptOk s!"Typechecking {decl} succeeds" (expr.evaluate' store) fun v =>
-            test s!"{decl} typechecks" (v == ⦃("Bool" 1)⦄)
+            test s!"{decl} typechecks" (v == true)
 
 end LurkTypechecking
