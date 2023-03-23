@@ -330,6 +330,4 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     return expr.simp.pruneBlocks
 
-#check Prod.mk
-
 end Yatima.CodeGen
