@@ -155,7 +155,7 @@ def mkParam : Param → CodeGenM String
 def mkParams (params : Array Param) : CodeGenM (Array String) := do
   params.mapM mkParam
 
-def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.Alt) :
+def mkCasesCore (discr : Expr) (alts : Array Override.Alt) :
     CodeGenM Expr := do
   -- dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
   let mut defaultElse : Expr := .atom .nil
@@ -241,7 +241,7 @@ mutual
     let alts ← mkOverrideAlts indData alts
     match (← read).overrides.find? typeName with
     | some (.ind ind) => liftExcept <| ind.mkCases discr alts
-    | none            => mkCasesCore indData discr alts
+    | none            => mkCasesCore discr alts
     | some (.decl _)  => throw s!"found a declaration override for {typeName}"
 
   partial def mkCode : Code → CodeGenM Expr
@@ -329,7 +329,5 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
       s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     return expr.simp.pruneBlocks
-
-#check Prod.mk
 
 end Yatima.CodeGen

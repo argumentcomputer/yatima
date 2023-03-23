@@ -46,7 +46,7 @@ protected def List : Override := Override.ind
   ⟨ListInductiveData, ListCore, #[List.nil, List.cons], ListMkCases⟩
 
 def List.hasDecEq : Override := Override.decl ⟨``List.hasDecEq, ⟦
-  nil -- TODO FIXME
+  (lambda (α inst a b) (to_bool (eq a b)))
 ⟧⟩
 
 def List.beq : Override := Override.decl ⟨``List.beq, ⟦
@@ -80,6 +80,7 @@ def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, �
 
 def List.module := [
   Lurk.Overrides.List,
+  List.hasDecEq,
   List.hasDecidableLt
 ]
 
