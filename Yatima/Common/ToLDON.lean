@@ -17,12 +17,12 @@ instance : Coe String LDON where
 instance : Coe F LDON where
   coe := .num
 
-instance : Coe Lean.Literal LDON where coe
-  | .strVal s => s
-  | .natVal n => n.toLDON
-
 instance : Coe (List LDON) LDON where
   coe xs := xs.foldr (init := .nil) .cons
+
+instance : Coe Lean.Literal LDON where coe
+  | .natVal n => (["Lean.Literal", 0, n.toLDON] : List LDON)
+  | .strVal s => (["Lean.Literal", 1, s] : List LDON)
 
 instance : Coe Bool LDON where coe
   | false => (["Bool", 0] : List LDON)

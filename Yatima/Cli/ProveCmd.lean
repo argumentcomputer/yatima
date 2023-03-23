@@ -1,5 +1,6 @@
 import Cli.Basic
 import Yatima.Cli.Utils
+import Yatima.Common.GenTypechecker
 import Yatima.Common.IO
 import Yatima.Common.LightData
 import Lurk.LightData
@@ -31,7 +32,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   let mut expr := default
   let mut store := default
 
-  if p.hasFlag "no-hash" then
+  if p.hasFlag "raw-tc" then
     expr ← match ← genTypechecker with
       | .error msg => IO.eprintln msg; return 1
       | .ok expr' => pure expr'
@@ -87,10 +88,10 @@ def proveCmd : Cli.Cmd := `[Cli|
     e, "env"   : String; "Input environment file"
     l, "lurk"  : String; "Specifies the target file name for the Lurk code (defaults to '<decl>.lurk')"
     s, "store" : String; "Output store file (defaults to '<decl>.ldstore')"
-    "no-hash"; "Flag to generate a Lurk file with explicit typechecker code"
-    r, "run";          "Evaluates the resulting Lurk expression with the custom evaluator"
-    f, "frames" : Nat; "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
-    rs, "lurkrs";      "Evaluates the resulting Lurk expression with `lurkrs`"
+    "raw-tc";            "Flag to generate a Lurk file with explicit typechecker code"
+    r, "run";            "Evaluates the resulting Lurk expression with the custom evaluator"
+    f, "frames" : Nat;   "The number of frames dumped to a file in case of an error with the custom evaluator (defaults to 5)"
+    rs, "lurkrs";        "Evaluates the resulting Lurk expression with `lurkrs`"
 
   ARGS:
     decl : String; "Declaration to be typechecked"

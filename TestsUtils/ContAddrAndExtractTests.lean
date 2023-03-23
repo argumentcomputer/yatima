@@ -1,6 +1,8 @@
 import LSpec
 import Yatima.ContAddr.ContAddr
 import Yatima.Typechecker.Typechecker
+import Yatima.Common.GenTypechecker
+import Lurk.Eval
 
 open LSpec Yatima IR ContAddr Typechecker
 open System (FilePath)
@@ -19,12 +21,12 @@ abbrev IOExtractor := ContAddrState → IO TestSeq
 /-- Run tests from extractors given a Lean source file -/
 def ensembleTestExtractors (source : FilePath)
   (extractors : List Extractor) (ioExtractors : List IOExtractor)
-    (setPaths : Bool := true) : IO TestSeq := do
+    (setPaths quick : Bool := true) : IO TestSeq := do
   if setPaths then Lean.setLibsPaths
   let leanEnv ← Lean.runFrontend (← IO.FS.readFile source) source
   let (constMap, delta) := leanEnv.getConstsAndDelta
   withExceptOkM s!"Content-addresses {source}"
-      (← contAddr constMap delta true false) fun stt => do
+      (← contAddr constMap delta quick false) fun stt => do
     let pureTests := extractors.foldl (init := .done)
       fun acc ext => acc ++ (ext stt)
     ioExtractors.foldlM (init := pureTests) fun acc ext =>
@@ -85,3 +87,19 @@ def extractAnonGroupsTests (groups : List $ List Name) : Extractor := fun stt =>
           tSeq ++ test s!"{x.1}ₐₙₒₙ ≠ {y.1}ₐₙₒₙ" (x.2 != y.2)
 
 end AnonHashGroups
+
+section LurkTypechecking
+
+open Lurk.Expr.DSL Lurk.Value in
+def extractLurkTypecheckTests (decls : List Name) : IOExtractor := fun stt => do
+  withExceptOkM "Typechecker compiles" (← genTypechecker) fun tcExpr =>
+    let env := stt.env
+    return withExceptOk "Store extraction succeeds"
+        (stt.ldonHashState.extractComms env.hashes) fun store =>
+      decls.foldl (init := .done) fun tSeq decl => tSeq ++
+        withOptionSome s!"{decl} hash is found" (env.consts.find? decl) fun hash =>
+          let expr := Lurk.Expr.app tcExpr ⟦$hash⟧
+          withExceptOk s!"Typechecking {decl} succeeds" (expr.evaluate' store) fun v =>
+            test s!"{decl} typechecks" (v == ⦃("Bool" 1)⦄)
+
+end LurkTypechecking

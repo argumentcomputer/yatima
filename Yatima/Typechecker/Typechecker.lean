@@ -20,8 +20,6 @@ This function is supposed to be transpiled to Lurk, which does `open f` instead
 of retrieving constants from a store
 -/
 def typecheckConstNoStore (f : Lurk.F) : Bool :=
-  match TypecheckM.run default default (checkConst f) with
-  | .ok _ => true
-  | .error _ => false
+  TypecheckM.run default default (checkConst f) |>.isOk
 
 end Yatima.Typechecker

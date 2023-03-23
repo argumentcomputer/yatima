@@ -21,7 +21,7 @@ require Cli from git
   "https://github.com/yatima-inc/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/yatima-inc/Lurk.lean" @ "eb4bdc398237c71d54023068e5d5ac8ca46bde13"
+  "https://github.com/yatima-inc/Lurk.lean" @ "f26e0445dabb56e4a45e6b2369684216ba711300"
 
 require LightData from git
   "https://github.com/yatima-inc/LightData" @ "6dfd01c9e056deaf5b76e20f995c39e840bbde86"
@@ -56,6 +56,7 @@ lean_exe Tests.CodeGeneration.Primitives   { supportInterpreter := true }
 lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
 lean_exe Tests.Typechecker.Accept          { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reject          { supportInterpreter := true }
+lean_exe Tests.Typechecker.TypecheckInLurk { supportInterpreter := true }
 
 end Testing
 

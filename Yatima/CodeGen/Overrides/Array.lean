@@ -14,7 +14,7 @@ def ArrayCore : Override.Decl := ⟨``Array, ⟦
 ⟧⟩
 
 def Array.mk : Override.Decl := ⟨``Array.mk, ⟦
-  (lambda (data) data)
+  (lambda (type data) data)
 ⟧⟩
 
 def ArrayMkCases (discr : Expr) (alts : Array Override.Alt) : Except String Expr := do
