@@ -79,16 +79,11 @@ def mkIndLiteral (ind : Lean.InductiveVal) : CodeGenM Expr := do
     return .mkLambda args ⟦,($name $params $indices)⟧
 
 def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
-  let (name, idx, type, ind) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
+  let (name, idx, type, _) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
   visit ctor.name
   let ctorArgs ← type.getForallBinderNames.mapM safeName
   let ctorData := ctorArgs.drop ctor.numParams
-  let ind := ind.toString false
-  let ctorData := 
-    if (← read).nameless then
-      ⟦(cons $idx $(mkConsListWith $ ctorData.map toExpr))⟧
-    else
-      ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorData.map toExpr)))⟧
+  let ctorData := ⟦(cons $idx $(mkConsListWith $ ctorData.map toExpr))⟧
   let body := if ctorArgs.isEmpty then
     ctorData
   else
@@ -174,13 +169,9 @@ def mkCasesCore (discr : Expr) (alts : Array Override.Alt) :
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := mkIfElses ifThens.toList defaultElse
   -- I have to write it like this because Lean is having a hard time elaborating stuff
-  let lurk_idx : Expr := match (← read).nameless with
-    | true => ⟦(car $discr)⟧
-    | false => ⟦(getelem! $discr 1)⟧
-  let drop_head : Nat := match (← read).nameless with 
-    | true => 1 | false => 2
+  let lurk_idx : Expr := ⟦(car $discr)⟧
   return ⟦(let ((_lurk_idx $lurk_idx)
-                (_lurk_args (drop $drop_head $discr)))
+                (_lurk_args (drop 1 $discr)))
             $cases)⟧
 
 mutual
@@ -193,9 +184,7 @@ mutual
       appendName typeName
       -- TODO FIXME: use `typeName` to get params and add to `idx`
       -- TODO FIXME: support overrides; this is somewhat non-trivial
-      let drop_head : Nat := match (← read).nameless with 
-        | true => 1 | false => 2
-      return ⟦(getelem! $struct.name $(drop_head + idx))⟧
+      return ⟦(getelem! $struct.name $(1 + idx))⟧
     | .const declName _ args => do
       appendName declName
       if args.isEmpty then return toExpr declName
@@ -322,7 +311,7 @@ context and whose bindings are the constants in the context (including `decl`)
 that are needed to define `decl`.
 -/
 def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
-  match CodeGenM.run ⟨leanEnv.patchUnsafeRec, true, .empty⟩ default (codeGenM decl) with
+  match CodeGenM.run ⟨leanEnv.patchUnsafeRec, .empty⟩ default (codeGenM decl) with
   | .error e _ => .error e
   | .ok _ s =>
     let bindings := Expr.mutualize $
