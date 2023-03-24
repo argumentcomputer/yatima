@@ -79,20 +79,19 @@ def mkIndLiteral (ind : Lean.InductiveVal) : CodeGenM Expr := do
     return .mkLambda args ⟦,($name $params $indices)⟧
 
 def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
-  let (name, idx, type, _) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
   visit ctor.name
-  let ctorArgs ← type.getForallBinderNames.mapM safeName
+  let ctorArgs ← ctor.type.getForallBinderNames.mapM safeName
   let ctorData := ctorArgs.drop ctor.numParams
-  let ctorData := ⟦(cons $idx $(mkConsListWith $ ctorData.map toExpr))⟧
+  let ctorData := ⟦(cons $ctor.cidx $(mkConsListWith $ ctorData.map toExpr))⟧
   let body := if ctorArgs.isEmpty then
     ctorData
   else
     .mkLambda (ctorArgs.map (·.toString false)) ctorData
-  appendBinding (name, body)
+  appendBinding (ctor.name, body)
 
 /-- Amazingly, we don't actually have to codeGen recursors... -/
 def appendInductive (ind : Lean.InductiveVal) : CodeGenM Unit := do
-  let (name, params, indices) := (ind.name, ind.numParams, ind.numIndices)
+  let name := ind.name
   visit name
   let ctors : List Lean.ConstructorVal ← ind.ctors.mapM fun ctor => do
     match (← read).env.constants.find? ctor with
@@ -100,7 +99,7 @@ def appendInductive (ind : Lean.InductiveVal) : CodeGenM Unit := do
     | _ => throw s!"malformed environment, {ctor} is not a constructor or doesn't exist"
   let ctorData := ctors.foldl (init := .empty)
     fun acc ctor => acc.insert ctor.name ctor.cidx
-  appendInductiveData ⟨name, params, indices, ctorData⟩
+  appendInductiveData ⟨name, ind.numParams, ind.numIndices, ctorData⟩
   appendBinding (name, ← mkIndLiteral ind)
   for ctor in ctors do
     appendConstructor ctor
