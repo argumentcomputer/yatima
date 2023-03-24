@@ -79,20 +79,19 @@ def mkIndLiteral (ind : Lean.InductiveVal) : CodeGenM Expr := do
     return .mkLambda args ⟦,($name $params $indices)⟧
 
 def appendConstructor (ctor : Lean.ConstructorVal) : CodeGenM Unit := do
-  let (name, idx, type, ind) := (ctor.name, ctor.cidx, ctor.type, ctor.induct)
   visit ctor.name
-  let ctorArgs ← type.getForallBinderNames.mapM safeName
-  let ind := ind.toString false
-  let ctorData := ⟦(cons $ind (cons $idx $(mkConsListWith $ ctorArgs.map toExpr)))⟧
+  let ctorArgs ← ctor.type.getForallBinderNames.mapM safeName
+  let ctorData := ctorArgs.drop ctor.numParams
+  let ctorData := ⟦(cons $ctor.cidx $(mkConsListWith $ ctorData.map toExpr))⟧
   let body := if ctorArgs.isEmpty then
     ctorData
   else
     .mkLambda (ctorArgs.map (·.toString false)) ctorData
-  appendBinding (name, body)
+  appendBinding (ctor.name, body)
 
 /-- Amazingly, we don't actually have to codeGen recursors... -/
 def appendInductive (ind : Lean.InductiveVal) : CodeGenM Unit := do
-  let (name, params, indices) := (ind.name, ind.numParams, ind.numIndices)
+  let name := ind.name
   visit name
   let ctors : List Lean.ConstructorVal ← ind.ctors.mapM fun ctor => do
     match (← read).env.constants.find? ctor with
@@ -100,7 +99,7 @@ def appendInductive (ind : Lean.InductiveVal) : CodeGenM Unit := do
     | _ => throw s!"malformed environment, {ctor} is not a constructor or doesn't exist"
   let ctorData := ctors.foldl (init := .empty)
     fun acc ctor => acc.insert ctor.name ctor.cidx
-  appendInductiveData ⟨name, params, indices, ctorData⟩
+  appendInductiveData ⟨name, ind.numParams, ind.numIndices, ctorData⟩
   appendBinding (name, ← mkIndLiteral ind)
   for ctor in ctors do
     appendConstructor ctor
@@ -150,8 +149,8 @@ def mkParam : Param → CodeGenM String
 def mkParams (params : Array Param) : CodeGenM (Array String) := do
   params.mapM mkParam
 
-def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.Alt) :
-    Except String Expr := do
+def mkCasesCore (discr : Expr) (alts : Array Override.Alt) :
+    CodeGenM Expr := do
   -- dbg_trace s!">> mkCases mkCasesCore: {indData.name}"
   let mut defaultElse : Expr := .atom .nil
   let mut ifThens : Array (Expr × Expr) := #[]
@@ -161,13 +160,17 @@ def mkCasesCore (indData : InductiveData) (discr : Expr) (alts : Array Override.
       if params.isEmpty then
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, k)
       else
-        let params : List (String × Expr) := params.toList.enum.map fun (i, param) =>
-          (param.toString false, ⟦(getelem! _lurk_args $i)⟧)
+        let params : List (String × Expr) := params.toList.foldr (init := []) 
+          fun param acc =>
+            (param.toString false, ⟦(car _lurk_args)⟧) ::
+            ("_lurk_args", ⟦(cdr _lurk_args)⟧) :: acc
         let case := mkLet params k
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, case)
   let cases := mkIfElses ifThens.toList defaultElse
-  return ⟦(let ((_lurk_idx (getelem! $discr 1))
-                (_lurk_args (drop $(2 + indData.params) $discr)))
+  -- I have to write it like this because Lean is having a hard time elaborating stuff
+  let lurk_idx : Expr := ⟦(car $discr)⟧
+  return ⟦(let ((_lurk_idx $lurk_idx)
+                (_lurk_args (drop 1 $discr)))
             $cases)⟧
 
 mutual
@@ -180,9 +183,7 @@ mutual
       appendName typeName
       -- TODO FIXME: use `typeName` to get params and add to `idx`
       -- TODO FIXME: support overrides; this is somewhat non-trivial
-      let some indData := (← get).inductives.find? typeName |
-        throw s!"{typeName} is not an inductive"
-      return ⟦(getelem! $struct.name $(2 + indData.params + idx))⟧
+      return ⟦(getelem! $struct.name $(1 + idx))⟧
     | .const declName _ args => do
       appendName declName
       if args.isEmpty then return toExpr declName
@@ -228,7 +229,7 @@ mutual
     let alts ← mkOverrideAlts indData alts
     match (← read).overrides.find? typeName with
     | some (.ind ind) => liftExcept <| ind.mkCases discr alts
-    | none            => liftExcept <| mkCasesCore indData discr alts
+    | none            => mkCasesCore discr alts
     | some (.decl _)  => throw s!"found a declaration override for {typeName}"
 
   partial def mkCode : Code → CodeGenM Expr

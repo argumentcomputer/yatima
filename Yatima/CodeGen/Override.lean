@@ -66,6 +66,7 @@ structure InductiveData where
     doesn't actually hold this information and we have
     to manually extract it ourselves. -/
   ctors : Lean.NameMap Nat
+  deriving Inhabited
 
 /-- A declaration override (a.k.a. type #3 in our list at the top).
   Just contains the name and a predefined replacement `AST`. -/

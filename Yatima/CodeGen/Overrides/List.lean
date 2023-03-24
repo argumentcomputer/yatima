@@ -46,7 +46,7 @@ protected def List : Override := Override.ind
   ⟨ListInductiveData, ListCore, #[List.nil, List.cons], ListMkCases⟩
 
 def List.hasDecEq : Override := Override.decl ⟨``List.hasDecEq, ⟦
-  nil -- TODO FIXME
+  (lambda (α inst a b) (to_bool (eq a b)))
 ⟧⟩
 
 def List.beq : Override := Override.decl ⟨``List.beq, ⟦
@@ -65,10 +65,10 @@ def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, �
                   (as (cdr l₁))
                   (b (car l₂))
                   (bs (cdr l₂))
-                  (_lurk_idx (getelem! (h a b) 1)))
+                  (_lurk_idx (h a b)))
                 (if (= _lurk_idx 1)
                     Bool.true
-                    (let ((_lurk_idx (getelem! (h b a) 1)))
+                    (let ((_lurk_idx (h b a)))
                         (if (= _lurk_idx 1)
                             Bool.false
                             (List.hasDecidableLt α inst h as bs)))))
@@ -80,6 +80,7 @@ def List.hasDecidableLt : Override := Override.decl ⟨``List.hasDecidableLt, �
 
 def List.module := [
   Lurk.Overrides.List,
+  List.hasDecEq,
   List.hasDecidableLt
 ]
 

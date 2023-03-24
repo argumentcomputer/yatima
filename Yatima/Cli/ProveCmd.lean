@@ -33,12 +33,12 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
   let mut store := default
 
   if p.hasFlag "raw-tc" then
-    expr ← match ← genTypechecker with
+    let tcExpr ← match ← genTypechecker with
       | .error msg => IO.eprintln msg; return 1
       | .ok expr' => pure expr'
 
     -- simply apply the typechecker to the constant hash
-    expr := .app expr ⟦$declComm⟧
+    expr := mkRawTypecheckingExpr tcExpr declComm
 
     -- setting up the store
     store ← match stt.extractComms env.hashes with
@@ -48,7 +48,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
     let some (tcComm : F) ← loadData TCHASH false | return 1
 
     -- call `eval` on the typechecker committed as LDON
-    expr := ⟦((eval (open $tcComm)) $declComm)⟧
+    expr := mkCommTypecheckingExpr tcComm declComm
 
     -- setting up the store
     store ← match stt.extractComms (env.hashes.push tcComm) with

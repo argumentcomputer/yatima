@@ -130,9 +130,7 @@ def str_append : Lean.Name × Expr := (`str_append, ⟦
 
 def to_bool : Lean.Name × Expr := (`to_bool, ⟦
   (lambda (x)
-    (if x
-        ,("Bool" 1)
-        ,("Bool" 0)))
+    (if x 1 0))
 ⟧)
 
 -- TODO: We can't use any of these because they do not have

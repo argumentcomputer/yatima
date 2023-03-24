@@ -16,8 +16,8 @@ def typecheckAll (store : Store) (constNames : ConstNames) : Except String Unit 
   | .error err => throw err
 
 /--
-This function is supposed to be transpiled to Lurk, which does `open f` instead
-of retrieving constants from a store
+This is the function that's supposed to be transpiled to Lurk, which does
+`open f` instead of retrieving constants from a store
 -/
 def typecheckConstNoStore (f : Lurk.F) : Bool :=
   TypecheckM.run default default (checkConst f) |>.isOk
