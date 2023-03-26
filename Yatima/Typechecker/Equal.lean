@@ -113,6 +113,8 @@ mutual
             let eqVals ← equalValues lvl args args'
             pure (eqVal && eqVals)
           else pure false
+      | .exception e, _ | _, .exception e =>
+        throw s!"exception in equal: {e}"
       | _, _ =>
         pure false
 

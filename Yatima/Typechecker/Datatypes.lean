@@ -95,6 +95,15 @@ structure Env' (Value : Type) where
   univs : List Univ
   deriving Inhabited
 
+inductive ValueException where
+  | custom : String → ValueException
+  | noVar : ValueException
+deriving Inhabited
+
+instance : ToString ValueException where toString
+  | .custom e => s!"{e}"
+  | .noVar => s!"Free variable found. This means the encoding of the expression is incorrect"
+
 mutual
   /--
   Values are the final result of the evaluation of well-typed expressions under a well-typed
@@ -117,6 +126,9 @@ mutual
     analogous to lambda bodies for their codomains -/
     | pi  : AddInfo Value → TypedExpr → Env' (AddInfo Value) → Value
     | lit : Literal → Value
+    -- An exception constructor is added so that we don't have to wrap `Exception` around `Value`.
+    -- This is both for convenience and efficiency.
+    | exception : ValueException → Value
     deriving Inhabited
   /--
   A neutral term is either a variable or a constant with not enough arguments to
@@ -158,6 +170,7 @@ def Value.ctorName : Value → String
   | .lam       .. => "lam"
   | .pi        .. => "pi"
   | .lit       .. => "lit"
+  | .exception .. => "exception"
 
 def Neutral.ctorName : Neutral → String
   | .fvar  .. => "fvar"
