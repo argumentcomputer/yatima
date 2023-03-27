@@ -43,7 +43,7 @@ def Expr.toLDON : Expr → LDON
   | .sort u         => ([1, u] : List LDON)
   | .const ptr lvls => ([2, ptr, lvls.map IR.Univ.toLDON] : List LDON)
   | .app fn arg     => ([3, fn.toLDON, arg.toLDON] : List LDON)
-  | .lam name body  => ([4, name.toLDON, body.toLDON] : List LDON)
+  | .lam body       => ([4, body.toLDON] : List LDON)
   | .pi x y         => ([5, x.toLDON, y.toLDON] : List LDON)
   | .letE x y z     => ([6, x.toLDON, y.toLDON, z.toLDON] : List LDON)
   | .lit l          => ([7, l] : List LDON)

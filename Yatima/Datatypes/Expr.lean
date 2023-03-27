@@ -15,7 +15,7 @@ inductive Expr
   | sort  : Univ → Expr
   | const : Lurk.F → List Univ → Expr
   | app   : Expr → Expr → Expr
-  | lam   : Expr → Expr → Expr
+  | lam   : Expr → Expr
   | pi    : Expr → Expr → Expr
   | letE  : Expr → Expr → Expr → Expr
   | lit   : Literal → Expr

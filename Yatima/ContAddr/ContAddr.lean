@@ -305,8 +305,8 @@ partial def contAddrExpr : Lean.Expr → ContAddrM Expr
         return .var idx univs
       | none => return .const (← contAddrConst $ ← getLeanConstant name) univs
     | .app fnc arg => return .app (← contAddrExpr fnc) (← contAddrExpr arg)
-    | .lam name typ bod _ =>
-      return .lam (← contAddrExpr typ) (← withBinder name $ contAddrExpr bod)
+    | .lam name _ bod _ =>
+      return .lam (← withBinder name $ contAddrExpr bod)
     | .forallE name dom img _ =>
       return .pi (← contAddrExpr dom) (← withBinder name $ contAddrExpr img)
     | .letE name typ exp bod _ =>

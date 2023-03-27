@@ -100,8 +100,8 @@ mutual
     | .app func body => match func with
       | .app .. => return f!"{← ppExpr func} {← paren body}"
       | _ => return f!"{← paren func} {← paren body}"
-    | .lam type body =>
-      return f!"fun (_ : {← ppExpr type}) =>{indentD (← ppExpr body)}"
+    | .lam body =>
+      return f!"fun _ =>{indentD (← ppExpr body)}"
     | .pi dom img =>
       return f!"(_ : {← ppExpr dom}) → {← ppExpr img}"
     | .letE type value body =>

@@ -74,23 +74,23 @@ instance : Encodable Lurk.F LightData where
   decode x := return (.ofNat $ ← dec x)
 
 def exprToLightData : Expr → LightData
-  | .sort x => .cell #[false, x]
-  | .lit  x => .cell #[true,  x]
+  | .sort x => .cell #[0, x]
+  | .lit  x => .cell #[1,  x]
+  | .lam  x => .cell #[2, exprToLightData x]
   | .var   x y => .cell #[0, x, y]
   | .const x y => .cell #[1, x, y]
   | .app   x y => .cell #[2, exprToLightData x, exprToLightData y]
-  | .lam   x y => .cell #[3, exprToLightData x, exprToLightData y]
   | .pi    x y => .cell #[4, exprToLightData x, exprToLightData y]
   | .proj  x y => .cell #[5, x, exprToLightData y]
   | .letE x y z => .cell #[false, exprToLightData x, exprToLightData y, exprToLightData z]
 
 partial def lightDataToExpr : LightData → Except String Expr
-  | .cell #[false, x] => return .sort (← lightDataToUniv x)
-  | .cell #[true,  x] => return .lit (← dec x)
+  | .cell #[0, x] => return .sort (← lightDataToUniv x)
+  | .cell #[1, x] => return .lit (← dec x)
+  | .cell #[2, x] => return .lam (← lightDataToExpr x)
   | .cell #[0, x, y] => return .var (← dec x) (← dec y)
   | .cell #[1, x, y] => return .const (← dec x) (← dec y)
   | .cell #[2, x, y] => return .app (← lightDataToExpr x) (← lightDataToExpr y)
-  | .cell #[3, x, y] => return .lam (← lightDataToExpr x) (← lightDataToExpr y)
   | .cell #[4, x, y] => return .pi  (← lightDataToExpr x) (← lightDataToExpr y)
   | .cell #[5, x, y] => return .proj (← dec x) (← lightDataToExpr y)
   | .cell #[false, x, y, z] =>
