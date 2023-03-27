@@ -8,13 +8,13 @@
     "name": "Megaparsec",
     "inputRev?": "3a0fc855661b9179362aac65cbeb08560be32f29"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/YatimaStdLib.lean",
+   {"url": "https://github.com/lurk-lab/YatimaStdLib.lean",
     "subDir?": null,
     "rev": "10f2b444390a41ede90ca5c038c6ff972014d433",
     "name": "YatimaStdLib",
     "inputRev?": "10f2b444390a41ede90ca5c038c6ff972014d433"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/Lurk.lean",
+   {"url": "https://github.com/lurk-lab/Lurk.lean",
     "subDir?": null,
     "rev": "29a622e4cf93017acc215d5e1f154b1c5f53e4b4",
     "name": "Lurk",
@@ -26,7 +26,7 @@
     "name": "Straume",
     "inputRev?": "9597873f0b18a9e97b7315fb84968c55d09a6112"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/LSpec.git",
+   {"url": "https://github.com/lurk-lab/LSpec.git",
     "subDir?": null,
     "rev": "88f7d23e56a061d32c7173cea5befa4b2c248b41",
     "name": "LSpec",
@@ -38,13 +38,13 @@
     "name": "Poseidon",
     "inputRev?": "4180a316a7822b924e05cda1729d8612fcc81ee7"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/Cli.lean",
+   {"url": "https://github.com/lurk-lab/Cli.lean",
     "subDir?": null,
     "rev": "ef6f9bcd1738638fca8d319dbee653540d56614e",
     "name": "Cli",
     "inputRev?": "ef6f9bcd1738638fca8d319dbee653540d56614e"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/LightData",
+   {"url": "https://github.com/lurk-lab/LightData",
     "subDir?": null,
     "rev": "6dfd01c9e056deaf5b76e20f995c39e840bbde86",
     "name": "LightData",
