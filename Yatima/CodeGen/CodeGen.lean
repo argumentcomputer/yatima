@@ -6,6 +6,7 @@ import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.Overrides.All
 import Yatima.CodeGen.Simp
 import Yatima.Lean.Utils
+import Lurk.Prune
 
 namespace Yatima.CodeGen
 
@@ -312,10 +313,15 @@ that are needed to define `decl`.
 def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
   match CodeGenM.run ⟨leanEnv.patchUnsafeRec, .empty⟩ default (codeGenM decl) with
   | .error e _ => .error e
-  | .ok _ s =>
+  | .ok _ s => do
     let bindings := Expr.mutualize $
       s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
-    return expr.simp.pruneBlocks
+    let (expr, ssa) ← expr.toSSA
+    let expr ← expr.eraseAndPrune ssa.recursive
+    let expr := expr.pruneBlocks
+    let (expr, ssa) ← expr.toSSA
+    let expr ← expr.eraseAndPrune ssa.recursive
+    return expr.pruneBlocks
 
 end Yatima.CodeGen

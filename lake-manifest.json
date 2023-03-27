@@ -2,7 +2,7 @@
  "packagesDir": "./lake-packages",
  "packages":
  [{"git":
-   {"url": "https://github.com/yatima-inc/Megaparsec.lean",
+   {"url": "https://github.com/lurk-lab/Megaparsec.lean",
     "subDir?": null,
     "rev": "3a0fc855661b9179362aac65cbeb08560be32f29",
     "name": "Megaparsec",
@@ -16,9 +16,9 @@
   {"git":
    {"url": "https://github.com/yatima-inc/Lurk.lean",
     "subDir?": null,
-    "rev": "d5c051f6ba4b5db21f8f14494b6c327d1ac136b8",
+    "rev": "9a99d1df51f35301db717070e1d00f2e9471e3ea",
     "name": "Lurk",
-    "inputRev?": "d5c051f6ba4b5db21f8f14494b6c327d1ac136b8"}},
+    "inputRev?": "9a99d1df51f35301db717070e1d00f2e9471e3ea"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
@@ -32,7 +32,7 @@
     "name": "LSpec",
     "inputRev?": "88f7d23e56a061d32c7173cea5befa4b2c248b41"}},
   {"git":
-   {"url": "https://github.com/yatima-inc/Poseidon.lean",
+   {"url": "https://github.com/lurk-lab/Poseidon.lean",
     "subDir?": null,
     "rev": "4180a316a7822b924e05cda1729d8612fcc81ee7",
     "name": "Poseidon",
