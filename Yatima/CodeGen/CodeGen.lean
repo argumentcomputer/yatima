@@ -6,7 +6,7 @@ import Yatima.CodeGen.Preloads
 import Yatima.CodeGen.Overrides.All
 import Yatima.CodeGen.Simp
 import Yatima.Lean.Utils
-import Lurk.Prune
+import Lurk.InlineOfSSA
 
 namespace Yatima.CodeGen
 
@@ -318,10 +318,10 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
       s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     let (expr, ssa) ← expr.toSSA
-    let expr ← expr.eraseAndPrune ssa.recursive
-    let expr := expr.pruneBlocks
+    let expr ← expr.inlineOfSSA ssa.recursive
+    let expr := expr.dropUnusedAndInlineImmediates
     let (expr, ssa) ← expr.toSSA
-    let expr ← expr.eraseAndPrune ssa.recursive
-    return expr.pruneBlocks
+    let expr ← expr.inlineOfSSA ssa.recursive
+    return expr.dropUnusedAndInlineImmediates
 
 end Yatima.CodeGen

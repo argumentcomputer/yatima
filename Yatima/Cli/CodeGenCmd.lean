@@ -2,7 +2,6 @@ import Cli.Basic
 import Yatima.Cli.Utils
 import Yatima.CodeGen.CodeGen
 import Lurk.Eval
-import Lurk.Prune
 
 open System Yatima.CodeGen in
 def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
@@ -18,18 +17,6 @@ def codeGenRun (p : Cli.Parsed) : IO UInt32 := do
   let expr ← match codeGen (← Lean.runFrontend (← IO.FS.readFile path) path) decl with
   | .error msg => IO.eprintln msg; return 1
   | .ok expr => pure $ if p.hasFlag "anon" then expr.anon else expr
-
-  -- let expr : Except String Lurk.Expr := do
-  --   let (expr, ssa) ← expr.toSSA
-  --   let expr ← expr.eraseAndPrune ssa.recursive
-  --   let expr := expr.pruneBlocks
-  --   let (expr, ssa) ← expr.toSSA
-  --   let expr ← expr.eraseAndPrune ssa.recursive
-    -- let expr ← prune.ofSSA ssa -- can't do this lol
-    -- return expr
-  -- let expr := ← match expr with
-  --   | .ok expr => return expr 
-  --   | .error e => throw $ .userError e
 
   -- Write Lurk file
   let output := match p.flag? "lurk" |>.map (·.value) with
