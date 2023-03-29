@@ -108,9 +108,9 @@ instance : Encodable Constructor LightData where
     | x => throw s!"Invalid encoding for IR.Constructor: {x}"
 
 instance : Encodable RecursorRule LightData where
-  encode | ⟨a, b⟩ => .cell #[a, b]
+  encode | ⟨a, b, c⟩ => .cell #[a, b, c]
   decode
-    | .cell #[a, b] => return ⟨← dec a, ← dec b⟩
+    | .cell #[a, b, c] => return ⟨← dec a, ← dec b, ← dec c⟩
     | x => throw s!"Invalid encoding for IR.RecursorRule: {x}"
 
 instance : Encodable Definition LightData where

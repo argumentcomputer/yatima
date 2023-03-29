@@ -101,7 +101,7 @@ instance : Coe Constructor LDON where
   coe := Constructor.toLDON
 
 def RecursorRule.toLDON : RecursorRule → LDON
-  | ⟨fields, rhs⟩ => ([0, fields, rhs] : List LDON)
+  | ⟨fields, rhs, type⟩ => ([0, fields, rhs, type] : List LDON)
 
 instance : Coe RecursorRule LDON where
   coe := RecursorRule.toLDON

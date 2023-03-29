@@ -261,12 +261,14 @@ partial def internalRecToIR (ctors : List Lean.Name) :
   | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
 partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $ Constructor × RecursorRule := do
+  -- TODO somehow infer the type of `rule.rhs` in the Lean side
+  let rhsType := sorry
   let rhs ← contAddrExpr rule.rhs
   match ← getLeanConstant rule.ctor with
   | .ctorInfo ctor => withLevels ctor.levelParams do
     let typ ← contAddrExpr ctor.type
     let ctor := ⟨ctor.levelParams.length, typ, ctor.cidx, ctor.numParams, ctor.numFields⟩
-    pure (ctor, ⟨rule.nfields, rhs⟩)
+    pure (ctor, ⟨rule.nfields, rhs, rhsType⟩)
   | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
 partial def externalRecToIR : Lean.ConstantInfo → ContAddrM Recursor
@@ -278,7 +280,9 @@ partial def externalRecToIR : Lean.ConstantInfo → ContAddrM Recursor
   | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
 partial def externalRecRuleToIR (rule : Lean.RecursorRule) : ContAddrM RecursorRule :=
-  return ⟨rule.nfields, ← contAddrExpr rule.rhs⟩
+  -- TODO somehow infer the type of `rule.rhs` in the Lean side
+  let rhsType := sorry
+  return ⟨rule.nfields, ← contAddrExpr rule.rhs, rhsType⟩
 
 /--
 Content-addresses a Lean expression and adds it to the store.
