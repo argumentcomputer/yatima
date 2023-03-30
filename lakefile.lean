@@ -21,7 +21,7 @@ require Cli from git
   "https://github.com/lurk-lab/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
 
 require Lurk from git
-  "https://github.com/lurk-lab/Lurk.lean" @ "29a622e4cf93017acc215d5e1f154b1c5f53e4b4"
+  "https://github.com/lurk-lab/Lurk.lean" @ "283a4008a606bccb109eda55c80a5eae39a62788"
 
 require LightData from git
   "https://github.com/lurk-lab/LightData" @ "6dfd01c9e056deaf5b76e20f995c39e840bbde86"
