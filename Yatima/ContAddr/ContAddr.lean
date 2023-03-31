@@ -205,7 +205,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     addConstToEnv name hash
     if name == initInd.name then ret? := some hash
 
-    let some (ctors, recrs) := nameData.find? indName 
+    let some (ctors, recrs) := nameData.find? indName
       | throw $ .cantFindMutDefIndex indName
 
     for (ctorIdx, ctorName) in ctors.enum do
@@ -292,35 +292,60 @@ Constants are the tricky case, for which there are two possibilities:
 encoded as variables with indexes that go beyond the bind indexes
 * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
 and thus we can contAddr the actual constant right away
+
+We also must be careful not to create a redex with lambda expressions. That's
+because we do not want to reach a lambda from an `infer` call. Instead, every
+`(fun x => b) a` will become `(let f : A := fun x => b; f) b`, so that the lambda
+is reached by a `check` call, and `infer` will be called on the variable `f`.
 -/
-partial def contAddrExpr : Lean.Expr → ContAddrM Expr
-  | .mdata _ e => contAddrExpr e
-  | expr => match expr with
+partial def contAddrExpr (e : Lean.Expr) : ContAddrM Expr :=
+  -- This auxiliary function will return a boolean which indicates whether the expression
+  -- is a lambda (with a possible let chain surrounding it)
+  let rec go (e : Lean.Expr) : ContAddrM (Expr × Bool) := match e with
+    | .mdata _ e => go e
     | .bvar idx => do match (← read).bindCtx.get? idx with
       -- Bound variables must be in the bind context
-      | some _ => return .var idx []
+      | some _ => return (.var idx [], false)
       | none => throw $ .invalidBVarIndex idx
-    | .sort lvl => return .sort $ ← contAddrUniv lvl
+    | .sort lvl => return (.sort $ ← contAddrUniv lvl, false)
     | .const name lvls => do
       let univs ← lvls.mapM contAddrUniv
       match (← read).recrCtx.find? name with
       | some i => -- recursing!
         let idx := (← read).bindCtx.length + i
-        return .var idx univs
-      | none => return .const (← contAddrConst $ ← getLeanConstant name) univs
-    | .app fnc arg => return .app (← contAddrExpr fnc) (← contAddrExpr arg)
-    | .lam name _ bod _ =>
-      return .lam (← withBinder name $ contAddrExpr bod)
-    | .forallE name dom img _ =>
-      return .pi (← contAddrExpr dom) (← withBinder name $ contAddrExpr img)
-    | .letE name typ exp bod _ =>
-      return .letE (← contAddrExpr typ) (← contAddrExpr exp)
-        (← withBinder name $ contAddrExpr bod)
-    | .lit lit => return .lit lit
-    | .proj _ idx exp => return .proj idx (← contAddrExpr exp)
-    | .fvar ..  => throw $ .freeVariableExpr expr
-    | .mvar ..  => throw $ .metaVariableExpr expr
-    | .mdata .. => throw $ .metaDataExpr expr
+        return (.var idx univs, false)
+      | none => return (.const (← contAddrConst $ ← getLeanConstant name) univs, false)
+    | .app fnc arg => do
+      let (fnc', lam?) ← go fnc
+      let head := if lam?
+        then
+          -- TODO somehow infer the type of `fnc` in the Lean side
+          let fncType := sorry
+          .letE fncType fnc' (.var 0 [])
+        else fnc'
+      let arg := (← go arg).fst
+      return (.app head arg, false)
+    | .lam name _ bod _ => do
+      let bod := (← withBinder name $ go bod).fst
+      return (.lam bod, true)
+    | .forallE name dom img _ => do
+      -- neither `dom` nor `img` can be lambdas
+      let dom := (← go dom).fst
+      let img := (← withBinder name $ go img).fst
+      return (.pi dom img, false)
+    | .letE name typ exp bod _ => do
+      let typ := (← go typ).fst
+      let exp := (← go exp).fst
+      let (bod, lam?) ← withBinder name $ go bod
+      return (.letE typ exp bod, lam?)
+    | .lit lit => return (.lit lit, false)
+    | .proj _ idx exp => do
+      -- `exp` cannot be a lambda
+      let exp := (← go exp).fst
+      return (.proj idx exp, false)
+    | expr@(.fvar ..)  => throw $ .freeVariableExpr expr
+    | expr@(.mvar ..)  => throw $ .metaVariableExpr expr
+  return (← go e).fst
 
 /--
 A name-irrelevant ordering of Lean expressions.
