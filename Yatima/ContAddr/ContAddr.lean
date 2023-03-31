@@ -1,4 +1,5 @@
 import Yatima.Lean.Utils
+import Yatima.Common.IO
 import Yatima.ContAddr.ContAddrM
 import YatimaStdLib.RBMap
 import Lurk.LightData
@@ -476,9 +477,8 @@ end
 
 /-- Iterates over a list of `Lean.ConstantInfo`, triggering their content-addressing -/
 def contAddrM (delta : List Lean.ConstantInfo) : ContAddrM Unit := do
-  sorry
-  -- delta.forM fun c => if !c.isUnsafe then discard $ contAddrConst c else pure ()
-  -- if (← read).persist then dumpData (← get).ldonHashState LDONHASHCACHE
+  delta.forM fun c => if !c.isUnsafe then discard $ contAddrConst c else pure ()
+  if (← read).persist then dumpData (← get).ldonHashState LDONHASHCACHE
 
 /--
 Content-addresses the "delta" of an environment, that is, the content that is
@@ -489,16 +489,16 @@ Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
 def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
-    (quick persist : Bool) : IO $ Except ContAddrError ContAddrState := do
-  sorry
-  -- let persist := if quick then false else persist
-  -- let ldonHashState ←
-  --   if quick then pure default
-  --   else pure $ (← loadData LDONHASHCACHE).getD default
-  -- if persist then IO.FS.createDirAll STOREDIR
-  -- match ← StateT.run (ReaderT.run (contAddrM delta)
-  --   (.init constMap quick persist)) (.init ldonHashState) with
-  -- | (.ok _, stt) => return .ok stt
-  -- | (.error e, _) => return .error e
+    (quick persist : Bool) : Lean.MetaM $ Except ContAddrError ContAddrState := do
+  let persist := if quick then false else persist
+  let ldonHashState ←
+    if quick then pure default
+    else pure $ (← loadData LDONHASHCACHE).getD default
+  if persist then IO.FS.createDirAll STOREDIR
+  let runReader := ReaderT.run (contAddrM delta) (.init constMap quick persist)
+  let runState := StateT.run runReader (.init ldonHashState)
+  match ← runState with
+  | (.ok _, stt) => return .ok stt
+  | (.error e, _) => return .error e
 
 end Yatima.ContAddr
