@@ -180,3 +180,7 @@ def evalNoun (input : String) : Except String Noun := do
 def increment42 := evalNoun "[42 [6 [1 0] [4 0 1] [1 233]]]"
 def decrement42 : Except String Noun :=
   evalNoun "[42 [8 [1 0] 8 [1 6 [5 [0 7] 4 0 6] [0 6] 9 2 [0 2] [4 0 6] 0 7] 9 2 0 1]]"
+
+def res := match decrement42 with
+  | .ok n      => n.toString_aux
+  | .error msg => msg
