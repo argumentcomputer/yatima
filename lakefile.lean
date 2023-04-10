@@ -54,7 +54,6 @@ lean_exe Tests.Termination.TrickyDef       { supportInterpreter := true }
 lean_exe Tests.Termination.Init            { supportInterpreter := true }
 lean_exe Tests.CodeGeneration.Primitives   { supportInterpreter := true }
 lean_exe Tests.CodeGeneration.TrickyTypes  { supportInterpreter := true }
-lean_exe Tests.CodeGeneration.LNock        { supportInterpreter := true }
 lean_exe Tests.Typechecker.Accept          { supportInterpreter := true }
 lean_exe Tests.Typechecker.Reject          { supportInterpreter := true }
 lean_exe Tests.Typechecker.TypecheckInLurk { supportInterpreter := true }
