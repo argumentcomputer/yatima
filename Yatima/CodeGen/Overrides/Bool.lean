@@ -45,10 +45,9 @@ protected def Bool : Override := Override.ind
 
 def not : Override := Override.decl ⟨``not, ⟦
   (lambda (x)
-    (let ((_lurk_idx (getelem! x 1)))
-        (if (= _lurk_idx 0)
-            Bool.true
-            Bool.false)))
+    (if (eq x Bool.true)
+        Bool.false
+        Bool.true))
 ⟧⟩
 
 /-- TODO FIXME: This is a dangerous override because
