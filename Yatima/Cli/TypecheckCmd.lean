@@ -11,9 +11,6 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
 
   let mut cronos := Cronos.new
 
-  -- Check toolchain
-  if !(← validToolchain) then return 1
-
   -- Run Lean frontend
   cronos ← cronos.clock "Run Lean frontend"
   Lean.setLibsPaths

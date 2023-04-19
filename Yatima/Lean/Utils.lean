@@ -87,9 +87,25 @@ def setLibsPaths : IO Unit := do
   let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
   Lean.initSearchPath (← Lean.findSysroot) paths
 
+def runCmd (cmd : String) (args : Array String) : IO $ Except String String := do
+  let out ← IO.Process.output { cmd := cmd, args := args }
+  return if out.exitCode != 0 then .error out.stderr
+    else .ok out.stdout
+
+def checkToolchain : IO Unit := do
+  match ← runCmd "lake" #["--version"] with
+  | .error e => throw $ IO.userError e
+  | .ok out =>
+    let version := out.splitOn "(Lean version " |>.get! 1
+    let version := version.splitOn ")" |>.head!
+    let expectedVersion := Lean.versionString
+    if version != expectedVersion then
+      IO.println s!"Warning: expected toolchain '{expectedVersion}' but got '{version}'"
+
 open Elab in
 open System (FilePath) in
 def runFrontend (input : String) (filePath : FilePath) : IO Environment := do
+  checkToolchain
   let inputCtx := Parser.mkInputContext input filePath.toString
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
   let (env, messages) ← processHeader header default messages inputCtx 0
