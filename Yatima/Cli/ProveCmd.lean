@@ -74,7 +74,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
       IO.eprintln s!"Dumped {nFrames} frames to {framesFilePath}"
       return 1
   else if p.hasFlag "lurkrs" then
-    match ← runCmd "lurkrs" #[output.toString] with
+    match ← Lean.runCmd "lurkrs" #[output.toString] with
     | .ok res => IO.print res; return 0
     | .error err => IO.eprint err; return 1
 
