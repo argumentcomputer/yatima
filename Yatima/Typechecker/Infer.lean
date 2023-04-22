@@ -36,20 +36,20 @@ def piInfo (dom img : TypeInfo) : TypecheckM TypeInfo := match dom, img with
 | _, .sort _ => throw "Domain is not a type"
 | _, _ => throw "Neither image nor domain are types"
 
-def eqSortInfo (inferType expectType : SusValue) : TypecheckM Bool := do
+def eqSortInfo (inferType expectType : TypedValue) : TypecheckM Bool := do
   match inferType.info, expectType.info with
   | .sort lvl, .sort lvl' => pure $ lvl.equalUniv lvl'
-  | .sort _, e => throw s!"Expected type {← ppValue expectType.get} {repr e} is not actually a type"
-  | e, .sort _ => throw s!"Inferred type {← ppValue inferType.get} {repr e} is not actually a type"
-  | e, e' => throw s!"Neither expected {← ppValue expectType.get} {repr e} nor inferred types {← ppValue inferType.get} {repr e'} are actually types"
+  | .sort _, e => throw s!"Expected type {← ppValue expectType.body} {repr e} is not actually a type"
+  | e, .sort _ => throw s!"Inferred type {← ppValue inferType.body} {repr e} is not actually a type"
+  | e, e' => throw s!"Neither expected {← ppValue expectType.body} {repr e} nor inferred types {← ppValue inferType.body} {repr e'} are actually types"
 /--
   Gives the correct type information for a term based on its type.
 -/
-def infoFromType (typ : SusValue) : TypecheckM TypeInfo :=
+def infoFromType (typ : TypedValue) : TypecheckM TypeInfo :=
   match typ.info with
   | .sort .zero => pure .proof
   | _ =>
-    match typ.get with
+    match typ.body with
     | .app (.const f _) _ _ => do match derefConst f (← read).store with
       | .inductiveProj p =>
         let induct ← getIndFromProj p
@@ -61,7 +61,7 @@ def infoFromType (typ : SusValue) : TypecheckM TypeInfo :=
 mutual
 
   partial def getStructInfo (v : Value) :
-      TypecheckM (F × TypedExpr × List Univ × List SusValue) := do
+      TypecheckM (F × TypedExpr × List Univ × List TypedValue) := do
     match v with
     | .app (.const indF univs) params _ =>
       let .inductiveProj p := derefConst indF (← read).store 
@@ -79,18 +79,18 @@ mutual
     | v => throw s!"Expected a structure type, found {← ppValue v}"
 
   /--
-  Checks if `term : IR.Expr` has type `type : SusValue`. Returns the typed IR for `term`
+  Checks if `term : IR.Expr` has type `type : TypedValue`. Returns the typed IR for `term`
   -/
-  partial def check (term : IR.Expr) (type : SusValue) : TypecheckM TypedExpr := do
+  partial def check (term : IR.Expr) (type : TypedValue) : TypecheckM TypedExpr := do
     let (term, inferType) ← infer term
     if !(← eqSortInfo inferType type) then
-      throw s!"Term: {← ppTypedExpr term}\nInfo mismatch:\n{repr inferType.info}\n\nnot equal to\n{repr type.info}\n\nExpected type: {← ppValue type.get}\nInferred type: {← ppValue inferType.get}"
+      throw s!"Term: {← ppTypedExpr term}\nInfo mismatch:\n{repr inferType.info}\n\nnot equal to\n{repr type.info}\n\nExpected type: {← ppValue type.body}\nInferred type: {← ppValue inferType.body}"
     if !(← equal (← read).lvl type inferType) then
-      throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
+      throw s!"Expected type {← ppValue type.body}, found type {← ppValue inferType.body}"
     pure term
 
   /-- Infers the type of `term : IR.Expr`. Returns the typed IR for `term` along with its inferred type  -/
-  partial def infer (term : IR.Expr) : TypecheckM (TypedExpr × SusValue) := do
+  partial def infer (term : IR.Expr) : TypecheckM (TypedExpr × TypedValue) := do
     match term with
     | .var idx lvls =>
       let ctx ← read
@@ -107,12 +107,12 @@ mutual
       else
         -- this free variable came from `recrCtx`, and thus represents a mutual reference
         match ctx.mutTypes.find? (idx - ctx.lvl) with
-        | some (constF, typeValFn) =>
+        | some (constF, exprs, type) =>
           if some constF == ctx.recF? then
             throw s!"Invalid recursion in {(← read).constNames.getF constF}"
-          let type := typeValFn lvls
-          let term := ⟨← infoFromType type, .const constF lvls⟩
-          pure (term, type)
+          let typeVal ← withEnv ⟨exprs, lvls⟩ $ evalTyped type
+          let term := ⟨← infoFromType typeVal, .const constF lvls⟩
+          pure (term, typeVal)
         | none =>
           throw $ s!"var@{idx} out of environment range (size {ctx.types.length})"
             ++ " and does not represent a mutual constant"
@@ -120,49 +120,47 @@ mutual
       let univs := (← read).env.univs
       let lvl := Univ.instBulkReduce univs lvl
       let lvl' := lvl.succ
-      let typ := .mk (.sort lvl'.succ) ⟨ fun _ => .sort lvl' ⟩
+      let typ := .mk (.sort lvl'.succ) (.sort lvl')
       -- NOTE: we populate `SusTypeInfo.sort` here for consistency but technically it isn't necessary
       -- because `lvl'` can never become `Univ.zero`.
       let term := ⟨.sort lvl', .sort lvl⟩
       return (term, typ)
     | .app fnc' arg =>
       let (fnc, fncType) ← infer fnc'
-      match fncType.get with
+      match fncType.body with
       | .pi dom img env =>
         let arg ← check arg dom
-        let ctx ← read
-        let stt ← get
-        let typ := suspend img { ctx with env := env.extendWith $ suspend arg ctx stt} stt
+        let argVal ← evalTyped arg
+        let typ ← withNewExtendedEnv env argVal $ evalTyped img
         let term := ⟨← infoFromType typ, .app fnc arg⟩
         pure (term, typ)
       | val => throw s!"Expected a pi type, found {← ppValue val}"
     | .lam dom bod => do
       let (dom, _) ← isSort dom
       let ctx ← read
-      let domVal := suspend dom ctx (← get)
-      let var := mkSusVar (← infoFromType domVal) ctx.lvl
+      let domVal ← evalTyped dom
+      let var := mkVar (← infoFromType domVal) ctx.lvl
       let (bod, imgVal) ← withExtendedCtx var domVal $ infer bod
       let term := ⟨lamInfo bod.info, .lam dom bod⟩
       let typ := .mk (← piInfo domVal.info imgVal.info) $
-        Value.pi domVal (← quoteTyped (ctx.lvl+1) ctx.env imgVal.getTyped) ctx.env
+        Value.pi domVal (← quoteTyped (ctx.lvl+1) ctx.env imgVal) ctx.env
       pure (term, typ)
     | .pi dom img =>
       let (dom, domLvl) ← isSort dom
       let ctx ← read
-      let domVal := suspend dom ctx (← get)
-      let domSusVal := mkSusVar (← infoFromType domVal) ctx.lvl
+      let domVal ← evalTyped dom
+      let domSusVal := mkVar (← infoFromType domVal) ctx.lvl
       withExtendedCtx domSusVal domVal $ do
         let (img, imgLvl) ← isSort img
         let sortLvl := .reduceIMax domLvl imgLvl
-        let typ := .mk (.sort sortLvl.succ) ⟨ fun _ => .sort $ sortLvl ⟩
+        let typ := .mk (.sort sortLvl.succ) (.sort $ sortLvl)
         let term := ⟨← infoFromType typ, .pi dom img⟩
         return (term, typ)
     | .letE expType exp bod =>
       let (expType, _) ← isSort expType
-      let ctx ← read
-      let expTypeVal := suspend expType ctx (← get)
+      let expTypeVal ← evalTyped expType
       let exp ← check exp expTypeVal
-      let expVal := suspend exp ctx (← get)
+      let expVal ← evalTyped exp
       let (bod, typ) ← withExtendedCtx expVal expTypeVal $ infer bod
       let term := ⟨bod.info, .letE expType exp bod⟩
       return (term, typ)
@@ -180,18 +178,18 @@ mutual
       let univs := ctx.env.univs
       let tconst ← derefTypedConst k
       let env := ⟨[], constUnivs.map (Univ.instBulkReduce univs)⟩
-      let typ := suspend tconst.type { ctx with env := env } (← get)
+      let typ ← withEnv env $ evalTyped tconst.type
       let term := ⟨← infoFromType typ, .const k constUnivs⟩
       pure (term, typ)
     | .proj idx expr =>
       let (expr, exprType) ← infer expr
-      let (indF, ctorType, univs, params) ←  getStructInfo exprType.get
+      let (indF, ctorType, univs, params) ←  getStructInfo exprType.body
       let mut ctorType ← applyType (← withEnv ⟨[], univs⟩ $ eval ctorType) params.reverse
       for i in [:idx] do
         match ctorType with
         | .pi dom img piEnv =>
           let info ← infoFromType dom
-          let proj := suspend ⟨info, .proj indF i expr⟩ (← read) (← get)
+          let proj ← evalTyped ⟨info, .proj indF i expr⟩
           ctorType ← withNewExtendedEnv piEnv proj $ eval img
         | _ => pure ()
       match ctorType with
@@ -213,7 +211,7 @@ mutual
   -/
   partial def isSort (expr : IR.Expr) : TypecheckM (TypedExpr × Univ) := do
     let (expr, typ) ← infer expr
-    match typ.get with
+    match typ.body with
     | .sort u =>
       pure (expr, u)
     | val => throw s!"Expected a sort type, found {← ppValue val}"
@@ -225,15 +223,13 @@ mutual
       | _ => throw "Invalid Const kind. Expected mutIndBlock"
 
     -- Check all inductives
-    let mut mutTypes := .empty
+    let mut mutTypes : RecrCtx := .empty
     for (indIdx, ind) in indBlock.enum do
       let f := mkInductiveProjF indBlockF indIdx quick
       let univs := List.range ind.lvls |>.map .var
       let (type, _) ← withEnv ⟨ [], univs ⟩ $ isSort ind.type
       let ctx ← read
-      let stt ← get
-      let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-      mutTypes := mutTypes.insert indIdx (f, typeSus)
+      mutTypes := mutTypes.insert indIdx (f, ctx.env.exprs, type)
       modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.inductive type ind.struct) }
 
     -- Check all constructors
@@ -244,9 +240,7 @@ mutual
         let univs := List.range ctor.lvls |>.map .var
         let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort ctor.type
         let ctx ← read
-        let stt ← get
-        let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-        mutTypes := mutTypes.insert (start + cidx) (f, typeSus)
+        mutTypes := mutTypes.insert (start + cidx) (f, ctx.env.exprs, type)
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f (.constructor type ctor.idx ctor.fields) }
 
     -- Check all recursor types
@@ -257,9 +251,7 @@ mutual
         let univs := List.range recr.lvls |>.map .var
         let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort recr.type
         let ctx ← read
-        let stt ← get
-        let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} stt)
-        mutTypes := mutTypes.insert (start + ridx) (f, typeSus)
+        mutTypes := mutTypes.insert (start + ridx) (f, ctx.env.exprs, type)
 
     -- Check all recursor rules
     for (indIdx, ind) in indBlock.enum do
@@ -306,25 +298,24 @@ mutual
             pure $ TypedConst.axiom type
           | .opaque data =>
             let (type, _) ← isSort data.type
-            let typeSus := suspend type (← read) (← get)
-            let value ← withRecF f $ check data.value typeSus
+            let typeVal ← evalTyped type
+            let value ← withRecF f $ check data.value typeVal
             pure $ TypedConst.opaque type value
           | .theorem data =>
             let (type, _) ← isSort data.type
-            let typeSus := suspend type (← read) (← get)
-            let value ← withRecF f $ check data.value typeSus
+            let typeVal ← evalTyped type
+            let value ← withRecF f $ check data.value typeVal
             pure $ TypedConst.theorem type value
           | .definition data =>
             let (type, _) ← isSort data.type
             let ctx ← read
-            let typeSus := suspend type ctx (← get)
+            let typeVal ← evalTyped type
             let value ←
               if data.part then
                 let mutTypes :=
-                  let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
-                  (default : RecrCtx).insert 0 (f, typeSus)
-                withMutTypes mutTypes $ withRecF f $ check data.value typeSus
-              else withRecF f $ check data.value typeSus
+                  (default : RecrCtx).insert 0 (f, ctx.env.exprs, type)
+                withMutTypes mutTypes $ withRecF f $ check data.value typeVal
+              else withRecF f $ check data.value typeVal
             pure $ TypedConst.definition type value data.part
           | .definitionProj p@⟨defBlockF, _⟩ =>
             let data ← getDefFromProj p
@@ -333,7 +324,7 @@ mutual
             let defBlock ← match derefConst defBlockF ctx.store with
               | .mutDefBlock blk => pure blk
               | _ => throw "Invalid Const kind. Expected mutDefBlock"
-            let typeSus := suspend type ctx (← get)
+            let typeVal ← evalTyped type
             let value ←
               if data.part then
                 -- check order should be the same as `recrCtx` in CA
@@ -341,10 +332,9 @@ mutual
                   let defProjF := mkDefinitionProjF defBlockF i quick
                   -- TODO avoid repeated work here
                   let (type, _) ← isSort defn.type
-                  let typeSus := (suspend type {ctx with env := .mk ctx.env.exprs ·} (← get))
-                  pure $ acc.insert i (defProjF, typeSus)
-                withMutTypes mutTypes $ withRecF f $ check data.value typeSus
-              else withRecF f $ check data.value typeSus
+                  pure $ acc.insert i (defProjF, ctx.env.exprs, type)
+                withMutTypes mutTypes $ withRecF f $ check data.value typeVal
+              else withRecF f $ check data.value typeVal
             pure $ TypedConst.definition type value data.part
           | .inductiveProj ⟨indBlockF, _⟩ =>
             checkIndBlock indBlockF

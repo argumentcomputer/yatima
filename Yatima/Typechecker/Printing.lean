@@ -172,7 +172,7 @@ open IR PP Lean Std.Format
 
 private abbrev indentD := Std.Format.indentD
 
-def TypedExpr.isProp (t : TypedExpr) : Bool := match t.expr with
+def TypedExpr.isProp (t : TypedExpr) : Bool := match t.body with
   | .sort .zero => true
   | _ => false
 
@@ -192,12 +192,12 @@ mutual
     else return f!"({← ppTypedExpr e})"
 
   /-- Printer of expressions -/
-  partial def ppTypedExpr (t : TypedExpr) : TypecheckM Format := match t.expr with
+  partial def ppTypedExpr (t : TypedExpr) : TypecheckM Format := match t.body with
     | .var idx => return f!"v_{idx}"
     | .sort u => return f!"Sort {ppUniv u}"
     | .const k univs =>
       return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .app fnc arg => match fnc.expr with
+    | .app fnc arg => match fnc.body with
       | .app .. => return f!"{← ppTypedExpr fnc} {← paren arg}"
       | _ => return f!"{← paren fnc} {← paren arg}"
     | .lam dom bod =>
@@ -218,15 +218,15 @@ mutual
 
   /-- Auxiliary function to print the body of a lambda expression given `env : Env` -/
   private partial def ppTypedExprWith (t : TypedExpr) (env : Env) : TypecheckM Format :=
-    match t.expr with
+    match t.body with
     | .var 0 => return f!"v_0"
     | .var (idx + 1) =>
       match env.exprs.get? idx with
-     | some val => ppValue val.get
+     | some val => ppValue val.body
      | none => return f!"!_@{idx}!"
     | .sort u => return f!"Sort {ppUniv u}"
     | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .app fnc arg => match fnc.expr with
+    | .app fnc arg => match fnc.body with
       | .app .. => return f!"{← ppTypedExprWith fnc env} {← parenWith arg env}"
       | _ => return f!"{← parenWith fnc env} {← parenWith arg env}"
     -- | .app _ fnc arg => f!"({← ppTypedExprWith fnc env} {← ppTypedExprWith arg env})"
@@ -242,11 +242,11 @@ mutual
   private partial def ppNeutral (neu : Neutral) : TypecheckM Format := match neu with
     | .fvar idx .. => return f!"fv_{idx}"
     | .const k univs => return f!"{(← read).constNames.getF k}@{ppUnivs univs}"
-    | .proj _ idx val => return f!"{← ppValue val.value}.{idx}"
+    | .proj _ idx val => return f!"{← ppValue val.body}.{idx}"
 
   /-- Auxiliary function to print a chain of unevaluated applications as a single application -/
   private partial def ppSpine (neu : Neutral) (args : Args) : TypecheckM Format := do
-    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.get}") (← ppNeutral neu) args
+    List.foldrM (fun arg str => return f!"{str} {← ppValue arg.body}") (← ppNeutral neu) args
 
   /-- Printer of typechecker values -/
   partial def ppValue (val : Value) : TypecheckM Format :=
@@ -254,9 +254,9 @@ mutual
     | .sort u => return f!"Sort {ppUniv u}"
     | .app neu args _ => ppSpine neu args
     | .lam dom bod ctx =>
-      return f!"fun (_ : {← ppValue dom.get}) =>{indentD (← ppTypedExprWith bod ctx)}"
+      return f!"fun (_ : {← ppValue dom.body}) =>{indentD (← ppTypedExprWith bod ctx)}"
     | .pi dom cod ctx =>
-      return f!"(_ : {← ppValue dom.get}) → {← ppTypedExprWith cod ctx}"
+      return f!"(_ : {← ppValue dom.body}) → {← ppTypedExprWith cod ctx}"
     | .lit (.natVal x) => return f!"{x}"
     | .lit (.strVal x) => return f!"\"{x}\""
     | .exception e => return f!"exception {e}"
@@ -271,10 +271,10 @@ def ppTypecheckCtx : TypecheckM Format := do
   let ⟨lvl, env, types, _, _, _, _, _, _, _⟩ ← read
   let env := ← match env with
     | .mk vals us => do
-      let vals : List Value := vals.map (·.get)
+      let vals : List Value := vals.map (·.body)
       let fields := f!"vals := {← vals.mapM ppValue}" ++ line ++ f!"us := {us.map ppUniv}"
       return f!"env with{indentD fields}"
-  let types ← types.mapM fun t => ppValue t.get
+  let types ← types.mapM fun t => ppValue t.body
   let fields := f!"lvl := {lvl}" ++ line ++ f!"env := {env}" ++ line ++ f!"types := {types}"
   return f!"typecheckCtx with{indentD fields}"
 

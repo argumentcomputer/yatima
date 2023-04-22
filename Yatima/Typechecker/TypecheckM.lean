@@ -13,7 +13,7 @@ namespace Yatima.Typechecker
 open IR
 open Lurk (F)
 
-abbrev RecrCtx    := Std.RBMap Nat (F × (List Univ → SusValue)) compare
+abbrev RecrCtx    := Std.RBMap Nat (F × List TypedValue × TypedExpr) compare
 abbrev ConstNames := Std.RBMap F Lean.Name compare
 abbrev Store      := Std.RBMap F Const compare
 
@@ -21,17 +21,17 @@ abbrev Store      := Std.RBMap F Const compare
 The context available to the typechecker monad. The available fields are
 * `lvl : Nat` : Depth of the subterm. Coincides with the length of the list of types
 * `env : Env` : A environment of known values, and universe levels. See `Env`
-* `types : List SusValue` : The types of the values in `Env`.
+* `types : List TypedValue` : The types of the values in `Env`.
 * `store : Store` : An store of known constants in the context.
 -/
 structure TypecheckCtx where
   lvl         : Nat
   env         : Env
-  types       : List SusValue
+  types       : List TypedValue
   store       : Store
   /-- Maps a variable index (which represents a reference to a mutual const)
     to the hash of that constant (in `TypecheckState.typedConsts`) and
-    a function returning a `SusValue` for that constant's type given a list of universes. -/
+    a function returning a `TypedValue` for that constant's type given a list of universes. -/
   mutTypes    : RecrCtx
   constNames  : ConstNames
   limitAxioms : Bool
@@ -89,12 +89,12 @@ def withMutTypes (mutTypes : RecrCtx) :
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` which has been extended with an additional
-`val : SusValue`, `typ : SusValue` pair.
+`val : TypedValue`, `typ : TypedValue` pair.
 
 The `lvl` of the `TypecheckCtx` is also incremented.
 TODO: Get clarification on this.
 -/
-def withExtendedCtx (val typ : SusValue) : TypecheckM α → TypecheckM α :=
+def withExtendedCtx (val typ : TypedValue) : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with
     lvl := ctx.lvl + 1,
     types := typ :: ctx.types,
@@ -102,18 +102,18 @@ def withExtendedCtx (val typ : SusValue) : TypecheckM α → TypecheckM α :=
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` with a the environment extended by a
-`thunk : SusValue` (whose type is not known, unlike `withExtendedCtx`)
+`val : TypedValue` (whose type is not known, unlike `withExtendedCtx`)
 -/
-def withExtendedEnv (thunk : SusValue) : TypecheckM α → TypecheckM α :=
-  withReader fun ctx => { ctx with env := ctx.env.extendWith thunk }
+def withExtendedEnv (val : TypedValue) : TypecheckM α → TypecheckM α :=
+  withReader fun ctx => { ctx with env := ctx.env.extendWith val }
 
 /--
 Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
-by a `thunk : SusValue` (whose type is not known)
+by a `val : TypedValue`
 -/
-def withNewExtendedEnv (env : Env) (thunk : SusValue) :
+def withNewExtendedEnv (env : Env) (val : TypedValue) :
     TypecheckM α → TypecheckM α :=
-  withReader fun ctx => { ctx with env := env.extendWith thunk }
+  withReader fun ctx => { ctx with env := env.extendWith val }
 
 def withLimitedAxioms : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with limitAxioms := true }
@@ -121,10 +121,6 @@ def withLimitedAxioms : TypecheckM α → TypecheckM α :=
 def withRecF (f : F) : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with recF? := some f }
 
-/--
-Evaluates a `TypecheckM` computation with a `TypecheckCtx` whose environment is an extension of `env`
-by a `thunk : SusValue` (whose type is not known)
--/
 def withDbg : TypecheckM α → TypecheckM α :=
   withReader fun ctx => { ctx with dbg := true }
 
@@ -220,37 +216,37 @@ def fPrim (f : F) : TypecheckM $ Option PrimConst := do
   else pure $ fToPrimQuick f
 
 structure PrimOp where
-  op : Array SusValue → TypecheckM (Option Value)
+  op : Array TypedValue → TypecheckM (Option Value)
 
 def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
   | .natSucc => .mk fun vs => do
     let some v := vs.get? 0
-      | throw "At least one SusValue element needed for PrimConstOp.natSucc"
-    match v.get with
+      | throw "At least one TypedValue element needed for PrimConstOp.natSucc"
+    match v.body with
     | .lit (.natVal v) => pure $ .some $ .lit (.natVal v.succ)
     | _ => pure none
   | .natAdd => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
-      | throw "At least two SusValue elements needed for PrimConstOp.natAdd"
-    match v.get, v'.get with
+      | throw "At least two TypedValue elements needed for PrimConstOp.natAdd"
+    match v.body, v'.body with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v+v'))
     | _, _ => pure none
   | .natMul => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
-      | throw "At least two SusValue elements needed for PrimConstOp.natMul"
-    match v.get, v'.get with
+      | throw "At least two TypedValue elements needed for PrimConstOp.natMul"
+    match v.body, v'.body with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (v*v'))
     | _, _ => pure none
   | .natPow => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
-      | throw "At least two SusValue elements needed for PrimConstOp.natPow"
-    match v.get, v'.get with
+      | throw "At least two TypedValue elements needed for PrimConstOp.natPow"
+    match v.body, v'.body with
     | .lit (.natVal v), .lit (.natVal v') => pure $ .some $ .lit (.natVal (Nat.pow v v'))
     | _, _ => pure none
   | .natBeq => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
-      | throw "At least two SusValue elements needed for PrimConstOp.natBeq"
-    match v.get, v'.get with
+      | throw "At least two TypedValue elements needed for PrimConstOp.natBeq"
+    match v.body, v'.body with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v = v' then do
         pure $ some $ .neu (.const (← primF .boolTrue) [])
@@ -259,8 +255,8 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     | _, _ => pure none
   | .natBle => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
-      | throw "At least two SusValue elements needed for PrimConstOp.natBle"
-    match v.get, v'.get with
+      | throw "At least two TypedValue elements needed for PrimConstOp.natBle"
+    match v.body, v'.body with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v ≤ v' then do
         pure $ some $ .neu (.const (← primF .boolTrue) [])
@@ -269,8 +265,8 @@ def PrimConstOp.toPrimOp : PrimConstOp → PrimOp
     | _, _ => pure none
   | .natBlt => .mk fun vs => do
     let some (v, v') := do pure (← vs.get? 0, ← vs.get? 1)
-      | throw "At least two SusValue elements needed for PrimConstOp.natBlt"
-    match v.get, v'.get with
+      | throw "At least two TypedValue elements needed for PrimConstOp.natBlt"
+    match v.body, v'.body with
     | .lit (.natVal v), .lit (.natVal v') =>
       if v < v' then do
         pure $ some $ .neu (.const (← primF .boolTrue) [])
