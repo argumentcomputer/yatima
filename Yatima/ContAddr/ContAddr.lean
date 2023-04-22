@@ -1,4 +1,5 @@
 import Yatima.Lean.Utils
+import Yatima.Common.IO
 import Yatima.ContAddr.ContAddrM
 import YatimaStdLib.RBMap
 import Lurk.LightData
@@ -19,8 +20,8 @@ open Std (RBMap)
 /-- Defines an ordering for Lean universes -/
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
   match x, y with
-  | .mvar .., _ => throw $ .unfilledLevelMetavariable x
-  | _, .mvar .. => throw $ .unfilledLevelMetavariable y
+  | .mvar .., _ => ContAddrExcept.throw $ .unfilledLevelMetavariable x
+  | _, .mvar .. => ContAddrExcept.throw $ .unfilledLevelMetavariable y
   | .zero, .zero => return .eq
   | .zero, _ => return .lt
   | _, .zero => return .gt
@@ -37,8 +38,8 @@ def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
     let lvls := (← read).univCtx
     match (lvls.indexOf? x), (lvls.indexOf? y) with
     | some xi, some yi => return (compare xi yi)
-    | none,    _       => throw $ .levelNotFound x lvls
-    | _,       none    => throw $ .levelNotFound y lvls
+    | none,    _       => ContAddrExcept.throw $ .levelNotFound x lvls
+    | _,       none    => ContAddrExcept.throw $ .levelNotFound y lvls
 
 /-- Content-addresses a Lean universe level and adds it to the store -/
 def contAddrUniv : Lean.Level → ContAddrM Univ
@@ -50,14 +51,14 @@ def contAddrUniv : Lean.Level → ContAddrM Univ
     let lvls := (← read).univCtx
     match lvls.indexOf? name with
     | some n => pure $ .var n
-    | none   => throw $ .levelNotFound name lvls
-  | l@(.mvar ..) => throw $ .unfilledLevelMetavariable l
+    | none   => ContAddrExcept.throw $ .levelNotFound name lvls
+  | l@(.mvar ..) => ContAddrExcept.throw $ .unfilledLevelMetavariable l
 
 /-- Retrieves a Lean constant from the environment by its name -/
 def getLeanConstant (name : Lean.Name) : ContAddrM Lean.ConstantInfo := do
   match (← read).constMap.find? name with
   | some const => pure const
-  | none => throw $ .unknownConstant name
+  | none => ContAddrExcept.throw $ .unknownConstant name
 
 def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
   match expr with
@@ -79,12 +80,12 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
     | .ctorInfo val => do
       match ← getLeanConstant val.induct with
       | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
-      | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+      | const => ContAddrExcept.throw $ .invalidConstantKind const.name "inductive" const.ctorName
       contAddrConst const
     | .recInfo val => do
       match ← getLeanConstant val.getInduct with
       | .inductInfo ind => discard $ contAddrConst (.inductInfo ind)
-      | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+      | const => ContAddrExcept.throw $ .invalidConstantKind const.name "inductive" const.ctorName
       contAddrConst const
     -- The rest adds the constants to the cache one by one
     | const => withLevelsAndReset const.levelParams do
@@ -118,7 +119,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
   let mutualDefs ← struct.all.mapM fun name => do
     match ← getLeanConstant name with
     | .defnInfo defn => pure defn
-    | const => throw $ .invalidConstantKind const.name "definition" const.ctorName
+    | const => ContAddrExcept.throw $ .invalidConstantKind const.name "definition" const.ctorName
   let mutualDefs ← sortDefs [mutualDefs]
 
   -- Building the `recrCtx`
@@ -142,14 +143,14 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
   for name in struct.all do
     -- Storing and caching the definition projection
     -- Also adds the constant to the array of constants
-    let some idx := recrCtx.find? name | throw $ .cantFindMutDefIndex name
+    let some idx := recrCtx.find? name | ContAddrExcept.throw $ .cantFindMutDefIndex name
     let hash ← commit $ .definitionProj ⟨blockHash, idx⟩
     addConstToEnv name hash
     if struct.name == name then ret? := some hash
 
   match ret? with
   | some ret => return ret
-  | none => throw $ .constantNotContentAddressed struct.name
+  | none => ContAddrExcept.throw $ .constantNotContentAddressed struct.name
 
 partial def definitionToIR (defn : Lean.DefinitionVal) : ContAddrM Definition :=
   return ⟨defn.levelParams.length, ← contAddrExpr defn.type,
@@ -178,7 +179,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
       indCtors := indCtors ++ ind.ctors
       indRecs := indRecs ++ indRecrs
       nameData := nameData.insert indName (ind.ctors, indRecrs)
-    | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+    | const => ContAddrExcept.throw $ .invalidConstantKind const.name "inductive" const.ctorName
 
   -- `mutualConsts` is the list of the names of all constants associated with an
   -- inductive block: the inductives themselves, the constructors and the recursors
@@ -191,7 +192,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
   -- constructors and recursors to `consts`
   let irInds ← initInd.all.mapM fun name => do match ← getLeanConstant name with
     | .inductInfo ind => withRecrs recrCtx do pure $ (← inductiveToIR ind)
-    | const => throw $ .invalidConstantKind const.name "inductive" const.ctorName
+    | const => ContAddrExcept.throw $ .invalidConstantKind const.name "inductive" const.ctorName
   let blockHash ← commit $ .mutIndBlock irInds
   addBlockToEnv blockHash
 
@@ -205,8 +206,8 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     addConstToEnv name hash
     if name == initInd.name then ret? := some hash
 
-    let some (ctors, recrs) := nameData.find? indName 
-      | throw $ .cantFindMutDefIndex indName
+    let some (ctors, recrs) := nameData.find? indName
+      | ContAddrExcept.throw $ .cantFindMutDefIndex indName
 
     for (ctorIdx, ctorName) in ctors.enum do
       -- Store and cache constructor projections
@@ -220,7 +221,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
 
   match ret? with
   | some ret => return ret
-  | none => throw $ .constantNotContentAddressed initInd.name
+  | none => ContAddrExcept.throw $ .constantNotContentAddressed initInd.name
 
 partial def inductiveToIR (ind : Lean.InductiveVal) : ContAddrM Inductive := do
   let leanRecs := (← read).constMap.childrenOfWith ind.name
@@ -234,7 +235,7 @@ partial def inductiveToIR (ind : Lean.InductiveVal) : ContAddrM Inductive := do
         else do
           let thisRec ← externalRecToIR r
           pure (thisRec :: recs, ctors)
-      | _ => throw $ .nonRecursorExtractedFromChildren r.name
+      | _ => ContAddrExcept.throw $ .nonRecursorExtractedFromChildren r.name
   let (struct, unit) ← if ind.isRec || ind.numIndices != 0 then pure (false, false) else
     match ctors with
     -- Structures can only have one constructor
@@ -258,16 +259,17 @@ partial def internalRecToIR (ctors : List Lean.Name) :
     let recr := ⟨rec.levelParams.length, typ, rec.numParams, rec.numIndices,
       rec.numMotives, rec.numMinors, retRules, rec.k, true⟩
     return (recr, retCtors)
-  | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
+  | const => ContAddrExcept.throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
 partial def recRuleToIR (rule : Lean.RecursorRule) : ContAddrM $ Constructor × RecursorRule := do
+  let rhsType ← contAddrExpr (← Lean.Meta.inferType rule.rhs)
   let rhs ← contAddrExpr rule.rhs
   match ← getLeanConstant rule.ctor with
   | .ctorInfo ctor => withLevels ctor.levelParams do
     let typ ← contAddrExpr ctor.type
     let ctor := ⟨ctor.levelParams.length, typ, ctor.cidx, ctor.numParams, ctor.numFields⟩
-    pure (ctor, ⟨rule.nfields, rhs⟩)
-  | const => throw $ .invalidConstantKind const.name "constructor" const.ctorName
+    pure (ctor, ⟨rule.nfields, rhs, rhsType⟩)
+  | const => ContAddrExcept.throw $ .invalidConstantKind const.name "constructor" const.ctorName
 
 partial def externalRecToIR : Lean.ConstantInfo → ContAddrM Recursor
   | .recInfo rec => withLevels rec.levelParams do
@@ -275,10 +277,11 @@ partial def externalRecToIR : Lean.ConstantInfo → ContAddrM Recursor
     let rules ← rec.rules.mapM externalRecRuleToIR
     return ⟨rec.levelParams.length, typ, rec.numParams, rec.numIndices,
       rec.numMotives, rec.numMinors, rules, rec.k, false⟩
-  | const => throw $ .invalidConstantKind const.name "recursor" const.ctorName
+  | const => ContAddrExcept.throw $ .invalidConstantKind const.name "recursor" const.ctorName
 
-partial def externalRecRuleToIR (rule : Lean.RecursorRule) : ContAddrM RecursorRule :=
-  return ⟨rule.nfields, ← contAddrExpr rule.rhs⟩
+partial def externalRecRuleToIR (rule : Lean.RecursorRule) : ContAddrM RecursorRule := do
+  let rhsType ← contAddrExpr (← Lean.Meta.inferType rule.rhs)
+  return ⟨rule.nfields, ← contAddrExpr rule.rhs, rhsType⟩
 
 /--
 Content-addresses a Lean expression and adds it to the store.
@@ -288,35 +291,62 @@ Constants are the tricky case, for which there are two possibilities:
 encoded as variables with indexes that go beyond the bind indexes
 * The constant doesn't belong to `recrCtx`, meaning that it's not a recursion
 and thus we can contAddr the actual constant right away
+
+We also must be careful not to create a redex with lambda expressions. That's
+because we do not want to reach a lambda from an `infer` call. Instead, every
+`(fun x => b) a` will become `(let f : A := fun x => b; f) b`, so that the lambda
+is reached by a `check` call, and `infer` will be called on the variable `f`.
 -/
-partial def contAddrExpr : Lean.Expr → ContAddrM Expr
-  | .mdata _ e => contAddrExpr e
-  | expr => match expr with
+partial def contAddrExpr (e : Lean.Expr) : ContAddrM Expr :=
+  -- This auxiliary function will return a boolean which indicates whether the expression
+  -- is a lambda (with a possible let chain surrounding it)
+  let rec go (e : Lean.Expr) : ContAddrM (Expr × Bool) := match e with
+    | .mdata _ e => go e
     | .bvar idx => do match (← read).bindCtx.get? idx with
       -- Bound variables must be in the bind context
-      | some _ => return .var idx []
-      | none => throw $ .invalidBVarIndex idx
-    | .sort lvl => return .sort $ ← contAddrUniv lvl
+      | some _ => return (.var idx [], false)
+      | none => ContAddrExcept.throw $ .invalidBVarIndex idx
+    | .sort lvl => return (.sort $ ← contAddrUniv lvl, false)
     | .const name lvls => do
       let univs ← lvls.mapM contAddrUniv
       match (← read).recrCtx.find? name with
       | some i => -- recursing!
         let idx := (← read).bindCtx.length + i
-        return .var idx univs
-      | none => return .const (← contAddrConst $ ← getLeanConstant name) univs
-    | .app fnc arg => return .app (← contAddrExpr fnc) (← contAddrExpr arg)
-    | .lam name typ bod _ =>
-      return .lam (← contAddrExpr typ) (← withBinder name $ contAddrExpr bod)
-    | .forallE name dom img _ =>
-      return .pi (← contAddrExpr dom) (← withBinder name $ contAddrExpr img)
-    | .letE name typ exp bod _ =>
-      return .letE (← contAddrExpr typ) (← contAddrExpr exp)
-        (← withBinder name $ contAddrExpr bod)
-    | .lit lit => return .lit lit
-    | .proj _ idx exp => return .proj idx (← contAddrExpr exp)
-    | .fvar ..  => throw $ .freeVariableExpr expr
-    | .mvar ..  => throw $ .metaVariableExpr expr
-    | .mdata .. => throw $ .metaDataExpr expr
+        return (.var idx univs, false)
+      | none => return (.const (← contAddrConst $ ← getLeanConstant name) univs, false)
+    | .app fnc arg => do
+      let (fnc', lam?) ← go fnc
+      let head ← if lam?
+        then do
+          let fncType ← Lean.Meta.inferType fnc
+          -- `fncType` cannot be a lambda
+          let fncType' := (← go fncType).fst
+          pure $ .letE fncType' fnc' (.var 0 [])
+        else pure fnc'
+      let arg := (← go arg).fst
+      return (.app head arg, false)
+    | .lam name _ bod _ => do
+      let bod := (← withBinder name $ go bod).fst
+      return (.lam bod, true)
+    | .forallE name dom img _ => do
+      -- neither `dom` nor `img` can be lambdas
+      let dom := (← go dom).fst
+      let img := (← withBinder name $ go img).fst
+      return (.pi dom img, false)
+    | .letE name typ exp bod _ => do
+      -- `typ` cannot be a lambda
+      let typ := (← go typ).fst
+      let exp := (← go exp).fst
+      let (bod, lam?) ← withBinder name $ go bod
+      return (.letE typ exp bod, lam?)
+    | .lit lit => return (.lit lit, false)
+    | .proj _ idx exp => do
+      -- `exp` cannot be a lambda
+      let exp := (← go exp).fst
+      return (.proj idx exp, false)
+    | expr@(.fvar ..)  => ContAddrExcept.throw $ .freeVariableExpr expr
+    | expr@(.mvar ..)  => ContAddrExcept.throw $ .metaVariableExpr expr
+  return (← go e).fst
 
 /--
 A name-irrelevant ordering of Lean expressions.
@@ -324,10 +354,10 @@ A name-irrelevant ordering of Lean expressions.
 -/
 partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
     Lean.Expr → Lean.Expr → ContAddrM Ordering
-  | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
-  | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
-  | e@(.fvar ..), _ => throw $ .freeVariableExpr e
-  | _, e@(.fvar ..) => throw $ .freeVariableExpr e
+  | e@(.mvar ..), _ => ContAddrExcept.throw $ .unfilledExprMetavariable e
+  | _, e@(.mvar ..) => ContAddrExcept.throw $ .unfilledExprMetavariable e
+  | e@(.fvar ..), _ => ContAddrExcept.throw $ .freeVariableExpr e
+  | _, e@(.fvar ..) => ContAddrExcept.throw $ .freeVariableExpr e
   | .mdata _ x, .mdata _ y  => cmpExpr weakOrd x y
   | .mdata _ x, y  => cmpExpr weakOrd x y
   | x, .mdata _ y  => cmpExpr weakOrd x y
@@ -459,14 +489,15 @@ Open references are variables that point to names which aren't present in the
 `Lean.ConstMap`.
 -/
 def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
-    (quick persist : Bool) : IO $ Except ContAddrError ContAddrState := do
+    (quick persist : Bool) : Lean.MetaM $ Except ContAddrError ContAddrState := do
   let persist := if quick then false else persist
   let ldonHashState ←
     if quick then pure default
     else pure $ (← loadData LDONHASHCACHE).getD default
   if persist then IO.FS.createDirAll STOREDIR
-  match ← StateT.run (ReaderT.run (contAddrM delta)
-    (.init constMap quick persist)) (.init ldonHashState) with
+  let runReader := ReaderT.run (contAddrM delta) (.init constMap quick persist)
+  let runState := StateT.run runReader (.init ldonHashState)
+  match ← runState with
   | (.ok _, stt) => return .ok stt
   | (.error e, _) => return .error e
 

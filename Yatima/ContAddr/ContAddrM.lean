@@ -1,7 +1,6 @@
 import Yatima.ContAddr.ContAddrError
 import Yatima.Common.ToLDON
 import Yatima.Common.LightData
-import Yatima.Common.IO
 import Lurk.Scalar
 
 namespace Yatima.ContAddr
@@ -35,8 +34,11 @@ structure ContAddrCtx where
 def ContAddrCtx.init (map : Lean.ConstMap) (quick persist : Bool) : ContAddrCtx :=
   ⟨map, [], [], .empty, quick, persist⟩
 
-abbrev ContAddrM := ReaderT ContAddrCtx $ ExceptT ContAddrError $
-  StateT ContAddrState IO
+abbrev ContAddrM := ExceptT ContAddrError $ ReaderT ContAddrCtx $ StateT ContAddrState $ Lean.MetaM
+
+instance ContAddrExcept : MonadExceptOf ContAddrError ContAddrM where
+  throw e := ExceptT.mk <| pure (Except.error e)
+  tryCatch := ExceptT.tryCatch
 
 def withBinder (name : Name) : ContAddrM α → ContAddrM α :=
   withReader $ fun c => { c with bindCtx := name :: c.bindCtx }

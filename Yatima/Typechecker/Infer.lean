@@ -82,12 +82,33 @@ mutual
   Checks if `term : IR.Expr` has type `type : SusValue`. Returns the typed IR for `term`
   -/
   partial def check (term : IR.Expr) (type : SusValue) : TypecheckM TypedExpr := do
-    let (term, inferType) ← infer term
-    if !(← eqSortInfo inferType type) then
-      throw s!"Term: {← ppTypedExpr term}\nInfo mismatch:\n{repr inferType.info}\n\nnot equal to\n{repr type.info}\n\nExpected type: {← ppValue type.get}\nInferred type: {← ppValue inferType.get}"
-    if !(← equal (← read).lvl type inferType) then
-      throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
-    pure term
+    match term with
+    | .lam bod =>
+      match type.get with
+      | .pi dom img env =>
+        let lvl := (← read).lvl
+        let var := mkSusVar (← infoFromType dom) lvl
+        let imgVal := suspend img { (← read) with env := env.extendWith var } (← get)
+        let bod ← withExtendedCtx var dom $ check bod imgVal
+        let term := ⟨lamInfo bod.info, .lam (← quoteTyped lvl ⟨[], []⟩ dom.getTyped) bod⟩
+        pure term
+      | _ => throw "Term should not be a lambda"
+    | .letE expType exp bod =>
+      let (expType, _) ← isSort expType
+      let ctx ← read
+      let expTypeVal := suspend expType ctx (← get)
+      let exp ← check exp expTypeVal
+      let expVal := suspend exp ctx (← get)
+      let bod ← withExtendedCtx expVal expTypeVal $ check bod type
+      let term := ⟨bod.info, .letE expType exp bod⟩
+      return term
+    | _ =>
+      let (term, inferType) ← infer term
+      if !(← eqSortInfo inferType type) then
+        throw s!"Term: {← ppTypedExpr term}\nInfo mismatch:\n{repr inferType.info}\n\nnot equal to\n{repr type.info}\n\nExpected type: {← ppValue type.get}\nInferred type: {← ppValue inferType.get}"
+      if !(← equal (← read).lvl type inferType) then
+        throw s!"Expected type {← ppValue type.get}, found type {← ppValue inferType.get}"
+      pure term
 
   /-- Infers the type of `term : IR.Expr`. Returns the typed IR for `term` along with its inferred type  -/
   partial def infer (term : IR.Expr) : TypecheckM (TypedExpr × SusValue) := do
@@ -136,16 +157,7 @@ mutual
         let term := ⟨← infoFromType typ, .app fnc arg⟩
         pure (term, typ)
       | val => throw s!"Expected a pi type, found {← ppValue val}"
-    | .lam dom bod => do
-      let (dom, _) ← isSort dom
-      let ctx ← read
-      let domVal := suspend dom ctx (← get)
-      let var := mkSusVar (← infoFromType domVal) ctx.lvl
-      let (bod, imgVal) ← withExtendedCtx var domVal $ infer bod
-      let term := ⟨lamInfo bod.info, .lam dom bod⟩
-      let typ := .mk (← piInfo domVal.info imgVal.info) $
-        Value.pi domVal (← quoteTyped (ctx.lvl+1) ctx.env imgVal.getTyped) ctx.env
-      pure (term, typ)
+    | .lam .. => throw "Cannot infer lambda"
     | .pi dom img =>
       let (dom, domLvl) ← isSort dom
       let ctx ← read
@@ -269,8 +281,10 @@ mutual
         let univs := List.range recr.lvls |>.map .var
         let (type, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ isSort recr.type
         let indProj := ⟨indBlockF, indIdx⟩
-        let rules ← recr.rules.mapM fun rule => do
-          let (rhs, _) ← withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ infer rule.rhs
+        let rules ← recr.rules.mapM fun rule => withEnv ⟨ [], univs ⟩ $ withMutTypes mutTypes $ do
+          let (type, _) ← isSort rule.type
+          let typeVal := suspend type (← read) (← get)
+          let rhs ← check rule.rhs typeVal
           pure (rule.fields, rhs)
         let recrConst := .recursor type recr.params recr.motives recr.minors recr.indices recr.isK indProj ⟨rules⟩
         modify fun stt => { stt with typedConsts := stt.typedConsts.insert f recrConst }

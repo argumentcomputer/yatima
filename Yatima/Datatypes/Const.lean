@@ -45,6 +45,7 @@ structure Constructor where
 structure RecursorRule where
   fields : Nat
   rhs    : Expr
+  type   : Expr
   deriving Ord, BEq, Hashable, Repr
 
 structure Recursor where
