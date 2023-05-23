@@ -1,5 +1,5 @@
 {"version": 4,
- "packagesDir": "./lake-packages",
+ "packagesDir": "lake-packages",
  "packages":
  [{"git":
    {"url": "https://github.com/lurk-lab/Megaparsec.lean",
@@ -8,11 +8,11 @@
     "name": "Megaparsec",
     "inputRev?": "3a0fc855661b9179362aac65cbeb08560be32f29"}},
   {"git":
-   {"url": "https://github.com/lurk-lab/YatimaStdLib.lean",
+   {"url": "https://github.com/BoltonBailey/YatimaStdLib.lean",
     "subDir?": null,
-    "rev": "10f2b444390a41ede90ca5c038c6ff972014d433",
+    "rev": "af3e6399a3c5bd8dd9c3e373eecbc8c0d2305079",
     "name": "YatimaStdLib",
-    "inputRev?": "10f2b444390a41ede90ca5c038c6ff972014d433"}},
+    "inputRev?": "af3e6399a3c5bd8dd9c3e373eecbc8c0d2305079"}},
   {"git":
    {"url": "https://github.com/lurk-lab/Lurk.lean",
     "subDir?": null,
@@ -52,6 +52,6 @@
   {"git":
    {"url": "https://github.com/leanprover/std4/",
     "subDir?": null,
-    "rev": "fde95b16907bf38ea3f310af406868fc6bcf48d1",
+    "rev": "2f23536b83bc91f329c3675f4eb061d029ba489a",
     "name": "std",
-    "inputRev?": "fde95b16907bf38ea3f310af406868fc6bcf48d1"}}]}
+    "inputRev?": "2f23536b83bc91f329c3675f4eb061d029ba489a"}}]}

@@ -15,7 +15,7 @@ require LSpec from git
   "https://github.com/lurk-lab/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/lurk-lab/YatimaStdLib.lean" @ "10f2b444390a41ede90ca5c038c6ff972014d433"
+  "https://github.com/BoltonBailey/YatimaStdLib.lean" @ "af3e6399a3c5bd8dd9c3e373eecbc8c0d2305079"
 
 require Cli from git
   "https://github.com/lurk-lab/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"
@@ -27,7 +27,7 @@ require LightData from git
   "https://github.com/lurk-lab/LightData" @ "6dfd01c9e056deaf5b76e20f995c39e840bbde86"
 
 require std from git
-  "https://github.com/leanprover/std4/" @ "fde95b16907bf38ea3f310af406868fc6bcf48d1"
+  "https://github.com/leanprover/std4/" @ "2f23536b83bc91f329c3675f4eb061d029ba489a"
 
 section Testing
 
