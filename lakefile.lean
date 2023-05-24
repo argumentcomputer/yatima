@@ -15,7 +15,7 @@ require LSpec from git
   "https://github.com/lurk-lab/LSpec.git" @ "88f7d23e56a061d32c7173cea5befa4b2c248b41"
 
 require YatimaStdLib from git
-  "https://github.com/BoltonBailey/YatimaStdLib.lean" @ "af3e6399a3c5bd8dd9c3e373eecbc8c0d2305079"
+  "https://github.com/lurk-lab/YatimaStdLib.lean" @ "a54a83c0a56326d38e4bcfd47b278a24180f0e3a"
 
 require Cli from git
   "https://github.com/lurk-lab/Cli.lean" @ "ef6f9bcd1738638fca8d319dbee653540d56614e"

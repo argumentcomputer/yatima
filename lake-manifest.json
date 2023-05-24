@@ -8,11 +8,11 @@
     "name": "Megaparsec",
     "inputRev?": "3a0fc855661b9179362aac65cbeb08560be32f29"}},
   {"git":
-   {"url": "https://github.com/BoltonBailey/YatimaStdLib.lean",
+   {"url": "https://github.com/lurk-lab/YatimaStdLib.lean",
     "subDir?": null,
-    "rev": "af3e6399a3c5bd8dd9c3e373eecbc8c0d2305079",
+    "rev": "a54a83c0a56326d38e4bcfd47b278a24180f0e3a",
     "name": "YatimaStdLib",
-    "inputRev?": "af3e6399a3c5bd8dd9c3e373eecbc8c0d2305079"}},
+    "inputRev?": "a54a83c0a56326d38e4bcfd47b278a24180f0e3a"}},
   {"git":
    {"url": "https://github.com/lurk-lab/Lurk.lean",
     "subDir?": null,
