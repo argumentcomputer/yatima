@@ -391,7 +391,7 @@ mutual
               let len := projArgs.length
               if h : len > 0 then
                 let lastIdx := len.pred
-                let lastArg := projArgs.get ⟨lastIdx, Nat.pred_lt' h⟩
+                let lastArg := projArgs.get ⟨lastIdx, Nat.pred_lt_of_lt h⟩
                 let annotatedArgs := projArgs.take lastIdx ++ [lastArg]
                 pure $ .app (.const ctorF univs) annotatedArgs $ annotatedArgs.map (fun _ => .none)
               else

@@ -14,7 +14,7 @@ def concatOrds : List Ordering → Ordering :=
   List.foldl (· * ·) .eq
 
 open IR
-open Std (RBMap)
+open Batteries (RBMap)
 
 /-- Defines an ordering for Lean universes -/
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
@@ -205,7 +205,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     addConstToEnv name hash
     if name == initInd.name then ret? := some hash
 
-    let some (ctors, recrs) := nameData.find? indName 
+    let some (ctors, recrs) := nameData.find? indName
       | throw $ .cantFindMutDefIndex indName
 
     for (ctorIdx, ctorName) in ctors.enum do
@@ -322,7 +322,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM Expr
 A name-irrelevant ordering of Lean expressions.
 `weakOrd` contains the best known current mutual ordering
 -/
-partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
+partial def cmpExpr (weakOrd : RBMap Name Nat compare) :
     Lean.Expr → Lean.Expr → ContAddrM Ordering
   | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
   | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
@@ -375,7 +375,7 @@ partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
 
 /-- AST comparison of two Lean definitions.
   `weakOrd` contains the best known current mutual ordering -/
-partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
+partial def cmpDef (weakOrd : RBMap Name Nat compare)
   (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
     ContAddrM Ordering := do
   let ls := compare x.levelParams.length y.levelParams.length
@@ -385,7 +385,7 @@ partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
 
 /-- AST equality between two Lean definitions.
   `weakOrd` contains the best known current mutual ordering -/
-@[inline] partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
+@[inline] partial def eqDef (weakOrd : RBMap Name Nat compare)
     (x y : Lean.DefinitionVal) : ContAddrM Bool :=
   return (← cmpDef weakOrd x y) == .eq
 
@@ -428,7 +428,7 @@ Two optimizations:
 partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
     ContAddrM (List (List Lean.DefinitionVal)) := do
   let enum (ll : List (List Lean.DefinitionVal)) :=
-    Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
+    RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
   let weakOrd := enum dss _
   let newDss ← (← dss.mapM fun ds =>
     match ds with

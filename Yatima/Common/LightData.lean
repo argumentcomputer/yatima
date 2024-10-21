@@ -162,12 +162,12 @@ instance : Encodable Const LightData where
     | x => throw s!"Invalid encoding for IR.Const: {x}"
 
 instance [Encodable (Array (α × β)) LightData] [Ord α] :
-    Encodable (Std.RBMap α β compare) LightData where
+    Encodable (Batteries.RBMap α β compare) LightData where
   encode x := (x.foldl (·.push (·, ·)) #[] : Array (α × β))
   decode x := return .ofArray (← dec x) _
 
 instance [Encodable (Array α) LightData] [Ord α] :
-    Encodable (Std.RBSet α compare) LightData where
+    Encodable (Batteries.RBSet α compare) LightData where
   encode x := (x.foldl (·.push ·) #[] : Array α)
   decode x := return .ofArray (← dec x) _
 

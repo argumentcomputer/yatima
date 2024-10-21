@@ -1,5 +1,4 @@
 import LightData
-import Std.Data.RBMap
 
 def ByteArray.toHex (bytes : ByteArray) : String :=
   let to : UInt8 → Char

@@ -6,7 +6,7 @@ import Lurk.Scalar
 
 namespace Yatima.ContAddr
 
-open Std (RBMap)
+open Batteries (RBMap)
 open IR
 
 structure ContAddrState where
@@ -18,7 +18,7 @@ structure ContAddrState where
 def ContAddrState.init (ldonHashState : Lurk.Scalar.LDONHashState) : ContAddrState :=
   ⟨default, default, ldonHashState⟩
 
-def ContAddrState.store (stt : ContAddrState) : Std.RBMap Lurk.F Const compare :=
+def ContAddrState.store (stt : ContAddrState) : RBMap Lurk.F Const compare :=
   stt.commits.foldl (init := .empty) fun acc c f => acc.insert f c
 
 structure ContAddrCtx where
@@ -26,7 +26,7 @@ structure ContAddrCtx where
   univCtx  : List Name
   bindCtx  : List Name
   /-- The indices of the constants in their mutual block -/
-  recrCtx  : Std.RBMap Name Nat compare
+  recrCtx  : RBMap Name Nat compare
   quick    : Bool
   persist  : Bool
   deriving Inhabited

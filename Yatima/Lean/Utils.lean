@@ -1,5 +1,7 @@
 import Lean
-import Std.Data.RBMap
+import Batteries.Data.RBMap
+import Batteries.Data.HashMap
+import Batteries.Tactic.OpenPrivate
 import YatimaStdLib.Lean
 import Yatima.Datatypes.Lean
 
@@ -9,11 +11,11 @@ section
 
 variable [BEq α] [Hashable α] [Monad m]
 
-def HashMap.map (hmap : Lean.HashMap α β) (f : β → σ) : Lean.HashMap α σ :=
+def HashMap.map (hmap : Batteries.HashMap α β) (f : β → σ) : Batteries.HashMap α σ :=
   hmap.fold (init := default) fun acc a b => acc.insert a (f b)
 
 def SMap.map (smap : Lean.SMap α β) (f : β → σ) : Lean.SMap α σ :=
-  let m₁ := smap.map₁.map f
+  let m₁ := smap.map₁.map fun _ => f
   let m₂ := smap.map₂.map f
   ⟨smap.stage₁, m₁, m₂⟩
 
@@ -43,7 +45,7 @@ def ConstMap.childrenOfWith (map : ConstMap) (name : Name)
   | _ => acc
 
 def ConstMap.patchUnsafeRec (cs : ConstMap) : ConstMap :=
-  let unsafes : Std.RBSet Name compare := cs.fold (init := .empty)
+  let unsafes : Batteries.RBSet Name compare := cs.fold (init := .empty)
     fun acc n _ => match n with
       | .str n "_unsafe_rec" => acc.insert n
       | _ => acc
@@ -56,8 +58,9 @@ def ConstMap.patchUnsafeRec (cs : ConstMap) : ConstMap :=
       else .opaqueInfo o
     | _ => c
 
+open private mk from Lean.Environment in -- TODO: This is a bit of a hack to get the `Lean.Environment` constructor public
 def Environment.patchUnsafeRec (env : Environment) : Environment :=
-  { env with constants := env.constants.patchUnsafeRec }
+  mk env.const2ModIdx env.constants.patchUnsafeRec env.extensions env.extraConstNames env.header
 
 def PersistentHashMap.filter [BEq α] [Hashable α]
     (map : PersistentHashMap α β) (p : α → β → Bool) : PersistentHashMap α β :=
@@ -87,13 +90,13 @@ def setLibsPaths : IO Unit := do
   let paths := split.replace "\"" "" |>.splitOn ","|>.map System.FilePath.mk
   Lean.initSearchPath (← Lean.findSysroot) paths
 
-def runCmd (cmd : String) (args : Array String) : IO $ Except String String := do
+def runTerminalCmd (cmd : String) (args : Array String) : IO $ Except String String := do
   let out ← IO.Process.output { cmd := cmd, args := args }
   return if out.exitCode != 0 then .error out.stderr
     else .ok out.stdout
 
 def checkToolchain : IO Unit := do
-  match ← runCmd "lake" #["--version"] with
+  match ← runTerminalCmd "lake" #["--version"] with
   | .error e => throw $ IO.userError e
   | .ok out =>
     let version := out.splitOn "(Lean version " |>.get! 1

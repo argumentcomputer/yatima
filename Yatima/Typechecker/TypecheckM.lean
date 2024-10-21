@@ -1,5 +1,5 @@
 import Yatima.Typechecker.Datatypes
-import Std.Data.RBMap
+import Batteries.Data.RBMap
 
 /-!
 # The Typechecker monad
@@ -13,9 +13,9 @@ namespace Yatima.Typechecker
 open IR
 open Lurk (F)
 
-abbrev RecrCtx    := Std.RBMap Nat (F × (List Univ → SusValue)) compare
-abbrev ConstNames := Std.RBMap F Lean.Name compare
-abbrev Store      := Std.RBMap F Const compare
+abbrev RecrCtx    := Batteries.RBMap Nat (F × (List Univ → SusValue)) compare
+abbrev ConstNames := Batteries.RBMap F Lean.Name compare
+abbrev Store      := Batteries.RBMap F Const compare
 
 /--
 The context available to the typechecker monad. The available fields are
@@ -46,7 +46,7 @@ The state available to the typechecker monad. The available fields are
   values annotated
 -/
 structure TypecheckState where
-  typedConsts : Std.RBMap F TypedConst compare
+  typedConsts : Batteries.RBMap F TypedConst compare
   deriving Inhabited
 
 /-- An initialization of the typchecker context with a particular store -/

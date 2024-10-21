@@ -63,7 +63,8 @@ instance : ToExpr LitValue where toExpr
   | .strVal s => toExpr s
 
 def appendBinding (b : Name × Expr) (safe := true) : CodeGenM Unit := do
-  let b := if safe then (← safeName b.1, b.2) else b
+  let newName ← safeName b.1
+  let b := if safe then (newName, b.2) else b
   modify fun s => { s with appendedBindings := s.appendedBindings.push b }
 
 def appendInductiveData (data : InductiveData) : CodeGenM Unit := do
@@ -161,7 +162,7 @@ def mkCasesCore (discr : Expr) (alts : Array Override.Alt) :
       if params.isEmpty then
         ifThens := ifThens.push (⟦(= _lurk_idx $cidx)⟧, k)
       else
-        let params : List (String × Expr) := params.toList.foldr (init := []) 
+        let params : List (String × Expr) := params.toList.foldr (init := [])
           fun param acc =>
             (param.toString false, ⟦(car _lurk_args)⟧) ::
             ("_lurk_args", ⟦(cdr _lurk_args)⟧) :: acc

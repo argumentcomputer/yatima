@@ -1,7 +1,7 @@
 import Lean.Compiler.LCNF
-import Std.Data.RBMap
+import Batteries.Data.RBMap
 
-open Std
+open Batteries
 
 namespace Lean.Compiler.LCNF
 

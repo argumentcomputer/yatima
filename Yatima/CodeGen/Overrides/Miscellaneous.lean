@@ -40,9 +40,10 @@ def instDecidableNot : Override := Override.decl ⟨``instDecidableNot, ⟦
   (lambda (p dp) (not dp))
 ⟧⟩
 
-def instBEq : Override := Override.decl ⟨``instBEq, ⟦
-  (lambda (α inst) inst)
-⟧⟩
+-- TODO: ``instBEq is gone, if it rears its head again elsewhere lets fix this
+-- def instBEq : Override := Override.decl ⟨``instBEq, ⟦
+--   (lambda (α inst) inst)
+-- ⟧⟩
 
 def outOfBounds : Override := Override.decl ⟨
   .mkNum `_private.Init.Util 0 ++ `outOfBounds, ⟦
@@ -58,7 +59,7 @@ def Miscellaneous.module := [
   decEq,
   inferInstanceAs,
   instDecidableNot,
-  instBEq,
+  -- instBEq,
   outOfBounds
 ]
 

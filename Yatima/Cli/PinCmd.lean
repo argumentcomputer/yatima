@@ -4,12 +4,12 @@ import Yatima.ContAddr.ContAddr
 
 open System Yatima.ContAddr
 
-def primConstNames : Std.RBSet Lean.Name compare := .ofList [
+def primConstNames : Batteries.RBSet Lean.Name compare := .ofList [
   ``Nat, ``Bool, ``Bool.true, ``Bool.false, ``Nat.zero, ``String,
   ``Nat.add, ``Nat.mul, ``Nat.pow, ``Nat.beq, ``Nat.ble, ``Nat.blt, ``Nat.succ
 ] _
 
-def allowedAxiomNames : Std.RBSet Lean.Name compare := .ofList [
+def allowedAxiomNames : Batteries.RBSet Lean.Name compare := .ofList [
   ``Classical.choice, ``propext, ``Quot.sound, ``Lean.ofReduceBool,
   ``Lean.ofReduceNat
 ] _
