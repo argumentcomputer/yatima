@@ -83,7 +83,7 @@ imports (the automatic imports from `Init` also count).
 def setLibsPaths : IO Unit := do
   let out ← IO.Process.output {
     cmd := "lake"
-    args := #["print-paths"]
+    args := #["setup-file", "Yatima.lean"] -- TODO: Fix this hack, `lake print-prefix` was deprecated
   }
   let split := out.stdout.splitOn "\"oleanPath\":[" |>.getD 1 ""
   let split := split.splitOn "],\"loadDynlibPaths\":[" |>.getD 0 ""
