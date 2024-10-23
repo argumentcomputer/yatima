@@ -105,15 +105,17 @@ def checkToolchain : IO Unit := do
     if version != expectedVersion then
       IO.println s!"Warning: expected toolchain '{expectedVersion}' but got '{version}'"
 
+def enableLCNFOption : Options := Option.set default compiler.enableNew true
+
 open Elab in
 open System (FilePath) in
 def runFrontend (input : String) (filePath : FilePath) : IO Environment := do
   checkToolchain
   let inputCtx := Parser.mkInputContext input filePath.toString
   let (header, parserState, messages) ← Parser.parseHeader inputCtx
-  let (env, messages) ← processHeader header default messages inputCtx 0
+  let (env, messages) ← processHeader header enableLCNFOption messages inputCtx 0
   let env := env.setMainModule default
-  let commandState := Command.mkState env messages default
+  let commandState := Command.mkState env messages enableLCNFOption
   let s ← IO.processCommands inputCtx parserState commandState
   let msgs := s.commandState.messages
   if msgs.hasErrors then
