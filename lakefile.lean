@@ -11,6 +11,8 @@ lean_exe yatima where
 
 lean_lib Yatima { roots := #[`Yatima] }
 
+lean_lib TypeChecker { roots := #[`TypeChecker] }
+
 require LSpec from git
   "https://github.com/argumentcomputer/LSpec.git" @ "v4.12.0"
 

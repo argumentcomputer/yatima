@@ -1,0 +1,11 @@
+/-
+Copyright (c) 2017 Microsoft Corporation. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Author: Leonardo de Moura
+-/
+prelude
+import TypeChecker.Init.Data.Fin.Basic
+import TypeChecker.Init.Data.Fin.Log2
+import TypeChecker.Init.Data.Fin.Iterate
+import TypeChecker.Init.Data.Fin.Fold
+import TypeChecker.Init.Data.Fin.Lemmas
