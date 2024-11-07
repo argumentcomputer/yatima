@@ -1,5 +1,6 @@
 /build
 /lake-packages
+.lake
 *.env
 *.ldstore
 *.lurk

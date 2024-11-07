@@ -14,7 +14,7 @@ def concatOrds : List Ordering → Ordering :=
   List.foldl (· * ·) .eq
 
 open IR
-open Batteries (RBMap)
+open Std (RBMap)
 
 /-- Defines an ordering for Lean universes -/
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=

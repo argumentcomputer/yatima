@@ -6,7 +6,7 @@ import Lurk.Scalar
 
 namespace Yatima.ContAddr
 
-open Batteries (RBMap)
+open Std (RBMap)
 open IR
 
 structure ContAddrState where
