@@ -1,4 +1,4 @@
 prelude
-import TypeChecker.Typechecker
+import yTypeChecker.Typechecker
 
 def tc := Yatima.Typechecker.typecheckConstNoStore
