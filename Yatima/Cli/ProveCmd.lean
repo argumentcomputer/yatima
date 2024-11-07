@@ -45,7 +45,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
       | .error err => IO.eprintln err; return 1
       | .ok store' => pure store'
   else
-    let some (tcComm : F) ← loadData TCHASH false | return 1
+    let some (tcComm : Digest) ← loadData TCHASH false | return 1
 
     -- call `eval` on the typechecker committed as LDON
     expr := mkCommTypecheckingExpr tcComm declComm

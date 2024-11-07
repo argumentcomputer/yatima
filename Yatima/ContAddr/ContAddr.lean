@@ -70,7 +70,7 @@ def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
 
 mutual
 
-partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
+partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.Digest := do
   match (← get).env.consts.find? const.name with
   | some hash => pure hash
   | none => match const with
@@ -106,7 +106,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
       addConstToEnv const.name hash
       return hash
 
-partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F := do
+partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.Digest := do
   -- If the mutual size is one, simply content address the single definition
   if struct.all matches [_] then
     let hash ← commit $ .definition
@@ -137,7 +137,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
 
   -- While iterating on the definitions from the mutual block, we need to track
   -- the correct objects to return
-  let mut ret? : Option Lurk.F := none
+  let mut ret? : Option Lurk.Digest := none
 
   for name in struct.all do
     -- Storing and caching the definition projection
@@ -162,7 +162,7 @@ mutual block, even if the inductive itself is not in a mutual block.
 Content-addressing an inductive involves content-addressing its associated
 constructors and recursors, hence the lenght of this function.
 -/
-partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F := do
+partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.Digest := do
   -- `mutualConsts` is the list of the names of all constants associated with an inductive block
   -- it has the form: ind₁ ++ ctors₁ ++ recrs₁ ++ ... ++ indₙ ++ ctorsₙ ++ recrsₙ
   let mut inds := []
@@ -197,7 +197,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
 
   -- While iterating on the inductives from the mutual block, we need to track
   -- the correct objects to return
-  let mut ret? : Option Lurk.F := none
+  let mut ret? : Option Lurk.Digest := none
   for (indIdx, indName) in initInd.all.enum do
     -- Store and cache inductive projections
     let name := indName

@@ -16,7 +16,7 @@ expression/environment pairs. They are also called *closures*
 
 open IR
 
-open Lurk (F)
+open Lurk (F Digest)
 
 /--
   The type info is a simplified form of the expression's type, with only relevant
@@ -48,13 +48,13 @@ inductive Expr
   | var   : Nat → Expr
   | sort  : Univ → Expr
   -- NOTE: F here represents a hash of a normal `IR.Const`, as that is how we index into `TypecheckState.typedConsts`
-  | const : F → List Univ → Expr
+  | const : Digest → List Univ → Expr
   | app   : AddInfo Expr → AddInfo Expr → Expr
   | lam   : AddInfo Expr → AddInfo Expr → Expr
   | pi    : AddInfo Expr → AddInfo Expr → Expr
   | letE  : AddInfo Expr → AddInfo Expr → AddInfo Expr → Expr
   | lit   : Literal → Expr
-  | proj  : F → Nat → AddInfo Expr → Expr
+  | proj  : Digest → Nat → AddInfo Expr → Expr
   deriving BEq, Inhabited
 
 /-- Typed expressions are expressions that have been processed by the typechecker -/
@@ -126,8 +126,8 @@ mutual
   -/
   inductive Neutral
     | fvar  : Nat → Neutral
-    | const : F → List Univ → Neutral
-    | proj  : F → Nat → AddInfo Value → Neutral
+    | const : Digest → List Univ → Neutral
+    | proj  : Digest → Nat → AddInfo Value → Neutral
     deriving Inhabited
 
 end
@@ -202,7 +202,7 @@ def withExprs (env : Env) (exprs : List SusValue) : Env :=
 end Env'
 
 /-- Creates a new constant with a name, a constant index and an universe list -/
-def mkConst (f : F) (univs : List Univ) : Value :=
+def mkConst (f : Digest) (univs : List Univ) : Value :=
   .neu (.const f univs)
 
 /-- Creates a new variable as a thunk -/

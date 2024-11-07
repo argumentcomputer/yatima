@@ -22,7 +22,13 @@ instance : Coe F LDON where
 instance : Coe (List LDON) LDON where
   coe xs := xs.foldr (init := .nil) .cons
 
-instance : Coe Lean.Literal LDON where coe  
+instance : Coe (Array LDON) LDON where
+  coe xs := xs.toList
+
+instance : Coe Digest (List LDON) where
+  coe xs := xs.toList.map .num
+
+instance : Coe Lean.Literal LDON where coe
   | .natVal n => ([0, n] : List LDON)
   | .strVal s => ([1, s] : List LDON)
 

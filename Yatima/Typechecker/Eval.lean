@@ -1,6 +1,7 @@
 import Yatima.Typechecker.TypecheckM
 import Yatima.Typechecker.Printing
 import Yatima.Common.ToLDON
+import Lurk.Field
 import Lurk.Scalar
 
 /-!
@@ -24,7 +25,7 @@ to evaluate further.
 namespace Yatima
 
 open IR
-open Lurk (F)
+open Lurk (F Digest)
 
 namespace Typechecker
 
@@ -35,31 +36,31 @@ returns it if found. Panics otherwise.
 In the code generator, this function has to be overwritten with `(open f)`,
 ignoring the second argument.
 -/
-def derefConst (f : F) (store : Store) : Const :=
+def derefConst (f : Digest) (store : Store) : Const :=
   store.find! f
 
 /-- TODO document. This function is overwritten btw -/
-def mkInductiveProjF (block : F) (idx : Nat) (quick : Bool) : F :=
+def mkInductiveProjF (block : Digest) (idx : Nat) (quick : Bool) : Digest :=
   let indF : Const := .inductiveProj ⟨block, idx⟩
-  if quick then .ofNat $ (Hashable.hash indF).toNat
+  if quick then .ofUInt64 <| Hashable.hash indF
   else indF.toLDON.commit default |>.1
 
 /-- TODO document. This function is overwritten btw -/
-def mkConstructorProjF (block : F) (idx : Nat) (cidx : Nat) (quick : Bool) : F :=
+def mkConstructorProjF (block : Digest) (idx : Nat) (cidx : Nat) (quick : Bool) : Digest :=
   let ctorF : Const := .constructorProj ⟨block, idx, cidx⟩
-  if quick then .ofNat $ (Hashable.hash ctorF).toNat
+  if quick then .ofUInt64 <| Hashable.hash ctorF
   else ctorF.toLDON.commit default |>.1
 
 /-- TODO document. This function is overwritten btw -/
-def mkRecursorProjF (block : F) (idx : Nat) (ridx : Nat) (quick : Bool) : F :=
+def mkRecursorProjF (block : Digest) (idx : Nat) (ridx : Nat) (quick : Bool) : Digest :=
   let recrF : Const := .recursorProj ⟨block, idx, ridx⟩
-  if quick then .ofNat $ (Hashable.hash recrF).toNat
+  if quick then .ofUInt64 <| Hashable.hash recrF
   else recrF.toLDON.commit default |>.1
 
 /-- TODO document. This function is overwritten btw -/
-def mkDefinitionProjF (block : F) (idx : Nat) (quick : Bool) : F :=
+def mkDefinitionProjF (block : Digest) (idx : Nat) (quick : Bool) : Digest :=
   let defnF : Const := .definitionProj ⟨block, idx⟩
-  if quick then .ofNat $ (Hashable.hash defnF).toNat
+  if quick then .ofUInt64 <| Hashable.hash defnF
   else defnF.toLDON.commit default |>.1
 
 /--
@@ -70,7 +71,7 @@ Specifically, this function assumes that `checkConst name f` has previously been
 
 Note: The `name : Name` is used only in the error messaging
 -/
-def derefTypedConst (f : F) : TypecheckM TypedConst := do
+def derefTypedConst (f : Digest) : TypecheckM TypedConst := do
   match (← get).typedConsts.find? f with
   | some const => pure const
   | none => throw s!"TypedConst for {f} not found"
@@ -212,7 +213,7 @@ mutual
     let value ← eval t
     pure ⟨reducedInfo, value⟩
 
-  partial def evalConst' (f : F) (univs : List Univ) : TypecheckM Value := do
+  partial def evalConst' (f : Digest) (univs : List Univ) : TypecheckM Value := do
     match derefConst f (← read).store with
     | .theorem _
     | .definition _ =>
@@ -225,7 +226,7 @@ mutual
     | _ => pure $ mkConst f univs
 
   /-- Evaluates the `Yatima.Const` that's referenced by a constant index -/
-  partial def evalConst (const : F) (univs : List Univ) : TypecheckM Value := do
+  partial def evalConst (const : Digest) (univs : List Univ) : TypecheckM Value := do
     if ← primFWith .natZero (pure false) (pure $ · == const) then pure $ .lit (.natVal 0)
     else if (← fPrim const) matches .some (.op _) then pure $ mkConst const univs
     else evalConst' const univs
@@ -273,7 +274,7 @@ mutual
   The application of the constant is split into cases on whether it is an inductive recursor,
   a quotient, or any other constant (which returns an unreduced application)
    -/
-  partial def applyConst (f : F) (univs : List Univ) (arg : SusValue) (args : List SusValue)
+  partial def applyConst (f : Digest) (univs : List Univ) (arg : SusValue) (args : List SusValue)
       (info : TypeInfo) (infos : List TypeInfo) : TypecheckM Value := do
     if let some $ .op p ← fPrim f then
       if args.length < p.numArgs - 1 then

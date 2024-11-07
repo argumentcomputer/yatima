@@ -23,7 +23,7 @@ require Cli from git
   "https://github.com/leanprover/lean4-cli" @ "main"
 
 require Lurk from git
-  "https://github.com/argumentcomputer/Lurk.lean" @ "v4.12.0"
+  "https://github.com/argumentcomputer/Lurk.lean" @ "newlurk"
 
 require LightData from git
   "https://github.com/lurk-lab/LightData" @ "v4.12.0"

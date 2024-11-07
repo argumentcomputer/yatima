@@ -13,7 +13,7 @@ inductive Expr
     constants, the second argument keeps track of the universe levels -/
   | var   : Nat → List Univ → Expr
   | sort  : Univ → Expr
-  | const : Lurk.F → List Univ → Expr
+  | const : Lurk.Digest → List Univ → Expr
   | app   : Expr → Expr → Expr
   | lam   : Expr → Expr → Expr
   | pi    : Expr → Expr → Expr
