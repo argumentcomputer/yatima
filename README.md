@@ -17,6 +17,7 @@ Running the setup script will also compile the Yatima typechecker and store it i
 
 The subcommands planned to be available for the `yatima` CLI are:
 * Main commands
+    * `mk`: generates Lurk code for typechecking a declaration
     * `ca`: content-addresses Lean 4 code to Yatima IR
     * `prove`: generates Lurk code for typechecking a content-addressed declaration
 * Auxiliary commands
