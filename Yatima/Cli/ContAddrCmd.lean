@@ -29,7 +29,7 @@ def contAddrRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- dump the env
   let envFileName := p.flag? "env" |>.map (·.value) |>.getD defaultEnv
-  dumpData stt.env ⟨envFileName⟩  
+  dumpData stt.env ⟨envFileName⟩
 
   return 0
 

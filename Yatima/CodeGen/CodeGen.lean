@@ -315,8 +315,7 @@ def codeGen (leanEnv : Lean.Environment) (decl : Name) : Except String Expr :=
   match CodeGenM.run ⟨leanEnv.patchUnsafeRec, .empty⟩ default (codeGenM decl) with
   | .error e _ => .error e
   | .ok _ s => do
-    let bindings := Expr.mutualize $
-      s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
+    let bindings := s.appendedBindings.data.map fun (n, x) => (n.toString false, x)
     let expr := mkLetrec bindings (.sym $ decl.toString false)
     let (expr, ssa) ← expr.toSSA
     let expr ← expr.inlineOfSSA ssa.recursive

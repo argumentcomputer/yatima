@@ -470,4 +470,16 @@ def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
   | (.ok _, stt) => return .ok stt
   | (.error e, _) => return .error e
 
+def mkConsts (constMap : Lean.ConstMap) (decl : Name) :
+    IO $ Except ContAddrError ContAddrState := do
+  let some const := constMap.find? decl
+    | return .error $ ContAddrError.unknownConstant decl
+  let ldonHashState := (← loadData LDONHASHCACHE).getD default
+  let (quick, persist) := (false, true)
+  IO.FS.createDirAll STOREDIR
+  match ← StateT.run (ReaderT.run (contAddrM [const])
+    (.init constMap quick persist)) (.init ldonHashState) with
+  | (.ok _, stt) => return .ok stt
+  | (.error e, _) => return .error e
+
 end Yatima.ContAddr

@@ -1,3 +1,4 @@
+import Yatima.Cli.MakeCmd
 import Yatima.Cli.ContAddrCmd
 import Yatima.Cli.TypecheckCmd
 import Yatima.Cli.CodeGenCmd
@@ -14,6 +15,7 @@ def yatimaCmd : Cli.Cmd := `[Cli|
   "A tool for content-addressing and generating Lurk code from Lean 4 code"
 
   SUBCOMMANDS:
+    makeCmd;
     contAddrCmd;
     typecheckCmd;
     codeGenCmd;
