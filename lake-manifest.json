@@ -16,9 +16,9 @@
   {"git":
    {"url": "https://github.com/lurk-lab/Lurk.lean",
     "subDir?": null,
-    "rev": "283a4008a606bccb109eda55c80a5eae39a62788",
+    "rev": "3fc41a77680f09bae748014e5fb1f6ac002938a3",
     "name": "Lurk",
-    "inputRev?": "283a4008a606bccb109eda55c80a5eae39a62788"}},
+    "inputRev?": "3fc41a77680f09bae748014e5fb1f6ac002938a3"}},
   {"git":
    {"url": "https://github.com/yatima-inc/straume",
     "subDir?": null,
@@ -34,9 +34,9 @@
   {"git":
    {"url": "https://github.com/lurk-lab/Poseidon.lean",
     "subDir?": null,
-    "rev": "4180a316a7822b924e05cda1729d8612fcc81ee7",
+    "rev": "afe6069e38ae07cdffd7ae923c379aeb41009002",
     "name": "Poseidon",
-    "inputRev?": "4180a316a7822b924e05cda1729d8612fcc81ee7"}},
+    "inputRev?": "afe6069e38ae07cdffd7ae923c379aeb41009002"}},
   {"git":
    {"url": "https://github.com/lurk-lab/Cli.lean",
     "subDir?": null,

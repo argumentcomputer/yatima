@@ -75,24 +75,24 @@ structure Inductive where
   deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure InductiveProj where
-  block : Lurk.F
+  block : Lurk.Digest
   idx   : Nat
   deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure ConstructorProj where
-  block : Lurk.F
+  block : Lurk.Digest
   idx   : Nat
   cidx  : Nat
   deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure RecursorProj where
-  block : Lurk.F
+  block : Lurk.Digest
   idx   : Nat
   ridx  : Nat
   deriving Inhabited, Ord, BEq, Hashable, Repr
 
 structure DefinitionProj where
-  block : Lurk.F
+  block : Lurk.Digest
   idx   : Nat
   deriving Inhabited, Ord, BEq, Hashable, Repr
 

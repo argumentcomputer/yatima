@@ -14,7 +14,7 @@ def concatOrds : List Ordering → Ordering :=
   List.foldl (· * ·) .eq
 
 open IR
-open Std (RBMap)
+open Batteries (RBMap)
 
 /-- Defines an ordering for Lean universes -/
 def cmpLevel (x : Lean.Level) (y : Lean.Level) : ContAddrM Ordering :=
@@ -70,7 +70,7 @@ def isInternalRec (expr : Lean.Expr) (name : Lean.Name) : Bool :=
 
 mutual
 
-partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
+partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.Digest := do
   match (← get).env.consts.find? const.name with
   | some hash => pure hash
   | none => match const with
@@ -106,7 +106,7 @@ partial def contAddrConst (const : Lean.ConstantInfo) : ContAddrM Lurk.F := do
       addConstToEnv const.name hash
       return hash
 
-partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F := do
+partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.Digest := do
   -- If the mutual size is one, simply content address the single definition
   if struct.all matches [_] then
     let hash ← commit $ .definition
@@ -137,7 +137,7 @@ partial def contAddrDefinition (struct : Lean.DefinitionVal) : ContAddrM Lurk.F 
 
   -- While iterating on the definitions from the mutual block, we need to track
   -- the correct objects to return
-  let mut ret? : Option Lurk.F := none
+  let mut ret? : Option Lurk.Digest := none
 
   for name in struct.all do
     -- Storing and caching the definition projection
@@ -162,7 +162,7 @@ mutual block, even if the inductive itself is not in a mutual block.
 Content-addressing an inductive involves content-addressing its associated
 constructors and recursors, hence the lenght of this function.
 -/
-partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F := do
+partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.Digest := do
   -- `mutualConsts` is the list of the names of all constants associated with an inductive block
   -- it has the form: ind₁ ++ ctors₁ ++ recrs₁ ++ ... ++ indₙ ++ ctorsₙ ++ recrsₙ
   let mut inds := []
@@ -197,7 +197,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
 
   -- While iterating on the inductives from the mutual block, we need to track
   -- the correct objects to return
-  let mut ret? : Option Lurk.F := none
+  let mut ret? : Option Lurk.Digest := none
   for (indIdx, indName) in initInd.all.enum do
     -- Store and cache inductive projections
     let name := indName
@@ -205,7 +205,7 @@ partial def contAddrInductive (initInd : Lean.InductiveVal) : ContAddrM Lurk.F :
     addConstToEnv name hash
     if name == initInd.name then ret? := some hash
 
-    let some (ctors, recrs) := nameData.find? indName 
+    let some (ctors, recrs) := nameData.find? indName
       | throw $ .cantFindMutDefIndex indName
 
     for (ctorIdx, ctorName) in ctors.enum do
@@ -322,7 +322,7 @@ partial def contAddrExpr : Lean.Expr → ContAddrM Expr
 A name-irrelevant ordering of Lean expressions.
 `weakOrd` contains the best known current mutual ordering
 -/
-partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
+partial def cmpExpr (weakOrd : RBMap Name Nat compare) :
     Lean.Expr → Lean.Expr → ContAddrM Ordering
   | e@(.mvar ..), _ => throw $ .unfilledExprMetavariable e
   | _, e@(.mvar ..) => throw $ .unfilledExprMetavariable e
@@ -375,7 +375,7 @@ partial def cmpExpr (weakOrd : Std.RBMap Name Nat compare) :
 
 /-- AST comparison of two Lean definitions.
   `weakOrd` contains the best known current mutual ordering -/
-partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
+partial def cmpDef (weakOrd : RBMap Name Nat compare)
   (x : Lean.DefinitionVal) (y : Lean.DefinitionVal) :
     ContAddrM Ordering := do
   let ls := compare x.levelParams.length y.levelParams.length
@@ -385,7 +385,7 @@ partial def cmpDef (weakOrd : Std.RBMap Name Nat compare)
 
 /-- AST equality between two Lean definitions.
   `weakOrd` contains the best known current mutual ordering -/
-@[inline] partial def eqDef (weakOrd : Std.RBMap Name Nat compare)
+@[inline] partial def eqDef (weakOrd : RBMap Name Nat compare)
     (x y : Lean.DefinitionVal) : ContAddrM Bool :=
   return (← cmpDef weakOrd x y) == .eq
 
@@ -428,7 +428,7 @@ Two optimizations:
 partial def sortDefs (dss : List (List Lean.DefinitionVal)) :
     ContAddrM (List (List Lean.DefinitionVal)) := do
   let enum (ll : List (List Lean.DefinitionVal)) :=
-    Std.RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
+    RBMap.ofList (ll.enum.map fun (n, xs) => xs.map (·.name, n)).join
   let weakOrd := enum dss _
   let newDss ← (← dss.mapM fun ds =>
     match ds with
@@ -466,6 +466,18 @@ def contAddr (constMap : Lean.ConstMap) (delta : List Lean.ConstantInfo)
     else pure $ (← loadData LDONHASHCACHE).getD default
   if persist then IO.FS.createDirAll STOREDIR
   match ← StateT.run (ReaderT.run (contAddrM delta)
+    (.init constMap quick persist)) (.init ldonHashState) with
+  | (.ok _, stt) => return .ok stt
+  | (.error e, _) => return .error e
+
+def mkConsts (constMap : Lean.ConstMap) (decl : Name) :
+    IO $ Except ContAddrError ContAddrState := do
+  let some const := constMap.find? decl
+    | return .error $ ContAddrError.unknownConstant decl
+  let ldonHashState := (← loadData LDONHASHCACHE).getD default
+  let (quick, persist) := (false, true)
+  IO.FS.createDirAll STOREDIR
+  match ← StateT.run (ReaderT.run (contAddrM [const])
     (.init constMap quick persist)) (.init ldonHashState) with
   | (.ok _, stt) => return .ok stt
   | (.error e, _) => return .error e

@@ -61,10 +61,10 @@ def infoFromType (typ : SusValue) : TypecheckM TypeInfo :=
 mutual
 
   partial def getStructInfo (v : Value) :
-      TypecheckM (F × TypedExpr × List Univ × List SusValue) := do
+      TypecheckM (Lurk.Digest × TypedExpr × List Univ × List SusValue) := do
     match v with
     | .app (.const indF univs) params _ =>
-      let .inductiveProj p := derefConst indF (← read).store 
+      let .inductiveProj p := derefConst indF (← read).store
         | throw s!"Expected a structure type, found {← ppValue v}"
       let ind ← getIndFromProj p
       -- Sanity check
@@ -218,7 +218,7 @@ mutual
       pure (expr, u)
     | val => throw s!"Expected a sort type, found {← ppValue val}"
 
-  partial def checkIndBlock (indBlockF : F) : TypecheckM Unit := do
+  partial def checkIndBlock (indBlockF : Lurk.Digest) : TypecheckM Unit := do
     let quick := (← read).quick
     let indBlock ← match derefConst indBlockF (← read).store with
       | .mutIndBlock blk => pure blk
@@ -283,7 +283,7 @@ mutual
   Note that inductives, constructors, and recursors are constructed to typecheck, so this function
   only has to check the other `Const` constructors.
   -/
-  partial def checkConst (f : F) : TypecheckM Unit := withResetCtx do
+  partial def checkConst (f : Lurk.Digest) : TypecheckM Unit := withResetCtx do
     match (← get).typedConsts.find? f with
     | some _ =>
       pure ()

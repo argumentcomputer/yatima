@@ -45,7 +45,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
       | .error err => IO.eprintln err; return 1
       | .ok store' => pure store'
   else
-    let some (tcComm : F) ← loadData TCHASH false | return 1
+    let some (tcComm : Digest) ← loadData TCHASH false | return 1
 
     -- call `eval` on the typechecker committed as LDON
     expr := mkCommTypecheckingExpr tcComm declComm
@@ -57,7 +57,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
 
   -- Write the store
   dumpData store storeFileName
-  
+
   -- Write Lurk file
   IO.FS.writeFile output s!"{expr.toFormat true}"
 
@@ -74,7 +74,7 @@ def proveRun (p : Cli.Parsed) : IO UInt32 := do
       IO.eprintln s!"Dumped {nFrames} frames to {framesFilePath}"
       return 1
   else if p.hasFlag "lurkrs" then
-    match ← Lean.runCmd "lurkrs" #[output.toString] with
+    match ← Lean.runTerminalCmd "lurkrs" #[output.toString] with
     | .ok res => IO.print res; return 0
     | .error err => IO.eprint err; return 1
 

@@ -12,7 +12,7 @@ open Lean
 
 open Yatima.Typechecker in
 def Yatima.Typechecker.ConstNames.getF
-    (constNames : ConstNames) (f : Lurk.F) : Format :=
+    (constNames : ConstNames) (f : Lurk.Digest) : Format :=
   match constNames.find? f with
   | some name => toString name
   | none => toString f

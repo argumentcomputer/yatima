@@ -30,7 +30,7 @@ def typecheckRun (p : Cli.Parsed) : IO UInt32 := do
   cronos ← cronos.clock "Typecheck"
   match typecheckAll stt.store stt.env.constNames with
   | .error err => IO.eprintln err; return 1
-  | .ok _ => cronos ← cronos.clock! "Typecheck"; return 0
+  | .ok _ => _ ← cronos.clock! "Typecheck"; return 0
 
 def typecheckCmd : Cli.Cmd := `[Cli|
   tc VIA typecheckRun;
