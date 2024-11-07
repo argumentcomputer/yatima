@@ -30,7 +30,7 @@ def makeRun (p : Cli.Parsed) : IO UInt32 := do
     | .ok stt => pure stt
   cronos ← cronos.clock! "Content-address"
 
-  let commExprs := stt.commits.keysList.map fun c => ~[.sym "COMMIT", c.toLDON]
+  let commExprs := stt.commits.keysList.map fun c => ~[.sym "commit", c.toLDON]
   let commExprsStr := String.intercalate "\n" $ commExprs.map (·.toString false)
 
   cronos ← cronos.clock "Generate typechecker"
