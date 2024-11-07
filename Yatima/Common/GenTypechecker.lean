@@ -11,10 +11,15 @@ def genTypechecker : IO $ Except String Expr := do
   Lean.setLibsPaths
   return Yatima.CodeGen.codeGen (← Lean.runFrontend tcCode default) `tc
 
--- TODO: Getting the
+/-- (= (tc decl) 1) ; tc being an expression -/
+def mkRawTypecheckingExpr (tc : Expr) (decl : Digest) : Expr :=
+  Expr.op₂ .numEq
+    (.app tc (.atom $ .commit decl))
+    (.atom $ .num $ .ofNat 1)
 
-def mkRawTypecheckingExpr (tc : Expr) (decl : Digest) : Expr := sorry
-  -- ⟦(= $(Expr.app tc ⟦#c$decl⟧) 1)⟧
-
-def mkCommTypecheckingExpr (tc decl : Digest) : Expr := sorry
-  -- ⟦(= ((eval (open $tc)) $decl) 1)⟧
+/-- (= (tc decl) 1) ; tc being a commitment -/
+def mkCommTypecheckingExpr (tc decl : Digest) : Expr :=
+  Expr.op₂ .numEq
+    (.app (.atom $ .commit tc)
+          (.atom $ .commit decl))
+    (.atom $ .num $ .ofNat 1)
