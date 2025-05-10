@@ -1,6 +1,6 @@
 # yatima
 
-Yatima is a Lean 4 compiler backend targeting the [the Lurk language](https://lurk-lang.org/) for recursive zkSNARKs, enabling zero-knowledge proofs of Lean 4 execution.
+Yatima is a Lean 4 compiler backend targeting the [the Lurk language](https://docs.argument.xyz/) for recursive zkSNARKs, enabling zero-knowledge proofs of Lean 4 execution.
 Additionally, Yatima has its own Lean 4 implementation of a kernel for the Lean 4 core language, which can be compiled to Lurk to allow zero-knowledge proofs of Lean 4 typechecking.
 By verifying a zero knowledge proof that a Lean 4 declaration has passed the typechecker, one can verify that the declaration is type-safe without re-running the typechecker.
 
